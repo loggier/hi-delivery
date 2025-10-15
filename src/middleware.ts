@@ -7,6 +7,7 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Si el usuario va a la raíz, lo mandamos directo al dashboard
   if (pathname === '/') {
      return NextResponse.redirect(new URL('/dashboard', request.url))
   }
@@ -23,6 +24,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|deliveryman).*)',
   ],
 }
