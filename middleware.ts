@@ -1,30 +1,15 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const AUTH_COOKIE_NAME = 'hub_session'
-const PROTECTED_ROUTES = ['/dashboard', '/businesses', '/riders', '/products', '/categories', '/users']
+// Este middleware ya no tiene lógica de autenticación.
+// Solo redirige de la raíz al dashboard.
 
 export function middleware(request: NextRequest) {
-  const sessionCookie = request.cookies.get(AUTH_COOKIE_NAME)
   const { pathname } = request.nextUrl
 
-  const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
-
-  if (isProtectedRoute && !sessionCookie) {
-    const absoluteURL = new URL('/sign-in', request.nextUrl.origin)
-    return NextResponse.redirect(absoluteURL.toString())
-  }
-
-  if (pathname === '/sign-in' && sessionCookie) {
-    const absoluteURL = new URL('/dashboard', request.nextUrl.origin)
-    return NextResponse.redirect(absoluteURL.toString())
-  }
-  
+  // Si el usuario va a la raíz, lo mandamos directo al dashboard
   if (pathname === '/') {
-     if (sessionCookie) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
-     }
-     return NextResponse.redirect(new URL('/sign-in', request.url))
+     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return NextResponse.next()
@@ -38,7 +23,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - deliveryman (public apply form)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|deliveryman).*)',
   ],
 }
