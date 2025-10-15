@@ -1,5 +1,33 @@
 export type Role = "ADMIN" | "RESTAURANT_OWNER";
 
+export type Permissions = {
+  recolectarEfectivo: boolean;
+  complemento: boolean;
+  atributo: boolean;
+  banner: boolean;
+  campaña: boolean;
+  categoria: boolean;
+  cupon: boolean;
+  reembolso: boolean;
+  gestionDeClientes: boolean;
+  repartidor: boolean;
+  proveerGanancias: boolean;
+  empleado: boolean;
+  producto: boolean;
+  notificacion: boolean;
+  pedido: boolean;
+  tienda: boolean;
+  reporte: boolean;
+  configuraciones: boolean;
+  listaDeRetiros: boolean;
+  zona: boolean;
+  modulo: boolean;
+  paquete: boolean;
+  puntoDeVenta: boolean;
+  unidad: boolean;
+  suscripcion: boolean;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -7,6 +35,7 @@ export type User = {
   avatarUrl?: string;
   role: Role;
   status: "ACTIVE" | "INACTIVE";
+  permissions?: Permissions;
   createdAt: string;
 };
 

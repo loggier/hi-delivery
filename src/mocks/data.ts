@@ -1,10 +1,10 @@
-import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order, Role } from "@/types";
 import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
 
 // --- USERS ---
-export const users: User[] = [
+export let users: User[] = [
   {
     id: 'user-1',
     name: 'Usuario Administrador',
@@ -12,6 +12,12 @@ export const users: User[] = [
     role: 'ADMIN',
     status: 'ACTIVE',
     createdAt: new Date('2023-01-01T10:00:00Z').toISOString(),
+    permissions: {
+        recolectarEfectivo: true, complemento: true, atributo: true, banner: true, campaña: true, categoria: true, cupon: true,
+        reembolso: true, gestionDeClientes: true, repartidor: true, proveerGanancias: true, empleado: true, producto: true,
+        notificacion: true, pedido: true, tienda: true, reporte: true, configuraciones: true, listaDeRetiros: true,
+        zona: true, modulo: true, paquete: true, puntoDeVenta: true, unidad: true, suscripcion: true
+    }
   },
   {
     id: 'user-2',
@@ -20,6 +26,28 @@ export const users: User[] = [
     role: 'ADMIN',
     status: 'INACTIVE',
     createdAt: new Date('2023-02-15T11:30:00Z').toISOString(),
+    permissions: {
+        repartidor: true, producto: true, zona: true,
+        recolectarEfectivo: false, complemento: false, atributo: false, banner: false, campaña: false, categoria: false,
+        cupon: false, reembolso: false, gestionDeClientes: false, proveerGanancias: false, empleado: false, notificacion: false,
+        pedido: false, tienda: false, reporte: false, configuraciones: false, listaDeRetiros: false, modulo: false,
+        paquete: false, puntoDeVenta: false, unidad: false, suscripcion: false
+    }
+  },
+   {
+    id: 'user-3',
+    name: 'Dueño de Restaurante',
+    email: 'owner@example.com',
+    role: 'RESTAURANT_OWNER',
+    status: 'ACTIVE',
+    createdAt: new Date('2024-05-10T11:30:00Z').toISOString(),
+    permissions: {
+        producto: true, pedido: true, reporte: true,
+        recolectarEfectivo: false, complemento: false, atributo: false, banner: false, campaña: false, categoria: false,
+        cupon: false, reembolso: false, gestionDeClientes: false, repartidor: false, proveerGanancias: false, empleado: false,
+        notificacion: false, tienda: false, configuraciones: false, listaDeRetiros: false, zona: false, modulo: false,
+        paquete: false, puntoDeVenta: false, unidad: false, suscripcion: false
+    }
   },
 ];
 

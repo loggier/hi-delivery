@@ -19,12 +19,40 @@ export const businessCategorySchema = z.object({
   active: z.boolean().default(true),
 });
 
+const permissionsSchema = z.object({
+  recolectarEfectivo: z.boolean().default(false),
+  complemento: z.boolean().default(false),
+  atributo: z.boolean().default(false),
+  banner: z.boolean().default(false),
+  campaña: z.boolean().default(false),
+  categoria: z.boolean().default(false),
+  cupon: z.boolean().default(false),
+  reembolso: z.boolean().default(false),
+  gestionDeClientes: z.boolean().default(false),
+  repartidor: z.boolean().default(false),
+  proveerGanancias: z.boolean().default(false),
+  empleado: z.boolean().default(false),
+  producto: z.boolean().default(false),
+  notificacion: z.boolean().default(false),
+  pedido: z.boolean().default(false),
+  tienda: z.boolean().default(false),
+  reporte: z.boolean().default(false),
+  configuraciones: z.boolean().default(false),
+  listaDeRetiros: z.boolean().default(false),
+  zona: z.boolean().default(false),
+  modulo: z.boolean().default(false),
+  paquete: z.boolean().default(false),
+  puntoDeVenta: z.boolean().default(false),
+  unidad: z.boolean().default(false),
+  suscripcion: z.boolean().default(false),
+});
 
 export const userSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   email: z.string().email(),
-  role: z.enum(["ADMIN"]),
+  role: z.enum(["ADMIN", "RESTAURANT_OWNER"]),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+  permissions: permissionsSchema.optional(),
 });
 
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;
@@ -78,18 +106,18 @@ export const productSchema = z.object({
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 const fileSchema = (message: string) => z.any()
-    .refine(files => files?.length == 1, message)
+    .refine(files => files?.length === 1, message)
     .refine(files => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
-      files => ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
+      files => files && ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg, .png y .pdf"
     );
 
 const imageFileSchema = (message: string) => z.any()
-    .refine(files => files?.length == 1, message)
+    .refine(files => files?.length === 1, message)
     .refine(files => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
-      files => ["image/jpeg", "image/png"].includes(files?.[0]?.type),
+      files => files && ["image/jpeg", "image/png"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg y .png"
     );
 
