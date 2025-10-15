@@ -4,9 +4,11 @@ import { api } from "@/lib/api";
 import { CategoryForm } from "../category-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import React from 'react';
 
 export default function EditCategoryPage({ params }: { params: { id: string } }) {
-  const { data: category, isLoading } = api.categories.useGetOne(params.id);
+  const id = params.id;
+  const { data: category, isLoading } = api.categories.useGetOne(id);
 
   if (isLoading) {
     return (

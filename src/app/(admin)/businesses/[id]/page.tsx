@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { notFound } from 'next/navigation';
+import React from 'react';
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -25,7 +26,8 @@ const GHMapStub = ({ lat, lng }: { lat?: number, lng?: number }) => (
 
 
 export default function ViewBusinessPage({ params }: { params: { id: string } }) {
-  const { data: business, isLoading, isError } = api.businesses.useGetOne(params.id);
+  const id = params.id;
+  const { data: business, isLoading, isError } = api.businesses.useGetOne(id);
 
   if (isLoading) {
     return (

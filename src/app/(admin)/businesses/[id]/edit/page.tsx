@@ -5,9 +5,11 @@ import { BusinessForm } from "../../business-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { notFound } from "next/navigation";
+import React from 'react';
 
 export default function EditBusinessPage({ params }: { params: { id: string } }) {
-  const { data: business, isLoading, isError } = api.businesses.useGetOne(params.id);
+  const id = params.id;
+  const { data: business, isLoading, isError } = api.businesses.useGetOne(id);
 
   if (isLoading) {
     return (
