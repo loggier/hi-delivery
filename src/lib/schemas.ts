@@ -89,8 +89,8 @@ const imageFileSchema = (message: string) => z.any()
 
 const motoPhotosSchema = z.any()
     .refine(files => files?.length === 4, "Debes subir exactamente 4 fotos de la moto.")
-    .refine(files => Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
-    .refine(files => Array.from(files).every((file: any) => ["image/jpeg", "image/png"].includes(file.type)), "Solo se permiten formatos .jpg y .png");
+    .refine(files => files && Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
+    .refine(files => files && Array.from(files).every((file: any) => ["image/jpeg", "image/png"].includes(file.type)), "Solo se permiten formatos .jpg y .png");
 
 
 export const riderApplicationSchema = z.object({
