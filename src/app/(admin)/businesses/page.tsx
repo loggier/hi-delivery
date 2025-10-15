@@ -12,7 +12,7 @@ import { DataTableToolbar } from "./data-table-toolbar";
 import { useBusinessFilters } from "./use-business-filters";
 
 export default function BusinessesPage() {
-  const { filters, setFilters, debouncedSearch, search } = useBusinessFilters();
+  const { filters, setFilters, debouncedSearch, search, setSearch } = useBusinessFilters();
   const { data, isLoading } = api.businesses.useGetAll({ ...filters, name: debouncedSearch });
   
   return (
@@ -32,7 +32,7 @@ export default function BusinessesPage() {
         toolbar={
             <DataTableToolbar
                 search={search}
-                setSearch={(value) => setFilters(prev => ({...prev, name: value}))}
+                setSearch={setSearch}
                 filters={filters}
                 setFilters={setFilters}
              />

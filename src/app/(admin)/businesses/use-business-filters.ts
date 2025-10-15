@@ -20,6 +20,10 @@ export function useBusinessFilters() {
 
     const [debouncedSearch] = useDebounce(filters.name, 500);
 
+    const setSearch = (value: string) => {
+        setFilters(prev => ({...prev, name: value}));
+    }
+
     return {
         filters: {
             status: filters.status,
@@ -28,6 +32,7 @@ export function useBusinessFilters() {
         },
         setFilters,
         search: filters.name,
+        setSearch,
         debouncedSearch,
     };
 }

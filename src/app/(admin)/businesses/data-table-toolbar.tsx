@@ -29,7 +29,7 @@ interface DataTableToolbarProps {
   table?: Table<Business>; // Make table optional
   search: string;
   setSearch: (value: string) => void;
-  filters: Filters;
+  filters: Omit<Filters, 'name'>;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
 }
 
@@ -40,7 +40,7 @@ export function DataTableToolbar({
   filters,
   setFilters
 }: DataTableToolbarProps) {
-  const isFiltered = Object.values(filters).some(v => v !== '');
+  const isFiltered = Object.values(filters).some(v => v !== '') || search !== '';
   const { data: businessCategoriesData } = api.businessCategories.useGetAll();
 
   const handleResetFilters = () => {
