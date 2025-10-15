@@ -1,194 +1,256 @@
-
--- Crear el esquema para la aplicación si no existe
+-- Crear el esquema si no existe
 CREATE SCHEMA IF NOT EXISTS grupohubs;
 
--- Tabla para Roles y Permisos
-CREATE TABLE IF NOT EXISTS grupohubs.roles (
+-- Establecer el esquema para las siguientes operaciones
+SET search_path TO grupohubs;
+
+-- -- -- Tablas de Roles y Permisos -- -- --
+
+-- Tabla de Roles
+CREATE TABLE roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL UNIQUE,
-    permissions JSONB NOT NULL,
+    name VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla para Usuarios del Sistema
-CREATE TABLE IF NOT EXISTS grupohubs.users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    role_id UUID REFERENCES grupohubs.roles(id),
-    status TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    avatar_url TEXT
+-- Tabla de Módulos (para agrupar permisos)
+CREATE TABLE modules (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
 );
 
--- Tabla para Categorías de Productos
-CREATE TABLE IF NOT EXISTS grupohubs.product_categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    slug TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Tabla de Permisos
+CREATE TABLE permissions (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    module_id VARCHAR(50) REFERENCES modules(id) ON DELETE CASCADE
 );
 
--- Tabla para Categorías de Negocios
-CREATE TABLE IF NOT EXISTS grupohubs.business_categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    type TEXT NOT NULL, -- restaurant, store, service
-    active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Tabla de union para Roles y Permisos (Muchos a Muchos)
+CREATE TABLE role_permissions (
+    role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id VARCHAR(50) REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
 );
 
--- Tabla de Zonas de Operación
-CREATE TABLE IF NOT EXISTS grupohubs.zones (
+-- -- -- Tabla de Usuarios del Sistema -- -- --
+CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
-    geofence JSONB, -- Para almacenar el polígono GeoJSON
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    avatar_url VARCHAR(255),
+    role_id UUID REFERENCES roles(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla de Planes
-CREATE TABLE IF NOT EXISTS grupohubs.plans (
+-- -- -- Tablas de Negocios y Categorías -- -- --
+
+-- Categorías de Negocios
+CREATE TABLE business_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('restaurant', 'store', 'service')),
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Planes de Suscripción
+CREATE TABLE plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
     price NUMERIC(10, 2) NOT NULL,
-    validity TEXT NOT NULL, -- mensual, quincenal, semanal, anual
+    validity VARCHAR(20) NOT NULL CHECK (validity IN ('mensual', 'quincenal', 'semanal', 'anual')),
     rider_fee NUMERIC(10, 2) NOT NULL,
     fee_per_km NUMERIC(10, 2) NOT NULL,
     min_shipping_fee NUMERIC(10, 2) NOT NULL,
-    min_distance_km NUMERIC(10, 2) NOT NULL,
+    min_distance NUMERIC(5, 2) NOT NULL,
     details TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla para Negocios
-CREATE TABLE IF NOT EXISTS grupohubs.businesses (
+-- Zonas de Operación
+CREATE TABLE zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    type TEXT NOT NULL,
-    category_id UUID REFERENCES grupohubs.business_categories(id),
-    email TEXT NOT NULL UNIQUE,
-    owner_name TEXT NOT NULL,
-    phone_whatsapp TEXT NOT NULL,
-    address_line TEXT,
-    neighborhood TEXT,
-    city TEXT,
-    state TEXT,
-    zip_code TEXT,
-    latitude NUMERIC(10, 7),
-    longitude NUMERIC(10, 7),
-    tax_id TEXT,
-    website TEXT,
-    instagram TEXT,
-    logo_url TEXT,
-    notes TEXT,
-    status TEXT NOT NULL DEFAULT 'PENDING_REVIEW', -- ACTIVE, INACTIVE, PENDING_REVIEW
-    zone_id UUID REFERENCES grupohubs.zones(id),
-    plan_id UUID REFERENCES grupohubs.plans(id),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    geofence JSONB, -- Usar JSONB para almacenar polígonos GeoJSON
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla para Productos
-CREATE TABLE IF NOT EXISTS grupohubs.products (
+-- Tabla de Negocios
+CREATE TABLE businesses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    sku TEXT,
-    price NUMERIC(10, 2) NOT NULL,
-    image_url TEXT,
-    status TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
-    business_id UUID NOT NULL REFERENCES grupohubs.businesses(id),
-    category_id UUID NOT NULL REFERENCES grupohubs.product_categories(id),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    category_id UUID REFERENCES business_categories(id),
+    plan_id UUID REFERENCES plans(id),
+    zone_id UUID REFERENCES zones(id),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    owner_name VARCHAR(255) NOT NULL,
+    phone_whatsapp VARCHAR(20),
+    location_address_line VARCHAR(255),
+    location_neighborhood VARCHAR(100),
+    location_city VARCHAR(100),
+    location_state VARCHAR(100),
+    location_zip VARCHAR(10),
+    location_lat NUMERIC(9, 6),
+    location_lng NUMERIC(9, 6),
+    tax_id VARCHAR(13),
+    website VARCHAR(255),
+    instagram VARCHAR(100),
+    logo_url VARCHAR(255),
+    notes TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING_REVIEW' CHECK (status IN ('ACTIVE', 'INACTIVE', 'PENDING_REVIEW')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- -- -- Tablas de Productos y sus Categorías -- -- --
+
+-- Categorías de Productos
+CREATE TABLE product_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla para Clientes
-CREATE TABLE IF NOT EXISTS grupohubs.customers (
+-- Productos
+CREATE TABLE products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    phone TEXT NOT NULL UNIQUE,
-    email TEXT UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    sku VARCHAR(50),
+    price NUMERIC(10, 2) NOT NULL,
+    image_url VARCHAR(255),
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES product_categories(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla para Direcciones de Clientes
-CREATE TABLE IF NOT EXISTS grupohubs.customer_addresses (
+-- -- -- Tabla de Clientes -- -- --
+CREATE TABLE customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID NOT NULL REFERENCES grupohubs.customers(id) ON DELETE CASCADE,
-    address TEXT NOT NULL,
-    is_primary BOOLEAN DEFAULT false
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) UNIQUE,
+    email VARCHAR(255) UNIQUE,
+    main_address TEXT,
+    additional_address_1 TEXT,
+    additional_address_2 TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla para Repartidores (Riders)
-CREATE TABLE IF NOT EXISTS grupohubs.riders (
+-- -- -- Tabla de Repartidores (Riders) -- -- --
+CREATE TABLE riders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    mother_last_name TEXT,
-    email TEXT NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    mother_last_name VARCHAR(100),
+    email VARCHAR(255) NOT NULL UNIQUE,
     birth_date DATE NOT NULL,
-    rider_type TEXT NOT NULL DEFAULT 'Asociado',
-    zone_id UUID REFERENCES grupohubs.zones(id),
-    address TEXT NOT NULL,
-    ine_front_url TEXT,
-    ine_back_url TEXT,
-    proof_of_address_url TEXT,
-    license_front_url TEXT,
-    license_back_url TEXT,
-    vehicle_type TEXT NOT NULL DEFAULT 'Moto',
-    ownership TEXT NOT NULL,
-    brand TEXT NOT NULL,
-    year INT NOT NULL,
-    model TEXT NOT NULL,
-    color TEXT NOT NULL,
-    plate TEXT NOT NULL UNIQUE,
+    zone_id UUID REFERENCES zones(id),
+    address TEXT,
+    ine_front_url VARCHAR(255),
+    ine_back_url VARCHAR(255),
+    proof_of_address_url VARCHAR(255),
+    license_front_url VARCHAR(255),
+    license_back_url VARCHAR(255),
+    vehicle_type VARCHAR(50) DEFAULT 'Moto',
+    ownership VARCHAR(50),
+    brand VARCHAR(50),
+    year INT,
+    model VARCHAR(100),
+    color VARCHAR(50),
+    plate VARCHAR(20),
     license_valid_until DATE,
-    circulation_card_front_url TEXT,
-    circulation_card_back_url TEXT,
-    insurer TEXT,
-    policy_number TEXT,
+    moto_photos TEXT[],
+    circulation_card_front_url VARCHAR(255),
+    circulation_card_back_url VARCHAR(255),
+    insurer VARCHAR(100),
+    policy_number VARCHAR(100),
     policy_valid_until DATE,
-    policy_first_page_url TEXT,
+    policy_first_page_url VARCHAR(255),
     has_helmet BOOLEAN DEFAULT false,
     has_uniform BOOLEAN DEFAULT false,
     has_box BOOLEAN DEFAULT false,
-    phone_e164 TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    avatar_url TEXT,
-    status TEXT NOT NULL DEFAULT 'pending_review', -- pending_review, approved, rejected, inactive
-    created_at TIMESTAMTz NOT NULL DEFAULT now(),
+    phone_e164 VARCHAR(20) UNIQUE,
+    password_hash VARCHAR(255),
+    avatar_1x1_url VARCHAR(255),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending_review' CHECK (status IN ('pending_review', 'approved', 'rejected', 'inactive')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla de Pedidos
-CREATE TABLE IF NOT EXISTS grupohubs.orders (
+-- -- -- Tabla de Pedidos (Orders) -- -- --
+CREATE TABLE orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID NOT NULL REFERENCES grupohubs.customers(id),
-    business_id UUID NOT NULL REFERENCES grupohubs.businesses(id),
-    rider_id UUID REFERENCES grupohubs.riders(id),
+    customer_id UUID REFERENCES customers(id),
+    business_id UUID REFERENCES businesses(id),
+    rider_id UUID REFERENCES riders(id),
     total NUMERIC(10, 2) NOT NULL,
-    status TEXT NOT NULL DEFAULT 'PENDING', -- PENDING, DELIVERED, CANCELLED
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('DELIVERED', 'CANCELLED', 'PENDING')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Tabla de items_de_pedidos (para detalle de productos en un pedido)
-CREATE TABLE IF NOT EXISTS grupohubs.order_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID NOT NULL REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES grupohubs.products(id),
+-- Tabla de union para Pedidos y Productos (Muchos a Muchos)
+CREATE TABLE order_products (
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     quantity INT NOT NULL,
-    price NUMERIC(10, 2) NOT NULL
+    price_at_time NUMERIC(10, 2) NOT NULL,
+    PRIMARY KEY (order_id, product_id)
 );
 
--- Insertar datos iniciales si es necesario (ejemplo para roles)
-INSERT INTO grupohubs.roles (id, name, permissions)
-VALUES 
-('d2f0c345-4236-4d56-a068-9f826019c059', 'Super Administrador', '{"recolectarEfectivo": true, "complemento": true, "atributo": true, "banner": true, "campaña": true, "categoria": true, "cupon": true, "reembolso": true, "gestionDeClientes": true, "repartidor": true, "proveerGanancias": true, "empleado": true, "producto": true, "notificacion": true, "pedido": true, "tienda": true, "reporte": true, "configuraciones": true, "listaDeRetiros": true, "zona": true, "modulo": true, "paquete": true, "puntoDeVenta": true, "unidad": true, "suscripcion": true}')
-ON CONFLICT (name) DO NOTHING;
+-- -- -- Triggers para `updated_at` -- -- --
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
+-- Aplicar el trigger a las tablas correspondientes
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON businesses
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON products
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON customers
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON riders
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON zones
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON plans
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
