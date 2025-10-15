@@ -22,9 +22,12 @@ export function slugify(text: string): string {
 }
 
 export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('es-MX', {
+  const locale = process.env.NEXT_PUBLIC_CURRENCY_LOCALE || 'es-MX';
+  const currency = process.env.NEXT_PUBLIC_CURRENCY_CODE || 'MXN';
+  
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'MXN',
+    currency: currency,
   }).format(amount);
 }
 
