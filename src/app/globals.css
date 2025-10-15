@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --gh-primary: 221 98% 53%; /* #0F62FE */
-    --gh-secondary: 28 100% 50%; /* #FF6F00 */
-    --gh-accent: 165 100% 35%; /* #00B388 */
+    --gh-primary: 359 77% 55%; /* #E33739 */
+    --gh-secondary: 197 98% 48%; /* #04AAF1 */
+    --gh-accent: 47 79% 65%; /* #EBCD5F */
 
-    --background: 220 91% 96%; /* #E8F0FE */
-    --foreground: 224 71% 4%;
+    --background: 220 91% 96%;
+    --foreground: 354 33% 12%; /* #281416 */
     --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card-foreground: 354 33% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
+    --popover-foreground: 354 33% 12%;
     --primary: var(--gh-primary);
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215 25% 45%;
+    --secondary: var(--gh-secondary);
+    --secondary-foreground: 0 0% 100%;
+    --muted: 200 24% 41%; /* #41616D */
+    --muted-foreground: 200 20% 85%;
     --accent: var(--gh-accent);
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 354 33% 12%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 214.3 31.8% 91.4%;
@@ -43,12 +43,12 @@
     --popover-foreground: 210 40% 98%;
     --primary: var(--gh-primary);
     --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 27.9% 60%;
+    --secondary: var(--gh-secondary);
+    --secondary-foreground: 0 0% 100%;
+    --muted: 200 24% 41%; /* #41616D */
+    --muted-foreground: 200 20% 75%;
     --accent: var(--gh-accent);
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 354 33% 12%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 217.2 32.6% 17.5%;
