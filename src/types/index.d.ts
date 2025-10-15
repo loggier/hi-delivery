@@ -1,4 +1,9 @@
-export type Role = "ADMIN" | "RESTAURANT_OWNER";
+export type Role = {
+  id: string;
+  name: string;
+  permissions: Permissions;
+  createdAt: string;
+};
 
 export type Permissions = {
   recolectarEfectivo: boolean;
@@ -33,9 +38,8 @@ export type User = {
   name: string;
   email: string;
   avatarUrl?: string;
-  role: Role;
+  role: "ADMIN" | "RESTAURANT_OWNER"; // Esto podría ser un roleId en el futuro
   status: "ACTIVE" | "INACTIVE";
-  permissions?: Permissions;
   createdAt: string;
 };
 

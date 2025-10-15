@@ -52,7 +52,6 @@ export const userSchema = z.object({
   email: z.string().email(),
   role: z.enum(["ADMIN", "RESTAURANT_OWNER"]),
   status: z.enum(["ACTIVE", "INACTIVE"]),
-  permissions: permissionsSchema.optional(),
 });
 
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;
