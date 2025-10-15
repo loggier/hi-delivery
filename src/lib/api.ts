@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone } from "@/types";
 
 const API_BASE_URL = "/api/mock";
 
@@ -23,6 +23,7 @@ const entityTranslations: { [key: string]: string } = {
     products: "Producto",
     riders: "Repartidor",
     users: "Usuario",
+    zones: "Zona",
 }
 
 // --- Generic CRUD Hooks ---
@@ -165,6 +166,7 @@ export const api = {
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
     users: createCRUDApi<User>('users'),
+    zones: createCRUDApi<Zone>('zones'),
 };
 
 type RevenueData = { date: string; ingresos: number };

@@ -88,7 +88,8 @@ const imageFileSchema = (message: string) => z.any()
 
 
 const motoPhotosSchema = z.any()
-    .refine(files => files?.length === 4, "Debes subir exactamente 4 fotos de la moto.")
+    .refine(files => files && files.length > 0, "Debes subir al menos una foto.")
+    .refine(files => files?.length <= 4, "Puedes subir un máximo de 4 fotos.")
     .refine(files => files && Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
     .refine(files => files && Array.from(files).every((file: any) => ["image/jpeg", "image/png"].includes(file.type)), "Solo se permiten formatos .jpg y .png");
 
@@ -148,4 +149,10 @@ export const riderApplicationSchema = z.object({
 }).refine(data => data.password === data.passwordConfirmation, {
     message: "Las contraseñas no coinciden.",
     path: ["passwordConfirmation"],
+});
+
+
+export const zoneSchema = z.object({
+  name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
 });

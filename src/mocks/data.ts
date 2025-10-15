@@ -1,4 +1,4 @@
-import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone } from "@/types";
 import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
@@ -103,7 +103,7 @@ function createBusiness(partial?: Partial<Business>): Business {
   };
 }
 
-export const businesses: Business[] = [
+export let businesses: Business[] = [
   createBusiness({ name: 'Tacos El Tío', type: 'restaurant', categoryId: 'cat-tacos', status: 'ACTIVE', phoneWhatsApp: '+525512345678' }),
   createBusiness({ name: 'Pizza Nostra', type: 'restaurant', categoryId: 'cat-pizza', status: 'ACTIVE', phoneWhatsApp: '+525587654321' }),
   createBusiness({ name: 'Sushi Go', type: 'restaurant', categoryId: 'cat-sushi', status: 'INACTIVE', phoneWhatsApp: '+525555555555' }),
@@ -185,7 +185,7 @@ function createRider(partial?: Partial<Rider>): Rider {
     licenseFrontUrl: '/mock-docs/license-front.png',
     licenseBackUrl: '/mock-docs/license-back.png',
     vehicleType: 'Moto',
-    ownership: faker.helpers.arrayElement<VehicleOwnership>(['propia', 'rentada', 'prestada']),
+    ownership: faker.helpers.arrayElement(['propia', 'rentada', 'prestada']),
     brand: faker.helpers.arrayElement<VehicleBrand>(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki']),
     year: faker.number.int({ min: 2010, max: new Date().getFullYear() }),
     model: faker.vehicle.model(),
@@ -217,10 +217,58 @@ function createRider(partial?: Partial<Rider>): Rider {
   };
 }
 
-export const riders: Rider[] = [
+export let riders: Rider[] = [
     createRider({ status: 'approved', zone: 'Monterrey' }),
     createRider({ status: 'pending_review', zone: 'Culiacan' }),
     createRider({ status: 'rejected', zone: 'Mazatlan' }),
     createRider({ status: 'inactive', zone: 'Monterrey' }),
     createRider({ status: 'approved', zone: 'Culiacan' }),
 ];
+
+// --- ZONES ---
+export let zones: Zone[] = [
+    {
+        id: 'zone-1',
+        name: 'Monterrey Centro',
+        businessCount: 3,
+        riderCount: 2,
+        status: 'ACTIVE',
+        createdAt: new Date('2023-01-15T09:00:00Z').toISOString(),
+        updatedAt: new Date('2023-10-01T11:00:00Z').toISOString(),
+    },
+    {
+        id: 'zone-2',
+        name: 'Culiacán Tres Ríos',
+        businessCount: 1,
+        riderCount: 2,
+        status: 'ACTIVE',
+        createdAt: new Date('2023-02-20T10:00:00Z').toISOString(),
+        updatedAt: new Date('2023-11-05T14:30:00Z').toISOString(),
+    },
+    {
+        id: 'zone-3',
+        name: 'Mazatlán Zona Dorada',
+        businessCount: 1,
+        riderCount: 1,
+        status: 'INACTIVE',
+        createdAt: new Date('2023-03-01T16:00:00Z').toISOString(),
+        updatedAt: new Date('2023-09-15T18:00:00Z').toISOString(),
+    }
+];
+
+// Update rider zones to match new zones
+riders.forEach(r => {
+    if (r.zone === 'Monterrey') r.zone = 'Monterrey Centro';
+    if (r.zone === 'Culiacan') r.zone = 'Culiacán Tres Ríos';
+    if (r.zone === 'Mazatlan') r.zone = 'Mazatlán Zona Dorada';
+});
+
+// Associate businesses with new zones for counts
+businesses[0].location.city = 'Monterrey Centro';
+businesses[1].location.city = 'Monterrey Centro';
+businesses[2].location.city = 'Monterrey Centro';
+businesses[3].location.city = 'Culiacán Tres Ríos';
+businesses[4].location.city = 'Mazatlán Zona Dorada';
+
+// Link entities for dashboard
+export const allEntities = [...businesses, ...riders, ...products, ...categories, ...zones];

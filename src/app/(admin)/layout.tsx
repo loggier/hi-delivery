@@ -12,6 +12,7 @@ import {
   Bike,
   Tags,
   Settings,
+  Map,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,7 @@ const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
     { href: "/businesses", icon: Building2, label: "Negocios" },
     { href: "/riders", icon: Bike, label: "Repartidores" },
+    { href: "/zones", icon: Map, label: "Zonas" },
     { href: "/products", icon: Package, label: "Productos" },
     { href: "/categories", icon: Tags, label: "Categorías" },
     { href: "/users", icon: Users, label: "Usuarios" },

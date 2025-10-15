@@ -132,3 +132,15 @@ export type Product = {
   categoryId: string;
   createdAt: string;
 };
+
+export type Zone = {
+    id: string;
+    name: string;
+    businessCount: number;
+    riderCount: number;
+    status: "ACTIVE" | "INACTIVE";
+    // For now, geofence will be a mock. In a real scenario, this could be GeoJSON.
+    geofence?: any; 
+    createdAt: string;
+    updatedAt: string;
+}
