@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from "next/link";
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   PanelLeft,
@@ -32,6 +32,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
 import { Breadcrumb } from '@/components/breadcrumb';
+import { useAuthStore } from '@/store/auth-store';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
@@ -50,13 +52,37 @@ const navItems = [
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
 
+const FullScreenLoader = () => (
+    <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <Skeleton className="h-12 w-12 rounded-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-[250px]" />
+          <Skeleton className="h-4 w-[200px]" />
+        </div>
+      </div>
+    </div>
+);
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { isAuthenticated, isLoading } = useAuthStore();
+  
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/sign-in');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading || !isAuthenticated) {
+    return <FullScreenLoader />;
+  }
 
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,7 +28,7 @@ const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, isAuthenticated, isLoading } = useAuthStore();
   const { toast } = useToast();
 
   const form = useForm<SignInFormValues>({
@@ -36,8 +37,15 @@ export default function SignInPage() {
       email: "",
     },
   });
+  
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   function onSubmit(data: SignInFormValues) {
+    // This is a mock login. In a real app, you'd call your Supabase login API here.
     const user = {
       id: "user-1",
       name: "Usuario Administrador",
@@ -53,7 +61,15 @@ export default function SignInPage() {
         variant: 'success'
     });
     router.push("/dashboard");
-    router.refresh();
+    router.refresh(); // Recommended to re-fetch server components
+  }
+
+  if (isLoading || isAuthenticated) {
+     return (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+          <p>Cargando...</p>
+        </div>
+     );
   }
 
   return (
@@ -81,7 +97,21 @@ export default function SignInPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">
+            {/* The password field will be needed for a real Supabase login */}
+            {/* <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contraseña</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="********" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            /> */}
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
               Continuar
             </Button>
           </form>

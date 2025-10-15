@@ -3,7 +3,8 @@
 import { create } from "zustand";
 import { type User } from "@/types";
 
-const AUTH_STORAGE_KEY = "supabase_session";
+// The key for storing the session in localStorage.
+export const AUTH_STORAGE_KEY = "supabase_session";
 
 type AuthState = {
   user: User | null;
@@ -14,28 +15,36 @@ type AuthState = {
   checkAuth: () => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: true, // Start as true to indicate we haven't checked auth yet.
+  
   login: (user) => {
     const userWithRole = { ...user, role: 'ADMIN' };
     try {
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithRole));
-        set({ user: userWithRole, isAuthenticated: true });
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithRole));
+      set({ user: userWithRole, isAuthenticated: true });
     } catch (e) {
-        console.error("Fallo al guardar la sesión en localStorage", e);
+      console.error("Failed to save session to localStorage", e);
     }
   },
+
   logout: () => {
     try {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
     } catch (e) {
-        console.error("Fallo al limpiar la sesión de localStorage", e);
+      console.error("Failed to clear session from localStorage", e);
     }
     set({ user: null, isAuthenticated: false });
   },
+
   checkAuth: () => {
+    // This function should only run on the client-side.
+    if (typeof window === "undefined") {
+      set({ isLoading: false });
+      return;
+    }
     try {
       const sessionUserString = localStorage.getItem(AUTH_STORAGE_KEY);
       if (sessionUserString) {
@@ -45,14 +54,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch (error) {
-      console.error("Fallo al parsear la sesión de usuario, cerrando sesión.", error);
+      console.error("Failed to parse user session, logging out.", error);
       localStorage.removeItem(AUTH_STORAGE_KEY);
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
 }));
 
-// Initialize auth check on client-side
+// Initialize auth check on client-side when the store is first imported.
 if (typeof window !== "undefined") {
   useAuthStore.getState().checkAuth();
 }
