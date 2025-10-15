@@ -61,7 +61,7 @@ export const columns: ColumnDef<Category>[] = [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const variant = status === "ACTIVE" ? "default" : "outline";
+      const variant = status === "ACTIVE" ? "success" : "outline";
       return <Badge variant={variant}>{status === "ACTIVE" ? "Activo" : "Inactivo"}</Badge>;
     },
   },
@@ -112,7 +112,7 @@ export const columns: ColumnDef<Category>[] = [
                     <Pencil className="mr-2 h-4 w-4" /> Editar
                 </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+            <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600 focus:bg-red-50">
               <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>

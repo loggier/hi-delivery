@@ -48,6 +48,7 @@ export default function SignInPage() {
     toast({
         title: "Inicio de Sesión Exitoso",
         description: `¡Bienvenido de nuevo, ${user.name}!`,
+        variant: 'success'
     });
     router.push("/dashboard");
   }

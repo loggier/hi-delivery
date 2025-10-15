@@ -58,6 +58,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         toast({
           title: "Éxito",
           description: `${translatedEntity} creada exitosamente.`,
+          variant: 'success'
         });
       },
       onError: (error) => {
@@ -86,6 +87,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         toast({
           title: "Éxito",
           description: `${translatedEntity} actualizada exitosamente.`,
+          variant: 'success'
         });
       },
       onError: (error) => {
@@ -133,6 +135,9 @@ export const api = {
     users: createCRUDApi<User>('users'),
 };
 
+type RevenueData = { date: string; ingresos: number };
+type OrdersData = { date: string; pedidos: number };
+
 // --- Dashboard Stats ---
 export const useDashboardStats = () => useQuery<{
     activeBusinesses: number;
@@ -140,6 +145,10 @@ export const useDashboardStats = () => useQuery<{
     totalProducts: number;
     totalCategories: number;
     latestChanges: (Category | Business | Product | Rider)[];
+    revenueData: RevenueData[];
+    ordersData: OrdersData[];
+    totalRevenue: number;
+    totalOrders: number;
 }>({
     queryKey: ['dashboardStats'],
     queryFn: () => fetchAPI('/dashboard-stats'),

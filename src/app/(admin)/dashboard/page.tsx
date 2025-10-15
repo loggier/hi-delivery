@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, CreditCard, DollarSign, Users } from "lucide-react";
+import { Activity, CreditCard, ShoppingCart, Users, DollarSign } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,17 +21,20 @@ import { useDashboardStats } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { RevenueChart } from "./revenue-chart";
+import { OrdersChart } from "./orders-chart";
+import { formatCurrency } from "@/lib/utils";
 
 function KPICard({ title, value, icon: Icon, description }: { title: string, value: string | number, icon: React.ElementType, description: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className="h-4 w-4 text-slate-500" />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-xs text-slate-500">{description}</p>
       </CardContent>
     </Card>
   );
@@ -81,12 +84,16 @@ export default function DashboardPage() {
             </>
         ) : data ? (
             <>
-                <KPICard title="Negocios Activos" value={data.activeBusinesses} icon={CreditCard} description="Total de negocios activos" />
-                <KPICard title="Repartidores Activos" value={data.activeRiders} icon={Users} description="Total de repartidores activos" />
-                <KPICard title="Productos Totales" value={data.totalProducts} icon={DollarSign} description="Total de productos en el catálogo" />
-                <KPICard title="Categorías Totales" value={data.totalCategories} icon={Activity} description="Total de categorías de productos" />
+                <KPICard title="Ingresos Totales" value={formatCurrency(data.totalRevenue)} icon={DollarSign} description="Ingresos de los últimos 7 días" />
+                <KPICard title="Pedidos Totales" value={data.totalOrders} icon={ShoppingCart} description="Pedidos de los últimos 7 días" />
+                <KPICard title="Negocios Activos" value={data.activeBusinesses} icon={CreditCard} description="Total de negocios operando" />
+                <KPICard title="Repartidores Activos" value={data.activeRiders} icon={Users} description="Total de repartidores en servicio" />
             </>
         ) : null}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RevenueChart data={data?.revenueData} isLoading={isLoading} />
+        <OrdersChart data={data?.ordersData} isLoading={isLoading} />
       </div>
       <Card>
         <CardHeader>
@@ -118,13 +125,13 @@ export default function DashboardPage() {
                     <TableRow key={item.id}>
                         <TableCell>
                             <div className="font-medium">{getEntityName(item)}</div>
-                            <div className="text-sm text-muted-foreground md:hidden">
+                            <div className="text-sm text-slate-500 md:hidden">
                                 {format(new Date(item.createdAt), 'PPpp', { locale: es })}
                             </div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">{getEntityType(item)}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                            <Badge className="text-xs" variant={item.status === 'ACTIVE' ? 'default' : 'outline'}>
+                            <Badge className="text-xs" variant={item.status === 'ACTIVE' ? 'success' : 'outline'}>
                                 {item.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                             </Badge>
                         </TableCell>
