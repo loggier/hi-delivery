@@ -1,10 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import Cookies from "js-cookie";
 import { type User } from "@/types";
 
-const AUTH_COOKIE_NAME = "hub_session";
+const AUTH_STORAGE_KEY = "supabase_session";
 
 type AuthState = {
   user: User | null;
@@ -21,23 +20,33 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   login: (user) => {
     const userWithRole = { ...user, role: 'ADMIN' };
-    Cookies.set(AUTH_COOKIE_NAME, JSON.stringify(userWithRole), { expires: 7 });
-    set({ user: userWithRole, isAuthenticated: true });
+    try {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithRole));
+        set({ user: userWithRole, isAuthenticated: true });
+    } catch (e) {
+        console.error("Fallo al guardar la sesión en localStorage", e);
+    }
   },
   logout: () => {
-    Cookies.remove(AUTH_COOKIE_NAME);
+    try {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (e) {
+        console.error("Fallo al limpiar la sesión de localStorage", e);
+    }
     set({ user: null, isAuthenticated: false });
   },
   checkAuth: () => {
     try {
-      const cookie = Cookies.get(AUTH_COOKIE_NAME);
-      if (cookie) {
-        const user = JSON.parse(cookie);
+      const sessionUserString = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (sessionUserString) {
+        const user = JSON.parse(sessionUserString);
         set({ user, isAuthenticated: true, isLoading: false });
       } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch (error) {
+      console.error("Fallo al parsear la sesión de usuario, cerrando sesión.", error);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },

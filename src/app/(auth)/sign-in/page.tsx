@@ -42,7 +42,7 @@ export default function SignInPage() {
       id: "user-1",
       name: "Usuario Administrador",
       email: data.email,
-      role: "ADMIN" as const,
+      roleId: "role-admin",
       status: "ACTIVE" as const,
       createdAt: new Date().toISOString(),
     };
