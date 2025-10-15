@@ -11,6 +11,7 @@ import {
   Package,
   Bike,
   Tags,
+  Settings,
 } from "lucide-react";
 
 import {
@@ -34,6 +35,7 @@ const navItems = [
     { href: "/products", icon: Package, label: "Productos" },
     { href: "/categories", icon: Tags, label: "Categorías" },
     { href: "/users", icon: Users, label: "Usuarios" },
+    { href: "/settings", icon: Settings, label: "Configuración" },
 ];
 
 export default function AdminLayout({

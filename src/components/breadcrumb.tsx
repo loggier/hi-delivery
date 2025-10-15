@@ -15,6 +15,7 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   products: 'Productos',
   categories: 'Categorías',
   users: 'Usuarios',
+  settings: 'Configuración',
   new: 'Nuevo',
 };
 
