@@ -51,6 +51,7 @@ export default function SignInPage() {
         variant: 'success'
     });
     router.push("/dashboard");
+    router.refresh();
   }
 
   return (
