@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { slugify } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,40 +24,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
-import { type Category } from "@/types";
-import { categorySchema } from "@/lib/schemas";
+import { type BusinessCategory } from "@/types";
+import { businessCategorySchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 
-type CategoryFormValues = z.infer<typeof categorySchema>;
+type CategoryFormValues = z.infer<typeof businessCategorySchema>;
 
-interface CategoryFormProps {
-  initialData?: Category | null;
+interface BusinessCategoryFormProps {
+  initialData?: BusinessCategory | null;
 }
 
-export function CategoryForm({ initialData }: CategoryFormProps) {
+export function BusinessCategoryForm({ initialData }: BusinessCategoryFormProps) {
   const router = useRouter();
-  const createMutation = api.categories.useCreate();
-  const updateMutation = api.categories.useUpdate();
+  const createMutation = api["business-categories"].useCreate();
+  const updateMutation = api["business-categories"].useUpdate();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear categoría";
 
   const form = useForm<CategoryFormValues>({
-    resolver: zodResolver(categorySchema),
+    resolver: zodResolver(businessCategorySchema),
     defaultValues: initialData || {
       name: "",
-      slug: "",
-      status: "ACTIVE",
+      type: "restaurant",
+      active: true,
     },
   });
-
-  const { watch, setValue } = form;
-  const watchedName = watch("name");
-  
-  React.useEffect(() => {
-    setValue("slug", slugify(watchedName));
-  }, [watchedName, setValue]);
 
   const onSubmit = async (data: CategoryFormValues) => {
     try {
@@ -67,7 +60,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
       } else {
         await createMutation.mutateAsync(data);
       }
-      router.push("/categories");
+      router.push("/business-categories");
       router.refresh();
     } catch (error) {
       console.error("No se pudo guardar la categoría", error);
@@ -92,7 +85,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                   <FormItem>
                     <FormLabel>Nombre</FormLabel>
                     <FormControl>
-                      <Input placeholder="ej., Comida Mexicana" {...field} disabled={isPending}/>
+                      <Input placeholder="ej., Pizzerías" {...field} disabled={isPending}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -100,35 +93,42 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
               />
               <FormField
                 control={form.control}
-                name="slug"
+                name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Slug</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ej., comida-mexicana" {...field} disabled={isPending}/>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado</FormLabel>
+                    <FormLabel>Tipo de Negocio</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un estado" />
+                          <SelectValue placeholder="Selecciona un tipo" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="ACTIVE">Activo</SelectItem>
-                        <SelectItem value="INACTIVE">Inactivo</SelectItem>
+                        <SelectItem value="restaurant">Restaurante</SelectItem>
+                        <SelectItem value="store">Tienda</SelectItem>
+                        <SelectItem value="service">Servicio</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="active"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Activa</FormLabel>
+                      <FormMessage />
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={isPending}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

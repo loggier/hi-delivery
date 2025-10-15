@@ -17,6 +17,7 @@ export type BusinessCategory = {
   name: string;
   type: BusinessType;
   active: boolean;
+  createdAt: string;
 };
 
 export type Business = {

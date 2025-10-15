@@ -19,11 +19,17 @@ import {
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { type Category } from "@/types";
+import { type BusinessCategory, type BusinessType } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
 import { api } from "@/lib/api";
 
-export const columns: ColumnDef<Category>[] = [
+const typeTranslations: Record<BusinessType, string> = {
+    restaurant: "Restaurante",
+    store: "Tienda",
+    service: "Servicio",
+}
+
+export const columns: ColumnDef<BusinessCategory>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -53,16 +59,16 @@ export const columns: ColumnDef<Category>[] = [
     ),
   },
   {
-    accessorKey: "slug",
-    header: "Slug",
+    accessorKey: "type",
+    header: "Tipo",
+    cell: ({ row }) => typeTranslations[row.original.type]
   },
   {
-    accessorKey: "status",
+    accessorKey: "active",
     header: "Estado",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      const variant = status === "ACTIVE" ? "success" : "outline";
-      return <Badge variant={variant}>{status === "ACTIVE" ? "Activo" : "Inactivo"}</Badge>;
+      const isActive = row.getValue("active");
+      return <Badge variant={isActive ? "success" : "outline"}>{isActive ? "Activo" : "Inactivo"}</Badge>;
     },
   },
   {
@@ -80,7 +86,7 @@ export const columns: ColumnDef<Category>[] = [
     cell: ({ row }) => {
       const category = row.original;
       const [ConfirmationDialog, confirm] = useConfirm();
-      const deleteMutation = api.categories.useDelete();
+      const deleteMutation = api["business-categories"].useDelete();
 
       const handleDelete = async () => {
         const ok = await confirm({
@@ -108,7 +114,7 @@ export const columns: ColumnDef<Category>[] = [
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-                <Link href={`/categories/${category.id}`}>
+                <Link href={`/business-categories/${category.id}`}>
                     <Pencil className="mr-2 h-4 w-4" /> Editar
                 </Link>
             </DropdownMenuItem>

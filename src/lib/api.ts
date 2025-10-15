@@ -18,7 +18,8 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 const entityTranslations: { [key: string]: string } = {
-    categories: "Categoría",
+    "product-categories": "Categoría de Producto",
+    "business-categories": "Categoría de Negocio",
     businesses: "Negocio",
     products: "Producto",
     riders: "Repartidor",
@@ -160,8 +161,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
 // --- Specific API Hooks ---
 export const api = {
-    categories: createCRUDApi<Category>('categories'),
-    businessCategories: createCRUDApi<BusinessCategory>('business-categories'),
+    "product-categories": createCRUDApi<Category>('product-categories'),
+    "business-categories": createCRUDApi<BusinessCategory>('business-categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),

@@ -1,9 +1,9 @@
-import { categories } from "@/mocks/data";
+import { productCategories } from "@/mocks/data";
 import { type Category } from "@/types";
 import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
-import { categorySchema } from "@/lib/schemas";
+import { productCategorySchema } from "@/lib/schemas";
 
-let mockCategories = [...categories];
+let mockCategories = [...productCategories];
 
 export async function GET() {
   try {
@@ -18,14 +18,14 @@ export async function POST(request: Request) {
   try {
     await simulateLatency();
     const json = await request.json();
-    const parsed = categorySchema.safeParse(json);
+    const parsed = productCategorySchema.safeParse(json);
 
     if (!parsed.success) {
       return errorResponse(400, "Datos proporcionados no válidos.");
     }
     
     const newCategory: Category = {
-      id: `cat-${Date.now()}`,
+      id: `prod-cat-${Date.now()}`,
       createdAt: new Date().toISOString(),
       ...parsed.data,
     };

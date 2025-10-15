@@ -1,19 +1,19 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { CategoryForm } from "../category-form";
+import { BusinessCategoryForm } from "../business-category-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from 'react';
 
-export default function EditCategoryPage({ params }: { params: { id: string } }) {
+export default function EditBusinessCategoryPage({ params }: { params: { id: string } }) {
   const id = params.id;
-  const { data: category, isLoading } = api.categories.useGetOne(id);
+  const { data: category, isLoading } = api["business-categories"].useGetOne(id);
 
   if (isLoading) {
     return (
         <div className="space-y-4">
-            <PageHeader title="Editar Categoría" />
+            <PageHeader title="Editar Categoría de Negocio" />
             <div className="space-y-8 rounded-md border p-8">
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                     <Skeleton className="h-10 w-full" />
@@ -31,8 +31,8 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Editar Categoría" />
-      <CategoryForm initialData={category} />
+      <PageHeader title="Editar Categoría de Negocio" />
+      <BusinessCategoryForm initialData={category} />
     </div>
   );
 }

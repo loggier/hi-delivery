@@ -7,11 +7,18 @@ export const signInSchema = z.object({
   email: z.string().email({ message: "Por favor, ingresa un email válido." }),
 });
 
-export const categorySchema = z.object({
+export const productCategorySchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   slug: z.string().min(2, { message: "El slug debe tener al menos 2 caracteres." }).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { message: "El slug solo puede contener letras minúsculas, números y guiones." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
+
+export const businessCategorySchema = z.object({
+  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
+  active: z.boolean().default(true),
+});
+
 
 export const userSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),

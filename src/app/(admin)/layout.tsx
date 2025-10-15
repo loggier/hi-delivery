@@ -13,6 +13,8 @@ import {
   Tags,
   Settings,
   Map,
+  ShoppingBag,
+  List,
 } from "lucide-react";
 
 import {
@@ -35,7 +37,8 @@ const navItems = [
     { href: "/riders", icon: Bike, label: "Repartidores" },
     { href: "/zones", icon: Map, label: "Zonas" },
     { href: "/products", icon: Package, label: "Productos" },
-    { href: "/categories", icon: Tags, label: "Categorías" },
+    { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios" },
+    { href: "/product-categories", icon: List, label: "Cat. de Productos" },
     { href: "/users", icon: Users, label: "Usuarios" },
     { href: "/settings", icon: Settings, label: "Configuración" },
 ];

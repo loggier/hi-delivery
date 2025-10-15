@@ -56,15 +56,16 @@ function KPICardSkeleton() {
 }
 
 function getEntityType(item: any) {
-  if ('rfc' in item) return 'Negocio';
+  if ('taxId' in item) return 'Negocio';
   if ('lastName' in item) return 'Repartidor';
   if ('price' in item) return 'Producto';
-  if ('slug' in item) return 'Categoría';
+  if ('slug' in item) return 'Cat. Producto';
   return 'Desconocido';
 }
 
 function getEntityName(item: any) {
     if ('name' in item) return item.name;
+    if ('firstName' in item) return `${item.firstName} ${item.lastName}`;
     return item.id;
 }
 
@@ -87,7 +88,7 @@ export default function DashboardPage() {
                 <KPICard title="Ingresos Totales" value={formatCurrency(data.totalRevenue)} icon={DollarSign} description="Ingresos de los últimos 7 días" />
                 <KPICard title="Pedidos Totales" value={data.totalOrders} icon={ShoppingCart} description="Pedidos de los últimos 7 días" />
                 <KPICard title="Negocios Activos" value={data.activeBusinesses} icon={CreditCard} description="Total de negocios operando" />
-                <KPICard title="Repartidores Activos" value={data.activeRiders} icon={Users} description="Total de repartidores en servicio" />
+                <KPICard title="Repartidores Aprobados" value={data.activeRiders} icon={Users} description="Total de repartidores en servicio" />
             </>
         ) : null}
       </div>
@@ -131,8 +132,8 @@ export default function DashboardPage() {
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">{getEntityType(item)}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                            <Badge className="text-xs" variant={item.status === 'ACTIVE' ? 'success' : 'outline'}>
-                                {item.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+                            <Badge className="text-xs" variant={item.status === 'ACTIVE' || item.status === 'approved' ? 'success' : 'outline'}>
+                                {item.status === 'ACTIVE' || item.status === 'approved' ? 'Activo' : 'Inactivo'}
                             </Badge>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">{format(new Date(item.createdAt), 'PPpp', { locale: es })}</TableCell>

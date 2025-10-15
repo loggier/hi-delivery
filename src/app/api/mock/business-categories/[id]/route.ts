@@ -1,9 +1,8 @@
-import { categories } from "@/mocks/data";
-import { type Category } from "@/types";
+import { businessCategories } from "@/mocks/data";
 import { errorResponse, jsonResponse, simulateLatency } from "../../helpers";
-import { categorySchema } from "@/lib/schemas";
+import { businessCategorySchema } from "@/lib/schemas";
 
-let mockCategories = [...categories];
+let mockCategories = [...businessCategories];
 
 export async function GET(
   request: Request,
@@ -13,15 +12,15 @@ export async function GET(
     await simulateLatency();
     const category = mockCategories.find((c) => c.id === params.id);
     if (!category) {
-      return errorResponse(404, "Categoría no encontrada.");
+      return errorResponse(404, "Categoría de negocio no encontrada.");
     }
     return jsonResponse(200, category);
   } catch (error) {
-    return errorResponse(500, "Error al obtener la categoría.");
+    return errorResponse(500, "Error al obtener la categoría de negocio.");
   }
 }
 
-export async function PUT(
+export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
@@ -29,11 +28,11 @@ export async function PUT(
     await simulateLatency();
     const categoryIndex = mockCategories.findIndex((c) => c.id === params.id);
     if (categoryIndex === -1) {
-      return errorResponse(404, "Categoría no encontrada.");
+      return errorResponse(404, "Categoría de negocio no encontrada.");
     }
 
     const json = await request.json();
-    const parsed = categorySchema.partial().safeParse(json);
+    const parsed = businessCategorySchema.partial().safeParse(json);
 
      if (!parsed.success) {
       return errorResponse(400, "Datos proporcionados no válidos.");
@@ -44,7 +43,7 @@ export async function PUT(
 
     return jsonResponse(200, updatedCategory);
   } catch (error) {
-    return errorResponse(500, "Error al actualizar la categoría.");
+    return errorResponse(500, "Error al actualizar la categoría de negocio.");
   }
 }
 
@@ -56,13 +55,13 @@ export async function DELETE(
     await simulateLatency();
     const categoryIndex = mockCategories.findIndex((c) => c.id === params.id);
     if (categoryIndex === -1) {
-      return errorResponse(404, "Categoría no encontrada.");
+      return errorResponse(404, "Categoría de negocio no encontrada.");
     }
 
     mockCategories.splice(categoryIndex, 1);
     
     return new Response(null, { status: 204 });
   } catch (error) {
-    return errorResponse(500, "Error al eliminar la categoría.");
+    return errorResponse(500, "Error al eliminar la categoría de negocio.");
   }
 }

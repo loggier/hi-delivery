@@ -10,13 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { columns } from "./columns";
 
-export default function CategoriesPage() {
-  const { data: categories, isLoading } = api.categories.useGetAll();
+export default function BusinessCategoriesPage() {
+  const { data: categories, isLoading } = api["business-categories"].useGetAll();
 
   if (isLoading) {
     return (
         <div className="space-y-4">
-            <PageHeader title="Categorías" description="Gestiona las categorías de tus productos.">
+            <PageHeader title="Categorías de Negocios" description="Gestiona las categorías de los negocios.">
                 <Skeleton className="h-9 w-[120px]" />
             </PageHeader>
             <div className="space-y-4 rounded-md border p-4">
@@ -36,9 +36,9 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Categorías" description="Gestiona las categorías de tus productos.">
+      <PageHeader title="Categorías de Negocios" description="Gestiona las categorías de los negocios en la plataforma.">
         <Button asChild>
-          <Link href="/categories/new">
+          <Link href="/business-categories/new">
             <PlusCircle className="mr-2 h-4 w-4" />
             Añadir Nueva
           </Link>

@@ -1,4 +1,4 @@
-import { businesses, categories, products, riders } from "@/mocks/data";
+import { businesses, productCategories, products, riders } from "@/mocks/data";
 import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
 import { subDays, format } from 'date-fns';
 
@@ -29,7 +29,7 @@ export async function GET() {
   try {
     await simulateLatency();
 
-    const allEntities = [...businesses, ...riders, ...products, ...categories];
+    const allEntities = [...businesses, ...riders, ...products, ...productCategories];
     const latestChanges = allEntities
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
@@ -38,9 +38,9 @@ export async function GET() {
 
     const stats = {
       activeBusinesses: businesses.filter(b => b.status === 'ACTIVE').length,
-      activeRiders: riders.filter(r => r.status === 'ACTIVE').length,
+      activeRiders: riders.filter(r => r.status === 'approved').length,
       totalProducts: products.length,
-      totalCategories: categories.length,
+      totalCategories: productCategories.length,
       latestChanges,
       revenueData,
       ordersData,

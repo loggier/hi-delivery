@@ -23,31 +23,31 @@ export const users: User[] = [
   },
 ];
 
-// --- CATEGORIES ---
-export const categories: Category[] = [
+// --- PRODUCT CATEGORIES ---
+export let productCategories: Category[] = [
   {
-    id: 'cat-1',
+    id: 'prod-cat-1',
     name: 'Comida Mexicana',
     slug: 'comida-mexicana',
     status: 'ACTIVE',
     createdAt: new Date('2023-03-10T08:00:00Z').toISOString(),
   },
   {
-    id: 'cat-2',
+    id: 'prod-cat-2',
     name: 'Comida Italiana',
     slug: 'comida-italiana',
     status: 'ACTIVE',
     createdAt: new Date('2023-03-10T08:05:00Z').toISOString(),
   },
   {
-    id: 'cat-3',
+    id: 'prod-cat-3',
     name: 'Postres',
     slug: 'postres',
     status: 'INACTIVE',
     createdAt: new Date('2023-04-01T12:00:00Z').toISOString(),
   },
     {
-    id: 'cat-4',
+    id: 'prod-cat-4',
     name: 'Comida Japonesa',
     slug: 'comida-japonesa',
     status: 'ACTIVE',
@@ -56,15 +56,15 @@ export const categories: Category[] = [
 ];
 
 // --- BUSINESS CATEGORIES ---
-export const businessCategories: BusinessCategory[] = [
-  { id: 'cat-pizza', name: 'Pizzería', type: 'restaurant', active: true },
-  { id: 'cat-tacos', name: 'Tacos', type: 'restaurant', active: true },
-  { id: 'cat-intl', name: 'Internacional', type: 'restaurant', active: true },
-  { id: 'cat-sushi', name: 'Sushi', type: 'restaurant', active: true },
-  { id: 'cat-abar', name: 'Abarrotes', type: 'store', active: true },
-  { id: 'cat-ropa', name: 'Ropa y Accesorios', type: 'store', active: true },
-  { id: 'cat-serv', name: 'Servicios Profesionales', type: 'service', active: true },
-  { id: 'cat-hogar', name: 'Servicios del Hogar', type: 'service', active: true },
+export let businessCategories: BusinessCategory[] = [
+  { id: 'cat-pizza', name: 'Pizzería', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-tacos', name: 'Tacos', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-intl', name: 'Internacional', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-sushi', name: 'Sushi', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-abar', name: 'Abarrotes', type: 'store', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-ropa', name: 'Ropa y Accesorios', type: 'store', active: false, createdAt: new Date().toISOString() },
+  { id: 'cat-serv', name: 'Servicios Profesionales', type: 'service', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-hogar', name: 'Servicios del Hogar', type: 'service', active: true, createdAt: new Date().toISOString() },
 ];
 
 
@@ -123,7 +123,7 @@ export const products: Product[] = [
     price: 20.5,
     status: 'ACTIVE',
     businessId: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
-    categoryId: 'cat-1',
+    categoryId: 'prod-cat-1',
     imageUrl: `https://picsum.photos/seed/taco/400/300`,
     createdAt: new Date('2023-08-01T10:00:00Z').toISOString(),
   },
@@ -134,7 +134,7 @@ export const products: Product[] = [
     price: 180.0,
     status: 'ACTIVE',
     businessId: businesses.find(b => b.name === 'Pizza Nostra')?.id || 'biz-2',
-    categoryId: 'cat-2',
+    categoryId: 'prod-cat-2',
     imageUrl: `https://picsum.photos/seed/pizza/400/300`,
     createdAt: new Date('2023-08-02T11:00:00Z').toISOString(),
   },
@@ -144,7 +144,7 @@ export const products: Product[] = [
     price: 250.0,
     status: 'INACTIVE',
     businessId: businesses.find(b => b.name === 'Sushi Go')?.id || 'biz-3',
-    categoryId: 'cat-4',
+    categoryId: 'prod-cat-4',
     imageUrl: `https://picsum.photos/seed/sushi/400/300`,
     createdAt: new Date('2023-08-03T12:00:00Z').toISOString(),
   },
@@ -155,7 +155,7 @@ export const products: Product[] = [
     price: 45.0,
     status: 'ACTIVE',
     businessId: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
-    categoryId: 'cat-1',
+    categoryId: 'prod-cat-1',
     imageUrl: `https://picsum.photos/seed/gringa/400/300`,
     createdAt: new Date('2023-08-04T13:00:00Z').toISOString(),
   },
@@ -271,4 +271,4 @@ businesses[3].location.city = 'Culiacán Tres Ríos';
 businesses[4].location.city = 'Mazatlán Zona Dorada';
 
 // Link entities for dashboard
-export const allEntities = [...businesses, ...riders, ...products, ...categories, ...zones];
+export const allEntities = [...businesses, ...riders, ...products, ...productCategories, ...zones];
