@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Pencil } from "lucide-react";
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import React from 'react';
 
 import { api } from "@/lib/api";
@@ -25,8 +25,9 @@ const GHMapStub = ({ lat, lng }: { lat?: number, lng?: number }) => (
 );
 
 
-export default function ViewBusinessPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+export default function ViewBusinessPage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: business, isLoading, isError } = api.businesses.useGetOne(id);
 
   if (isLoading) {

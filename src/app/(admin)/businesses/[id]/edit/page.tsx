@@ -4,11 +4,12 @@ import { api } from "@/lib/api";
 import { BusinessForm } from "../../business-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import React from 'react';
 
-export default function EditBusinessPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+export default function EditBusinessPage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: business, isLoading, isError } = api.businesses.useGetOne(id);
 
   if (isLoading) {
