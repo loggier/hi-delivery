@@ -6,9 +6,11 @@ import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
+
 export const metadata: Metadata = {
-  title: "Panel de Admin Hubs",
-  description: "Panel de administración para Grupo Hubs",
+  title: appName,
+  description: `Panel de administración para ${appName}`,
 };
 
 export default function RootLayout({

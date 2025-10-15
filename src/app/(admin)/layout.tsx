@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import {
   PanelLeft,
   Search,
@@ -30,7 +31,6 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
-import { Icons } from '@/components/icons';
 import { Breadcrumb } from '@/components/breadcrumb';
 
 const navItems = [
@@ -47,6 +47,8 @@ const navItems = [
     { href: "/roles", icon: Shield, label: "Roles y Permisos" },
     { href: "/settings", icon: Settings, label: "Configuración" },
 ];
+
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
 
 export default function AdminLayout({
   children,
@@ -65,8 +67,8 @@ export default function AdminLayout({
           isSidebarCollapsed && !isMobile ? "justify-center" : "justify-between"
         )}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <Icons.Logo className="h-6 w-6 text-primary" />
-          <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>Admin Hubs</span>
+          <Image src="/logo-grupohubs.png" alt={`Logo ${appName}`} width={28} height={28} />
+          <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>{appName}</span>
         </Link>
         {!isMobile && (
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex">
