@@ -61,7 +61,7 @@ export const columns: ColumnDef<Category>[] = [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const variant = status === "ACTIVE" ? "default" : "secondary";
+      const variant = status === "ACTIVE" ? "default" : "outline";
       return <Badge variant={variant}>{status === "ACTIVE" ? "Activo" : "Inactivo"}</Badge>;
     },
   },

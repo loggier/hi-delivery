@@ -124,7 +124,7 @@ export default function DashboardPage() {
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">{getEntityType(item)}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                            <Badge className="text-xs" variant={item.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                            <Badge className="text-xs" variant={item.status === 'ACTIVE' ? 'default' : 'outline'}>
                                 {item.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                             </Badge>
                         </TableCell>
