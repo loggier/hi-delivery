@@ -10,6 +10,32 @@ export type User = {
   createdAt: string;
 };
 
+export type Customer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email?: string;
+  mainAddress: string;
+  additionalAddress1?: string;
+  additionalAddress2?: string;
+  orderCount: number;
+  totalSpent: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Order = {
+  id: string;
+  customerId: string;
+  businessId: string;
+  riderId: string;
+  productCount: number;
+  total: number;
+  status: 'DELIVERED' | 'CANCELLED' | 'PENDING';
+  createdAt: string;
+};
+
 export type BusinessType = "restaurant" | "store" | "service";
 
 export type BusinessCategory = {

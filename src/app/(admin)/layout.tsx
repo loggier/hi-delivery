@@ -15,6 +15,7 @@ import {
   Map,
   ShoppingBag,
   List,
+  Contact,
 } from "lucide-react";
 
 import {
@@ -35,6 +36,7 @@ const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
     { href: "/businesses", icon: Building2, label: "Negocios" },
     { href: "/riders", icon: Bike, label: "Repartidores" },
+    { href: "/customers", icon: Contact, label: "Clientes" },
     { href: "/zones", icon: Map, label: "Zonas" },
     { href: "/products", icon: Package, label: "Productos" },
     { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios" },

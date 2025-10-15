@@ -1,4 +1,4 @@
-import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order } from "@/types";
 import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
@@ -269,6 +269,60 @@ businesses[1].location.city = 'Monterrey Centro';
 businesses[2].location.city = 'Monterrey Centro';
 businesses[3].location.city = 'Culiacán Tres Ríos';
 businesses[4].location.city = 'Mazatlán Zona Dorada';
+
+
+// --- CUSTOMERS & ORDERS ---
+let customers: Customer[] = [];
+let orders: Order[] = [];
+
+for (let i = 0; i < 25; i++) {
+    const createdAt = faker.date.past({ years: 2 });
+    const customer: Customer = {
+        id: `cust-${faker.string.uuid()}`,
+        firstName: faker.person.firstName(),
+        lastName: faker.person.lastName(),
+        phone: faker.phone.number(),
+        email: faker.internet.email(),
+        mainAddress: faker.location.streetAddress(true),
+        additionalAddress1: faker.datatype.boolean(0.3) ? faker.location.streetAddress(true) : undefined,
+        additionalAddress2: faker.datatype.boolean(0.1) ? faker.location.streetAddress(true) : undefined,
+        orderCount: 0,
+        totalSpent: 0,
+        createdAt: createdAt.toISOString(),
+        updatedAt: faker.date.recent({ days: 60, refDate: now }).toISOString(),
+    };
+    customers.push(customer);
+}
+
+customers.forEach(customer => {
+    const numOrders = faker.number.int({ min: 1, max: 15 });
+    let totalSpent = 0;
+    for (let i = 0; i < numOrders; i++) {
+        const business = faker.helpers.arrayElement(businesses);
+        const rider = faker.helpers.arrayElement(riders.filter(r => r.status === 'approved'));
+        const total = faker.number.float({ min: 80, max: 1200, multipleOf: 0.5 });
+        
+        const order: Order = {
+            id: `ord-${faker.string.uuid()}`,
+            customerId: customer.id,
+            businessId: business.id,
+            riderId: rider.id,
+            productCount: faker.number.int({ min: 1, max: 8 }),
+            total,
+            status: faker.helpers.arrayElement(['DELIVERED', 'CANCELLED', 'PENDING']),
+            createdAt: faker.date.between({ from: customer.createdAt, to: now }).toISOString(),
+        };
+        orders.push(order);
+        if (order.status === 'DELIVERED') {
+            totalSpent += total;
+        }
+    }
+    customer.orderCount = numOrders;
+    customer.totalSpent = totalSpent;
+});
+
+export { customers, orders };
+
 
 // Link entities for dashboard
 export const allEntities = [...businesses, ...riders, ...products, ...productCategories, ...zones];

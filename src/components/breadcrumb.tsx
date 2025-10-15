@@ -18,6 +18,7 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   users: 'Usuarios',
   settings: 'Configuración',
   zones: 'Zonas',
+  customers: 'Clientes',
   new: 'Nuevo',
 };
 
