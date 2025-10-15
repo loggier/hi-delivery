@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role } from "@/types";
 
 const API_BASE_URL = "/api/mock";
 
@@ -26,6 +26,7 @@ const entityTranslations: { [key: string]: string } = {
     users: "Usuario",
     zones: "Zona",
     customers: "Cliente",
+    roles: "Rol",
 }
 
 // --- Generic CRUD Hooks ---
@@ -171,6 +172,7 @@ export const api = {
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     orders: createCRUDApi<Order>('orders'),
+    roles: createCRUDApi<Role>('roles'),
 };
 
 // Custom hooks for nested resources

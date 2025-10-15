@@ -38,7 +38,7 @@ export type User = {
   name: string;
   email: string;
   avatarUrl?: string;
-  role: "ADMIN" | "RESTAURANT_OWNER"; // Esto podría ser un roleId en el futuro
+  roleId: string;
   status: "ACTIVE" | "INACTIVE";
   createdAt: string;
 };

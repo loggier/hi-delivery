@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   List,
   Contact,
+  Shield,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ const navItems = [
     { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios" },
     { href: "/product-categories", icon: List, label: "Cat. de Productos" },
     { href: "/users", icon: Users, label: "Usuarios" },
+    { href: "/roles", icon: Shield, label: "Roles y Permisos" },
     { href: "/settings", icon: Settings, label: "Configuración" },
 ];
 

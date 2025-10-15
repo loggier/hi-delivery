@@ -40,12 +40,7 @@ export function UserForm({ initialData }: UserFormProps) {
   const router = useRouter();
   const createMutation = api["users"].useCreate();
   const updateMutation = api["users"].useUpdate();
-
-  // En una implementación real, aquí se obtendrían los roles desde la API
-  const roles = [
-      { id: "ADMIN", name: "Administrador" },
-      { id: "RESTAURANT_OWNER", name: "Dueño de Negocio" }
-  ];
+  const { data: roles, isLoading: isLoadingRoles } = api.roles.useGetAll();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear usuario";
@@ -55,7 +50,7 @@ export function UserForm({ initialData }: UserFormProps) {
     defaultValues: initialData || {
       name: "",
       email: "",
-      role: "ADMIN",
+      roleId: undefined,
       status: "ACTIVE",
     },
   });
@@ -113,18 +108,18 @@ export function UserForm({ initialData }: UserFormProps) {
               />
               <FormField
                 control={form.control}
-                name="role"
+                name="roleId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Rol</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending || isLoadingRoles}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona un rol" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {roles.map(role => (
+                        {roles?.map(role => (
                             <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
                         ))}
                       </SelectContent>

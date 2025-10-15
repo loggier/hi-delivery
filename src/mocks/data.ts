@@ -1,7 +1,64 @@
-import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order, Role } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order, Role, Permissions } from "@/types";
 import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
+
+// --- ROLES & PERMISSIONS ---
+const allPermissionsFalse: Permissions = {
+  recolectarEfectivo: false, complemento: false, atributo: false, banner: false, campaña: false, categoria: false, cupon: false,
+  reembolso: false, gestionDeClientes: false, repartidor: false, proveerGanancias: false, empleado: false, producto: false,
+  notificacion: false, pedido: false, tienda: false, reporte: false, configuraciones: false, listaDeRetiros: false,
+  zona: false, modulo: false, paquete: false, puntoDeVenta: false, unidad: false, suscripcion: false
+};
+
+const allPermissionsTrue: Permissions = Object.keys(allPermissionsFalse).reduce((acc, key) => {
+  acc[key as keyof Permissions] = true;
+  return acc;
+}, {} as Permissions);
+
+export let roles: Role[] = [
+    {
+        id: 'role-admin',
+        name: 'Super Administrador',
+        createdAt: new Date('2023-01-01T10:00:00Z').toISOString(),
+        permissions: allPermissionsTrue,
+    },
+    {
+        id: 'role-operations',
+        name: 'Gerente de Operaciones',
+        createdAt: new Date('2023-01-15T10:00:00Z').toISOString(),
+        permissions: {
+            ...allPermissionsFalse,
+            repartidor: true,
+            pedido: true,
+            zona: true,
+            reporte: true,
+        }
+    },
+    {
+        id: 'role-support',
+        name: 'Soporte',
+        createdAt: new Date('2023-02-01T10:00:00Z').toISOString(),
+        permissions: {
+            ...allPermissionsFalse,
+            gestionDeClientes: true,
+            reembolso: true,
+            pedido: true,
+        }
+    },
+     {
+        id: 'role-owner',
+        name: 'Dueño de Negocio',
+        createdAt: new Date('2023-02-01T10:00:00Z').toISOString(),
+        permissions: {
+            ...allPermissionsFalse,
+            producto: true,
+            pedido: true,
+            reporte: true,
+            configuraciones: true,
+        }
+    }
+];
 
 // --- USERS ---
 export let users: User[] = [
@@ -9,45 +66,25 @@ export let users: User[] = [
     id: 'user-1',
     name: 'Usuario Administrador',
     email: 'admin@example.com',
-    role: 'ADMIN',
+    roleId: 'role-admin',
     status: 'ACTIVE',
     createdAt: new Date('2023-01-01T10:00:00Z').toISOString(),
-    permissions: {
-        recolectarEfectivo: true, complemento: true, atributo: true, banner: true, campaña: true, categoria: true, cupon: true,
-        reembolso: true, gestionDeClientes: true, repartidor: true, proveerGanancias: true, empleado: true, producto: true,
-        notificacion: true, pedido: true, tienda: true, reporte: true, configuraciones: true, listaDeRetiros: true,
-        zona: true, modulo: true, paquete: true, puntoDeVenta: true, unidad: true, suscripcion: true
-    }
   },
   {
     id: 'user-2',
     name: 'Admin Inactivo',
     email: 'inactive@example.com',
-    role: 'ADMIN',
+    roleId: 'role-support',
     status: 'INACTIVE',
     createdAt: new Date('2023-02-15T11:30:00Z').toISOString(),
-    permissions: {
-        repartidor: true, producto: true, zona: true,
-        recolectarEfectivo: false, complemento: false, atributo: false, banner: false, campaña: false, categoria: false,
-        cupon: false, reembolso: false, gestionDeClientes: false, proveerGanancias: false, empleado: false, notificacion: false,
-        pedido: false, tienda: false, reporte: false, configuraciones: false, listaDeRetiros: false, modulo: false,
-        paquete: false, puntoDeVenta: false, unidad: false, suscripcion: false
-    }
   },
    {
     id: 'user-3',
     name: 'Dueño de Restaurante',
     email: 'owner@example.com',
-    role: 'RESTAURANT_OWNER',
+    roleId: 'role-owner',
     status: 'ACTIVE',
     createdAt: new Date('2024-05-10T11:30:00Z').toISOString(),
-    permissions: {
-        producto: true, pedido: true, reporte: true,
-        recolectarEfectivo: false, complemento: false, atributo: false, banner: false, campaña: false, categoria: false,
-        cupon: false, reembolso: false, gestionDeClientes: false, repartidor: false, proveerGanancias: false, empleado: false,
-        notificacion: false, tienda: false, configuraciones: false, listaDeRetiros: false, zona: false, modulo: false,
-        paquete: false, puntoDeVenta: false, unidad: false, suscripcion: false
-    }
   },
 ];
 

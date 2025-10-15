@@ -6,7 +6,6 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,13 +18,11 @@ import {
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { type User } from "@/types";
+import { type Role } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
 import { api } from "@/lib/api";
-import { roles as mockRoles } from "@/mocks/data";
 
-
-export const columns: ColumnDef<User>[] = [
+export const columns: ColumnDef<Role>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -51,27 +48,16 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "name",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Nombre" />
+      <DataTableColumnHeader column={column} title="Nombre del Rol" />
     ),
   },
   {
-    accessorKey: "email",
-    header: "Email",
-  },
-    {
-    accessorKey: "roleId",
-    header: "Rol",
+    id: "permissions",
+    header: "Permisos",
     cell: ({ row }) => {
-        const role = mockRoles.find(r => r.id === row.original.roleId);
-        return role ? role.name : 'N/A';
-    }
-  },
-  {
-    accessorKey: "status",
-    header: "Estado",
-    cell: ({ row }) => {
-      const isActive = row.getValue("status") === "ACTIVE";
-      return <Badge variant={isActive ? "success" : "outline"}>{isActive ? "Activo" : "Inactivo"}</Badge>;
+      const permissions = row.original.permissions;
+      const enabledPermissions = Object.values(permissions).filter(v => v).length;
+      return `${enabledPermissions} permisos activos`;
     },
   },
   {
@@ -87,19 +73,19 @@ export const columns: ColumnDef<User>[] = [
   {
     id: "actions",
     cell: ({ row }) => {
-      const user = row.original;
+      const role = row.original;
       const [ConfirmationDialog, confirm] = useConfirm();
-      const deleteMutation = api["users"].useDelete();
+      const deleteMutation = api.roles.useDelete();
 
       const handleDelete = async () => {
         const ok = await confirm({
           title: "¿Estás seguro?",
-          description: `Esto eliminará permanentemente al usuario "${user.name}".`,
+          description: `Esto eliminará permanentemente el rol "${role.name}".`,
           confirmText: "Eliminar",
         });
 
         if (ok) {
-          deleteMutation.mutate(user.id);
+          deleteMutation.mutate(role.id);
         }
       };
 
@@ -117,7 +103,7 @@ export const columns: ColumnDef<User>[] = [
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-                <Link href={`/users/${user.id}`}>
+                <Link href={`/roles/${role.id}`}>
                     <Pencil className="mr-2 h-4 w-4" /> Editar
                 </Link>
             </DropdownMenuItem>

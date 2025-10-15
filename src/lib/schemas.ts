@@ -47,10 +47,15 @@ const permissionsSchema = z.object({
   suscripcion: z.boolean().default(false),
 });
 
+export const roleSchema = z.object({
+    name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+    permissions: permissionsSchema,
+});
+
 export const userSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   email: z.string().email(),
-  role: z.enum(["ADMIN", "RESTAURANT_OWNER"]),
+  roleId: z.string({ required_error: "Debe seleccionar un rol."}),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
