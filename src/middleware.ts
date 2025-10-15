@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// const AUTH_COOKIE_NAME = 'hub_session'
-// const PROTECTED_ROUTES = ['/dashboard', '/businesses', '/riders', '/products', '/categories', '/users']
+// Este middleware ya no tiene lógica de autenticación.
+// Solo redirige de la raíz al dashboard.
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -23,6 +23,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - deliveryman (public apply form)
      */
     '/((?!api|_next/static|_next/image|favicon.ico|deliveryman).*)',
   ],
