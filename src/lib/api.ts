@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory } from "@/types";
 
 const API_BASE_URL = "/api/mock";
 
@@ -31,10 +31,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const translatedEntity = entityTranslations[entity] || entity;
 
   // GET all
-  const useGetAll = () => useQuery<T[]>({
-    queryKey: entityKey,
-    queryFn: () => fetchAPI<T[]>(`/${entity}`),
-  });
+  const useGetAll = (params: Record<string, string> = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const queryKey = queryString ? [entity, params] : [entity];
+    return useQuery<T[]>({
+      queryKey: queryKey,
+      queryFn: () => fetchAPI<T[]>(`/${entity}?${queryString}`),
+    });
+  }
 
   // GET one
   const useGetOne = (id: string) => useQuery<T>({
@@ -47,7 +51,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T, Error, Omit<T, "id" | "createdAt">>({
+    return useMutation<T, Error, Omit<T, "id" | "createdAt" | "updatedAt">>({
       mutationFn: (newItem) => fetchAPI<T>(`/${entity}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,7 +61,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
           title: "Éxito",
-          description: `${translatedEntity} creada exitosamente.`,
+          description: `${translatedEntity} creado exitosamente.`,
           variant: 'success'
         });
       },
@@ -77,7 +81,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const { toast } = useToast();
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => fetchAPI<T>(`/${entity}/${item.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item),
       }),
@@ -86,7 +90,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         queryClient.setQueryData([...entityKey, data.id], data);
         toast({
           title: "Éxito",
-          description: `${translatedEntity} actualizada exitosamente.`,
+          description: `${translatedEntity} actualizado exitosamente.`,
           variant: 'success'
         });
       },
@@ -110,7 +114,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
           title: "Éxito",
-          description: `${translatedEntity} eliminada exitosamente.`,
+          description: `${translatedEntity} eliminado exitosamente.`,
         });
       },
       onError: (error) => {
@@ -129,6 +133,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 // --- Specific API Hooks ---
 export const api = {
     categories: createCRUDApi<Category>('categories'),
+    businessCategories: createCRUDApi<BusinessCategory>('business-categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),

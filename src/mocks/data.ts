@@ -1,4 +1,5 @@
-import { Business, Category, Product, Rider, User, Document } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType } from "@/types";
+import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
 
@@ -54,38 +55,65 @@ export const categories: Category[] = [
   },
 ];
 
-// --- BUSINESSES ---
-export const businesses: Business[] = [
-  {
-    id: 'biz-1',
-    name: 'Tacos El Tío',
-    rfc: 'TET123456XYZ',
-    address: 'Av. Siempre Viva 123, Springfield',
-    contactName: 'Juan Pérez',
-    contactPhone: '5512345678',
-    status: 'ACTIVE',
-    createdAt: new Date('2023-05-01T18:00:00Z').toISOString(),
-  },
-  {
-    id: 'biz-2',
-    name: 'Pizza Nostra',
-    address: 'Calle Falsa 456, Shelbyville',
-    contactName: 'Maria Rossi',
-    contactPhone: '5587654321',
-    status: 'ACTIVE',
-    createdAt: new Date('2023-06-15T20:00:00Z').toISOString(),
-  },
-  {
-    id: 'biz-3',
-    name: 'Sushi Go',
-    rfc: 'SGO987654ABC',
-    address: 'Blvd. del Puerto 789, Capital City',
-    contactName: 'Kenji Tanaka',
-    contactPhone: '5555555555',
-    status: 'INACTIVE',
-    createdAt: new Date('2023-07-20T22:30:00Z').toISOString(),
-  },
+// --- BUSINESS CATEGORIES ---
+export const businessCategories: BusinessCategory[] = [
+  { id: 'cat-pizza', name: 'Pizzería', type: 'restaurant', active: true },
+  { id: 'cat-tacos', name: 'Tacos', type: 'restaurant', active: true },
+  { id: 'cat-intl', name: 'Internacional', type: 'restaurant', active: true },
+  { id: 'cat-sushi', name: 'Sushi', type: 'restaurant', active: true },
+  { id: 'cat-abar', name: 'Abarrotes', type: 'store', active: true },
+  { id: 'cat-ropa', name: 'Ropa y Accesorios', type: 'store', active: true },
+  { id: 'cat-serv', name: 'Servicios Profesionales', type: 'service', active: true },
+  { id: 'cat-hogar', name: 'Servicios del Hogar', type: 'service', active: true },
 ];
+
+
+// --- BUSINESSES ---
+function createBusiness(partial?: Partial<Business>): Business {
+  const type = partial?.type || faker.helpers.arrayElement<BusinessType>(['restaurant', 'store', 'service']);
+  const relevantCategories = businessCategories.filter(c => c.type === type);
+  const category = faker.helpers.arrayElement(relevantCategories);
+  const now = new Date();
+
+  return {
+    id: `biz-${faker.string.uuid()}`,
+    name: faker.company.name(),
+    type,
+    categoryId: category.id,
+    email: faker.internet.email(),
+    ownerName: faker.person.fullName(),
+    phoneWhatsApp: `+52${faker.string.numeric(10)}`,
+    location: {
+      addressLine: faker.location.streetAddress(),
+      neighborhood: faker.location.secondaryAddress(),
+      city: faker.location.city(),
+      state: faker.location.state(),
+      zip: faker.location.zipCode(),
+      lat: faker.location.latitude(),
+      lng: faker.location.longitude(),
+    },
+    status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE', 'PENDING_REVIEW']),
+    taxId: faker.string.alphanumeric(13).toUpperCase(),
+    website: faker.internet.url(),
+    instagram: `@${faker.internet.userName().toLowerCase()}`,
+    logoUrl: faker.image.avatar(),
+    createdAt: faker.date.past({ years: 1, refDate: now }).toISOString(),
+    updatedAt: faker.date.recent({ days: 30, refDate: now }).toISOString(),
+    ...partial,
+  };
+}
+
+export const businesses: Business[] = [
+  createBusiness({ name: 'Tacos El Tío', type: 'restaurant', categoryId: 'cat-tacos', status: 'ACTIVE', phoneWhatsApp: '+525512345678' }),
+  createBusiness({ name: 'Pizza Nostra', type: 'restaurant', categoryId: 'cat-pizza', status: 'ACTIVE', phoneWhatsApp: '+525587654321' }),
+  createBusiness({ name: 'Sushi Go', type: 'restaurant', categoryId: 'cat-sushi', status: 'INACTIVE', phoneWhatsApp: '+525555555555' }),
+  createBusiness({ name: 'Abarrotes Doña Mary', type: 'store', categoryId: 'cat-abar', status: 'PENDING_REVIEW', phoneWhatsApp: '+523312345678' }),
+  createBusiness({ name: 'Contadores Fiscales S.C.', type: 'service', categoryId: 'cat-serv', status: 'ACTIVE', phoneWhatsApp: '+528187654321' }),
+  createBusiness({ name: 'Boutique "La Bonita"', type: 'store', categoryId: 'cat-ropa', status: 'ACTIVE' }),
+  createBusiness({ name: 'Plomería Express', type: 'service', categoryId: 'cat-hogar', status: 'INACTIVE' }),
+  createBusiness({ name: 'Restaurante "El Buen Sazón"', type: 'restaurant', categoryId: 'cat-intl', status: 'PENDING_REVIEW' }),
+];
+
 
 // --- PRODUCTS ---
 export const products: Product[] = [
@@ -94,7 +122,7 @@ export const products: Product[] = [
     name: 'Taco al Pastor',
     price: 20.5,
     status: 'ACTIVE',
-    businessId: 'biz-1',
+    businessId: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
     categoryId: 'cat-1',
     imageUrl: `https://picsum.photos/seed/taco/400/300`,
     createdAt: new Date('2023-08-01T10:00:00Z').toISOString(),
@@ -105,7 +133,7 @@ export const products: Product[] = [
     sku: 'PZ-MAR-01',
     price: 180.0,
     status: 'ACTIVE',
-    businessId: 'biz-2',
+    businessId: businesses.find(b => b.name === 'Pizza Nostra')?.id || 'biz-2',
     categoryId: 'cat-2',
     imageUrl: `https://picsum.photos/seed/pizza/400/300`,
     createdAt: new Date('2023-08-02T11:00:00Z').toISOString(),
@@ -115,7 +143,7 @@ export const products: Product[] = [
     name: 'Set de Nigiri',
     price: 250.0,
     status: 'INACTIVE',
-    businessId: 'biz-3',
+    businessId: businesses.find(b => b.name === 'Sushi Go')?.id || 'biz-3',
     categoryId: 'cat-4',
     imageUrl: `https://picsum.photos/seed/sushi/400/300`,
     createdAt: new Date('2023-08-03T12:00:00Z').toISOString(),
@@ -126,7 +154,7 @@ export const products: Product[] = [
     sku: 'GR-SUA-02',
     price: 45.0,
     status: 'ACTIVE',
-    businessId: 'biz-1',
+    businessId: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
     categoryId: 'cat-1',
     imageUrl: `https://picsum.photos/seed/gringa/400/300`,
     createdAt: new Date('2023-08-04T13:00:00Z').toISOString(),

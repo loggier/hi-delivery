@@ -10,15 +10,40 @@ export type User = {
   createdAt: string;
 };
 
+export type BusinessType = "restaurant" | "store" | "service";
+
+export type BusinessCategory = {
+  id: string;
+  name: string;
+  type: BusinessType;
+  active: boolean;
+};
+
 export type Business = {
   id: string;
   name: string;
-  rfc?: string;
-  address: string;
-  contactName: string;
-  contactPhone: string;
-  status: "ACTIVE" | "INACTIVE";
+  type: BusinessType;
+  categoryId: string;
+  email: string;
+  ownerName: string;
+  phoneWhatsApp: string;
+  location: {
+    addressLine: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zip: string;
+    lat?: number;
+    lng?: number;
+  };
+  taxId?: string;
+  website?: string;
+  instagram?: string;
+  logoUrl?: string;
+  notes?: string;
+  status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW";
   createdAt: string;
+  updatedAt: string;
 };
 
 export type Document = {

@@ -20,14 +20,42 @@ export const userSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
+const phoneRegex = /^(?:\+?52)?(\d{10})$/;
+
+const normalizePhone = (phone: string) => {
+  const match = phone.match(phoneRegex);
+  if (match) {
+    return `+52${match[1]}`;
+  }
+  return phone;
+};
+
 export const businessSchema = z.object({
-    name: z.string().min(2, { message: "El nombre del negocio debe tener al menos 2 caracteres." }),
-    rfc: z.string().optional(),
-    address: z.string().min(10, { message: "La dirección debe tener al menos 10 caracteres." }),
-    contactName: z.string().min(2, { message: "El nombre de contacto debe tener al menos 2 caracteres." }),
-    contactPhone: z.string().min(10, { message: "El número de teléfono debe tener al menos 10 dígitos." }),
-    status: z.enum(["ACTIVE", "INACTIVE"]),
+    name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+    type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
+    categoryId: z.string({ required_error: "Debes seleccionar una categoría." }),
+    email: z.string().email({ message: "Por favor, ingresa un email válido." }),
+    ownerName: z.string().min(2, { message: "El nombre del contacto debe tener al menos 2 caracteres." }),
+    phoneWhatsApp: z.string()
+        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
+        .transform(normalizePhone),
+    location: z.object({
+        addressLine: z.string().min(5, { message: "La dirección debe tener al menos 5 caracteres." }),
+        neighborhood: z.string().min(3, { message: "La colonia debe tener al menos 3 caracteres." }),
+        city: z.string().min(3, { message: "La ciudad debe tener al menos 3 caracteres." }),
+        state: z.string().min(3, { message: "El estado debe tener al menos 3 caracteres." }),
+        zip: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
+        lat: z.number().optional(),
+        lng: z.number().optional(),
+    }),
+    taxId: z.string().optional(),
+    website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
+    instagram: z.string().optional(),
+    logoUrl: z.string().optional(),
+    notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
+    status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
 });
+
 
 export const productSchema = z.object({
   name: z.string().min(2, { message: "El nombre del producto debe tener al menos 2 caracteres." }),
