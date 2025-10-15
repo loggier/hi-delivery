@@ -11,7 +11,7 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
   if (isLoading) {
     return (
         <div className="space-y-4">
-            <PageHeader title="Edit Category" />
+            <PageHeader title="Editar Categoría" />
             <div className="space-y-8 rounded-md border p-8">
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                     <Skeleton className="h-10 w-full" />
@@ -29,7 +29,7 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Edit Category" />
+      <PageHeader title="Editar Categoría" />
       <CategoryForm initialData={category} />
     </div>
   );

@@ -36,10 +36,9 @@ export default function SignInPage() {
   });
 
   function onSubmit(data: SignInFormValues) {
-    // Mock user data
     const user = {
       id: "user-1",
-      name: "Admin User",
+      name: "Usuario Administrador",
       email: data.email,
       role: "ADMIN" as const,
       status: "ACTIVE" as const,
@@ -47,8 +46,8 @@ export default function SignInPage() {
     };
     login(user);
     toast({
-        title: "Login Successful",
-        description: `Welcome back, ${user.name}!`,
+        title: "Inicio de Sesión Exitoso",
+        description: `¡Bienvenido de nuevo, ${user.name}!`,
     });
     router.push("/dashboard");
   }
@@ -59,8 +58,8 @@ export default function SignInPage() {
         <div className="mb-4 flex justify-center">
             <Icons.Logo className="h-10 w-10 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Hubs Admin Panel</CardTitle>
-        <CardDescription>Enter your email to sign in to your account</CardDescription>
+        <CardTitle className="text-2xl">Panel de Admin Hubs</CardTitle>
+        <CardDescription>Ingresa tu email para iniciar sesión en tu cuenta</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -79,7 +78,7 @@ export default function SignInPage() {
               )}
             />
             <Button type="submit" className="w-full">
-              Continue
+              Continuar
             </Button>
           </form>
         </Form>

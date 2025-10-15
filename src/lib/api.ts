@@ -11,14 +11,24 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   const res = await fetch(`${API_BASE_URL}${endpoint}`, options);
   if (!res.ok) {
     const errorBody = await res.json();
-    throw new Error(errorBody.message || "An unknown error occurred");
+    throw new Error(errorBody.message || "Ocurrió un error desconocido");
   }
+  if (res.status === 204) return {} as T;
   return res.json();
+}
+
+const entityTranslations: { [key: string]: string } = {
+    categories: "Categoría",
+    businesses: "Negocio",
+    products: "Producto",
+    riders: "Repartidor",
+    users: "Usuario",
 }
 
 // --- Generic CRUD Hooks ---
 function createCRUDApi<T extends { id: string }>(entity: string) {
   const entityKey = [entity];
+  const translatedEntity = entityTranslations[entity] || entity;
 
   // GET all
   const useGetAll = () => useQuery<T[]>({
@@ -46,8 +56,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
-          title: "Success",
-          description: `${entity.charAt(0).toUpperCase() + entity.slice(1)} created successfully.`,
+          title: "Éxito",
+          description: `${translatedEntity} creada exitosamente.`,
         });
       },
       onError: (error) => {
@@ -74,8 +84,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         queryClient.invalidateQueries({ queryKey: entityKey });
         queryClient.setQueryData([...entityKey, data.id], data);
         toast({
-          title: "Success",
-          description: `${entity.charAt(0).toUpperCase() + entity.slice(1)} updated successfully.`,
+          title: "Éxito",
+          description: `${translatedEntity} actualizada exitosamente.`,
         });
       },
       onError: (error) => {
@@ -97,8 +107,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       onSuccess: (_, id) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
-          title: "Success",
-          description: `${entity.charAt(0).toUpperCase() + entity.slice(1)} deleted successfully.`,
+          title: "Éxito",
+          description: `${translatedEntity} eliminada exitosamente.`,
         });
       },
       onError: (error) => {

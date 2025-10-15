@@ -6,7 +6,7 @@ const now = new Date();
 export const users: User[] = [
   {
     id: 'user-1',
-    name: 'Admin User',
+    name: 'Usuario Administrador',
     email: 'admin@example.com',
     role: 'ADMIN',
     status: 'ACTIVE',
@@ -14,7 +14,7 @@ export const users: User[] = [
   },
   {
     id: 'user-2',
-    name: 'Inactive Admin',
+    name: 'Admin Inactivo',
     email: 'inactive@example.com',
     role: 'ADMIN',
     status: 'INACTIVE',
@@ -26,29 +26,29 @@ export const users: User[] = [
 export const categories: Category[] = [
   {
     id: 'cat-1',
-    name: 'Mexican Food',
-    slug: 'mexican-food',
+    name: 'Comida Mexicana',
+    slug: 'comida-mexicana',
     status: 'ACTIVE',
     createdAt: new Date('2023-03-10T08:00:00Z').toISOString(),
   },
   {
     id: 'cat-2',
-    name: 'Italian Food',
-    slug: 'italian-food',
+    name: 'Comida Italiana',
+    slug: 'comida-italiana',
     status: 'ACTIVE',
     createdAt: new Date('2023-03-10T08:05:00Z').toISOString(),
   },
   {
     id: 'cat-3',
-    name: 'Desserts',
-    slug: 'desserts',
+    name: 'Postres',
+    slug: 'postres',
     status: 'INACTIVE',
     createdAt: new Date('2023-04-01T12:00:00Z').toISOString(),
   },
     {
     id: 'cat-4',
-    name: 'Japanese Food',
-    slug: 'japanese-food',
+    name: 'Comida Japonesa',
+    slug: 'comida-japonesa',
     status: 'ACTIVE',
     createdAt: new Date('2023-05-20T14:00:00Z').toISOString(),
   },
@@ -112,7 +112,7 @@ export const products: Product[] = [
   },
   {
     id: 'prod-3',
-    name: 'Nigiri Set',
+    name: 'Set de Nigiri',
     price: 250.0,
     status: 'INACTIVE',
     businessId: 'biz-3',

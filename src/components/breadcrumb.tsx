@@ -8,6 +8,17 @@ import { cn } from '@/lib/utils';
 
 type BreadcrumbProps = React.HTMLAttributes<HTMLDivElement>;
 
+const PATH_TRANSLATIONS: { [key: string]: string } = {
+  dashboard: 'Panel',
+  businesses: 'Negocios',
+  riders: 'Repartidores',
+  products: 'Productos',
+  categories: 'Categorías',
+  users: 'Usuarios',
+  new: 'Nuevo',
+};
+
+
 export function Breadcrumb({ className, ...props }: BreadcrumbProps) {
   const pathname = usePathname();
   const pathSegments = pathname.split('/').filter(segment => segment);
@@ -16,12 +27,8 @@ export function Breadcrumb({ className, ...props }: BreadcrumbProps) {
     const href = '/' + pathSegments.slice(0, index + 1).join('/');
     const isLast = index === pathSegments.length - 1;
     
-    // Capitalize and format segment text
-    let text = segment.replace(/-/g, ' ');
+    let text = PATH_TRANSLATIONS[segment] || segment.replace(/-/g, ' ');
     text = text.charAt(0).toUpperCase() + text.slice(1);
-    
-    // In a real app, you might want to replace IDs with readable names
-    // For this mock, we'll just show the segment.
     
     return { href, text, isLast };
   });
@@ -31,7 +38,7 @@ export function Breadcrumb({ className, ...props }: BreadcrumbProps) {
       <ol className="flex items-center gap-1.5">
         <li>
           <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">
-            Home
+            Inicio
           </Link>
         </li>
         {breadcrumbs.length > 0 && (

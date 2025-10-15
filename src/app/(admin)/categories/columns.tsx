@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { es } from 'date-fns/locale';
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,14 +33,14 @@ export const columns: ColumnDef<Category>[] = [
           (table.getIsSomePageRowsSelected() && "indeterminate")
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
+        aria-label="Seleccionar todo"
       />
     ),
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
+        aria-label="Seleccionar fila"
       />
     ),
     enableSorting: false,
@@ -48,7 +49,7 @@ export const columns: ColumnDef<Category>[] = [
   {
     accessorKey: "name",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Name" />
+      <DataTableColumnHeader column={column} title="Nombre" />
     ),
   },
   {
@@ -57,21 +58,21 @@ export const columns: ColumnDef<Category>[] = [
   },
   {
     accessorKey: "status",
-    header: "Status",
+    header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
       const variant = status === "ACTIVE" ? "default" : "secondary";
-      return <Badge variant={variant}>{status}</Badge>;
+      return <Badge variant={variant}>{status === "ACTIVE" ? "Activo" : "Inactivo"}</Badge>;
     },
   },
   {
     accessorKey: "createdAt",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Created At" />
+      <DataTableColumnHeader column={column} title="Creado en" />
     ),
     cell: ({ row }) => {
       const date = new Date(row.getValue("createdAt"));
-      return <span>{format(date, "MMM d, yyyy")}</span>;
+      return <span>{format(date, "d 'de' MMMM, yyyy", { locale: es })}</span>;
     },
   },
   {
@@ -83,9 +84,9 @@ export const columns: ColumnDef<Category>[] = [
 
       const handleDelete = async () => {
         const ok = await confirm({
-          title: "Are you sure?",
-          description: `This will permanently delete the category "${category.name}".`,
-          confirmText: "Delete",
+          title: "¿Estás seguro?",
+          description: `Esto eliminará permanentemente la categoría "${category.name}".`,
+          confirmText: "Eliminar",
         });
 
         if (ok) {
@@ -99,20 +100,20 @@ export const columns: ColumnDef<Category>[] = [
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">Abrir menú</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <Link href={`/categories/${category.id}`}>
-                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                    <Pencil className="mr-2 h-4 w-4" /> Editar
                 </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

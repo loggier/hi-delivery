@@ -16,7 +16,7 @@ export default function CategoriesPage() {
   if (isLoading) {
     return (
         <div className="space-y-4">
-            <PageHeader title="Categories" description="Manage your product categories.">
+            <PageHeader title="Categorías" description="Gestiona las categorías de tus productos.">
                 <Skeleton className="h-9 w-[120px]" />
             </PageHeader>
             <div className="space-y-4 rounded-md border p-4">
@@ -36,11 +36,11 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Categories" description="Manage your product categories.">
+      <PageHeader title="Categorías" description="Gestiona las categorías de tus productos.">
         <Button asChild>
           <Link href="/categories/new">
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add New
+            Añadir Nueva
           </Link>
         </Button>
       </PageHeader>

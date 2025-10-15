@@ -10,7 +10,7 @@ export async function GET() {
     await simulateLatency();
     return jsonResponse(200, mockCategories);
   } catch (error) {
-    return errorResponse(500, "Failed to fetch categories.");
+    return errorResponse(500, "Error al obtener las categorías.");
   }
 }
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const parsed = categorySchema.safeParse(json);
 
     if (!parsed.success) {
-      return errorResponse(400, "Invalid data provided.");
+      return errorResponse(400, "Datos proporcionados no válidos.");
     }
     
     const newCategory: Category = {
@@ -34,6 +34,6 @@ export async function POST(request: Request) {
 
     return jsonResponse(201, newCategory);
   } catch (error) {
-    return errorResponse(500, "Failed to create category.");
+    return errorResponse(500, "Error al crear la categoría.");
   }
 }

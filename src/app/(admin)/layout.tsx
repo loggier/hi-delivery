@@ -28,12 +28,12 @@ import { Icons } from '@/components/icons';
 import { Breadcrumb } from '@/components/breadcrumb';
 
 const navItems = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/businesses", icon: Building2, label: "Businesses" },
-    { href: "/riders", icon: Bike, label: "Riders" },
-    { href: "/products", icon: Package, label: "Products" },
-    { href: "/categories", icon: Tags, label: "Categories" },
-    { href: "/users", icon: Users, label: "Users" },
+    { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
+    { href: "/businesses", icon: Building2, label: "Negocios" },
+    { href: "/riders", icon: Bike, label: "Repartidores" },
+    { href: "/products", icon: Package, label: "Productos" },
+    { href: "/categories", icon: Tags, label: "Categorías" },
+    { href: "/users", icon: Users, label: "Usuarios" },
 ];
 
 export default function AdminLayout({
@@ -54,7 +54,7 @@ export default function AdminLayout({
         )}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Icons.Logo className="h-6 w-6 text-primary" />
-          <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>Hubs Admin</span>
+          <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>Admin Hubs</span>
         </Link>
         {!isMobile && (
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex">
@@ -125,7 +125,7 @@ export default function AdminLayout({
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="shrink-0 lg:hidden">
                 <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
+                <span className="sr-only">Alternar menú de navegación</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col p-0">
@@ -141,7 +141,7 @@ export default function AdminLayout({
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search..."
+                  placeholder="Buscar..."
                   className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
                 />
               </div>

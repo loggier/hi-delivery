@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/page-header";
 export default function NewCategoryPage() {
   return (
     <div className="space-y-4">
-      <PageHeader title="New Category" />
+      <PageHeader title="Nueva Categoría" />
       <CategoryForm />
     </div>
   );

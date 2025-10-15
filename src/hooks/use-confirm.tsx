@@ -56,13 +56,13 @@ export const useConfirm = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleClose}>
-              {dialog.cancelText || "Cancel"}
+              {dialog.cancelText || "Cancelar"}
             </AlertDialogCancel>
             <AlertDialogAction
               asChild
               onClick={handleConfirm}
             >
-              <Button variant={dialog.confirmVariant || 'destructive'}>{dialog.confirmText || "Confirm"}</Button>
+              <Button variant={dialog.confirmVariant || 'destructive'}>{dialog.confirmText || "Confirmar"}</Button>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

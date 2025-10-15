@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { useDashboardStats } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 function KPICard({ title, value, icon: Icon, description }: { title: string, value: string | number, icon: React.ElementType, description: string }) {
   return (
@@ -52,11 +53,11 @@ function KPICardSkeleton() {
 }
 
 function getEntityType(item: any) {
-  if ('rfc' in item) return 'Business';
-  if ('lastName' in item) return 'Rider';
-  if ('price' in item) return 'Product';
-  if ('slug' in item) return 'Category';
-  return 'Unknown';
+  if ('rfc' in item) return 'Negocio';
+  if ('lastName' in item) return 'Repartidor';
+  if ('price' in item) return 'Producto';
+  if ('slug' in item) return 'Categoría';
+  return 'Desconocido';
 }
 
 function getEntityName(item: any) {
@@ -66,7 +67,7 @@ function getEntityName(item: any) {
 
 
 export default function DashboardPage() {
-  const { data, isLoading, error } = useDashboardStats();
+  const { data, isLoading } = useDashboardStats();
 
   return (
     <>
@@ -80,28 +81,28 @@ export default function DashboardPage() {
             </>
         ) : data ? (
             <>
-                <KPICard title="Active Businesses" value={data.activeBusinesses} icon={CreditCard} description="Total active businesses" />
-                <KPICard title="Active Riders" value={data.activeRiders} icon={Users} description="Total active riders" />
-                <KPICard title="Total Products" value={data.totalProducts} icon={DollarSign} description="Total products in catalog" />
-                <KPICard title="Total Categories" value={data.totalCategories} icon={Activity} description="Total product categories" />
+                <KPICard title="Negocios Activos" value={data.activeBusinesses} icon={CreditCard} description="Total de negocios activos" />
+                <KPICard title="Repartidores Activos" value={data.activeRiders} icon={Users} description="Total de repartidores activos" />
+                <KPICard title="Productos Totales" value={data.totalProducts} icon={DollarSign} description="Total de productos en el catálogo" />
+                <KPICard title="Categorías Totales" value={data.totalCategories} icon={Activity} description="Total de categorías de productos" />
             </>
         ) : null}
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Recent Changes</CardTitle>
+          <CardTitle>Cambios Recientes</CardTitle>
           <CardDescription>
-            A log of the most recent entities created in the system.
+            Un registro de las entidades creadas más recientemente en el sistema.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Entity</TableHead>
-                <TableHead className="hidden sm:table-cell">Type</TableHead>
-                <TableHead className="hidden sm:table-cell">Status</TableHead>
-                <TableHead className="hidden md:table-cell">Created At</TableHead>
+                <TableHead>Entidad</TableHead>
+                <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                <TableHead className="hidden sm:table-cell">Estado</TableHead>
+                <TableHead className="hidden md:table-cell">Creado en</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,22 +119,22 @@ export default function DashboardPage() {
                         <TableCell>
                             <div className="font-medium">{getEntityName(item)}</div>
                             <div className="text-sm text-muted-foreground md:hidden">
-                                {format(new Date(item.createdAt), 'PPpp')}
+                                {format(new Date(item.createdAt), 'PPpp', { locale: es })}
                             </div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">{getEntityType(item)}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                             <Badge className="text-xs" variant={item.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                                {item.status}
+                                {item.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                             </Badge>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{format(new Date(item.createdAt), 'PPpp')}</TableCell>
+                        <TableCell className="hidden md:table-cell">{format(new Date(item.createdAt), 'PPpp', { locale: es })}</TableCell>
                     </TableRow>
                 ))}
                 { !isLoading && (!data || data.latestChanges.length === 0) && (
                      <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center">
-                        No recent changes.
+                        No hay cambios recientes.
                         </TableCell>
                     </TableRow>
                 )}

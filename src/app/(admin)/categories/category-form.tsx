@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -41,7 +42,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
   const updateMutation = api.categories.useUpdate();
 
   const isEditing = !!initialData;
-  const formAction = isEditing ? "Save changes" : "Create category";
+  const formAction = isEditing ? "Guardar cambios" : "Crear categoría";
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
@@ -55,7 +56,6 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
   const { watch, setValue } = form;
   const watchedName = watch("name");
   
-  // Auto-generate slug from name
   React.useEffect(() => {
     setValue("slug", slugify(watchedName));
   }, [watchedName, setValue]);
@@ -70,7 +70,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
       router.push("/categories");
       router.refresh();
     } catch (error) {
-      console.error("Failed to save category", error);
+      console.error("No se pudo guardar la categoría", error);
     }
   };
 
@@ -79,7 +79,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{isEditing ? "Edit Category" : "Create New Category"}</CardTitle>
+        <CardTitle>{isEditing ? "Editar Categoría" : "Crear Nueva Categoría"}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -90,9 +90,9 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Nombre</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Mexican Food" {...field} disabled={isPending}/>
+                      <Input placeholder="ej., Comida Mexicana" {...field} disabled={isPending}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -105,7 +105,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                   <FormItem>
                     <FormLabel>Slug</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., mexican-food" {...field} disabled={isPending}/>
+                      <Input placeholder="ej., comida-mexicana" {...field} disabled={isPending}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -116,16 +116,16 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                 name="status"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
+                    <FormLabel>Estado</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a status" />
+                          <SelectValue placeholder="Selecciona un estado" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="INACTIVE">Inactive</SelectItem>
+                        <SelectItem value="ACTIVE">Activo</SelectItem>
+                        <SelectItem value="INACTIVE">Inactivo</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -135,10 +135,10 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>
-                Cancel
+                Cancelar
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? "Saving..." : formAction}
+                {isPending ? "Guardando..." : formAction}
               </Button>
             </div>
           </form>

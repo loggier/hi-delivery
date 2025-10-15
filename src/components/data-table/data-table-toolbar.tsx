@@ -31,7 +31,7 @@ export function DataTableToolbar<TData>({
       <div className="flex flex-1 items-center space-x-2">
         {searchKey && (
           <Input
-            placeholder={`Filter by ${searchKey}...`}
+            placeholder={`Filtrar por ${searchKey}...`}
             value={
               (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
             }
@@ -47,7 +47,7 @@ export function DataTableToolbar<TData>({
             onClick={() => table.resetColumnFilters()}
             className="h-8 px-2 lg:px-3"
           >
-            Reset
+            Reiniciar
             <Cross2Icon className="ml-2 h-4 w-4" />
           </Button>
         )}
@@ -56,11 +56,11 @@ export function DataTableToolbar<TData>({
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="ml-auto h-8 flex">
             <SlidersHorizontal className="mr-2 h-4 w-4" />
-            View
+            Vista
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[150px]">
-          <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+          <DropdownMenuLabel>Alternar columnas</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {table
             .getAllColumns()

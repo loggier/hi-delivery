@@ -20,6 +20,6 @@ export async function GET() {
 
     return jsonResponse(200, stats);
   } catch (error) {
-    return errorResponse(500, "Failed to fetch dashboard stats.");
+    return errorResponse(500, "Error al obtener las estadísticas del panel.");
   }
 }

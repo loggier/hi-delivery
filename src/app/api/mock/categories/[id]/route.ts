@@ -13,11 +13,11 @@ export async function GET(
     await simulateLatency();
     const category = mockCategories.find((c) => c.id === params.id);
     if (!category) {
-      return errorResponse(404, "Category not found.");
+      return errorResponse(404, "Categoría no encontrada.");
     }
     return jsonResponse(200, category);
   } catch (error) {
-    return errorResponse(500, "Failed to fetch category.");
+    return errorResponse(500, "Error al obtener la categoría.");
   }
 }
 
@@ -29,14 +29,14 @@ export async function PUT(
     await simulateLatency();
     const categoryIndex = mockCategories.findIndex((c) => c.id === params.id);
     if (categoryIndex === -1) {
-      return errorResponse(404, "Category not found.");
+      return errorResponse(404, "Categoría no encontrada.");
     }
 
     const json = await request.json();
     const parsed = categorySchema.partial().safeParse(json);
 
      if (!parsed.success) {
-      return errorResponse(400, "Invalid data provided.");
+      return errorResponse(400, "Datos proporcionados no válidos.");
     }
 
     const updatedCategory = { ...mockCategories[categoryIndex], ...parsed.data };
@@ -44,7 +44,7 @@ export async function PUT(
 
     return jsonResponse(200, updatedCategory);
   } catch (error) {
-    return errorResponse(500, "Failed to update category.");
+    return errorResponse(500, "Error al actualizar la categoría.");
   }
 }
 
@@ -56,13 +56,13 @@ export async function DELETE(
     await simulateLatency();
     const categoryIndex = mockCategories.findIndex((c) => c.id === params.id);
     if (categoryIndex === -1) {
-      return errorResponse(404, "Category not found.");
+      return errorResponse(404, "Categoría no encontrada.");
     }
 
     mockCategories.splice(categoryIndex, 1);
     
     return new Response(null, { status: 204 });
   } catch (error) {
-    return errorResponse(500, "Failed to delete category.");
+    return errorResponse(500, "Error al eliminar la categoría.");
   }
 }
