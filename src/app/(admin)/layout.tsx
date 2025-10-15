@@ -47,7 +47,7 @@ export default function AdminLayout({
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 
   const SidebarContent = ({ isMobile = false }) => (
-    <div className="flex h-full flex-col bg-muted/40">
+    <div className="flex h-full flex-col bg-slate-100/40 dark:bg-muted/40">
       <div className={cn(
           "flex items-center border-b h-14 px-4 lg:px-6",
           isSidebarCollapsed && !isMobile ? "justify-center" : "justify-between"
@@ -78,8 +78,8 @@ export default function AdminLayout({
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 my-1",
                         isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted"
+                          ? "bg-primary text-white"
+                          : "text-slate-600 hover:bg-white hover:text-primary dark:text-slate-400 dark:hover:bg-muted"
                       )}
                     >
                       <item.icon className="h-5 w-5" />
@@ -95,10 +95,10 @@ export default function AdminLayout({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all my-1",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all my-1 text-sm font-medium",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
+                    ? "bg-primary text-white"
+                    : "text-slate-600 hover:bg-white hover:text-primary dark:text-slate-400 dark:hover:bg-muted"
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -114,13 +114,13 @@ export default function AdminLayout({
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[auto_1fr]">
       <aside className={cn(
-          "hidden border-r bg-muted/40 lg:block transition-all duration-300",
+          "hidden border-r bg-slate-100/40 dark:bg-muted/40 lg:block transition-all duration-300",
           isSidebarCollapsed ? "lg:w-16" : "lg:w-64"
         )}>
           <SidebarContent />
       </aside>
       <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+        <header className="flex h-14 items-center gap-4 border-b bg-white px-4 lg:h-[60px] lg:px-6 dark:bg-slate-900">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="shrink-0 lg:hidden">
@@ -149,7 +149,7 @@ export default function AdminLayout({
           </div>
           <UserNav />
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-slate-50 dark:bg-slate-950">
           {children}
         </main>
       </div>

@@ -48,10 +48,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   });
 
   // CREATE
-  const useCreate = () => {
+  const useCreate = <T_DTO = Omit<T, "id" | "createdAt" | "updatedAt">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T, Error, Omit<T, "id" | "createdAt" | "updatedAt">>({
+    return useMutation<T, Error, T_DTO>({
       mutationFn: (newItem) => fetchAPI<T>(`/${entity}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,6 +63,33 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           title: "Éxito",
           description: `${translatedEntity} creado exitosamente.`,
           variant: 'success'
+        });
+      },
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message,
+        });
+      },
+    });
+  };
+  
+  // CREATE with FormData
+  const useCreateWithFormData = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    return useMutation<T, Error, FormData>({
+      mutationFn: (formData) => fetchAPI<T>(`/${entity}`, {
+        method: "POST",
+        body: formData,
+      }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: entityKey });
+        toast({
+          title: "Éxito",
+          description: `${translatedEntity} creado exitosamente.`,
+          variant: 'success',
         });
       },
       onError: (error) => {
@@ -127,7 +154,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     });
   };
   
-  return { useGetAll, useGetOne, useCreate, useUpdate, useDelete };
+  return { useGetAll, useGetOne, useCreate, useUpdate, useDelete, useCreateWithFormData };
 }
 
 // --- Specific API Hooks ---

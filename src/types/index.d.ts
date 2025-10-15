@@ -55,16 +55,63 @@ export type Document = {
   uploadedAt: string;
 };
 
+export type RiderStatus = 'pending_review' | 'approved' | 'rejected' | 'inactive';
+export type VehicleOwnership = 'propia' | 'rentada' | 'prestada';
+export type VehicleBrand = 'Italika' | 'Yamaha' | 'Honda' | 'Vento' | 'Veloci' | 'Suzuki' | 'Otra';
+
 export type Rider = {
-  id: string;
-  name: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  status: "ACTIVE" | "INACTIVE" | "PENDING_DOCUMENTS";
-  documents: Document[];
-  createdAt: string;
+  id: string
+  firstName: string
+  lastName: string
+  motherLastName?: string
+  email: string
+  birthDate: string
+  riderType: 'Asociado'
+  zone: 'Monterrey' | 'Culiacan' | 'Mazatlan'
+  identityType: 'INE'
+  address: string
+
+  // Archivos obligatorios
+  ineFrontUrl: string
+  ineBackUrl: string
+  proofOfAddressUrl: string
+  licenseFrontUrl: string
+  licenseBackUrl: string
+
+  // Vehículo
+  vehicleType: 'Moto'
+  ownership: VehicleOwnership
+  brand: VehicleBrand
+  year: number
+  model: string
+  color: string
+  plate: string
+  licenseValidUntil: string
+  motoPhotos: [string, string, string, string]
+  circulationCardFrontUrl: string
+  circulationCardBackUrl: string
+
+  // Póliza
+  insurer: string
+  policyNumber: string
+  policyValidUntil: string
+  policyFirstPageUrl: string
+
+  // Extra
+  hasHelmet: boolean
+  hasUniform: boolean
+  hasBox: boolean
+
+  // Login
+  phoneE164: string
+  passwordHashMock: string
+  avatar1x1Url: string
+
+  status: RiderStatus
+  createdAt: string
+  updatedAt: string
 };
+
 
 export type Category = {
   id: string;

@@ -1,4 +1,4 @@
-import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus } from "@/types";
 import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
@@ -161,55 +161,66 @@ export const products: Product[] = [
   },
 ];
 
+// --- RIDERS ---
+function createRider(partial?: Partial<Rider>): Rider {
+  const now = new Date();
+  const firstName = faker.person.firstName();
+  const lastName = faker.person.lastName();
+  const createdAt = faker.date.past({ years: 1, refDate: now });
 
-const createFutureDate = (days: number): string => {
-    const date = new Date();
-    date.setDate(date.getDate() + days);
-    return date.toISOString();
+  return {
+    id: `rider-${faker.string.uuid()}`,
+    firstName,
+    lastName,
+    motherLastName: faker.person.lastName(),
+    email: faker.internet.email({ firstName, lastName }),
+    birthDate: faker.date.birthdate({ min: 18, max: 60, mode: 'age' }).toISOString(),
+    riderType: 'Asociado',
+    zone: faker.helpers.arrayElement(['Monterrey', 'Culiacan', 'Mazatlan']),
+    identityType: 'INE',
+    address: faker.location.streetAddress(true),
+    ineFrontUrl: '/mock-docs/ine-front.png',
+    ineBackUrl: '/mock-docs/ine-back.png',
+    proofOfAddressUrl: '/mock-docs/proof-of-address.pdf',
+    licenseFrontUrl: '/mock-docs/license-front.png',
+    licenseBackUrl: '/mock-docs/license-back.png',
+    vehicleType: 'Moto',
+    ownership: faker.helpers.arrayElement<VehicleOwnership>(['propia', 'rentada', 'prestada']),
+    brand: faker.helpers.arrayElement<VehicleBrand>(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki']),
+    year: faker.number.int({ min: 2010, max: new Date().getFullYear() }),
+    model: faker.vehicle.model(),
+    color: faker.vehicle.color(),
+    plate: faker.vehicle.vrm(),
+    licenseValidUntil: faker.date.future({ years: 2, refDate: now }).toISOString(),
+    motoPhotos: [
+        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`,
+        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`,
+        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`,
+        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`
+    ],
+    circulationCardFrontUrl: '/mock-docs/circulation-front.png',
+    circulationCardBackUrl: '/mock-docs/circulation-back.png',
+    insurer: faker.company.name(),
+    policyNumber: faker.string.alphanumeric(10).toUpperCase(),
+    policyValidUntil: faker.date.future({ years: 1, refDate: now }).toISOString(),
+    policyFirstPageUrl: '/mock-docs/policy.pdf',
+    hasHelmet: faker.datatype.boolean(),
+    hasUniform: faker.datatype.boolean(),
+    hasBox: faker.datatype.boolean(),
+    phoneE164: `+52${faker.string.numeric(10)}`,
+    passwordHashMock: faker.internet.password(), // In reality, this would be a hash
+    avatar1x1Url: faker.image.avatar(),
+    status: faker.helpers.arrayElement<RiderStatus>(['pending_review', 'approved', 'rejected', 'inactive']),
+    createdAt: createdAt.toISOString(),
+    updatedAt: faker.date.recent({ days: 90, refDate: now }).toISOString(),
+    ...partial,
+  };
 }
 
-// --- DOCUMENTS & RIDERS ---
-export const documents: Document[] = [
-    { id: 'doc-1', name: 'INE_Pedro.pdf', url: '/mock-docs/ine.pdf', type: 'INE', uploadedAt: now.toISOString() },
-    { id: 'doc-2', name: 'Comprobante_Pedro.pdf', url: '/mock-docs/comprobante.pdf', type: 'PROOF_OF_ADDRESS', uploadedAt: now.toISOString() },
-    { id: 'doc-3', name: 'Licencia_Pedro.pdf', url: '/mock-docs/licencia.pdf', type: 'LICENSE', expiryDate: createFutureDate(180), uploadedAt: now.toISOString() },
-    { id: 'doc-4', name: 'Poliza_Pedro.pdf', url: '/mock-docs/poliza.pdf', type: 'POLICY', expiryDate: createFutureDate(365), uploadedAt: now.toISOString() },
-    { id: 'doc-5', name: 'INE_Ana.pdf', url: '/mock-docs/ine.pdf', type: 'INE', uploadedAt: now.toISOString() },
-    { id: 'doc-6', name: 'Comprobante_Ana.pdf', url: '/mock-docs/comprobante.pdf', type: 'PROOF_OF_ADDRESS', uploadedAt: now.toISOString() },
-    { id: 'doc-7', name: 'Licencia_Ana.pdf', url: '/mock-docs/licencia.pdf', type: 'LICENSE', expiryDate: createFutureDate(90), uploadedAt: now.toISOString() },
-    { id: 'doc-8', name: 'Poliza_Ana.pdf', url: '/mock-docs/poliza.pdf', type: 'POLICY', expiryDate: createFutureDate(250), uploadedAt: now.toISOString() },
-];
-
-
 export const riders: Rider[] = [
-  {
-    id: 'rider-1',
-    name: 'Pedro',
-    lastName: 'Gomez',
-    email: 'pedro@riders.com',
-    phone: '5511223344',
-    status: 'ACTIVE',
-    documents: [documents[0], documents[1], documents[2], documents[3]],
-    createdAt: new Date('2023-09-01T09:00:00Z').toISOString(),
-  },
-  {
-    id: 'rider-2',
-    name: 'Ana',
-    lastName: 'Lopez',
-    email: 'ana@riders.com',
-    phone: '5544332211',
-    status: 'PENDING_DOCUMENTS',
-    documents: [documents[4], documents[5]],
-    createdAt: new Date('2023-09-05T15:00:00Z').toISOString(),
-  },
-  {
-    id: 'rider-3',
-    name: 'Carlos',
-    lastName: 'Sanchez',
-    email: 'carlos@riders.com',
-    phone: '5599887766',
-    status: 'INACTIVE',
-    documents: [],
-    createdAt: new Date('2023-09-10T11:00:00Z').toISOString(),
-  },
+    createRider({ status: 'approved', zone: 'Monterrey' }),
+    createRider({ status: 'pending_review', zone: 'Culiacan' }),
+    createRider({ status: 'rejected', zone: 'Mazatlan' }),
+    createRider({ status: 'inactive', zone: 'Monterrey' }),
+    createRider({ status: 'approved', zone: 'Culiacan' }),
 ];
