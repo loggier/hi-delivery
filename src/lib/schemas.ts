@@ -5,6 +5,8 @@ thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
 export const signInSchema = z.object({
   email: z.string().email({ message: "Por favor, ingresa un email válido." }),
+  password: z.string().min(1, { message: "La contraseña es requerida." }),
+  remember: z.boolean().default(false).optional(),
 });
 
 export const productCategorySchema = z.object({
@@ -57,6 +59,7 @@ export const userSchema = z.object({
   email: z.string().email(),
   roleId: z.string({ required_error: "Debe seleccionar un rol."}),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+  password: z.string().optional(), // Password is optional when editing, required when creating.
 });
 
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;

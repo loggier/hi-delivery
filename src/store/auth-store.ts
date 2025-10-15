@@ -21,10 +21,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true, // Start as true to indicate we haven't checked auth yet.
   
   login: (user) => {
-    const userWithRole = { ...user, role: 'ADMIN' };
+    // In a real app, the user object would come from your API/Supabase response
     try {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userWithRole));
-      set({ user: userWithRole, isAuthenticated: true });
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      set({ user: user, isAuthenticated: true });
     } catch (e) {
       console.error("Failed to save session to localStorage", e);
     }
@@ -42,6 +42,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   checkAuth: () => {
     // This function should only run on the client-side.
     if (typeof window === "undefined") {
+      // On the server, we assume no user is logged in and we are not loading.
+      // The middleware will handle server-side redirects.
       set({ isLoading: false });
       return;
     }
@@ -62,6 +64,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Initialize auth check on client-side when the store is first imported.
-if (typeof window !== "undefined") {
-  useAuthStore.getState().checkAuth();
-}
+// This ensures that any component using the store will have the correct initial auth state.
+useAuthStore.getState().checkAuth();

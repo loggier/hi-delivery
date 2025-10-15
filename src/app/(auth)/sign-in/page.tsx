@@ -21,6 +21,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuthStore } from "@/store/auth-store";
 import { signInSchema } from "@/lib/schemas";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2 } from "lucide-react";
+import Link from "next/link";
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -35,6 +38,8 @@ export default function SignInPage() {
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: "",
+      password: "",
+      remember: false,
     },
   });
   
@@ -44,24 +49,39 @@ export default function SignInPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  function onSubmit(data: SignInFormValues) {
-    // This is a mock login. In a real app, you'd call your Supabase login API here.
-    const user = {
-      id: "user-1",
-      name: "Usuario Administrador",
-      email: data.email,
-      roleId: "role-admin",
-      status: "ACTIVE" as const,
-      createdAt: new Date().toISOString(),
-    };
-    login(user);
-    toast({
+  async function onSubmit(data: SignInFormValues) {
+    try {
+      const response = await fetch('/api/auth/sign-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al iniciar sesión.');
+      }
+      
+      login(result.user);
+      
+      toast({
         title: "Inicio de Sesión Exitoso",
-        description: `¡Bienvenido de nuevo, ${user.name}!`,
+        description: `¡Bienvenido de nuevo, ${result.user.name}!`,
         variant: 'success'
-    });
-    router.push("/dashboard");
-    router.refresh(); // Recommended to re-fetch server components
+      });
+      
+      router.push("/dashboard");
+      router.refresh();
+    } catch (error: any) {
+       toast({
+        variant: "destructive",
+        title: "Error de autenticación",
+        description: error.message || "Credenciales inválidas. Por favor, inténtalo de nuevo.",
+      });
+    }
   }
 
   if (isLoading || isAuthenticated) {
@@ -79,7 +99,7 @@ export default function SignInPage() {
             <Image src="/logo-grupohubs.png" alt={`Logo ${appName}`} width={48} height={48} />
         </div>
         <CardTitle className="text-2xl">{appName}</CardTitle>
-        <CardDescription>Ingresa tu email para iniciar sesión en tu cuenta</CardDescription>
+        <CardDescription>Ingresa tus credenciales para acceder al panel</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -91,27 +111,55 @@ export default function SignInPage() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="admin@example.com" {...field} />
+                    <Input type="email" placeholder="admin@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            {/* The password field will be needed for a real Supabase login */}
-            {/* <FormField
+            <FormField
               control={form.control}
               name="password"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contraseña</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
-            /> */}
+            />
+            <div className="flex items-center justify-between">
+                <FormField
+                control={form.control}
+                name="remember"
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                        <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                        <FormLabel className="font-normal">
+                        Recordar sesión
+                        </FormLabel>
+                    </div>
+                    </FormItem>
+                )}
+                />
+                 <Link
+                    href="/forgot-password"
+                    className="text-sm font-medium text-primary hover:underline"
+                    >
+                    ¿Olvidaste tu contraseña?
+                </Link>
+            </div>
+
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
               Continuar
             </Button>
           </form>
