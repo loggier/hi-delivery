@@ -1,7 +1,50 @@
-import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order, Role, Permissions } from "@/types";
+import { Business, Category, Product, Rider, User, Document, BusinessCategory, BusinessType, VehicleBrand, RiderStatus, Zone, Customer, Order, Role, Permissions, Plan } from "@/types";
 import { faker } from '@faker-js/faker/locale/es_MX';
 
 const now = new Date();
+
+// --- PLANS ---
+export let plans: Plan[] = [
+    {
+        id: 'plan-basic',
+        name: 'Básico',
+        price: 299,
+        validity: 'mensual',
+        riderFee: 35,
+        feePerKm: 8,
+        minShippingFee: 40,
+        minDistance: 3,
+        details: 'Ideal para negocios que están comenzando.',
+        createdAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        updatedAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+    },
+    {
+        id: 'plan-plus',
+        name: 'Plus',
+        price: 599,
+        validity: 'mensual',
+        riderFee: 30,
+        feePerKm: 7,
+        minShippingFee: 35,
+        minDistance: 5,
+        details: 'Más envíos, mejores tarifas. El más popular.',
+        createdAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        updatedAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+    },
+    {
+        id: 'plan-premium',
+        name: 'Premium Anual',
+        price: 8999,
+        validity: 'anual',
+        riderFee: 25,
+        feePerKm: 6,
+        minShippingFee: 30,
+        minDistance: 7,
+        details: 'Acceso total y las mejores tarifas para negocios de alto volumen. Ahorra con el pago anual.',
+        createdAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        updatedAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+    },
+]
 
 // --- ROLES & PERMISSIONS ---
 const allPermissionsFalse: Permissions = {

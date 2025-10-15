@@ -204,3 +204,19 @@ export type Zone = {
     createdAt: string;
     updatedAt: string;
 }
+
+export type PlanValidity = 'mensual' | 'quincenal' | 'semanal' | 'anual';
+
+export type Plan = {
+    id: string;
+    name: string;
+    price: number;
+    validity: PlanValidity;
+    riderFee: number;
+    feePerKm: number;
+    minShippingFee: number;
+    minDistance: number;
+    details?: string;
+    createdAt: string;
+    updatedAt: string;
+};

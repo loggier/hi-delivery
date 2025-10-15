@@ -195,3 +195,14 @@ export const zoneSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
+
+export const planSchema = z.object({
+    name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
+    price: z.coerce.number().min(0, { message: "El precio debe ser un valor positivo." }),
+    validity: z.enum(['mensual', 'quincenal', 'semanal', 'anual']),
+    riderFee: z.coerce.number().min(0, { message: "La cuota debe ser un valor positivo." }),
+    feePerKm: z.coerce.number().min(0, { message: "La cuota por km debe ser un valor positivo." }),
+    minShippingFee: z.coerce.number().min(0, { message: "La cuota mínima de envío debe ser un valor positivo." }),
+    minDistance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
+    details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
+});

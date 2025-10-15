@@ -42,6 +42,7 @@ const navItems = [
     { href: "/products", icon: Package, label: "Productos" },
     { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios" },
     { href: "/product-categories", icon: List, label: "Cat. de Productos" },
+    { href: "/plans", icon: Tags, label: "Planes" },
     { href: "/users", icon: Users, label: "Usuarios" },
     { href: "/roles", icon: Shield, label: "Roles y Permisos" },
     { href: "/settings", icon: Settings, label: "Configuración" },
