@@ -8,6 +8,8 @@ import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/page-header";
 import { api } from "@/lib/api";
 import { columns } from "./columns";
+import { type Table } from "@tanstack/react-table";
+import { Plan } from "@/types";
 
 export default function PlansPage() {
   const { data: plans, isLoading } = api.plans.useGetAll();
@@ -26,7 +28,7 @@ export default function PlansPage() {
         columns={columns}
         data={plans || []}
         isLoading={isLoading}
-        toolbar={<DataTable.Toolbar searchKey="name" />}
+        toolbar={(table: Table<Plan>) => <DataTable.Toolbar table={table} searchKey="name" />}
       />
     </div>
   );
