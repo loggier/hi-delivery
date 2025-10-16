@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 
 import { DataTablePagination } from "./data-table-pagination";
+import { DataTableToolbar } from "./data-table-toolbar";
 import { Skeleton } from "../ui/skeleton";
 
 interface DataTableProps<TData, TValue> {
@@ -138,3 +139,5 @@ export function DataTable<TData, TValue>({
     </div>
   );
 }
+
+DataTable.Toolbar = DataTableToolbar;

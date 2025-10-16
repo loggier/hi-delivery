@@ -203,22 +203,22 @@ export type Zone = {
     status: "ACTIVE" | "INACTIVE";
     // For now, geofence will be a mock. In a real scenario, this could be GeoJSON.
     geofence?: any; 
-    createdAt: string;
-    updatedAt: string;
+    created_at: string;
+    updated_at: string;
 }
 
 export type PlanValidity = 'mensual' | 'quincenal' | 'semanal' | 'anual';
 
 export type Plan = {
-    id: string;
-    name: string;
-    price: number;
-    validity: PlanValidity;
-    riderFee: number;
-    feePerKm: number;
-    minShippingFee: number;
-    minDistance: number;
-    details?: string;
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  name: string;
+  price: number;
+  validity: PlanValidity;
+  rider_fee: number;
+  fee_per_km: number;
+  min_shipping_fee: number;
+  min_distance: number;
+  details?: string;
+  created_at: string;
+  updated_at: string;
 };

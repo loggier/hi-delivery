@@ -26,7 +26,7 @@ export default function PlansPage() {
         columns={columns}
         data={plans || []}
         isLoading={isLoading}
-        searchKey="name"
+        toolbar={<DataTable.Toolbar searchKey="name" />}
       />
     </div>
   );

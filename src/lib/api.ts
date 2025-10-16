@@ -222,26 +222,26 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
             if (entity === 'businesses') {
                 const { data: business, error: getError } = await supabase.from('businesses').select('user_id').eq('id', id).single();
-                if (business?.user_id) {
+                if (getError) {
+                     console.error("Error fetching business for deletion:", getError.message);
+                } else if (business?.user_id) {
                     userIdToDelete = business.user_id;
                 }
             }
-
-            // Delete the main entity first
+            
             const { error: deleteError } = await supabase.from(entity).delete().eq('id', id);
+            
             if (deleteError) {
                 throw new Error(deleteError.message || `No se pudo eliminar el ${translatedEntity}.`);
             }
 
-            // If it was a business and we found a user, delete the user now
             if (userIdToDelete) {
+                console.log(`Attempting to delete user ${userIdToDelete}`);
                 const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
                 if (deleteUserError) {
-                    // Log the error but don't throw, as the main entity was already deleted.
-                    // The user might see a success toast but the user remains. This is better than showing an error when the business *is* gone.
-                    console.error(`Negocio eliminado, pero falló la eliminación del usuario asociado ${userIdToDelete}:`, deleteUserError.message);
+                    console.error(`Business deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
                     toast({
-                        variant: "destructive",
+                        variant: "warning",
                         title: "Advertencia",
                         description: `El negocio fue eliminado, pero no se pudo eliminar el usuario asociado. Contacta a soporte.`,
                     });

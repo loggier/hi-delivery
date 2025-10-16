@@ -51,10 +51,10 @@ export function PlanForm({ initialData }: PlanFormProps) {
       name: "",
       price: 0,
       validity: "mensual",
-      riderFee: 0,
-      feePerKm: 0,
-      minShippingFee: 0,
-      minDistance: 0,
+      rider_fee: 0,
+      fee_per_km: 0,
+      min_shipping_fee: 0,
+      min_distance: 0,
       details: "",
     },
   });
@@ -162,7 +162,7 @@ export function PlanForm({ initialData }: PlanFormProps) {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <FormField
                     control={form.control}
-                    name="riderFee"
+                    name="rider_fee"
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>Cuota de Repartidor</FormLabel>
@@ -176,7 +176,7 @@ export function PlanForm({ initialData }: PlanFormProps) {
                 />
                 <FormField
                     control={form.control}
-                    name="feePerKm"
+                    name="fee_per_km"
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>Cuota por KM</FormLabel>
@@ -190,7 +190,7 @@ export function PlanForm({ initialData }: PlanFormProps) {
                 />
                  <FormField
                     control={form.control}
-                    name="minShippingFee"
+                    name="min_shipping_fee"
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>Cuota Mínima de Envío</FormLabel>
@@ -204,7 +204,7 @@ export function PlanForm({ initialData }: PlanFormProps) {
                 />
                  <FormField
                     control={form.control}
-                    name="minDistance"
+                    name="min_distance"
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>Distancia Mínima (KM)</FormLabel>
