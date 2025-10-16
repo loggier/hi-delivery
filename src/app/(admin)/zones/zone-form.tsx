@@ -1,5 +1,6 @@
 
 
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect } from "react";
@@ -115,6 +116,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     const clearGeofence = () => {
         if (polygonRef.current) {
             polygonRef.current.setMap(null);
+            polygonRef.current = null;
         }
         onChange(undefined);
     }
@@ -180,25 +182,25 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     </div>
                 </div>
                 
-                 {isLoaded && (
-                     <DrawingManager
+                 {map && (
+                    <DrawingManager
                         onLoad={onDrawingManagerLoad}
                         onPolygonComplete={onPolygonComplete}
                         options={{
-                          drawingControl: true,
-                          drawingControlOptions: {
-                              position: window.google.maps.ControlPosition.TOP_CENTER,
-                              drawingModes: ['polygon'],
-                          },
-                          polygonOptions: {
-                              fillColor: "#04AAF1",
-                              fillOpacity: 0.35,
-                              strokeColor: "#E33739",
-                              strokeWeight: 2,
-                              clickable: true,
-                              editable: true,
-                              zIndex: 1,
-                          },
+                            drawingControl: true,
+                            drawingControlOptions: {
+                                position: window.google.maps.ControlPosition.TOP_CENTER,
+                                drawingModes: ['polygon'],
+                            },
+                            polygonOptions: {
+                                fillColor: "#04AAF1",
+                                fillOpacity: 0.35,
+                                strokeColor: "#E33739",
+                                strokeWeight: 2,
+                                clickable: true,
+                                editable: true,
+                                zIndex: 1,
+                            },
                         }}
                     />
                 )}
