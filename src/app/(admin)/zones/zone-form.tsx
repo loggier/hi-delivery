@@ -54,7 +54,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     const polygonRef = useRef<google.maps.Polygon | null>(null);
     const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
-
     const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
         const roadmapMapType = new google.maps.ImageMapType({
             getTileUrl: function(coord, zoom) {
@@ -179,14 +178,14 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     <Button type="button" onClick={() => setMapTypeId('satellite')} variant="ghost" className={cn("rounded-l-none", mapTypeId === 'satellite' && 'bg-slate-200')}>Satélite</Button>
                 </div>
                 
-                {isLoaded && (
+                 {isLoaded && (
                     <DrawingManager
                         onLoad={onDrawingManagerLoad}
                         onPolygonComplete={onPolygonComplete}
                         options={{
                             drawingControl: true,
                             drawingControlOptions: {
-                                position: window.google.maps.ControlPosition.TOP_LEFT,
+                                position: window.google.maps.ControlPosition.LEFT_TOP,
                                 drawingModes: ['polygon'],
                             },
                             polygonOptions: {
