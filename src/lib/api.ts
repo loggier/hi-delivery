@@ -57,11 +57,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
         Object.entries(params).forEach(([key, value]) => {
             if(value) {
-                query = query.ilike(key, `%${value}%`);
+                query = query.eq(key, value);
             }
         });
-
-        query = query.order('created_at', { ascending: false });
+        
+        if (!params['plan_id']) { // Do not sort by created_at if we are filtering by plan
+            query = query.order('created_at', { ascending: false });
+        }
+        
         return handleSupabaseQuery(query.returns<T[]>());
       }
     });

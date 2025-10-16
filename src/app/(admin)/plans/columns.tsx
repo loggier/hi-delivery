@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -29,7 +29,7 @@ const validityTranslations: Record<PlanValidity, string> = {
     anual: "Anual",
 };
 
-export const columns: ColumnDef<Plan>[] = [
+export const columns: ColumnDef<Plan & { businessCount?: number }>[] = [
     {
     id: "select",
     header: ({ table }) => (
@@ -69,6 +69,15 @@ export const columns: ColumnDef<Plan>[] = [
     accessorKey: "validity",
     header: "Validez",
     cell: ({ row }) => validityTranslations[row.original.validity],
+  },
+   {
+    accessorKey: "businessCount",
+    header: "Negocios",
+    cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-slate-500"/> {row.original.businessCount}
+        </div>
+     )
   },
   {
     accessorKey: "rider_fee",
