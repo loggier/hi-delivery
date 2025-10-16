@@ -57,7 +57,7 @@ export const roleSchema = z.object({
 export const userSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   email: z.string().email(),
-  roleId: z.string({ required_error: "Debe seleccionar un rol."}),
+  role_id: z.string({ required_error: "Debe seleccionar un rol."}),
   status: z.enum(["ACTIVE", "INACTIVE"]),
   password: z.string().optional(), // Password is optional when editing, required when creating.
 });

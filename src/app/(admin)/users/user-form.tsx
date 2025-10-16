@@ -50,7 +50,7 @@ export function UserForm({ initialData }: UserFormProps) {
     defaultValues: initialData || {
       name: "",
       email: "",
-      roleId: undefined,
+      role_id: undefined,
       status: "ACTIVE",
     },
   });
@@ -108,7 +108,7 @@ export function UserForm({ initialData }: UserFormProps) {
               />
               <FormField
                 control={form.control}
-                name="roleId"
+                name="role_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Rol</FormLabel>

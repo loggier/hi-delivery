@@ -10,7 +10,7 @@ type UserData = {
   id: string;
   password?: string;
   status: 'ACTIVE' | 'INACTIVE';
-  roleId: string;
+  role_id: string;
 };
 
 export async function POST(request: Request) {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     const { data: user, error: userError }: PostgrestSingleResponse<UserData> = await supabaseAdmin
       .from('users')
-      .select('id, password, status, roleId')
+      .select('id, password, status, role_id')
       .eq('email', email)
       .single();
       
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     // Fetch complete user profile to send to client, excluding password
     const { data: fullUser, error: fullUserError } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, avatarUrl, roleId, status, createdAt')
+      .select('id, name, email, avatarUrl, role_id, status, createdAt')
       .eq('id', user.id)
       .single();
     

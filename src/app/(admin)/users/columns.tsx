@@ -59,10 +59,10 @@ export const columns: ColumnDef<User>[] = [
     header: "Email",
   },
     {
-    accessorKey: "roleId",
+    accessorKey: "role_id",
     header: "Rol",
     cell: ({ row }) => {
-        const role = mockRoles.find(r => r.id === row.original.roleId);
+        const role = mockRoles.find(r => r.id === row.original.role_id);
         return role ? role.name : 'N/A';
     }
   },
