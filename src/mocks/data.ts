@@ -90,7 +90,7 @@ export let roles: Role[] = [
         }
     },
      {
-        id: 'role-owner',
+        id: 'owen-business',
         name: 'Dueño de Negocio',
         created_at: new Date('2023-02-01T10:00:00Z').toISOString(),
         permissions: {
@@ -125,7 +125,7 @@ export let users: User[] = [
     id: 'user-3',
     name: 'Dueño de Restaurante',
     email: 'owner@example.com',
-    role_id: 'role-owner',
+    role_id: 'owen-business',
     status: 'ACTIVE',
     created_at: new Date('2024-05-10T11:30:00Z').toISOString(),
   },
@@ -185,6 +185,7 @@ function createBusiness(partial?: Partial<Business>): Business {
 
   return {
     id: `biz-${faker.string.uuid()}`,
+    user_id: `user-${faker.string.uuid()}`,
     name: faker.company.name(),
     type,
     category_id: category.id,
