@@ -61,12 +61,12 @@ export const columns: ColumnDef<Role>[] = [
     },
   },
   {
-    accessorKey: "createdAt",
+    accessorKey: "created_at",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Creado en" />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue("createdAt"));
+      const date = new Date(row.getValue("created_at"));
       return <span>{format(date, "d 'de' MMMM, yyyy", { locale: es })}</span>;
     },
   },
