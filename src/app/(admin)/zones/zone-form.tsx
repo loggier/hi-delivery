@@ -95,7 +95,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
         }
     }, [map, mapTypeId]);
 
-
     const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
         if (polygonRef.current) {
             polygonRef.current.setMap(null);
@@ -116,7 +115,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     const clearGeofence = () => {
         if (polygonRef.current) {
             polygonRef.current.setMap(null);
-            polygonRef.current = null;
         }
         onChange(undefined);
     }
@@ -180,37 +178,39 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     <Separator orientation="vertical" className="h-auto"/>
                     <Button type="button" onClick={() => setMapTypeId('satellite')} variant="ghost" className={cn("rounded-l-none", mapTypeId === 'satellite' && 'bg-slate-200')}>Satélite</Button>
                 </div>
+                
+                {isLoaded && (
+                    <DrawingManager
+                        onLoad={onDrawingManagerLoad}
+                        onPolygonComplete={onPolygonComplete}
+                        options={{
+                            drawingControl: true,
+                            drawingControlOptions: {
+                                position: window.google.maps.ControlPosition.TOP_CENTER,
+                                drawingModes: ['polygon'],
+                            },
+                            polygonOptions: {
+                                fillColor: "#04AAF1",
+                                fillOpacity: 0.35,
+                                strokeColor: "#E33739",
+                                strokeWeight: 2,
+                                clickable: true,
+                                editable: true,
+                                zIndex: 1,
+                            },
+                        }}
+                    />
+                )}
 
-                <DrawingManager
-                    onLoad={onDrawingManagerLoad}
-                    onPolygonComplete={onPolygonComplete}
-                    options={{
-                        drawingControl: true,
-                        drawingControlOptions: {
-                            position: window.google.maps.ControlPosition.TOP_CENTER,
-                            drawingModes: ['polygon'],
-                        },
-                        polygonOptions: {
-                            fillColor: "#04AAF1",
-                            fillOpacity: 0.35,
-                            strokeColor: "#E33739",
-                            strokeWeight: 2,
-                            clickable: true,
-                            editable: true,
-                            zIndex: 1,
-                        },
-                    }}
-                />
-
-                {value && !polygonRef.current && (
+                {value && (
                     <Polygon
                         paths={value}
                         editable
                         draggable
                         onMouseUp={onPolygonEdit}
                         onDragEnd={onPolygonEdit}
-                        onLoad={(p) => polygonRef.current = p}
-                        onUnmount={() => polygonRef.current = null}
+                        onLoad={(p) => (polygonRef.current = p)}
+                        onUnmount={() => (polygonRef.current = null)}
                         options={{
                             fillColor: "#04AAF1",
                             fillOpacity: 0.2,
