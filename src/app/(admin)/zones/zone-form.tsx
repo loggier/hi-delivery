@@ -31,6 +31,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type ZoneFormValues = z.infer<typeof zoneSchema>;
 
@@ -47,24 +48,29 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     });
     
     const [map, setMap] = useState<google.maps.Map | null>(null);
+    const [mapTypeId, setMapTypeId] = useState<google.maps.MapTypeId>('roadmap');
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
     const polygonRef = useRef<google.maps.Polygon | null>(null);
     const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
 
-    const center = { lat: 19.4326, lng: -99.1332 }; // Mexico City
+    const center = useMemo(() => {
+        if (value && value.length > 0 && window.google) {
+            const bounds = new window.google.maps.LatLngBounds();
+            value.forEach((coord: { lat: number, lng: number }) => bounds.extend(coord));
+            return bounds.getCenter().toJSON();
+        }
+        return { lat: 19.4326, lng: -99.1332 }; // Mexico City
+    }, [value]);
 
     const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
         setMap(mapInstance);
     }, []);
 
     const onPolygonComplete = useCallback((polygon: google.maps.Polygon) => {
-        // We get the path and then immediately remove the polygon,
-        // because we will be creating our own Polygon component with the path.
         const path = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-        polygon.setMap(null); // Remove the drawn polygon
+        polygon.setMap(null); 
         onChange(path);
         
-        // Clean up previous polygon if we are re-drawing
         if (polygonRef.current) {
             polygonRef.current.setMap(null);
         }
@@ -109,7 +115,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
               fillOpacity: 0.2,
               strokeColor: "hsl(var(--gh-primary))",
               strokeWeight: 2,
-              editable: false, // We control editing via our own Polygon component
+              editable: false,
               draggable: false,
           },
       };
@@ -121,7 +127,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
         };
     }, []);
 
-    // Set polygon ref for initial data
     const onPolygonLoad = (polygon: google.maps.Polygon) => {
         polygonRef.current = polygon;
         const path = polygon.getPath();
@@ -152,24 +157,35 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     return (
         <div className="relative">
             <GoogleMap
-                mapContainerStyle={{ height: '500px', width: '100%' }}
+                mapContainerStyle={{ height: '500px', width: '100%', borderRadius: '0.5rem' }}
                 center={center}
-                zoom={10}
+                zoom={12}
                 onLoad={onMapLoad}
+                mapTypeId={mapTypeId}
                 options={{
-                    mapTypeControl: false
+                    mapTypeControl: false,
+                    streetViewControl: false,
                 }}
             >
-                <Autocomplete
-                    onLoad={onAutocompleteLoad}
-                    onPlaceChanged={onPlaceChanged}
-                >
-                    <Input
-                        type="text"
-                        placeholder="Buscar una ubicación..."
-                        className="absolute top-4 left-1/2 -translate-x-1/2 w-80 z-10 shadow-md"
-                    />
-                </Autocomplete>
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-80">
+                    <Autocomplete
+                        onLoad={onAutocompleteLoad}
+                        onPlaceChanged={onPlaceChanged}
+                    >
+                        <Input
+                            type="text"
+                            placeholder="Buscar una ubicación..."
+                            className="shadow-md"
+                        />
+                    </Autocomplete>
+                </div>
+                
+                <div className="absolute top-3 left-3 z-10 flex rounded-md shadow-md bg-white">
+                    <Button type="button" onClick={() => setMapTypeId('roadmap')} variant="ghost" className={cn("rounded-r-none", mapTypeId === 'roadmap' && 'bg-slate-200')}>Mapa</Button>
+                    <Separator orientation="vertical" className="h-auto"/>
+                    <Button type="button" onClick={() => setMapTypeId('satellite')} variant="ghost" className={cn("rounded-l-none", mapTypeId === 'satellite' && 'bg-slate-200')}>Satélite</Button>
+                </div>
+
                 
                 {drawingManagerOptions && <DrawingManager
                     onPolygonComplete={onPolygonComplete}
