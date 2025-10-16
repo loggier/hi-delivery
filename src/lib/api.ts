@@ -18,7 +18,7 @@ const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA!;
 async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: PostgrestError | null }>): Promise<T> {
     const { data, error } = await query;
     if (error) {
-        console.error("Supabase error:", error);
+        console.error("Supabase error:", JSON.stringify(error, null, 2));
         throw new Error(error.message || "Ocurrió un error en la base de datos.");
     }
     return data as T;
