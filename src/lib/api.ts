@@ -58,7 +58,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
         Object.entries(params).forEach(([key, value]) => {
             if(value) {
-                query = query.eq(key, value);
+                if(key === 'name') {
+                    query = query.ilike(key, `%${value}%`);
+                } else {
+                    query = query.eq(key, value);
+                }
             }
         });
         
@@ -396,10 +400,10 @@ export const useManageSubscription = () => {
     return useMutation<void, Error, { businessId: string; planId: string; amount: number }>({
         mutationFn: async ({ businessId, planId, amount }) => {
             const { data: plan, error: planError } = await supabase.from('plans').select('*').eq('id', planId).single();
-            if (planError || !plan) throw new Error("Plan no encontrado.");
+            if (planError || !plan) throw new Error(planError.message || "Plan no encontrado.");
 
             const { data: business, error: businessError } = await supabase.from('businesses').select('*').eq('id', businessId).single();
-            if (businessError || !business) throw new Error("Negocio no encontrado.");
+            if (businessError || !business) throw new Error(businessError.message || "Negocio no encontrado.");
 
             const now = new Date();
             const periodStart = (business.current_period_ends_at && new Date(business.current_period_ends_at) > now)

@@ -40,8 +40,8 @@ export async function POST(request: Request) {
       id: `zone-${faker.string.uuid()}`,
       businessCount: 0,
       riderCount: 0,
-      createdAt: now,
-      updatedAt: now,
+      created_at: now,
+      updated_at: now,
       ...parsed.data,
     };
 

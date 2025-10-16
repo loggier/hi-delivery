@@ -91,12 +91,12 @@ export const columns: ColumnDef<Zone>[] = [
     },
   },
   {
-    accessorKey: "updatedAt",
+    accessorKey: "updated_at",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Actualizado" />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue("updatedAt"));
+      const date = new Date(row.getValue("updated_at"));
       return <span>{format(date, "d MMM, yyyy", { locale: es })}</span>;
     },
   },
