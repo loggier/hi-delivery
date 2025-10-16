@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect } from "react";
@@ -184,7 +185,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                         onLoad={onDrawingManagerLoad}
                         onPolygonComplete={onPolygonComplete}
                         options={{
-                            drawingControl: true,
                             drawingControlOptions: {
                                 position: window.google.maps.ControlPosition.TOP_CENTER,
                                 drawingModes: ['polygon'],
