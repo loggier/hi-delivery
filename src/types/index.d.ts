@@ -38,7 +38,7 @@ export type User = {
   name: string;
   email: string;
   password?: string; // Should be passwordHash, but keeping it simple for now
-  avatarUrl?: string;
+  avatar_url?: string;
   role_id: string;
   status: "ACTIVE" | "INACTIVE";
   createdAt: string;

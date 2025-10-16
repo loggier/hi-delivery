@@ -71,12 +71,12 @@ export async function POST(request: Request) {
     // Fetch complete user profile to send to client, excluding password
     const { data: fullUser, error: fullUserError } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, avatarUrl, role_id, status, createdAt')
+      .select('id, name, email, avatar_url, role_id, status, createdAt')
       .eq('id', user.id)
       .single();
     
     if(fullUserError || !fullUser) {
-        return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.' }, { status: 500 });
+        return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.'+JSON.stringify(fullUserError) }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Inicio de sesión exitoso', user: fullUser as User }, { status: 200 });
