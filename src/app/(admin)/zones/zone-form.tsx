@@ -50,13 +50,13 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     });
     
     const [map, setMap] = useState<google.maps.Map | null>(null);
-    const [mapTypeId, setMapTypeId] = useState<google.maps.MapTypeId>('roadmap');
+    const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
     const polygonRef = useRef<google.maps.Polygon | null>(null);
     const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
 
     const center = useMemo(() => {
-        if (value && value.length > 0 && window.google) {
+        if (value && value.length > 0 && typeof window !== 'undefined' && window.google) {
             const bounds = new window.google.maps.LatLngBounds();
             value.forEach((coord: { lat: number, lng: number }) => bounds.extend(coord));
             return bounds.getCenter().toJSON();
@@ -68,9 +68,9 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
         setMap(mapInstance);
     }, []);
 
-    const onPolygonComplete = useCallback((polygon: google.maps.Polygon) => {
-        const path = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-        polygon.setMap(null); 
+    const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
+        const path = poly.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+        poly.setMap(null); 
         onChange(path);
         
         if (polygonRef.current) {
@@ -149,7 +149,8 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 }}
             >
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-80">
-                    <Autocomplete
+                   {isLoaded && (
+                     <Autocomplete
                         onLoad={onAutocompleteLoad}
                         onPlaceChanged={onPlaceChanged}
                     >
@@ -159,6 +160,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                             className="shadow-md"
                         />
                     </Autocomplete>
+                   )}
                 </div>
                 
                 <div className="absolute top-3 left-3 z-10 flex rounded-md shadow-md bg-white">
@@ -168,7 +170,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </div>
 
                 
-                {isLoaded && window.google?.maps?.drawing && (
+                {isLoaded && (
                     <DrawingManager
                         onPolygonComplete={onPolygonComplete}
                         options={{

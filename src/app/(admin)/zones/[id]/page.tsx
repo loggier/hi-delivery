@@ -23,7 +23,7 @@ const GeofenceMap = ({ geofence }: { geofence?: { lat: number; lng: number }[] }
     });
 
     const mapCenter = React.useMemo(() => {
-        if (geofence && geofence.length > 0 && window.google) {
+        if (geofence && geofence.length > 0 && typeof window !== 'undefined' && window.google) {
             const bounds = new window.google.maps.LatLngBounds();
             geofence.forEach(coord => bounds.extend(coord));
             return bounds.getCenter().toJSON();
