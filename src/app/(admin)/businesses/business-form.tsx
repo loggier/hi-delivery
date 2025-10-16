@@ -71,7 +71,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
   const router = useRouter();
   const createMutation = api.businesses.useCreate();
   const updateMutation = api.businesses.useUpdate();
-  const { data: categories } = api.businessCategories.useGetAll();
+  const { data: categories } = api.business_categories.useGetAll();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";

@@ -86,7 +86,7 @@ export const columns: ColumnDef<BusinessCategory>[] = [
     cell: ({ row }) => {
       const category = row.original;
       const [ConfirmationDialog, confirm] = useConfirm();
-      const deleteMutation = api["business-categories"].useDelete();
+      const deleteMutation = api["business_categories"].useDelete();
 
       const handleDelete = async () => {
         const ok = await confirm({

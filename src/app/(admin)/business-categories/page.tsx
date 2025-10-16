@@ -16,7 +16,7 @@ export default function BusinessCategoriesPage() {
   const [search, setSearch] = React.useState('');
   const [debouncedSearch] = useDebounce(search, 500);
 
-  const { data: categories, isLoading } = api["business-categories"].useGetAll({ name: debouncedSearch });
+  const { data: categories, isLoading } = api["business_categories"].useGetAll({ name: debouncedSearch });
 
   return (
     <div className="space-y-4">

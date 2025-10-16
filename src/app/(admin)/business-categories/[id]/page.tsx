@@ -8,7 +8,7 @@ import React from 'react';
 
 export default function EditBusinessCategoryPage({ params }: { params: { id: string } }) {
   const id = params.id;
-  const { data: category, isLoading } = api["business-categories"].useGetOne(id);
+  const { data: category, isLoading } = api["business_categories"].useGetOne(id);
 
   if (isLoading) {
     return (

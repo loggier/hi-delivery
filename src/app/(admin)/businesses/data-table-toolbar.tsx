@@ -41,7 +41,7 @@ export function DataTableToolbar({
   setFilters
 }: DataTableToolbarProps) {
   const isFiltered = Object.values(filters).some(v => v !== '') || search !== '';
-  const { data: businessCategoriesData } = api.businessCategories.useGetAll();
+  const { data: businessCategoriesData } = api.business_categories.useGetAll();
 
   const handleResetFilters = () => {
     setFilters({

@@ -38,8 +38,8 @@ interface BusinessCategoryFormProps {
 
 export function BusinessCategoryForm({ initialData }: BusinessCategoryFormProps) {
   const router = useRouter();
-  const createMutation = api["business-categories"].useCreate();
-  const updateMutation = api["business-categories"].useUpdate();
+  const createMutation = api["business_categories"].useCreate();
+  const updateMutation = api["business_categories"].useUpdate();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear categoría";
