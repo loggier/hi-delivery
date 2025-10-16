@@ -74,36 +74,46 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   }
 
   // CREATE
-  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
+  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at" | "user_id">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
     return useMutation<T, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
         const newItem = newItemDTO as any;
-        // Special logic for businesses to create a user first
+        
         if (entity === 'businesses' && newItem.password) {
           const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
           
-          // 1. Create user
-          const newUserId = `user-${faker.string.uuid()}`;
+          // 1. Find 'Dueño de Negocio' role ID
+          const { data: roleData, error: roleError } = await supabase.from('roles').select('id').eq('name', 'Dueño de Negocio').single();
+          if (roleError || !roleData) {
+            console.error("Error finding role:", roleError);
+            throw new Error("No se pudo encontrar el rol 'Dueño de Negocio'. Asegúrate de que exista en la base de datos.");
+          }
+          const ownerRoleId = roleData.id;
+
+          // 2. Create user
           const hashedPassword = await hashPassword(password);
           const userToCreate = {
-            id: newUserId,
             name: owner_name,
             email: email,
             password: hashedPassword,
-            role_id: 'role-owner', // Hardcoded role for new business owners
+            role_id: ownerRoleId,
             status: 'ACTIVE',
             created_at: new Date().toISOString(),
           };
-          const createdUser = await handleSupabaseQuery(supabase.from('users').insert(userToCreate).select().single());
 
-          // 2. Create business and link it to the user
+          const { data: createdUser, error: userError } = await supabase.from('users').insert(userToCreate).select().single();
+          if (userError) {
+            console.error("Error creating user for business:", userError);
+            throw new Error(userError.message || "No se pudo crear el usuario para el negocio.");
+          }
+
+          // 3. Create business and link it to the user
           const businessToCreate = {
-            id: `biz-${faker.string.uuid()}`,
-            user_id: createdUser.id,
             ...businessData,
+            user_id: createdUser.id,
             name: newItem.name,
             owner_name: owner_name,
             email: email,
@@ -114,7 +124,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         }
 
         const itemWithId = {
-            id: `${entity.slice(0, 4)}-${faker.string.uuid()}`, // Generate client-side ID
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             ...newItem
