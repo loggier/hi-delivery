@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,13 +9,12 @@ import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
 
 const supabase = createClient();
-const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA;
+const schema = 'grupohubs';
 
 // --- Generic Fetcher ---
 async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: PostgrestError | null }>): Promise<T> {
     const { data, error } = await query;
     if (error) {
-        console.error("Supabase error:", error);
         throw new Error(error.message || "Ocurrió un error en la base de datos.");
     }
     return data as T;
@@ -22,8 +22,7 @@ async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: Po
 
 
 const entityTranslations: { [key: string]: string } = {
-    "product-categories": "Categoría de Producto",
-    "business-categories": "Categoría de Negocio",
+    "product_categories": "Categoría de Producto",
     "business_categories": "Categoría de Negocio",
     businesses: "Negocio",
     products: "Producto",
@@ -44,7 +43,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useGetAll = (params: Record<string, string> = {}) => {
     const queryKey = [entity, params];
 
-    let query = supabase.from(entity).select('*', { count: 'exact' });
+    let query = supabase.from(entity).select('*', { count: 'exact' }).schema(schema);
 
     Object.entries(params).forEach(([key, value]) => {
         if(value) {
@@ -63,12 +62,12 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   // GET one
   const useGetOne = (id: string) => useQuery<T>({
     queryKey: [...entityKey, id],
-    queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
+    queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single().schema(schema)),
     enabled: !!id,
   });
 
   // CREATE
-  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updatedAt">>() => {
+  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<T, Error, T_DTO>({
@@ -77,7 +76,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             id: `${entity.slice(0, 3)}-${faker.string.uuid()}`, // Generate client-side ID
             ...newItem
         }
-        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
+        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single().schema(schema));
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -111,7 +110,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             id: `${entity.slice(0, 3)}-${faker.string.uuid()}`,
             ...newItem
         }
-        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
+        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single().schema(schema));
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -138,7 +137,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
-        return handleSupabaseQuery(supabase.from(entity).update(updateData).eq('id', id).select().single());
+        return handleSupabaseQuery(supabase.from(entity).update(updateData).eq('id', id).select().single().schema(schema));
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -164,7 +163,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<void, Error, string>({
-      mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
+      mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id).schema(schema)),
       onSuccess: (_, id) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
@@ -187,8 +186,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
 // --- Specific API Hooks ---
 export const api = {
-    "product-categories": createCRUDApi<Category>('product_categories'),
-    "business-categories": createCRUDApi<BusinessCategory>('business_categories'),
+    "product_categories": createCRUDApi<Category>('product_categories'),
+    "business_categories": createCRUDApi<BusinessCategory>('business_categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
@@ -204,7 +203,7 @@ export const api = {
 export const useCustomerOrders = (customerId: string) => {
     return useQuery<Order[]>({
         queryKey: ['customers', customerId, 'orders'],
-        queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customerId', customerId)),
+        queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customerId', customerId).schema(schema)),
         enabled: !!customerId,
     });
 };
