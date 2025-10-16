@@ -222,6 +222,9 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
       onSuccess: (_, id) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
+        if (entity === 'businesses') {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        }
         toast({
           title: "Éxito",
           description: `${translatedEntity} eliminado exitosamente.`,
@@ -289,5 +292,3 @@ export const useDashboardStats = () => useQuery<{
         return res.json();
     }
 });
-
-    
