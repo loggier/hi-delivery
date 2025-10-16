@@ -92,12 +92,12 @@ export const columns: ColumnDef<Rider>[] = [
     },
   },
   {
-    accessorKey: "createdAt",
+    accessorKey: "created_at",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Creado en" />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue("createdAt"));
+      const date = new Date(row.getValue("created_at"));
       return <span>{format(date, "d MMM, yyyy", { locale: es })}</span>;
     },
   },

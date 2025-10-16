@@ -66,12 +66,12 @@ export const columns: ColumnDef<Category>[] = [
     },
   },
   {
-    accessorKey: "createdAt",
+    accessorKey: "created_at",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Creado en" />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue("createdAt"));
+      const date = new Date(row.getValue("created_at"));
       return <span>{format(date, "d 'de' MMMM, yyyy", { locale: es })}</span>;
     },
   },
@@ -80,7 +80,7 @@ export const columns: ColumnDef<Category>[] = [
     cell: ({ row }) => {
       const category = row.original;
       const [ConfirmationDialog, confirm] = useConfirm();
-      const deleteMutation = api["product-categories"].useDelete();
+      const deleteMutation = api["product_categories"].useDelete();
 
       const handleDelete = async () => {
         const ok = await confirm({
