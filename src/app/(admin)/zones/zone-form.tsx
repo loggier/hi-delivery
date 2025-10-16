@@ -99,27 +99,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
             }
         }
     };
-
-    const drawingManagerOptions = useMemo<google.maps.drawing.DrawingManagerOptions | undefined>(() => {
-      if (!isLoaded || !window.google || !window.google.maps.drawing) return undefined;
-      return {
-          drawingControl: true,
-          drawingControlOptions: {
-              position: window.google.maps.ControlPosition.TOP_CENTER,
-              drawingModes: [
-                  window.google.maps.drawing.DrawingMode.POLYGON,
-              ],
-          },
-          polygonOptions: {
-              fillColor: "hsl(var(--gh-primary))",
-              fillOpacity: 0.2,
-              strokeColor: "hsl(var(--gh-primary))",
-              strokeWeight: 2,
-              editable: false,
-              draggable: false,
-          },
-      };
-    }, [isLoaded]);
     
     useEffect(() => {
         return () => {
@@ -187,9 +166,25 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </div>
 
                 
-                {drawingManagerOptions && <DrawingManager
+                {isLoaded && window.google?.maps?.drawing && <DrawingManager
                     onPolygonComplete={onPolygonComplete}
-                    options={drawingManagerOptions}
+                    options={{
+                      drawingControl: true,
+                      drawingControlOptions: {
+                          position: window.google.maps.ControlPosition.TOP_CENTER,
+                          drawingModes: [
+                              window.google.maps.drawing.DrawingMode.POLYGON,
+                          ],
+                      },
+                      polygonOptions: {
+                          fillColor: "hsl(var(--gh-primary))",
+                          fillOpacity: 0.2,
+                          strokeColor: "hsl(var(--gh-primary))",
+                          strokeWeight: 2,
+                          editable: false,
+                          draggable: false,
+                      },
+                    }}
                 />}
 
                 {value && (
