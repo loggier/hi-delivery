@@ -185,19 +185,20 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                         onLoad={onDrawingManagerLoad}
                         onPolygonComplete={onPolygonComplete}
                         options={{
-                            drawingControlOptions: {
-                                position: window.google.maps.ControlPosition.TOP_CENTER,
-                                drawingModes: ['polygon'],
-                            },
-                            polygonOptions: {
-                                fillColor: "#04AAF1",
-                                fillOpacity: 0.35,
-                                strokeColor: "#E33739",
-                                strokeWeight: 2,
-                                clickable: true,
-                                editable: true,
-                                zIndex: 1,
-                            },
+                          drawingControl: true,
+                          drawingControlOptions: {
+                              position: window.google.maps.ControlPosition.TOP_CENTER,
+                              drawingModes: ['polygon'],
+                          },
+                          polygonOptions: {
+                              fillColor: "#04AAF1",
+                              fillOpacity: 0.35,
+                              strokeColor: "#E33739",
+                              strokeWeight: 2,
+                              clickable: true,
+                              editable: true,
+                              zIndex: 1,
+                          },
                         }}
                     />
                 )}
