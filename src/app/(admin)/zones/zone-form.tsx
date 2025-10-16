@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -47,7 +47,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     });
     
     const [map, setMap] = useState<google.maps.Map | null>(null);
-    const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
     const polygonRef = useRef<google.maps.Polygon | null>(null);
     const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
@@ -58,29 +57,23 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
         setMap(mapInstance);
     }, []);
 
-    const onDrawingManagerLoad = useCallback((drawingManagerInstance: google.maps.drawing.DrawingManager) => {
-        setDrawingManager(drawingManagerInstance);
-    }, []);
-
-    const onPolygonComplete = (polygon: google.maps.Polygon) => {
-        if (drawingManager) {
-            drawingManager.setDrawingMode(null);
-        }
-
+    const onPolygonComplete = useCallback((polygon: google.maps.Polygon) => {
+        // We get the path and then immediately remove the polygon,
+        // because we will be creating our own Polygon component with the path.
         const path = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+        polygon.setMap(null); // Remove the drawn polygon
         onChange(path);
         
-        // Remove old polygon if exists
+        // Clean up previous polygon if we are re-drawing
         if (polygonRef.current) {
             polygonRef.current.setMap(null);
         }
-        polygonRef.current = polygon;
-    };
+    }, [onChange]);
+
 
     const clearGeofence = () => {
         if (polygonRef.current) {
             polygonRef.current.setMap(null);
-            polygonRef.current = null;
         }
         onChange(undefined);
     }
@@ -96,18 +89,64 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 map.fitBounds(place.geometry.viewport);
             } else if (place.geometry?.location) {
                 map.setCenter(place.geometry.location);
-                map.setZoom(17); 
+                map.setZoom(12); 
             }
         }
     };
+
+    const drawingManagerOptions = useMemo<google.maps.drawing.DrawingManagerOptions | undefined>(() => {
+      if (!isLoaded) return undefined;
+      return {
+          drawingControl: true,
+          drawingControlOptions: {
+              position: window.google.maps.ControlPosition.TOP_CENTER,
+              drawingModes: [
+                  window.google.maps.drawing.DrawingMode.POLYGON,
+              ],
+          },
+          polygonOptions: {
+              fillColor: "hsl(var(--gh-primary))",
+              fillOpacity: 0.2,
+              strokeColor: "hsl(var(--gh-primary))",
+              strokeWeight: 2,
+              editable: false, // We control editing via our own Polygon component
+              draggable: false,
+          },
+      };
+    }, [isLoaded]);
     
     useEffect(() => {
         return () => {
             listenersRef.current.forEach(listener => listener.remove());
         };
     }, []);
+
+    // Set polygon ref for initial data
+    const onPolygonLoad = (polygon: google.maps.Polygon) => {
+        polygonRef.current = polygon;
+        const path = polygon.getPath();
+        listenersRef.current.push(
+            path.addListener('set_at', () => {
+                const newPath = path.getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+                onChange(newPath);
+            }),
+            path.addListener('insert_at', () => {
+                const newPath = path.getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+                onChange(newPath);
+            }),
+             path.addListener('remove_at', () => {
+                const newPath = path.getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+                onChange(newPath);
+            })
+        );
+    }
+
+    const onPolygonUnmount = () => {
+        listenersRef.current.forEach(listener => listener.remove());
+        polygonRef.current = null;
+    }
     
-    if (loadError) return <div>Error cargando el mapa</div>;
+    if (loadError) return <div>Error cargando el mapa. Por favor, revisa la API Key de Google Maps.</div>;
     if (!isLoaded) return <Skeleton className="h-[500px] w-full" />;
 
     return (
@@ -133,33 +172,18 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </Autocomplete>
                 
                 <DrawingManager
-                    onLoad={onDrawingManagerLoad}
                     onPolygonComplete={onPolygonComplete}
-                    options={{
-                        drawingControl: true,
-                        drawingControlOptions: {
-                            position: window.google.maps.ControlPosition.TOP_CENTER,
-                            drawingModes: [
-                                google.maps.drawing.DrawingMode.POLYGON,
-                            ],
-                        },
-                        polygonOptions: {
-                            fillColor: "hsl(var(--gh-primary))",
-                            fillOpacity: 0.2,
-                            strokeColor: "hsl(var(--gh-primary))",
-                            strokeWeight: 2,
-                            editable: true,
-                            draggable: true,
-                        },
-                    }}
+                    options={drawingManagerOptions}
                 />
-                 {value && !polygonRef.current && (
+
+                {value && (
                     <Polygon
                         paths={value}
                         editable
                         draggable
-                        onLoad={polygon => polygonRef.current = polygon}
-                        onMouseUp={() => {
+                        onLoad={onPolygonLoad}
+                        onUnmount={onPolygonUnmount}
+                         onMouseUp={() => {
                             if (polygonRef.current) {
                                 const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
                                 onChange(newPath);
@@ -170,6 +194,12 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                                 const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
                                 onChange(newPath);
                             }
+                        }}
+                        options={{
+                            fillColor: "hsl(var(--gh-primary))",
+                            fillOpacity: 0.2,
+                            strokeColor: "hsl(var(--gh-primary))",
+                            strokeWeight: 2,
                         }}
                     />
                 )}
@@ -279,12 +309,18 @@ export function ZoneForm({ initialData }: ZoneFormProps) {
                         <CardDescription>Dibuja el polígono que delimita el área de operación de esta zona en el mapa.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <Controller
-                            name="geofence"
+                         <FormField
                             control={form.control}
-                            render={({ field }) => <GeofenceMap {...field} />}
+                            name="geofence"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <GeofenceMap {...field} />
+                                    </FormControl>
+                                    <FormMessage className="mt-2"/>
+                                </FormItem>
+                            )}
                         />
-                         <FormMessage className="mt-2">{form.formState.errors.geofence?.message}</FormMessage>
                     </CardContent>
                 </Card>
             </div>
