@@ -80,6 +80,8 @@ export type BusinessCategory = {
   created_at: string;
 };
 
+export type SubscriptionStatus = "active" | "inactive" | "past_due";
+
 export type Business = {
   id: string;
   user_id: string;
@@ -102,6 +104,10 @@ export type Business = {
   logo_url?: string;
   notes?: string;
   status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW";
+  plan_id?: string;
+  subscription_status?: SubscriptionStatus;
+  current_period_ends_at?: string;
+  started_at?: string;
   created_at: string;
   updated_at: string;
   password?: string;
@@ -221,4 +227,15 @@ export type Plan = {
   details?: string;
   created_at: string;
   updated_at: string;
+};
+
+export type Payment = {
+  id: string;
+  business_id: string;
+  plan_id: string;
+  amount: number;
+  payment_date: string;
+  period_start: string;
+  period_end: string;
+  created_at: string;
 };

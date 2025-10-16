@@ -4,11 +4,12 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment } from "@/types";
 import { createClient } from "./supabase/client";
 import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
 import { hashPassword } from "./auth-utils";
+import { add } from "date-fns";
 
 const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA!;
 
@@ -35,6 +36,7 @@ const entityTranslations: { [key: string]: string } = {
     "customers": "Cliente",
     "roles": "Rol",
     "plans": "Plan",
+    "payments": "Pago",
 }
 
 // --- Generic CRUD Hooks ---
@@ -220,6 +222,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             const supabase = createClient();
             let userIdToDelete: string | null = null;
 
+            // This logic is now specific and explicit for business deletion
             if (entity === 'businesses') {
                 const { data: business, error: getError } = await supabase.from('businesses').select('user_id').eq('id', id).single();
                 if (getError) {
@@ -229,20 +232,24 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                 }
             }
             
+            // 1. Delete the main entity
             const { error: deleteError } = await supabase.from(entity).delete().eq('id', id);
             
             if (deleteError) {
                 throw new Error(deleteError.message || `No se pudo eliminar el ${translatedEntity}.`);
             }
 
+            // 2. If it was a business and we have a user ID, delete the associated user
             if (userIdToDelete) {
                 console.log(`Attempting to delete user ${userIdToDelete}`);
                 const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
                 if (deleteUserError) {
+                    // This is a problem. The business is gone, but the user is not.
+                    // The DB constraint should have prevented this, but if it happens, we must inform the user.
                     console.error(`Business deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
                     toast({
-                        variant: "warning",
-                        title: "Advertencia",
+                        variant: "destructive",
+                        title: "Error de Sincronización",
                         description: `El negocio fue eliminado, pero no se pudo eliminar el usuario asociado. Contacta a soporte.`,
                     });
                 }
@@ -250,6 +257,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         },
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
+             // If a business was deleted, also invalidate the users query
             if (entity === 'businesses') {
                 queryClient.invalidateQueries({ queryKey: ['users'] });
             }
@@ -284,6 +292,7 @@ export const api = {
     orders: createCRUDApi<Order>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
+    payments: createCRUDApi<Payment>('payments'),
 };
 
 // Custom hooks for nested resources
@@ -320,3 +329,74 @@ export const useDashboardStats = () => useQuery<{
         return res.json();
     }
 });
+
+
+// --- Custom Subscription Management Hook ---
+export const useManageSubscription = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const supabase = createClient();
+
+    return useMutation<void, Error, { businessId: string; planId: string; amount: number }>({
+        mutationFn: async ({ businessId, planId, amount }) => {
+            const { data: plan, error: planError } = await supabase.from('plans').select('*').eq('id', planId).single();
+            if (planError || !plan) throw new Error("Plan no encontrado.");
+
+            const { data: business, error: businessError } = await supabase.from('businesses').select('*').eq('id', businessId).single();
+            if (businessError || !business) throw new Error("Negocio no encontrado.");
+
+            const now = new Date();
+            const periodStart = (business.current_period_ends_at && new Date(business.current_period_ends_at) > now)
+                ? new Date(business.current_period_ends_at)
+                : now;
+
+            let periodEnd: Date;
+            switch(plan.validity) {
+                case 'semanal': periodEnd = add(periodStart, { weeks: 1 }); break;
+                case 'quincenal': periodEnd = add(periodStart, { weeks: 2 }); break;
+                case 'mensual': periodEnd = add(periodStart, { months: 1 }); break;
+                case 'anual': periodEnd = add(periodStart, { years: 1 }); break;
+                default: throw new Error("Validez de plan inválida.");
+            }
+
+            // Create payment record
+            const paymentToCreate: Omit<Payment, 'id' | 'created_at'> = {
+                business_id: businessId,
+                plan_id: planId,
+                amount: amount,
+                payment_date: now.toISOString(),
+                period_start: periodStart.toISOString(),
+                period_end: periodEnd.toISOString(),
+            };
+            const { error: paymentError } = await supabase.from('payments').insert(paymentToCreate);
+            if (paymentError) throw paymentError;
+
+            // Update business subscription status
+            const businessUpdate = {
+                plan_id: planId,
+                subscription_status: 'active',
+                current_period_ends_at: periodEnd.toISOString(),
+                started_at: business.started_at || now.toISOString(),
+                updated_at: now.toISOString(),
+            };
+            const { error: updateError } = await supabase.from('businesses').update(businessUpdate).eq('id', businessId);
+            if (updateError) throw updateError;
+        },
+        onSuccess: (_, { businessId }) => {
+            queryClient.invalidateQueries({ queryKey: ['businesses', businessId] });
+            queryClient.invalidateQueries({ queryKey: ['businesses'] });
+            toast({
+                title: "Suscripción Actualizada",
+                description: "El pago ha sido registrado y el plan ha sido actualizado.",
+                variant: "success",
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Error al gestionar suscripción",
+                description: error.message,
+            });
+        }
+    });
+};
