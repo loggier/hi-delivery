@@ -1,5 +1,6 @@
 
 
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
@@ -170,7 +171,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </div>
 
                 
-                {isLoaded && (
+                {isLoaded && typeof window !== 'undefined' && window.google && window.google.maps.drawing && (
                     <DrawingManager
                         onPolygonComplete={onPolygonComplete}
                         options={{
