@@ -207,8 +207,7 @@ export type Zone = {
     businessCount: number;
     riderCount: number;
     status: "ACTIVE" | "INACTIVE";
-    // For now, geofence will be a mock. In a real scenario, this could be GeoJSON.
-    geofence?: any; 
+    geofence?: { lat: number; lng: number }[]; 
     created_at: string;
     updated_at: string;
 }

@@ -1,10 +1,12 @@
 "use client";
 
-import React from "react";
-import { useForm } from "react-hook-form";
+import React, { useCallback, useRef, useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import { useLoadScript, GoogleMap, DrawingManager, Autocomplete, Polygon } from '@react-google-maps/api';
+import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +30,7 @@ import { zoneSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ZoneFormValues = z.infer<typeof zoneSchema>;
 
@@ -35,15 +38,157 @@ interface ZoneFormProps {
   initialData?: Zone | null;
 }
 
-const GeofenceMapStub = () => (
-    <div className="h-full min-h-[400px] w-full bg-slate-200 dark:bg-slate-800 rounded-md flex flex-col items-center justify-center gap-4 border border-dashed">
-        <p className="text-slate-500 text-sm">Maqueta del mapa de Geocerca</p>
-        <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm">Dibujar Polígono</Button>
-            <Button type="button" variant="outline" size="sm">Editar Polígono</Button>
+const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
+
+const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) => void; }) => {
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+        libraries,
+    });
+    
+    const [map, setMap] = useState<google.maps.Map | null>(null);
+    const [drawingManager, setDrawingManager] = useState<google.maps.drawing.DrawingManager | null>(null);
+    const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+    const polygonRef = useRef<google.maps.Polygon | null>(null);
+    const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
+
+    const center = { lat: 19.4326, lng: -99.1332 }; // Mexico City
+
+    const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
+        setMap(mapInstance);
+    }, []);
+
+    const onDrawingManagerLoad = useCallback((drawingManagerInstance: google.maps.drawing.DrawingManager) => {
+        setDrawingManager(drawingManagerInstance);
+    }, []);
+
+    const onPolygonComplete = (polygon: google.maps.Polygon) => {
+        if (drawingManager) {
+            drawingManager.setDrawingMode(null);
+        }
+
+        const path = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+        onChange(path);
+        
+        // Remove old polygon if exists
+        if (polygonRef.current) {
+            polygonRef.current.setMap(null);
+        }
+        polygonRef.current = polygon;
+    };
+
+    const clearGeofence = () => {
+        if (polygonRef.current) {
+            polygonRef.current.setMap(null);
+            polygonRef.current = null;
+        }
+        onChange(undefined);
+    }
+    
+     const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
+        autocompleteRef.current = autocomplete;
+    };
+
+    const onPlaceChanged = () => {
+        if (autocompleteRef.current && map) {
+            const place = autocompleteRef.current.getPlace();
+            if (place.geometry?.viewport) {
+                map.fitBounds(place.geometry.viewport);
+            } else if (place.geometry?.location) {
+                map.setCenter(place.geometry.location);
+                map.setZoom(17); 
+            }
+        }
+    };
+    
+    useEffect(() => {
+        return () => {
+            listenersRef.current.forEach(listener => listener.remove());
+        };
+    }, []);
+    
+    if (loadError) return <div>Error cargando el mapa</div>;
+    if (!isLoaded) return <Skeleton className="h-[500px] w-full" />;
+
+    return (
+        <div className="relative">
+            <GoogleMap
+                mapContainerStyle={{ height: '500px', width: '100%' }}
+                center={center}
+                zoom={10}
+                onLoad={onMapLoad}
+                options={{
+                    mapTypeControl: false
+                }}
+            >
+                <Autocomplete
+                    onLoad={onAutocompleteLoad}
+                    onPlaceChanged={onPlaceChanged}
+                >
+                    <Input
+                        type="text"
+                        placeholder="Buscar una ubicación..."
+                        className="absolute top-4 left-1/2 -translate-x-1/2 w-80 z-10 shadow-md"
+                    />
+                </Autocomplete>
+                
+                <DrawingManager
+                    onLoad={onDrawingManagerLoad}
+                    onPolygonComplete={onPolygonComplete}
+                    options={{
+                        drawingControl: true,
+                        drawingControlOptions: {
+                            position: window.google.maps.ControlPosition.TOP_CENTER,
+                            drawingModes: [
+                                google.maps.drawing.DrawingMode.POLYGON,
+                            ],
+                        },
+                        polygonOptions: {
+                            fillColor: "hsl(var(--gh-primary))",
+                            fillOpacity: 0.2,
+                            strokeColor: "hsl(var(--gh-primary))",
+                            strokeWeight: 2,
+                            editable: true,
+                            draggable: true,
+                        },
+                    }}
+                />
+                 {value && !polygonRef.current && (
+                    <Polygon
+                        paths={value}
+                        editable
+                        draggable
+                        onLoad={polygon => polygonRef.current = polygon}
+                        onMouseUp={() => {
+                            if (polygonRef.current) {
+                                const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+                                onChange(newPath);
+                            }
+                        }}
+                         onDragEnd={() => {
+                            if (polygonRef.current) {
+                                const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+                                onChange(newPath);
+                            }
+                        }}
+                    />
+                )}
+            </GoogleMap>
+            {value && (
+                <Button 
+                    type="button" 
+                    variant="destructive" 
+                    size="sm"
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10"
+                    onClick={clearGeofence}
+                    >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Limpiar Geocerca
+                </Button>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
 
 export function ZoneForm({ initialData }: ZoneFormProps) {
@@ -59,6 +204,7 @@ export function ZoneForm({ initialData }: ZoneFormProps) {
     defaultValues: initialData || {
       name: "",
       status: "ACTIVE",
+      geofence: undefined,
     },
   });
 
@@ -133,7 +279,12 @@ export function ZoneForm({ initialData }: ZoneFormProps) {
                         <CardDescription>Dibuja el polígono que delimita el área de operación de esta zona en el mapa.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <GeofenceMapStub />
+                         <Controller
+                            name="geofence"
+                            control={form.control}
+                            render={({ field }) => <GeofenceMap {...field} />}
+                        />
+                         <FormMessage className="mt-2">{form.formState.errors.geofence?.message}</FormMessage>
                     </CardContent>
                 </Card>
             </div>

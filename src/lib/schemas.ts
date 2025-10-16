@@ -215,6 +215,7 @@ export const riderApplicationSchema = z.object({
 export const zoneSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+  geofence: z.array(z.object({ lat: z.number(), lng: z.number() })).optional().refine(val => val && val.length >= 3, { message: 'La geocerca debe tener al menos 3 puntos.' }),
 });
 
 export const planSchema = z.object({

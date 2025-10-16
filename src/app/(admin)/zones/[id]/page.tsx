@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil, Users, Building2 } from "lucide-react";
 import { notFound, useParams } from 'next/navigation';
 import React from 'react';
+import { useLoadScript, GoogleMap, Polygon } from '@react-google-maps/api';
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -13,11 +14,49 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-const GeofenceMapStub = () => (
-    <div className="h-96 w-full bg-slate-200 dark:bg-slate-800 rounded-md flex items-center justify-center border border-dashed">
-        <p className="text-slate-500 text-sm">Visualización del mapa de Geocerca</p>
-    </div>
-);
+const GeofenceMap = ({ geofence }: { geofence?: { lat: number; lng: number }[] }) => {
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+        libraries: ['drawing'],
+    });
+
+    const mapCenter = React.useMemo(() => {
+        if (geofence && geofence.length > 0) {
+            const bounds = new window.google.maps.LatLngBounds();
+            geofence.forEach(coord => bounds.extend(coord));
+            return bounds.getCenter().toJSON();
+        }
+        return { lat: 19.4326, lng: -99.1332 }; // Default to Mexico City
+    }, [geofence]);
+
+    if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
+    if (!isLoaded) return <Skeleton className="h-96 w-full" />;
+
+    return (
+        <GoogleMap
+            mapContainerClassName="h-96 w-full rounded-md"
+            center={mapCenter}
+            zoom={12}
+            options={{
+                disableDefaultUI: true,
+                zoomControl: true,
+            }}
+        >
+            {geofence && (
+                <Polygon
+                    paths={geofence}
+                    options={{
+                        fillColor: "hsl(var(--gh-primary))",
+                        fillOpacity: 0.2,
+                        strokeColor: "hsl(var(--gh-primary))",
+                        strokeOpacity: 0.8,
+                        strokeWeight: 2,
+                    }}
+                />
+            )}
+        </GoogleMap>
+    );
+};
 
 
 export default function ViewZonePage() {
@@ -102,7 +141,7 @@ export default function ViewZonePage() {
             
             <div>
                 <h3 className="text-lg font-medium mb-4">Geocerca de la Zona</h3>
-                <GeofenceMapStub />
+                <GeofenceMap geofence={zone.geofence} />
             </div>
 
         </CardContent>
