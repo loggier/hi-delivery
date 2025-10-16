@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
+import React from 'react';
 
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/page-header";
 import { api } from "@/lib/api";
-import { columns } from "./columns";
+import { getColumns } from "./columns";
 import { DataTableToolbar } from "./data-table-toolbar";
 import { useBusinessFilters } from "./use-business-filters";
 
 export default function BusinessesPage() {
   const { filters, setFilters, debouncedSearch, search, setSearch } = useBusinessFilters();
-  const { data, isLoading } = api.businesses.useGetAll({ ...filters, name: debouncedSearch });
+  const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ ...filters, name: debouncedSearch });
+  const { data: categoriesData, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
+
+  const columns = React.useMemo(() => getColumns(categoriesData || []), [categoriesData]);
+  const isLoading = isLoadingBusinesses || isLoadingCategories;
   
   return (
     <div className="space-y-4">
@@ -27,7 +32,7 @@ export default function BusinessesPage() {
       </PageHeader>
        <DataTable
         columns={columns}
-        data={data || []}
+        data={businessData || []}
         isLoading={isLoading}
         toolbar={
             <DataTableToolbar

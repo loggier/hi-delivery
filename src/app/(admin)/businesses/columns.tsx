@@ -19,10 +19,9 @@ import {
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { type Business, type BusinessType } from "@/types";
+import { type Business, type BusinessType, type BusinessCategory } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
 import { api } from "@/lib/api";
-import { businessCategories } from "@/mocks/data";
 import { cn } from "@/lib/utils";
 
 const typeTranslations: Record<BusinessType, string> = {
@@ -31,7 +30,7 @@ const typeTranslations: Record<BusinessType, string> = {
     service: "Servicio",
 }
 
-export const columns: ColumnDef<Business>[] = [
+export const getColumns = (businessCategories: BusinessCategory[]): ColumnDef<Business>[] => [
   {
     id: "select",
     header: ({ table }) => (

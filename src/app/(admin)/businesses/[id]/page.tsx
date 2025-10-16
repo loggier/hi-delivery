@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { businessCategories } from "@/mocks/data";
 
 const GHMapStub = ({ lat, lng }: { lat?: number, lng?: number }) => (
     <div className="h-64 w-full bg-slate-200 rounded-md flex items-center justify-center">
@@ -28,7 +27,10 @@ const GHMapStub = ({ lat, lng }: { lat?: number, lng?: number }) => (
 export default function ViewBusinessPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { data: business, isLoading, isError } = api.businesses.useGetOne(id);
+  const { data: business, isLoading: isLoadingBusiness, isError } = api.businesses.useGetOne(id);
+  const { data: categories, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
+  
+  const isLoading = isLoadingBusiness || isLoadingCategories;
 
   if (isLoading) {
     return (
@@ -61,7 +63,7 @@ export default function ViewBusinessPage() {
 
   const status = business.status;
   const statusText = status === "ACTIVE" ? "Activo" : status === "PENDING_REVIEW" ? "Pendiente" : "Inactivo";
-  const category = businessCategories.find(c => c.id === business.category_id);
+  const category = categories?.find(c => c.id === business.category_id);
 
   return (
     <div className="space-y-4">
