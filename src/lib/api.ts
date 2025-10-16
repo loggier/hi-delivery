@@ -222,7 +222,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             const supabase = createClient();
             let userIdToDelete: string | null = null;
 
-            // This logic is now specific and explicit for business deletion
             if (entity === 'businesses') {
                 const { data: business, error: getError } = await supabase.from('businesses').select('user_id').eq('id', id).single();
                 if (getError) {
@@ -232,20 +231,16 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                 }
             }
             
-            // 1. Delete the main entity
             const { error: deleteError } = await supabase.from(entity).delete().eq('id', id);
             
             if (deleteError) {
                 throw new Error(deleteError.message || `No se pudo eliminar el ${translatedEntity}.`);
             }
 
-            // 2. If it was a business and we have a user ID, delete the associated user
             if (userIdToDelete) {
                 console.log(`Attempting to delete user ${userIdToDelete}`);
                 const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
                 if (deleteUserError) {
-                    // This is a problem. The business is gone, but the user is not.
-                    // The DB constraint should have prevented this, but if it happens, we must inform the user.
                     console.error(`Business deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
                     toast({
                         variant: "destructive",
@@ -257,7 +252,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         },
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
-             // If a business was deleted, also invalidate the users query
             if (entity === 'businesses') {
                 queryClient.invalidateQueries({ queryKey: ['users'] });
             }
@@ -369,7 +363,7 @@ export const useManageSubscription = () => {
                 period_end: periodEnd.toISOString(),
             };
             const { error: paymentError } = await supabase.from('payments').insert(paymentToCreate);
-            if (paymentError) throw paymentError;
+            if (paymentError) throw new Error(paymentError.message);
 
             // Update business subscription status
             const businessUpdate = {
@@ -380,7 +374,7 @@ export const useManageSubscription = () => {
                 updated_at: now.toISOString(),
             };
             const { error: updateError } = await supabase.from('businesses').update(businessUpdate).eq('id', businessId);
-            if (updateError) throw updateError;
+            if (updateError) throw new Error(updateError.message);
         },
         onSuccess: (_, { businessId }) => {
             queryClient.invalidateQueries({ queryKey: ['businesses', businessId] });
