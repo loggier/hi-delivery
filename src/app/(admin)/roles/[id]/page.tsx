@@ -5,9 +5,11 @@ import { RoleForm } from "../role-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from 'react';
+import { useParams } from "next/navigation";
 
-export default function EditRolePage({ params }: { params: { id: string } }) {
-  const id = params.id;
+export default function EditRolePage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: role, isLoading } = api.roles.useGetOne(id);
 
   if (isLoading) {

@@ -5,10 +5,12 @@ import { UserForm } from "../user-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from 'react';
+import { useParams } from "next/navigation";
 
-export default function EditUserPage({ params }: { params: { id: string } }) {
-  const id = params.id;
-  const { data: user, isLoading } = api["users"].useGetOne(id);
+export default function EditUserPage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { data: user, isLoading } = api.users.useGetOne(id);
 
   if (isLoading) {
     return (

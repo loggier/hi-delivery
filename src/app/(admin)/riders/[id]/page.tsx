@@ -92,7 +92,7 @@ export default function ViewRiderPage() {
             <CardHeader>
                 <div className="flex flex-wrap justify-between items-start gap-4">
                     <div>
-                        <CardTitle className="text-2xl">{rider.firstName} {rider.lastName} {rider.motherLastName}</CardTitle>
+                        <CardTitle className="text-2xl">{rider.firstName} ${rider.lastName} {rider.motherLastName}</CardTitle>
                         <CardDescription>Repartidor Asociado en {rider.zone}</CardDescription>
                     </div>
                     <Badge variant={statusInfo.variant} className={cn(

@@ -5,10 +5,12 @@ import { BusinessCategoryForm } from "../business-category-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from 'react';
+import { useParams } from "next/navigation";
 
-export default function EditBusinessCategoryPage({ params }: { params: { id: string } }) {
-  const id = params.id;
-  const { data: category, isLoading } = api["business_categories"].useGetOne(id);
+export default function EditBusinessCategoryPage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { data: category, isLoading } = api.business_categories.useGetOne(id);
 
   if (isLoading) {
     return (

@@ -5,9 +5,11 @@ import { ProductCategoryForm } from "../product-category-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from 'react';
+import { useParams } from "next/navigation";
 
-export default function EditProductCategoryPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+export default function EditProductCategoryPage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: category, isLoading } = api["product-categories"].useGetOne(id);
 
   if (isLoading) {
