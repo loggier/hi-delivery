@@ -86,7 +86,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         if (entity === 'businesses' && newItem.password) {
           const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
           
-          // 1. Find 'Dueño de Negocio' role ID
           const { data: roleData, error: roleError } = await supabase.from('roles').select('id').eq('name', 'Dueño de Negocio').single();
           if (roleError || !roleData) {
             console.error("Error finding role:", roleError);
@@ -94,7 +93,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           }
           const ownerRoleId = roleData.id;
 
-          // 2. Create user
           const hashedPassword = await hashPassword(password);
           const userToCreate = {
             id: `user-${faker.string.uuid()}`,
@@ -112,7 +110,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             throw new Error(userError.message || "No se pudo crear el usuario para el negocio.");
           }
 
-          // 3. Create business and link it to the user
           const businessToCreate = {
             ...businessData,
             id: `biz-${faker.string.uuid()}`,
@@ -219,24 +216,55 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<void, Error, string>({
-      mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
-      onSuccess: (_, id) => {
-        queryClient.invalidateQueries({ queryKey: entityKey });
-        if (entity === 'businesses') {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-        }
-        toast({
-          title: "Éxito",
-          description: `${translatedEntity} eliminado exitosamente.`,
-        });
-      },
-      onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message,
-        });
-      },
+        mutationFn: async (id) => {
+            const supabase = createClient();
+            let userIdToDelete: string | null = null;
+
+            if (entity === 'businesses') {
+                const { data: business, error: getError } = await supabase.from('businesses').select('user_id').eq('id', id).single();
+                if (business?.user_id) {
+                    userIdToDelete = business.user_id;
+                }
+            }
+
+            // Delete the main entity first
+            const { error: deleteError } = await supabase.from(entity).delete().eq('id', id);
+            if (deleteError) {
+                throw new Error(deleteError.message || `No se pudo eliminar el ${translatedEntity}.`);
+            }
+
+            // If it was a business and we found a user, delete the user now
+            if (userIdToDelete) {
+                const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
+                if (deleteUserError) {
+                    // Log the error but don't throw, as the main entity was already deleted.
+                    // The user might see a success toast but the user remains. This is better than showing an error when the business *is* gone.
+                    console.error(`Negocio eliminado, pero falló la eliminación del usuario asociado ${userIdToDelete}:`, deleteUserError.message);
+                    toast({
+                        variant: "destructive",
+                        title: "Advertencia",
+                        description: `El negocio fue eliminado, pero no se pudo eliminar el usuario asociado. Contacta a soporte.`,
+                    });
+                }
+            }
+        },
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: entityKey });
+            if (entity === 'businesses') {
+                queryClient.invalidateQueries({ queryKey: ['users'] });
+            }
+            toast({
+                title: "Éxito",
+                description: `${translatedEntity} eliminado exitosamente.`,
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message,
+            });
+        },
     });
   };
   
