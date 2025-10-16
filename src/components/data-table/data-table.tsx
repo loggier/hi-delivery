@@ -14,6 +14,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  Table as ReactTable,
 } from "@tanstack/react-table";
 
 import {
@@ -32,7 +33,7 @@ import { Skeleton } from "../ui/skeleton";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  toolbar?: React.ReactNode;
+  toolbar?: React.ReactNode | ((table: ReactTable<TData>) => React.ReactNode);
   isLoading?: boolean;
 }
 
@@ -72,9 +73,16 @@ export function DataTable<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
+  const renderToolbar = () => {
+    if (typeof toolbar === 'function') {
+      return toolbar(table);
+    }
+    return toolbar;
+  };
+
   return (
     <div className="space-y-4">
-      {toolbar}
+      {renderToolbar()}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
