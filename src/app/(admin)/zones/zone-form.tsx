@@ -172,14 +172,14 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                    )}
                 </div>
                 
-                <div className="absolute top-3 left-3 z-10 flex rounded-md shadow-md bg-white">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex rounded-md shadow-md bg-white">
                     <Button type="button" onClick={() => setMapTypeId('roadmap')} variant="ghost" className={cn("rounded-r-none", mapTypeId === 'roadmap' && 'bg-slate-200')}>Mapa</Button>
                     <Separator orientation="vertical" className="h-auto"/>
                     <Button type="button" onClick={() => setMapTypeId('satellite')} variant="ghost" className={cn("rounded-l-none", mapTypeId === 'satellite' && 'bg-slate-200')}>Satélite</Button>
                 </div>
                 
                  {isLoaded && (
-                    <DrawingManager
+                     <DrawingManager
                         onLoad={onDrawingManagerLoad}
                         onPolygonComplete={onPolygonComplete}
                         options={{
@@ -224,7 +224,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     type="button" 
                     variant="destructive" 
                     size="sm"
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10"
+                    className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10"
                     onClick={clearGeofence}
                     >
                     <Trash2 className="mr-2 h-4 w-4" />
