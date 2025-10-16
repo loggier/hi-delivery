@@ -103,6 +103,8 @@ export type Business = {
   status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW";
   created_at: string;
   updated_at: string;
+  password?: string;
+  passwordConfirmation?: string;
 };
 
 export type Document = {

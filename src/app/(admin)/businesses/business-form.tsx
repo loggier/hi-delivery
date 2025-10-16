@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { type Business, type BusinessType } from "@/types";
 import { businessSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
@@ -96,6 +96,8 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
       logo_url: "",
       notes: "",
       status: "ACTIVE",
+      password: "",
+      passwordConfirmation: "",
     },
   });
 
@@ -119,8 +121,14 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
   const onSubmit = async (data: BusinessFormValues) => {
     try {
       if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ ...data, id: initialData.id });
+        // Exclude password fields on update
+        const { password, passwordConfirmation, ...updateData } = data;
+        await updateMutation.mutateAsync({ ...updateData, id: initialData.id });
       } else {
+        if (!data.password) {
+            form.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
+            return;
+        }
         await createMutation.mutateAsync(data);
       }
       router.push("/businesses");
@@ -217,15 +225,18 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
         </Card>
         
         <Card>
-            <CardContent className="pt-6 space-y-6">
-                <h3 className="text-lg font-medium">Información de Contacto</h3>
+            <CardHeader>
+                <CardTitle>Información de Contacto y Propietario</CardTitle>
+                <CardDescription>Estos datos se usarán para crear la cuenta de usuario del propietario.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <FormField
                         control={form.control}
                         name="owner_name"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Nombre del Contacto</FormLabel>
+                            <FormLabel>Nombre del Propietario</FormLabel>
                             <FormControl>
                             <Input placeholder="Ej. Juan Pérez" {...field} disabled={isPending}/>
                             </FormControl>
@@ -238,10 +249,11 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                         name="email"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Email</FormLabel>
+                            <FormLabel>Email del Propietario</FormLabel>
                             <FormControl>
-                            <Input type="email" placeholder="contacto@ejemplo.com" {...field} disabled={isPending}/>
+                            <Input type="email" placeholder="contacto@ejemplo.com" {...field} disabled={isPending || isEditing}/>
                             </FormControl>
+                             {isEditing && <FormDescription>El email no se puede cambiar.</FormDescription>}
                             <FormMessage />
                         </FormItem>
                         )}
@@ -261,6 +273,41 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                         )}
                     />
                 </div>
+                 {!isEditing && (
+                    <>
+                        <Separator />
+                        <h3 className="text-md font-medium text-slate-800">Crear Contraseña para el Propietario</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <FormField
+                                control={form.control}
+                                name="password"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Contraseña</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
+                                    </FormControl>
+                                    <FormDescription>Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 símbolo.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="passwordConfirmation"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Confirmar Contraseña</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                         </div>
+                    </>
+                 )}
             </CardContent>
         </Card>
 

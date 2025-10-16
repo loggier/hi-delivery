@@ -72,6 +72,8 @@ const normalizePhone = (phone: string) => {
   return phone;
 };
 
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 export const businessSchema = z.object({
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
@@ -94,6 +96,26 @@ export const businessSchema = z.object({
     logo_url: z.string().optional(),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
+    // Campos de contraseña (opcionales, solo para creación)
+    password: z.string().optional(),
+    passwordConfirmation: z.string().optional(),
+}).refine(data => {
+    // Si se proporciona una contraseña, la confirmación también debe proporcionarse y coincidir.
+    if (data.password) {
+        return data.password === data.passwordConfirmation;
+    }
+    return true; // Si no hay contraseña, la validación pasa.
+}, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
+}).refine(data => {
+    if (data.password) {
+        return passwordRegex.test(data.password);
+    }
+    return true;
+}, {
+    message: "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.",
+    path: ["password"],
 });
 
 
@@ -106,9 +128,6 @@ export const productSchema = z.object({
   categoryId: z.string({ required_error: "Por favor, selecciona una categoría." }),
   imageUrl: z.string().optional(),
 });
-
-
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 const fileSchema = (message: string) => z.any()
     .refine(files => files?.length === 1, message)

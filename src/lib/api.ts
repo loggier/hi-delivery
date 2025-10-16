@@ -7,6 +7,7 @@ import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Custo
 import { createClient } from "./supabase/client";
 import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
+import { hashPassword } from "./auth-utils";
 
 const supabase = createClient();
 const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA!;
@@ -16,6 +17,7 @@ const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA!;
 async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: PostgrestError | null }>): Promise<T> {
     const { data, error } = await query;
     if (error) {
+        console.error("Supabase error:", error);
         throw new Error(error.message || "Ocurrió un error en la base de datos.");
     }
     return data as T;
@@ -43,6 +45,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   // GET all
   const useGetAll = (params: Record<string, string> = {}) => {
     const queryKey = [entity, params];
+    const supabase = createClient(schema);
 
     let query = supabase.from(entity).select('*', { count: 'exact' });
 
@@ -61,26 +64,67 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   }
 
   // GET one
-  const useGetOne = (id: string) => useQuery<T>({
-    queryKey: [...entityKey, id],
-    queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
-    enabled: !!id,
-  });
+  const useGetOne = (id: string) => {
+    const supabase = createClient(schema);
+    return useQuery<T>({
+        queryKey: [...entityKey, id],
+        queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
+        enabled: !!id,
+    });
+  }
 
   // CREATE
   const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const supabase = createClient(schema);
+
     return useMutation<T, Error, T_DTO>({
-      mutationFn: async (newItem) => {
+      mutationFn: async (newItemDTO) => {
+        const newItem = newItemDTO as any;
+        // Special logic for businesses to create a user first
+        if (entity === 'businesses' && newItem.password) {
+          const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
+          
+          // 1. Create user
+          const hashedPassword = await hashPassword(password);
+          const userToCreate = {
+            id: `user-${faker.string.uuid()}`,
+            name: owner_name,
+            email: email,
+            password: hashedPassword,
+            role_id: 'role-owner', // Hardcoded role for new business owners
+            status: 'ACTIVE',
+            created_at: new Date().toISOString(),
+          };
+          await handleSupabaseQuery(supabase.from('users').insert(userToCreate));
+
+          // 2. Create business
+          const businessToCreate = {
+            id: `biz-${faker.string.uuid()}`,
+            ...businessData,
+            name: newItem.name, // Ensure name is included
+            owner_name: owner_name,
+            email: email,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          return handleSupabaseQuery(supabase.from(entity).insert(businessToCreate).select().single());
+        }
+
         const itemWithId = {
-            id: `${entity.slice(0, 3)}-${faker.string.uuid()}`, // Generate client-side ID
+            id: `${entity.slice(0, 4)}-${faker.string.uuid()}`, // Generate client-side ID
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             ...newItem
         }
         return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
+        if (entity === 'businesses') {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        }
         toast({
           title: "Éxito",
           description: `${translatedEntity} creado exitosamente.`,
@@ -101,6 +145,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const supabase = createClient(schema);
     return useMutation<T, Error, FormData>({
       mutationFn: async (formData) => {
         // This is a placeholder. Supabase doesn't directly handle form data like this for JSON.
@@ -135,10 +180,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useUpdate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const supabase = createClient(schema);
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
-        return handleSupabaseQuery(supabase.from(entity).update(updateData).eq('id', id).select().single());
+        return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -163,6 +209,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useDelete = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const supabase = createClient(schema);
     return useMutation<void, Error, string>({
       mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
       onSuccess: (_, id) => {
@@ -202,6 +249,7 @@ export const api = {
 
 // Custom hooks for nested resources
 export const useCustomerOrders = (customerId: string) => {
+    const supabase = createClient(schema);
     return useQuery<Order[]>({
         queryKey: ['customers', customerId, 'orders'],
         queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customerId', customerId)),
