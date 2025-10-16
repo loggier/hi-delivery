@@ -37,7 +37,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  password?: string; // Should be passwordHash, but keeping it simple for now
+  password?: string;
   avatar_url?: string;
   role_id: string;
   status: "ACTIVE" | "INACTIVE";
@@ -77,7 +77,7 @@ export type BusinessCategory = {
   name: string;
   type: BusinessType;
   active: boolean;
-  createdAt: string;
+  created_at: string;
 };
 
 export type Business = {

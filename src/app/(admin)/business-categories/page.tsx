@@ -2,37 +2,21 @@
 
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
+import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { columns } from "./columns";
+import { useDebounce } from "use-debounce";
+import { Input } from "@/components/ui/input";
 
 export default function BusinessCategoriesPage() {
-  const { data: categories, isLoading } = api["business-categories"].useGetAll();
+  const [search, setSearch] = React.useState('');
+  const [debouncedSearch] = useDebounce(search, 500);
 
-  if (isLoading) {
-    return (
-        <div className="space-y-4">
-            <PageHeader title="Categorías de Negocios" description="Gestiona las categorías de los negocios.">
-                <Skeleton className="h-9 w-[120px]" />
-            </PageHeader>
-            <div className="space-y-4 rounded-md border p-4">
-                <div className="flex items-center justify-between">
-                    <Skeleton className="h-8 w-[250px]" />
-                    <Skeleton className="h-8 w-[80px]" />
-                </div>
-                <div className="space-y-2">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-            </div>
-        </div>
-    );
-  }
+  const { data: categories, isLoading } = api["business-categories"].useGetAll({ name: debouncedSearch });
 
   return (
     <div className="space-y-4">
@@ -44,7 +28,19 @@ export default function BusinessCategoriesPage() {
           </Link>
         </Button>
       </PageHeader>
-      <DataTable columns={columns} data={categories || []} searchKey="name"/>
+      <DataTable 
+        columns={columns} 
+        data={categories || []} 
+        isLoading={isLoading}
+        toolbar={
+           <Input
+            placeholder="Filtrar por nombre..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="h-8 w-[150px] lg:w-[250px]"
+          />
+        }
+      />
     </div>
   );
 }

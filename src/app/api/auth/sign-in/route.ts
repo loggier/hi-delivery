@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     // Fetch complete user profile to send to client, excluding password
     const { data: fullUser, error: fullUserError } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, avatar_url, role_id, status, createdAt')
+      .select('id, name, email, avatar_url, role_id, status, created_at')
       .eq('id', user.id)
       .single();
     

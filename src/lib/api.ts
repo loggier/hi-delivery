@@ -3,23 +3,28 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan } from "@/types";
+import { createClient } from "./supabase/client";
+import { PostgrestError } from "@supabase/supabase-js";
+import { faker } from "@faker-js/faker";
 
-const API_BASE_URL = "/api/mock";
+const supabase = createClient();
+const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA;
 
 // --- Generic Fetcher ---
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${endpoint}`, options);
-  if (!res.ok) {
-    const errorBody = await res.json();
-    throw new Error(errorBody.message || "Ocurrió un error desconocido");
-  }
-  if (res.status === 204) return {} as T;
-  return res.json();
+async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: PostgrestError | null }>): Promise<T> {
+    const { data, error } = await query;
+    if (error) {
+        console.error("Supabase error:", error);
+        throw new Error(error.message || "Ocurrió un error en la base de datos.");
+    }
+    return data as T;
 }
+
 
 const entityTranslations: { [key: string]: string } = {
     "product-categories": "Categoría de Producto",
     "business-categories": "Categoría de Negocio",
+    "business_categories": "Categoría de Negocio",
     businesses: "Negocio",
     products: "Producto",
     riders: "Repartidor",
@@ -37,31 +42,43 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
   // GET all
   const useGetAll = (params: Record<string, string> = {}) => {
-    const queryString = new URLSearchParams(params).toString();
-    const queryKey = queryString ? [entity, params] : [entity];
+    const queryKey = [entity, params];
+
+    let query = supabase.from(entity).select('*', { count: 'exact' });
+
+    Object.entries(params).forEach(([key, value]) => {
+        if(value) {
+            query = query.ilike(key, `%${value}%`);
+        }
+    });
+
+    query = query.order('created_at', { ascending: false });
+
     return useQuery<T[]>({
       queryKey: queryKey,
-      queryFn: () => fetchAPI<T[]>(`/${entity}?${queryString}`),
+      queryFn: () => handleSupabaseQuery(query.returns<T[]>()),
     });
   }
 
   // GET one
   const useGetOne = (id: string) => useQuery<T>({
     queryKey: [...entityKey, id],
-    queryFn: () => fetchAPI<T>(`/${entity}/${id}`),
+    queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
     enabled: !!id,
   });
 
   // CREATE
-  const useCreate = <T_DTO = Omit<T, "id" | "createdAt" | "updatedAt">>() => {
+  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updatedAt">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<T, Error, T_DTO>({
-      mutationFn: (newItem) => fetchAPI<T>(`/${entity}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newItem),
-      }),
+      mutationFn: async (newItem) => {
+        const itemWithId = {
+            id: `${entity.slice(0, 3)}-${faker.string.uuid()}`, // Generate client-side ID
+            ...newItem
+        }
+        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
+      },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
@@ -85,10 +102,17 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<T, Error, FormData>({
-      mutationFn: (formData) => fetchAPI<T>(`/${entity}`, {
-        method: "POST",
-        body: formData,
-      }),
+      mutationFn: async (formData) => {
+        // This is a placeholder. Supabase doesn't directly handle form data like this for JSON.
+        // You'd typically extract files and upload to storage, then insert JSON.
+        // For now, we'll convert it to an object.
+        const newItem = Object.fromEntries(formData.entries());
+         const itemWithId = {
+            id: `${entity.slice(0, 3)}-${faker.string.uuid()}`,
+            ...newItem
+        }
+        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
+      },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
@@ -112,11 +136,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<T, Error, Partial<T> & { id: string }>({
-      mutationFn: (item) => fetchAPI<T>(`/${entity}/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      }),
+      mutationFn: (item) => {
+        const { id, ...updateData } = item;
+        return handleSupabaseQuery(supabase.from(entity).update(updateData).eq('id', id).select().single());
+      },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         queryClient.setQueryData([...entityKey, data.id], data);
@@ -141,7 +164,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<void, Error, string>({
-      mutationFn: (id) => fetchAPI<void>(`/${entity}/${id}`, { method: "DELETE" }),
+      mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
       onSuccess: (_, id) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
@@ -164,8 +187,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
 // --- Specific API Hooks ---
 export const api = {
-    "product-categories": createCRUDApi<Category>('product-categories'),
-    "business-categories": createCRUDApi<BusinessCategory>('business-categories'),
+    "product-categories": createCRUDApi<Category>('product_categories'),
+    "business-categories": createCRUDApi<BusinessCategory>('business_categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
@@ -181,7 +204,7 @@ export const api = {
 export const useCustomerOrders = (customerId: string) => {
     return useQuery<Order[]>({
         queryKey: ['customers', customerId, 'orders'],
-        queryFn: () => fetchAPI(`/customers/${customerId}/orders`),
+        queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customerId', customerId)),
         enabled: !!customerId,
     });
 };
@@ -203,5 +226,10 @@ export const useDashboardStats = () => useQuery<{
     totalOrders: number;
 }>({
     queryKey: ['dashboardStats'],
-    queryFn: () => fetchAPI('/dashboard-stats'),
+    // This part remains mock for now as it aggregates data from multiple tables.
+    queryFn: async () => {
+        const res = await fetch(`/api/mock/dashboard-stats`);
+        if (!res.ok) throw new Error('Failed to fetch dashboard stats');
+        return res.json();
+    }
 });
