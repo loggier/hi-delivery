@@ -88,6 +88,12 @@ export default function SettingsPage() {
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
+    defaultValues: {
+        min_shipping_amount: 0,
+        min_distance_km: 0,
+        max_distance_km: 0,
+        cost_per_extra_km: 0,
+    }
   });
   
   useEffect(() => {
