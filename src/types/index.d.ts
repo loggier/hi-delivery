@@ -88,6 +88,7 @@ export type Business = {
   name: string;
   type: BusinessType;
   category_id: string;
+  zone_id?: string;
   email: string;
   owner_name: string;
   phone_whatsapp: string;

@@ -79,6 +79,7 @@ export const businessSchema = z.object({
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
     category_id: z.string({ required_error: "Debes seleccionar una categoría." }),
+    zone_id: z.string().optional(),
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
     owner_name: z.string().min(2, { message: "El nombre del contacto debe tener al menos 2 caracteres." }),
     phone_whatsapp: z.string()

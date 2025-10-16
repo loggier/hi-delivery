@@ -72,6 +72,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
   const createMutation = api.businesses.useCreate();
   const updateMutation = api.businesses.useUpdate();
   const { data: categories } = api.business_categories.useGetAll();
+  const { data: zones } = api.zones.useGetAll();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
@@ -82,6 +83,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
       name: "",
       type: "restaurant",
       category_id: "",
+      zone_id: "",
       email: "",
       owner_name: "",
       phone_whatsapp: "",
@@ -205,6 +207,29 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                             )}
                         />
                      </div>
+                      <FormField
+                        control={form.control}
+                        name="zone_id"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Zona de Operación</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={isPending || !zones}>
+                            <FormControl>
+                                <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una zona" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {zones?.filter(z => z.status === 'ACTIVE').map(zone => (
+                                    <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                            </Select>
+                            <FormDescription>La zona donde operará principalmente el negocio.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
                 </div>
                 <div className="lg:row-span-2">
                     <FormField
