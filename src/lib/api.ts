@@ -9,7 +9,6 @@ import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
 import { hashPassword } from "./auth-utils";
 
-const supabase = createClient();
 const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA!;
 
 
@@ -45,7 +44,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   // GET all
   const useGetAll = (params: Record<string, string> = {}) => {
     const queryKey = [entity, params];
-    const supabase = createClient(schema);
+    const supabase = createClient();
 
     let query = supabase.from(entity).select('*', { count: 'exact' });
 
@@ -65,7 +64,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
   // GET one
   const useGetOne = (id: string) => {
-    const supabase = createClient(schema);
+    const supabase = createClient();
     return useQuery<T>({
         queryKey: [...entityKey, id],
         queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
@@ -77,7 +76,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient(schema);
+    const supabase = createClient();
 
     return useMutation<T, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
@@ -87,9 +86,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
           
           // 1. Create user
+          const newUserId = `user-${faker.string.uuid()}`;
           const hashedPassword = await hashPassword(password);
           const userToCreate = {
-            id: `user-${faker.string.uuid()}`,
+            id: newUserId,
             name: owner_name,
             email: email,
             password: hashedPassword,
@@ -99,11 +99,12 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           };
           await handleSupabaseQuery(supabase.from('users').insert(userToCreate));
 
-          // 2. Create business
+          // 2. Create business and link it to the user
           const businessToCreate = {
             id: `biz-${faker.string.uuid()}`,
+            user_id: newUserId,
             ...businessData,
-            name: newItem.name, // Ensure name is included
+            name: newItem.name,
             owner_name: owner_name,
             email: email,
             created_at: new Date().toISOString(),
@@ -145,12 +146,9 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient(schema);
+    const supabase = createClient();
     return useMutation<T, Error, FormData>({
       mutationFn: async (formData) => {
-        // This is a placeholder. Supabase doesn't directly handle form data like this for JSON.
-        // You'd typically extract files and upload to storage, then insert JSON.
-        // For now, we'll convert it to an object.
         const newItem = Object.fromEntries(formData.entries());
          const itemWithId = {
             id: `${entity.slice(0, 3)}-${faker.string.uuid()}`,
@@ -180,7 +178,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useUpdate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient(schema);
+    const supabase = createClient();
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
@@ -209,7 +207,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useDelete = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient(schema);
+    const supabase = createClient();
     return useMutation<void, Error, string>({
       mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
       onSuccess: (_, id) => {
@@ -249,7 +247,7 @@ export const api = {
 
 // Custom hooks for nested resources
 export const useCustomerOrders = (customerId: string) => {
-    const supabase = createClient(schema);
+    const supabase = createClient();
     return useQuery<Order[]>({
         queryKey: ['customers', customerId, 'orders'],
         queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customerId', customerId)),
