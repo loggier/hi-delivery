@@ -185,7 +185,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                         options={{
                             drawingControl: true,
                             drawingControlOptions: {
-                                position: window.google.maps.ControlPosition.LEFT_TOP,
+                                position: window.google.maps.ControlPosition.TOP_CENTER,
                                 drawingModes: ['polygon'],
                             },
                             polygonOptions: {
