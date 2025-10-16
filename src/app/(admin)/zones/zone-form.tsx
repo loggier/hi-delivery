@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
@@ -166,26 +167,28 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </div>
 
                 
-                {isLoaded && window.google?.maps?.drawing && <DrawingManager
-                    onPolygonComplete={onPolygonComplete}
-                    options={{
-                      drawingControl: true,
-                      drawingControlOptions: {
-                          position: window.google.maps.ControlPosition.TOP_CENTER,
-                          drawingModes: [
-                              window.google.maps.drawing.DrawingMode.POLYGON,
-                          ],
-                      },
-                      polygonOptions: {
-                          fillColor: "hsl(var(--gh-primary))",
-                          fillOpacity: 0.2,
-                          strokeColor: "hsl(var(--gh-primary))",
-                          strokeWeight: 2,
-                          editable: false,
-                          draggable: false,
-                      },
-                    }}
-                />}
+                {isLoaded && (
+                    <DrawingManager
+                        onPolygonComplete={onPolygonComplete}
+                        options={{
+                          drawingControl: true,
+                          drawingControlOptions: {
+                              position: window.google.maps.ControlPosition.TOP_CENTER,
+                              drawingModes: [
+                                  window.google.maps.drawing.DrawingMode.POLYGON,
+                              ],
+                          },
+                          polygonOptions: {
+                              fillColor: "hsl(var(--gh-primary))",
+                              fillOpacity: 0.2,
+                              strokeColor: "hsl(var(--gh-primary))",
+                              strokeWeight: 2,
+                              editable: false,
+                              draggable: false,
+                          },
+                        }}
+                    />
+                )}
 
                 {value && (
                     <Polygon
