@@ -41,6 +41,7 @@ const navItems = [
     { href: "/riders", icon: Bike, label: "Repartidores" },
     { href: "/customers", icon: Contact, label: "Clientes" },
     { href: "/zones", icon: Map, label: "Zonas" },
+    { href: "/subscriptions", icon: Tags, label: "Suscripciones" },
     { href: "/products", icon: Package, label: "Productos" },
     { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios" },
     { href: "/product-categories", icon: List, label: "Cat. de Productos" },

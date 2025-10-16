@@ -21,6 +21,7 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   customers: 'Clientes',
   roles: 'Roles y Permisos',
   plans: 'Planes',
+  subscriptions: 'Suscripciones',
   new: 'Nuevo',
 };
 
