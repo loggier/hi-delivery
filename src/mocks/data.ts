@@ -111,7 +111,7 @@ export let users: User[] = [
     email: 'admin@example.com',
     role_id: 'role-admin',
     status: 'ACTIVE',
-    createdAt: new Date('2023-01-01T10:00:00Z').toISOString(),
+    created_at: new Date('2023-01-01T10:00:00Z').toISOString(),
   },
   {
     id: 'user-2',
@@ -119,7 +119,7 @@ export let users: User[] = [
     email: 'inactive@example.com',
     role_id: 'role-support',
     status: 'INACTIVE',
-    createdAt: new Date('2023-02-15T11:30:00Z').toISOString(),
+    created_at: new Date('2023-02-15T11:30:00Z').toISOString(),
   },
    {
     id: 'user-3',
@@ -127,7 +127,7 @@ export let users: User[] = [
     email: 'owner@example.com',
     role_id: 'role-owner',
     status: 'ACTIVE',
-    createdAt: new Date('2024-05-10T11:30:00Z').toISOString(),
+    created_at: new Date('2024-05-10T11:30:00Z').toISOString(),
   },
 ];
 

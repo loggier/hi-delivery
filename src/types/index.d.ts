@@ -41,7 +41,7 @@ export type User = {
   avatar_url?: string;
   role_id: string;
   status: "ACTIVE" | "INACTIVE";
-  createdAt: string;
+  created_at: string;
 };
 
 export type Customer = {
