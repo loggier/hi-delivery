@@ -26,13 +26,10 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
         cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-        db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA! },
+        db: { schema: process.env.SUPABASE_SCHEMA! },
       }
     );
+  
 
     const { data: user, error: userError }: PostgrestSingleResponse<UserData> = await supabaseAdmin
       .from('users')
