@@ -1,6 +1,7 @@
 
 
 
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect } from "react";
@@ -160,8 +161,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     fullscreenControl: true,
                 }}
             >
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-4 items-center">
-                   {isLoaded && (
+               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-4 items-center">
                     <div className="w-80">
                         <Autocomplete
                             onLoad={onAutocompleteLoad}
@@ -174,7 +174,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                             />
                         </Autocomplete>
                     </div>
-                   )}
                     <div className="flex rounded-md shadow-md bg-white">
                         <Button type="button" onClick={() => setMapTypeId('roadmap')} variant="ghost" className={cn("rounded-r-none", mapTypeId === 'roadmap' && 'bg-slate-200')}>Mapa</Button>
                         <Separator orientation="vertical" className="h-auto"/>
@@ -187,11 +186,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                         onLoad={onDrawingManagerLoad}
                         onPolygonComplete={onPolygonComplete}
                         options={{
-                            drawingControl: true,
-                            drawingControlOptions: {
-                                position: window.google.maps.ControlPosition.TOP_CENTER,
-                                drawingModes: ['polygon'],
-                            },
+                            drawingControl: false,
                             polygonOptions: {
                                 fillColor: "#04AAF1",
                                 fillOpacity: 0.35,
@@ -228,7 +223,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     type="button" 
                     variant="destructive" 
                     size="sm"
-                    className="absolute top-14 left-1/2 -translate-x-1/2 z-10"
+                    className="absolute top-4 left-1/2 -translate-x-1/2 z-10"
                     onClick={clearGeofence}
                     >
                     <Trash2 className="mr-2 h-4 w-4" />
