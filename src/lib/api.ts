@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings } from "@/types";
 import { createClient } from "./supabase/client";
 import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
@@ -37,6 +37,7 @@ const entityTranslations: { [key: string]: string } = {
     "roles": "Rol",
     "plans": "Plan",
     "payments": "Pago",
+    "settings": "Configuración",
 }
 
 // --- Generic CRUD Hooks ---
@@ -277,6 +278,62 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   return { useGetAll, useGetOne, useCreate, useUpdate, useDelete, useCreateWithFormData };
 }
 
+// Special API for settings as it's a single-row table
+function createSettingsApi() {
+    const entity = 'system_settings';
+    const entityKey = [entity];
+    const translatedEntity = entityTranslations['settings'];
+    const supabase = createClient();
+    const SETTINGS_ID = 1; // The single row ID
+
+    const useGet = () => {
+        return useQuery<SystemSettings>({
+            queryKey: entityKey,
+            queryFn: async () => {
+                return handleSupabaseQuery(
+                    supabase.from(entity).select('*').eq('id', SETTINGS_ID).single()
+                );
+            },
+        });
+    };
+
+    const useUpdate = () => {
+        const queryClient = useQueryClient();
+        const { toast } = useToast();
+        return useMutation<SystemSettings, Error, Partial<SystemSettings>>({
+            mutationFn: (settings) => {
+                return handleSupabaseQuery(
+                    supabase
+                        .from(entity)
+                        .update({ ...settings, updated_at: new Date().toISOString() })
+                        .eq('id', SETTINGS_ID)
+                        .select()
+                        .single()
+                );
+            },
+            onSuccess: (data) => {
+                queryClient.invalidateQueries({ queryKey: entityKey });
+                queryClient.setQueryData(entityKey, data);
+                toast({
+                    title: "Éxito",
+                    description: `${translatedEntity} actualizada exitosamente.`,
+                    variant: 'success'
+                });
+            },
+            onError: (error) => {
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: error.message,
+                });
+            },
+        });
+    };
+
+    return { useGet, useUpdate };
+}
+
+
 // --- Specific API Hooks ---
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
@@ -291,6 +348,7 @@ export const api = {
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
+    settings: createSettingsApi(),
 };
 
 // Custom hooks for nested resources

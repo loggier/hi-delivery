@@ -239,3 +239,13 @@ export type Payment = {
   period_end: string;
   created_at: string;
 };
+
+export type SystemSettings = {
+    id: number;
+    min_shipping_amount: number;
+    min_distance_km: number;
+    max_distance_km: number;
+    cost_per_extra_km: number;
+    created_at: string;
+    updated_at: string;
+}

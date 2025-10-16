@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,44 +25,94 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { api } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 
 const settingsSchema = z.object({
-  minShippingAmount: z.coerce
+  min_shipping_amount: z.coerce
     .number()
     .min(0, "Debe ser un valor positivo"),
-  minDistanceKm: z.coerce.number().min(0, "Debe ser un valor positivo"),
-  maxDistanceKm: z.coerce.number().min(0, "Debe ser un valor positivo"),
-  costPerExtraKm: z.coerce.number().min(0, "Debe ser un valor positivo"),
+  min_distance_km: z.coerce.number().min(0, "Debe ser un valor positivo"),
+  max_distance_km: z.coerce.number().min(0, "Debe ser un valor positivo"),
+  cost_per_extra_km: z.coerce.number().min(0, "Debe ser un valor positivo"),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
 
-// Mock data, en una app real esto vendría de una API
-const currentSettings = {
-    minShippingAmount: 50,
-    minDistanceKm: 3,
-    maxDistanceKm: 15,
-    costPerExtraKm: 8,
-}
+const SettingsSkeleton = () => (
+    <Card>
+        <CardHeader>
+          <CardTitle>Parámetros de Envío</CardTitle>
+          <CardDescription>
+            Estos valores afectan cómo se calculan los costos y la viabilidad
+            de los envíos en toda la plataforma.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                    </div>
+                </div>
+                <Separator />
+                <div className="flex justify-end">
+                    <Skeleton className="h-10 w-32" />
+                </div>
+            </div>
+        </CardContent>
+    </Card>
+);
 
 export default function SettingsPage() {
-  const { toast } = useToast();
+  const { data: currentSettings, isLoading } = api.settings.useGet();
+  const updateMutation = api.settings.useUpdate();
+
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: currentSettings, // Cargar valores iniciales
   });
+  
+  useEffect(() => {
+    if (currentSettings) {
+        form.reset(currentSettings);
+    }
+  }, [currentSettings, form]);
 
   const onSubmit = (data: SettingsFormValues) => {
-    // Aquí iría la lógica para guardar en el backend (e.g., useMutation)
-    console.log("Valores guardados:", data);
-    toast({
-      title: "Configuración Guardada",
-      description: "Los valores del sistema han sido actualizados.",
-      variant: "success",
-    });
+    updateMutation.mutate(data);
   };
 
-  const isPending = form.formState.isSubmitting;
+  const isPending = form.formState.isSubmitting || updateMutation.isPending;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Configuración del Sistema"
+          description="Ajusta los parámetros globales de la operación de envíos."
+        />
+        <SettingsSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -84,13 +134,14 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormField
                   control={form.control}
-                  name="minShippingAmount"
+                  name="min_shipping_amount"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Monto Mínimo de Pedido</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
+                          step="0.01"
                           placeholder="Ej. 50"
                           {...field}
                           disabled={isPending}
@@ -105,13 +156,14 @@ export default function SettingsPage() {
                 />
                  <FormField
                   control={form.control}
-                  name="minDistanceKm"
+                  name="min_distance_km"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Distancia Base (KM)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
+                          step="0.1"
                           placeholder="Ej. 3"
                           {...field}
                           disabled={isPending}
@@ -126,13 +178,14 @@ export default function SettingsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="maxDistanceKm"
+                  name="max_distance_km"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Distancia Máxima de Envío (KM)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
+                          step="0.1"
                           placeholder="Ej. 15"
                           {...field}
                           disabled={isPending}
@@ -147,13 +200,14 @@ export default function SettingsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="costPerExtraKm"
+                  name="cost_per_extra_km"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Costo por KM Adicional</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
+                          step="0.01"
                           placeholder="Ej. 8"
                           {...field}
                           disabled={isPending}
@@ -170,6 +224,7 @@ export default function SettingsPage() {
               <Separator />
               <div className="flex justify-end">
                 <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                   {isPending ? "Guardando..." : "Guardar Cambios"}
                 </Button>
               </div>
