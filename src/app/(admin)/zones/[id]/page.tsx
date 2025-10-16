@@ -14,14 +14,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
+
 const GeofenceMap = ({ geofence }: { geofence?: { lat: number; lng: number }[] }) => {
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-        libraries: ['drawing'],
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries,
     });
 
     const mapCenter = React.useMemo(() => {
-        if (geofence && geofence.length > 0) {
+        if (geofence && geofence.length > 0 && window.google) {
             const bounds = new window.google.maps.LatLngBounds();
             geofence.forEach(coord => bounds.extend(coord));
             return bounds.getCenter().toJSON();

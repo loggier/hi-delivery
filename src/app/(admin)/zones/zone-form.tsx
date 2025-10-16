@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
@@ -44,7 +45,7 @@ const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
 
 const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) => void; }) => {
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
     
@@ -167,7 +168,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </div>
 
                 
-                {isLoaded && (
+                {isLoaded && window.google?.maps?.drawing && (
                     <DrawingManager
                         onPolygonComplete={onPolygonComplete}
                         options={{
