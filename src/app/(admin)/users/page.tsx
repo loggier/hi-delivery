@@ -2,37 +2,20 @@
 
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
+import React from "react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { columns } from "./columns";
+import { getColumns } from "./columns";
 
 export default function UsersPage() {
-  const { data: users, isLoading } = api.users.useGetAll();
+  const { data: usersData, isLoading: isLoadingUsers } = api.users.useGetAll();
+  const { data: rolesData, isLoading: isLoadingRoles } = api.roles.useGetAll();
 
-  if (isLoading) {
-    return (
-        <div className="space-y-4">
-            <PageHeader title="Usuarios del Sistema" description="Gestiona los usuarios administradores.">
-                <Skeleton className="h-9 w-[120px]" />
-            </PageHeader>
-            <div className="space-y-4 rounded-md border p-4">
-                <div className="flex items-center justify-between">
-                    <Skeleton className="h-8 w-[250px]" />
-                    <Skeleton className="h-8 w-[80px]" />
-                </div>
-                <div className="space-y-2">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-            </div>
-        </div>
-    );
-  }
+  const columns = React.useMemo(() => getColumns(rolesData || []), [rolesData]);
+  const isLoading = isLoadingUsers || isLoadingRoles;
 
   return (
     <div className="space-y-4">
@@ -44,7 +27,12 @@ export default function UsersPage() {
           </Link>
         </Button>
       </PageHeader>
-      <DataTable columns={columns} data={users || []} searchKey="name"/>
+      <DataTable 
+        columns={columns} 
+        data={usersData || []} 
+        isLoading={isLoading} 
+        searchKey="name"
+      />
     </div>
   );
 }

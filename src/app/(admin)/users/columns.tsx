@@ -19,13 +19,11 @@ import {
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { type User } from "@/types";
+import { type User, type Role } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
 import { api } from "@/lib/api";
-import { roles as mockRoles } from "@/mocks/data";
 
-
-export const columns: ColumnDef<User>[] = [
+export const getColumns = (roles: Role[]): ColumnDef<User>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -62,7 +60,7 @@ export const columns: ColumnDef<User>[] = [
     accessorKey: "role_id",
     header: "Rol",
     cell: ({ row }) => {
-        const role = mockRoles.find(r => r.id === row.original.role_id);
+        const role = roles.find(r => r.id === row.original.role_id);
         return role ? role.name : 'N/A';
     }
   },
