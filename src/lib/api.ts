@@ -43,7 +43,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useGetAll = (params: Record<string, string> = {}) => {
     const queryKey = [entity, params];
 
-    let query = supabase.from(entity).select('*', { count: 'exact' }).schema(schema);
+    let query = supabase.from(entity).schema(schema).select('*', { count: 'exact' });
 
     Object.entries(params).forEach(([key, value]) => {
         if(value) {
@@ -62,7 +62,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   // GET one
   const useGetOne = (id: string) => useQuery<T>({
     queryKey: [...entityKey, id],
-    queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single().schema(schema)),
+    queryFn: () => handleSupabaseQuery(supabase.from(entity).schema(schema).select('*').eq('id', id).single()),
     enabled: !!id,
   });
 
@@ -76,7 +76,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             id: `${entity.slice(0, 3)}-${faker.string.uuid()}`, // Generate client-side ID
             ...newItem
         }
-        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single().schema(schema));
+        return handleSupabaseQuery(supabase.from(entity).schema(schema).insert(itemWithId).select().single());
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -110,7 +110,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             id: `${entity.slice(0, 3)}-${faker.string.uuid()}`,
             ...newItem
         }
-        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single().schema(schema));
+        return handleSupabaseQuery(supabase.from(entity).schema(schema).insert(itemWithId).select().single());
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -137,7 +137,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
-        return handleSupabaseQuery(supabase.from(entity).update(updateData).eq('id', id).select().single().schema(schema));
+        return handleSupabaseQuery(supabase.from(entity).schema(schema).update(updateData).eq('id', id).select().single());
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -163,7 +163,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     return useMutation<void, Error, string>({
-      mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id).schema(schema)),
+      mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).schema(schema).delete().eq('id', id)),
       onSuccess: (_, id) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         toast({
@@ -186,8 +186,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
 // --- Specific API Hooks ---
 export const api = {
-    "product_categories": createCRUDApi<Category>('product_categories'),
-    "business_categories": createCRUDApi<BusinessCategory>('business_categories'),
+    product_categories: createCRUDApi<Category>('product_categories'),
+    business_categories: createCRUDApi<BusinessCategory>('business_categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
@@ -203,7 +203,7 @@ export const api = {
 export const useCustomerOrders = (customerId: string) => {
     return useQuery<Order[]>({
         queryKey: ['customers', customerId, 'orders'],
-        queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customerId', customerId).schema(schema)),
+        queryFn: () => handleSupabaseQuery(supabase.from('orders').schema(schema).select('*').eq('customerId', customerId)),
         enabled: !!customerId,
     });
 };
