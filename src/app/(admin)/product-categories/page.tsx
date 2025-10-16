@@ -11,7 +11,7 @@ import { api } from "@/lib/api";
 import { columns } from "./columns";
 
 export default function ProductCategoriesPage() {
-  const { data: categories, isLoading } = api["product-categories"].useGetAll();
+  const { data: categories, isLoading } = api["product_categories"].useGetAll();
 
   if (isLoading) {
     return (
@@ -44,7 +44,7 @@ export default function ProductCategoriesPage() {
           </Link>
         </Button>
       </PageHeader>
-      <DataTable columns={columns} data={categories || []} searchKey="name"/>
+      <DataTable columns={columns} data={categories || []} isLoading={isLoading} searchKey="name"/>
     </div>
   );
 }

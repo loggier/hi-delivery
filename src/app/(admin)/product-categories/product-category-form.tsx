@@ -38,8 +38,8 @@ interface ProductCategoryFormProps {
 
 export function ProductCategoryForm({ initialData }: ProductCategoryFormProps) {
   const router = useRouter();
-  const createMutation = api["product-categories"].useCreate();
-  const updateMutation = api["product-categories"].useUpdate();
+  const createMutation = api["product_categories"].useCreate();
+  const updateMutation = api["product_categories"].useUpdate();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear categoría";

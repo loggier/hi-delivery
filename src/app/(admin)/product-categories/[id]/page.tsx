@@ -10,7 +10,7 @@ import { useParams } from "next/navigation";
 export default function EditProductCategoryPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { data: category, isLoading } = api["product-categories"].useGetOne(id);
+  const { data: category, isLoading } = api["product_categories"].useGetOne(id);
 
   if (isLoading) {
     return (
