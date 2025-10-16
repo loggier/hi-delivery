@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       .single();
       
     if (userError || !user || !user.password) {
-      return NextResponse.json({ message: 'Credenciales inválidas.' }, { status: 401 });
+      return NextResponse.json({ message: 'Credenciales inválidas.'+JSON.stringify(userError) }, { status: 401 });
     }
     
     if (user.status !== 'ACTIVE') {
