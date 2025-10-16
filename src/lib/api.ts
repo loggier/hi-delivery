@@ -41,6 +41,7 @@ const entityTranslations: { [key: string]: string } = {
 function createCRUDApi<T extends { id: string }>(entity: string) {
   const entityKey = [entity];
   const translatedEntity = entityTranslations[entity] || entity;
+  
   const supabase = createClient();
 
   // GET all
@@ -96,6 +97,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           // 2. Create user
           const hashedPassword = await hashPassword(password);
           const userToCreate = {
+            id: `user-${faker.string.uuid()}`,
             name: owner_name,
             email: email,
             password: hashedPassword,
@@ -113,6 +115,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           // 3. Create business and link it to the user
           const businessToCreate = {
             ...businessData,
+            id: `biz-${faker.string.uuid()}`,
             user_id: createdUser.id,
             name: newItem.name,
             owner_name: owner_name,
@@ -124,6 +127,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         }
 
         const itemWithId = {
+            id: `${entity.slice(0,4)}-${faker.string.uuid()}`,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             ...newItem
