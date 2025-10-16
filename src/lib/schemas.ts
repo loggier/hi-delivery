@@ -72,7 +72,8 @@ const normalizePhone = (phone: string) => {
   return phone;
 };
 
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+// Mínimo 8 caracteres, y al menos una mayúscula, un número o un símbolo.
+const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
 
 export const businessSchema = z.object({
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
@@ -114,7 +115,7 @@ export const businessSchema = z.object({
     }
     return true;
 }, {
-    message: "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.",
+    message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo.",
     path: ["password"],
 });
 
@@ -200,7 +201,7 @@ export const riderApplicationSchema = z.object({
     phoneE164: z.string()
         .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
         .transform(normalizePhone),
-    password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo." }),
+    password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
     passwordConfirmation: z.string(),
 
     // Foto

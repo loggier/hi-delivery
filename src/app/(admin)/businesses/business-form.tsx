@@ -287,7 +287,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                                     <FormControl>
                                     <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
                                     </FormControl>
-                                    <FormDescription>Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 símbolo.</FormDescription>
+                                    <FormDescription>Mínimo 8 caracteres y una mayúscula, un número o un símbolo.</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                                 )}
