@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import React, { useCallback, useRef, useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -51,18 +51,73 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+    const polygonRef = useRef<google.maps.Polygon | null>(null);
+    const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+
 
     const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
+        const roadmapMapType = new google.maps.ImageMapType({
+            getTileUrl: function(coord, zoom) {
+                if (!coord || zoom === undefined) return null;
+                const tilesPerGlobe = 1 << zoom;
+                let x = coord.x % tilesPerGlobe;
+                if (x < 0) x = tilesPerGlobe + x;
+                return `https://mt0.google.com/vt/lyrs=m&x=${x}&y=${coord.y}&z=${zoom}&s=Ga`;
+            },
+            tileSize: new google.maps.Size(256, 256),
+            name: "Roadmap",
+            maxZoom: 22
+        });
+
+        const satelliteMapType = new google.maps.ImageMapType({
+            getTileUrl: function(coord, zoom) {
+                if (!coord || zoom === undefined) return null;
+                const tilesPerGlobe = 1 << zoom;
+                let x = coord.x % tilesPerGlobe;
+                if (x < 0) x = tilesPerGlobe + x;
+                const subdomain = ['mt0', 'mt1', 'mt2', 'mt3'][coord.x % 4];
+                return `https://${subdomain}.google.com/vt/lyrs=y&x=${x}&y=${coord.y}&z=${zoom}&s=Ga`;
+            },
+            tileSize: new google.maps.Size(256, 256),
+            name: 'Satellite',
+            maxZoom: 22
+        });
+
+        mapInstance.mapTypes.set("roadmap", roadmapMapType);
+        mapInstance.mapTypes.set("satellite", satelliteMapType);
+        
         setMap(mapInstance);
     }, []);
+    
+    useEffect(() => {
+        if (map) {
+            map.setMapTypeId(mapTypeId);
+        }
+    }, [map, mapTypeId]);
+
 
     const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
+        if (polygonRef.current) {
+            polygonRef.current.setMap(null);
+        }
+        polygonRef.current = poly;
         const path = poly.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-        poly.setMap(null); // Remove the drawn polygon, we will render our own controlled one
         onChange(path);
+        
+        if (drawingManagerRef.current) {
+            drawingManagerRef.current.setDrawingMode(null);
+        }
     }, [onChange]);
+    
+    const onDrawingManagerLoad = useCallback((drawingManager: google.maps.drawing.DrawingManager) => {
+        drawingManagerRef.current = drawingManager;
+    }, []);
 
     const clearGeofence = () => {
+        if (polygonRef.current) {
+            polygonRef.current.setMap(null);
+            polygonRef.current = null;
+        }
         onChange(undefined);
     }
     
@@ -82,9 +137,11 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
         }
     };
     
-    const onPolygonEdit = (polygon: google.maps.Polygon) => {
-        const newPath = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-        onChange(newPath);
+    const onPolygonEdit = () => {
+        if (polygonRef.current) {
+            const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+            onChange(newPath);
+        }
     };
 
     if (loadError) return <div>Error cargando el mapa. Por favor, revisa la API Key de Google Maps.</div>;
@@ -97,10 +154,10 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 center={{ lat: 25.738, lng: -100.45 }}
                 zoom={10}
                 onLoad={onMapLoad}
-                mapTypeId={mapTypeId}
                 options={{
                     mapTypeControl: false,
                     streetViewControl: false,
+                    fullscreenControl: true,
                 }}
             >
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-80">
@@ -125,6 +182,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                 </div>
 
                 <DrawingManager
+                    onLoad={onDrawingManagerLoad}
                     onPolygonComplete={onPolygonComplete}
                     options={{
                         drawingControl: true,
@@ -133,9 +191,9 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                             drawingModes: ['polygon'],
                         },
                         polygonOptions: {
-                            fillColor: "hsl(var(--gh-secondary))",
+                            fillColor: "#04AAF1",
                             fillOpacity: 0.35,
-                            strokeColor: "hsl(var(--gh-primary))",
+                            strokeColor: "#E33739",
                             strokeWeight: 2,
                             clickable: true,
                             editable: true,
@@ -144,17 +202,19 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     }}
                 />
 
-                {value && (
+                {value && !polygonRef.current && (
                     <Polygon
                         paths={value}
                         editable
                         draggable
-                        onMouseUp={() => onPolygonEdit(new window.google.maps.Polygon({ paths: value }))}
-                        onDragEnd={() => onPolygonEdit(new window.google.maps.Polygon({ paths: value }))}
+                        onMouseUp={onPolygonEdit}
+                        onDragEnd={onPolygonEdit}
+                        onLoad={(p) => polygonRef.current = p}
+                        onUnmount={() => polygonRef.current = null}
                         options={{
-                            fillColor: "hsl(var(--gh-primary))",
+                            fillColor: "#04AAF1",
                             fillOpacity: 0.2,
-                            strokeColor: "hsl(var(--gh-primary))",
+                            strokeColor: "#E33739",
                             strokeWeight: 2,
                         }}
                     />
