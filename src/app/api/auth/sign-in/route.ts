@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { verifyPassword } from '@/lib/auth-utils';
+import { verifyPassword, hashPassword } from '@/lib/auth-utils';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { User, Role } from '@/types';
 
@@ -26,6 +26,10 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
         cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
         db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA! },
       }
     );
@@ -43,6 +47,23 @@ export async function POST(request: Request) {
     if (user.status !== 'ACTIVE') {
         return NextResponse.json({ message: 'El usuario se encuentra inactivo.' }, { status: 403 });
     }
+
+    // --- Lógica de Auto-Hasheo ---
+    // Si la contraseña en la BD no parece un hash, la hasheamos y actualizamos.
+    // Esto es útil para el primer inicio de sesión del usuario master.
+    const isHashed = user.password.startsWith('$2a$');
+    if (!isHashed) {
+      if (password === user.password) {
+        const newHashedPassword = await hashPassword(password);
+        await supabaseAdmin
+          .from('users')
+          .update({ password: newHashedPassword })
+          .eq('id', user.id);
+      } else {
+         return NextResponse.json({ message: 'Credenciales inválidas.' }, { status: 401 });
+      }
+    }
+    // --- Fin de la lógica ---
 
     const isValidPassword = await verifyPassword(password, user.password);
     
