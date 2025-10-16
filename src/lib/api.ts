@@ -242,10 +242,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                 const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
                 if (deleteUserError) {
                     console.error(`Business deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
+                    // Do not throw an error here, just notify. The main entity was deleted.
                     toast({
-                        variant: "destructive",
+                        variant: "warning",
                         title: "Error de Sincronización",
-                        description: `El negocio fue eliminado, pero no se pudo eliminar el usuario asociado. Contacta a soporte.`,
+                        description: `El negocio fue eliminado, pero no se pudo eliminar el usuario asociado.`,
                     });
                 }
             }
@@ -354,7 +355,8 @@ export const useManageSubscription = () => {
             }
 
             // Create payment record
-            const paymentToCreate: Omit<Payment, 'id' | 'created_at'> = {
+            const paymentToCreate: Omit<Payment, 'created_at'> = {
+                id: `pay-${faker.string.uuid()}`,
                 business_id: businessId,
                 plan_id: planId,
                 amount: amount,

@@ -56,7 +56,7 @@ function KPICardSkeleton() {
 }
 
 function getEntityType(item: any) {
-  if ('taxId' in item) return 'Negocio';
+  if ('tax_id' in item) return 'Negocio';
   if ('lastName' in item) return 'Repartidor';
   if ('price' in item) return 'Producto';
   if ('slug' in item) return 'Cat. Producto';
@@ -67,6 +67,26 @@ function getEntityName(item: any) {
     if ('name' in item) return item.name;
     if ('firstName' in item) return `${item.firstName} ${item.lastName}`;
     return item.id;
+}
+
+function getEntityStatus(item: any) {
+    if (!item.status) return null;
+    const isActive = item.status === 'ACTIVE' || item.status === 'approved';
+    return (
+        <Badge className="text-xs" variant={isActive ? 'success' : 'outline'}>
+            {isActive ? 'Activo' : 'Inactivo'}
+        </Badge>
+    );
+}
+
+function getEntityDate(item: any): string | null {
+    const dateValue = item.created_at || item.createdAt;
+    if (!dateValue) return null;
+    try {
+        return format(new Date(dateValue), 'PPpp', { locale: es });
+    } catch (e) {
+        return "Fecha inválida";
+    }
 }
 
 
@@ -127,16 +147,14 @@ export default function DashboardPage() {
                         <TableCell>
                             <div className="font-medium">{getEntityName(item)}</div>
                             <div className="text-sm text-slate-500 md:hidden">
-                                {format(new Date(item.createdAt), 'PPpp', { locale: es })}
+                                {getEntityDate(item)}
                             </div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">{getEntityType(item)}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                            <Badge className="text-xs" variant={item.status === 'ACTIVE' || item.status === 'approved' ? 'success' : 'outline'}>
-                                {item.status === 'ACTIVE' || item.status === 'approved' ? 'Activo' : 'Inactivo'}
-                            </Badge>
+                           {getEntityStatus(item)}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{format(new Date(item.createdAt), 'PPpp', { locale: es })}</TableCell>
+                        <TableCell className="hidden md:table-cell">{getEntityDate(item)}</TableCell>
                     </TableRow>
                 ))}
                 { !isLoading && (!data || data.latestChanges.length === 0) && (
