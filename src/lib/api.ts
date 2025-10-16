@@ -200,6 +200,15 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
+
+        // Explicitly remove password fields if they exist on the object
+        if ('password' in updateData) {
+          delete (updateData as any).password;
+        }
+        if ('passwordConfirmation' in updateData) {
+          delete (updateData as any).passwordConfirmation;
+        }
+        
         return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
       onSuccess: (data) => {
