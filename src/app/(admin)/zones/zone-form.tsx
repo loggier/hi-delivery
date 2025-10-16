@@ -95,7 +95,7 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     };
 
     const drawingManagerOptions = useMemo<google.maps.drawing.DrawingManagerOptions | undefined>(() => {
-      if (!isLoaded) return undefined;
+      if (!isLoaded || !window.google || !window.google.maps.drawing) return undefined;
       return {
           drawingControl: true,
           drawingControlOptions: {
@@ -171,10 +171,10 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
                     />
                 </Autocomplete>
                 
-                <DrawingManager
+                {drawingManagerOptions && <DrawingManager
                     onPolygonComplete={onPolygonComplete}
                     options={drawingManagerOptions}
-                />
+                />}
 
                 {value && (
                     <Polygon
