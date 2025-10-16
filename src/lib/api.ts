@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,31 +41,31 @@ const entityTranslations: { [key: string]: string } = {
 function createCRUDApi<T extends { id: string }>(entity: string) {
   const entityKey = [entity];
   const translatedEntity = entityTranslations[entity] || entity;
+  const supabase = createClient();
 
   // GET all
   const useGetAll = (params: Record<string, string> = {}) => {
     const queryKey = [entity, params];
-    const supabase = createClient();
-
-    let query = supabase.from(entity).select('*', { count: 'exact' });
-
-    Object.entries(params).forEach(([key, value]) => {
-        if(value) {
-            query = query.ilike(key, `%${value}%`);
-        }
-    });
-
-    query = query.order('created_at', { ascending: false });
-
+    
     return useQuery<T[]>({
       queryKey: queryKey,
-      queryFn: () => handleSupabaseQuery(query.returns<T[]>()),
+      queryFn: async () => {
+        let query = supabase.from(entity).select('*', { count: 'exact' });
+
+        Object.entries(params).forEach(([key, value]) => {
+            if(value) {
+                query = query.ilike(key, `%${value}%`);
+            }
+        });
+
+        query = query.order('created_at', { ascending: false });
+        return handleSupabaseQuery(query.returns<T[]>());
+      }
     });
   }
 
   // GET one
   const useGetOne = (id: string) => {
-    const supabase = createClient();
     return useQuery<T>({
         queryKey: [...entityKey, id],
         queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
@@ -76,7 +77,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient();
 
     return useMutation<T, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
@@ -97,12 +97,12 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             status: 'ACTIVE',
             created_at: new Date().toISOString(),
           };
-          await handleSupabaseQuery(supabase.from('users').insert(userToCreate));
+          const createdUser = await handleSupabaseQuery(supabase.from('users').insert(userToCreate).select().single());
 
           // 2. Create business and link it to the user
           const businessToCreate = {
             id: `biz-${faker.string.uuid()}`,
-            user_id: newUserId,
+            user_id: createdUser.id,
             ...businessData,
             name: newItem.name,
             owner_name: owner_name,
@@ -146,7 +146,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient();
     return useMutation<T, Error, FormData>({
       mutationFn: async (formData) => {
         const newItem = Object.fromEntries(formData.entries());
@@ -178,7 +177,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useUpdate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient();
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
@@ -207,7 +205,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useDelete = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient();
     return useMutation<void, Error, string>({
       mutationFn: (id) => handleSupabaseQuery(supabase.from(entity).delete().eq('id', id)),
       onSuccess: (_, id) => {
