@@ -63,13 +63,13 @@ export let roles: Role[] = [
     {
         id: 'role-admin',
         name: 'Super Administrador',
-        createdAt: new Date('2023-01-01T10:00:00Z').toISOString(),
+        created_at: new Date('2023-01-01T10:00:00Z').toISOString(),
         permissions: allPermissionsTrue,
     },
     {
         id: 'role-operations',
         name: 'Gerente de Operaciones',
-        createdAt: new Date('2023-01-15T10:00:00Z').toISOString(),
+        created_at: new Date('2023-01-15T10:00:00Z').toISOString(),
         permissions: {
             ...allPermissionsFalse,
             repartidor: true,
@@ -81,7 +81,7 @@ export let roles: Role[] = [
     {
         id: 'role-support',
         name: 'Soporte',
-        createdAt: new Date('2023-02-01T10:00:00Z').toISOString(),
+        created_at: new Date('2023-02-01T10:00:00Z').toISOString(),
         permissions: {
             ...allPermissionsFalse,
             gestionDeClientes: true,
@@ -92,7 +92,7 @@ export let roles: Role[] = [
      {
         id: 'role-owner',
         name: 'Dueño de Negocio',
-        createdAt: new Date('2023-02-01T10:00:00Z').toISOString(),
+        created_at: new Date('2023-02-01T10:00:00Z').toISOString(),
         permissions: {
             ...allPermissionsFalse,
             producto: true,
@@ -138,41 +138,41 @@ export let productCategories: Category[] = [
     name: 'Comida Mexicana',
     slug: 'comida-mexicana',
     status: 'ACTIVE',
-    createdAt: new Date('2023-03-10T08:00:00Z').toISOString(),
+    created_at: new Date('2023-03-10T08:00:00Z').toISOString(),
   },
   {
     id: 'prod-cat-2',
     name: 'Comida Italiana',
     slug: 'comida-italiana',
     status: 'ACTIVE',
-    createdAt: new Date('2023-03-10T08:05:00Z').toISOString(),
+    created_at: new Date('2023-03-10T08:05:00Z').toISOString(),
   },
   {
     id: 'prod-cat-3',
     name: 'Postres',
     slug: 'postres',
     status: 'INACTIVE',
-    createdAt: new Date('2023-04-01T12:00:00Z').toISOString(),
+    created_at: new Date('2023-04-01T12:00:00Z').toISOString(),
   },
     {
     id: 'prod-cat-4',
     name: 'Comida Japonesa',
     slug: 'comida-japonesa',
     status: 'ACTIVE',
-    createdAt: new Date('2023-05-20T14:00:00Z').toISOString(),
+    created_at: new Date('2023-05-20T14:00:00Z').toISOString(),
   },
 ];
 
 // --- BUSINESS CATEGORIES ---
 export let businessCategories: BusinessCategory[] = [
-  { id: 'cat-pizza', name: 'Pizzería', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
-  { id: 'cat-tacos', name: 'Tacos', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
-  { id: 'cat-intl', name: 'Internacional', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
-  { id: 'cat-sushi', name: 'Sushi', type: 'restaurant', active: true, createdAt: new Date().toISOString() },
-  { id: 'cat-abar', name: 'Abarrotes', type: 'store', active: true, createdAt: new Date().toISOString() },
-  { id: 'cat-ropa', name: 'Ropa y Accesorios', type: 'store', active: false, createdAt: new Date().toISOString() },
-  { id: 'cat-serv', name: 'Servicios Profesionales', type: 'service', active: true, createdAt: new Date().toISOString() },
-  { id: 'cat-hogar', name: 'Servicios del Hogar', type: 'service', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-pizza', name: 'Pizzería', type: 'restaurant', active: true, created_at: new Date().toISOString() },
+  { id: 'cat-tacos', name: 'Tacos', type: 'restaurant', active: true, created_at: new Date().toISOString() },
+  { id: 'cat-intl', name: 'Internacional', type: 'restaurant', active: true, created_at: new Date().toISOString() },
+  { id: 'cat-sushi', name: 'Sushi', type: 'restaurant', active: true, created_at: new Date().toISOString() },
+  { id: 'cat-abar', name: 'Abarrotes', type: 'store', active: true, created_at: new Date().toISOString() },
+  { id: 'cat-ropa', name: 'Ropa y Accesorios', type: 'store', active: false, created_at: new Date().toISOString() },
+  { id: 'cat-serv', name: 'Servicios Profesionales', type: 'service', active: true, created_at: new Date().toISOString() },
+  { id: 'cat-hogar', name: 'Servicios del Hogar', type: 'service', active: true, created_at: new Date().toISOString() },
 ];
 
 
@@ -187,39 +187,37 @@ function createBusiness(partial?: Partial<Business>): Business {
     id: `biz-${faker.string.uuid()}`,
     name: faker.company.name(),
     type,
-    categoryId: category.id,
+    category_id: category.id,
     email: faker.internet.email(),
-    ownerName: faker.person.fullName(),
-    phoneWhatsApp: `+52${faker.string.numeric(10)}`,
-    location: {
-      addressLine: faker.location.streetAddress(),
-      neighborhood: faker.location.secondaryAddress(),
-      city: faker.location.city(),
-      state: faker.location.state(),
-      zip: faker.location.zipCode(),
-      lat: faker.location.latitude(),
-      lng: faker.location.longitude(),
-    },
+    owner_name: faker.person.fullName(),
+    phone_whatsapp: `+52${faker.string.numeric(10)}`,
+    address_line: faker.location.streetAddress(),
+    neighborhood: faker.location.secondaryAddress(),
+    city: faker.location.city(),
+    state: faker.location.state(),
+    zip_code: faker.location.zipCode(),
+    latitude: faker.location.latitude(),
+    longitude: faker.location.longitude(),
     status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE', 'PENDING_REVIEW']),
-    taxId: faker.string.alphanumeric(13).toUpperCase(),
+    tax_id: faker.string.alphanumeric(13).toUpperCase(),
     website: faker.internet.url(),
     instagram: `@${faker.internet.userName().toLowerCase()}`,
-    logoUrl: faker.image.avatar(),
-    createdAt: faker.date.past({ years: 1, refDate: now }).toISOString(),
-    updatedAt: faker.date.recent({ days: 30, refDate: now }).toISOString(),
+    logo_url: faker.image.avatar(),
+    created_at: faker.date.past({ years: 1, refDate: now }).toISOString(),
+    updated_at: faker.date.recent({ days: 30, refDate: now }).toISOString(),
     ...partial,
   };
 }
 
 export let businesses: Business[] = [
-  createBusiness({ name: 'Tacos El Tío', type: 'restaurant', categoryId: 'cat-tacos', status: 'ACTIVE', phoneWhatsApp: '+525512345678' }),
-  createBusiness({ name: 'Pizza Nostra', type: 'restaurant', categoryId: 'cat-pizza', status: 'ACTIVE', phoneWhatsApp: '+525587654321' }),
-  createBusiness({ name: 'Sushi Go', type: 'restaurant', categoryId: 'cat-sushi', status: 'INACTIVE', phoneWhatsApp: '+525555555555' }),
-  createBusiness({ name: 'Abarrotes Doña Mary', type: 'store', categoryId: 'cat-abar', status: 'PENDING_REVIEW', phoneWhatsApp: '+523312345678' }),
-  createBusiness({ name: 'Contadores Fiscales S.C.', type: 'service', categoryId: 'cat-serv', status: 'ACTIVE', phoneWhatsApp: '+528187654321' }),
-  createBusiness({ name: 'Boutique "La Bonita"', type: 'store', categoryId: 'cat-ropa', status: 'ACTIVE' }),
-  createBusiness({ name: 'Plomería Express', type: 'service', categoryId: 'cat-hogar', status: 'INACTIVE' }),
-  createBusiness({ name: 'Restaurante "El Buen Sazón"', type: 'restaurant', categoryId: 'cat-intl', status: 'PENDING_REVIEW' }),
+  createBusiness({ name: 'Tacos El Tío', type: 'restaurant', category_id: 'cat-tacos', status: 'ACTIVE', phone_whatsapp: '+525512345678' }),
+  createBusiness({ name: 'Pizza Nostra', type: 'restaurant', category_id: 'cat-pizza', status: 'ACTIVE', phone_whatsapp: '+525587654321' }),
+  createBusiness({ name: 'Sushi Go', type: 'restaurant', category_id: 'cat-sushi', status: 'INACTIVE', phone_whatsapp: '+525555555555' }),
+  createBusiness({ name: 'Abarrotes Doña Mary', type: 'store', category_id: 'cat-abar', status: 'PENDING_REVIEW', phone_whatsapp: '+523312345678' }),
+  createBusiness({ name: 'Contadores Fiscales S.C.', type: 'service', category_id: 'cat-serv', status: 'ACTIVE', phone_whatsapp: '+528187654321' }),
+  createBusiness({ name: 'Boutique "La Bonita"', type: 'store', category_id: 'cat-ropa', status: 'ACTIVE' }),
+  createBusiness({ name: 'Plomería Express', type: 'service', category_id: 'cat-hogar', status: 'INACTIVE' }),
+  createBusiness({ name: 'Restaurante "El Buen Sazón"', type: 'restaurant', category_id: 'cat-intl', status: 'PENDING_REVIEW' }),
 ];
 
 
@@ -372,11 +370,11 @@ riders.forEach(r => {
 });
 
 // Associate businesses with new zones for counts
-businesses[0].location.city = 'Monterrey Centro';
-businesses[1].location.city = 'Monterrey Centro';
-businesses[2].location.city = 'Monterrey Centro';
-businesses[3].location.city = 'Culiacán Tres Ríos';
-businesses[4].location.city = 'Mazatlán Zona Dorada';
+businesses[0].city = 'Monterrey Centro';
+businesses[1].city = 'Monterrey Centro';
+businesses[2].city = 'Monterrey Centro';
+businesses[3].city = 'Culiacán Tres Ríos';
+businesses[4].city = 'Mazatlán Zona Dorada';
 
 
 // --- CUSTOMERS & ORDERS ---

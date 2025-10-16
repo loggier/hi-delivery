@@ -7,7 +7,7 @@ export type Filters = {
     name: string;
     status: string;
     type: string;
-    categoryId: string;
+    category_id: string;
 }
 
 export function useBusinessFilters() {
@@ -15,7 +15,7 @@ export function useBusinessFilters() {
         name: '',
         status: '',
         type: '',
-        categoryId: '',
+        category_id: '',
     });
 
     const [debouncedSearch] = useDebounce(filters.name, 500);
@@ -28,7 +28,7 @@ export function useBusinessFilters() {
         filters: {
             status: filters.status,
             type: filters.type,
-            categoryId: filters.categoryId,
+            category_id: filters.category_id,
         },
         setFilters,
         search: filters.name,

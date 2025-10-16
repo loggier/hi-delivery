@@ -75,25 +75,23 @@ const normalizePhone = (phone: string) => {
 export const businessSchema = z.object({
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
-    categoryId: z.string({ required_error: "Debes seleccionar una categoría." }),
+    category_id: z.string({ required_error: "Debes seleccionar una categoría." }),
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
-    ownerName: z.string().min(2, { message: "El nombre del contacto debe tener al menos 2 caracteres." }),
-    phoneWhatsApp: z.string()
+    owner_name: z.string().min(2, { message: "El nombre del contacto debe tener al menos 2 caracteres." }),
+    phone_whatsapp: z.string()
         .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
         .transform(normalizePhone),
-    location: z.object({
-        addressLine: z.string().min(5, { message: "La dirección debe tener al menos 5 caracteres." }),
-        neighborhood: z.string().min(3, { message: "La colonia debe tener al menos 3 caracteres." }),
-        city: z.string().min(3, { message: "La ciudad debe tener al menos 3 caracteres." }),
-        state: z.string().min(3, { message: "El estado debe tener al menos 3 caracteres." }),
-        zip: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
-        lat: z.number().optional(),
-        lng: z.number().optional(),
-    }),
-    taxId: z.string().optional(),
+    address_line: z.string().min(5, { message: "La dirección debe tener al menos 5 caracteres." }),
+    neighborhood: z.string().min(3, { message: "La colonia debe tener al menos 3 caracteres." }),
+    city: z.string().min(3, { message: "La ciudad debe tener al menos 3 caracteres." }),
+    state: z.string().min(3, { message: "El estado debe tener al menos 3 caracteres." }),
+    zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    tax_id: z.string().optional(),
     website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
     instagram: z.string().optional(),
-    logoUrl: z.string().optional(),
+    logo_url: z.string().optional(),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
 });

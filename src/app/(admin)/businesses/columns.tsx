@@ -71,19 +71,19 @@ export const columns: ColumnDef<Business>[] = [
     cell: ({ row }) => typeTranslations[row.original.type]
   },
   {
-    accessorKey: "categoryId",
+    accessorKey: "category_id",
     header: "Categoría",
     cell: ({ row }) => {
-        const category = businessCategories.find(c => c.id === row.original.categoryId);
+        const category = businessCategories.find(c => c.id === row.original.category_id);
         return category ? category.name : 'N/A';
     }
   },
   {
-    accessorKey: "ownerName",
+    accessorKey: "owner_name",
     header: "Contacto",
   },
   {
-    accessorKey: "phoneWhatsApp",
+    accessorKey: "phone_whatsapp",
     header: "WhatsApp",
   },
   {
@@ -102,12 +102,12 @@ export const columns: ColumnDef<Business>[] = [
     },
   },
   {
-    accessorKey: "updatedAt",
+    accessorKey: "updated_at",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Actualizado" />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue("updatedAt"));
+      const date = new Date(row.getValue("updated_at"));
       return <span>{format(date, "d MMM, yyyy", { locale: es })}</span>;
     },
   },

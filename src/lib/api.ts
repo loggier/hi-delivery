@@ -9,6 +9,8 @@ import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
 
 const supabase = createClient();
+const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA!;
+
 
 // --- Generic Fetcher ---
 async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: PostgrestError | null }>): Promise<T> {
@@ -23,14 +25,14 @@ async function handleSupabaseQuery<T>(query: Promise<{ data: T | null, error: Po
 const entityTranslations: { [key: string]: string } = {
     "product_categories": "Categoría de Producto",
     "business_categories": "Categoría de Negocio",
-    businesses: "Negocio",
-    products: "Producto",
-    riders: "Repartidor",
-    users: "Usuario",
-    zones: "Zona",
-    customers: "Cliente",
-    roles: "Rol",
-    plans: "Plan",
+    "businesses": "Negocio",
+    "products": "Producto",
+    "riders": "Repartidor",
+    "users": "Usuario",
+    "zones": "Zona",
+    "customers": "Cliente",
+    "roles": "Rol",
+    "plans": "Plan",
 }
 
 // --- Generic CRUD Hooks ---

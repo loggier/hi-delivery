@@ -81,21 +81,19 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
     defaultValues: initialData || {
       name: "",
       type: "restaurant",
-      categoryId: "",
+      category_id: "",
       email: "",
-      ownerName: "",
-      phoneWhatsApp: "",
-      location: {
-        addressLine: "",
-        neighborhood: "",
-        city: "Ciudad de México",
-        state: "CDMX",
-        zip: "",
-      },
-      taxId: "",
+      owner_name: "",
+      phone_whatsapp: "",
+      address_line: "",
+      neighborhood: "",
+      city: "Ciudad de México",
+      state: "CDMX",
+      zip_code: "",
+      tax_id: "",
       website: "",
       instagram: "",
-      logoUrl: "",
+      logo_url: "",
       notes: "",
       status: "ACTIVE",
     },
@@ -112,9 +110,9 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
 
   React.useEffect(() => {
     // Reset category if type changes and current category is not valid for the new type
-    const currentCategoryId = form.getValues('categoryId');
+    const currentCategoryId = form.getValues('category_id');
     if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
-        form.setValue('categoryId', '');
+        form.setValue('category_id', '');
     }
   }, [selectedType, availableCategories, form]);
 
@@ -178,7 +176,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                         />
                          <FormField
                             control={form.control}
-                            name="categoryId"
+                            name="category_id"
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Categoría</FormLabel>
@@ -203,7 +201,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                 <div className="lg:row-span-2">
                     <FormField
                         control={form.control}
-                        name="logoUrl"
+                        name="logo_url"
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Logo</FormLabel>
@@ -224,7 +222,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <FormField
                         control={form.control}
-                        name="ownerName"
+                        name="owner_name"
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Nombre del Contacto</FormLabel>
@@ -250,7 +248,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                     />
                      <FormField
                         control={form.control}
-                        name="phoneWhatsApp"
+                        name="phone_whatsapp"
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Teléfono / WhatsApp</FormLabel>
@@ -273,7 +271,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                     <div className="space-y-6">
                         <FormField
                             control={form.control}
-                            name="location.addressLine"
+                            name="address_line"
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Dirección (Calle y Número)</FormLabel>
@@ -286,7 +284,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                         />
                          <FormField
                             control={form.control}
-                            name="location.neighborhood"
+                            name="neighborhood"
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Colonia</FormLabel>
@@ -300,7 +298,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                          <div className="grid grid-cols-3 gap-6">
                             <FormField
                                 control={form.control}
-                                name="location.city"
+                                name="city"
                                 render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Ciudad</FormLabel>
@@ -313,7 +311,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                             />
                             <FormField
                                 control={form.control}
-                                name="location.state"
+                                name="state"
                                 render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Estado</FormLabel>
@@ -326,7 +324,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                             />
                             <FormField
                                 control={form.control}
-                                name="location.zip"
+                                name="zip_code"
                                 render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>C.P.</FormLabel>
@@ -343,8 +341,8 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                         <FormLabel>Geolocalización</FormLabel>
                         <FormControl>
                             <GHMapStub onChange={(coords) => {
-                                form.setValue('location.lat', coords.lat);
-                                form.setValue('location.lng', coords.lng);
+                                form.setValue('latitude', coords.lat);
+                                form.setValue('longitude', coords.lng);
                             }} />
                         </FormControl>
                      </div>
@@ -358,7 +356,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <FormField
                         control={form.control}
-                        name="taxId"
+                        name="tax_id"
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>RFC</FormLabel>

@@ -61,7 +61,7 @@ export default function ViewBusinessPage() {
 
   const status = business.status;
   const statusText = status === "ACTIVE" ? "Activo" : status === "PENDING_REVIEW" ? "Pendiente" : "Inactivo";
-  const category = businessCategories.find(c => c.id === business.categoryId);
+  const category = businessCategories.find(c => c.id === business.category_id);
 
   return (
     <div className="space-y-4">
@@ -93,7 +93,7 @@ export default function ViewBusinessPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                 <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Contacto</p>
-                    <p>{business.ownerName}</p>
+                    <p>{business.owner_name}</p>
                 </div>
                 <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Email</p>
@@ -101,11 +101,11 @@ export default function ViewBusinessPage() {
                 </div>
                 <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">WhatsApp</p>
-                    <p>{business.phoneWhatsApp}</p>
+                    <p>{business.phone_whatsapp}</p>
                 </div>
                 <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">RFC</p>
-                    <p>{business.taxId || 'N/A'}</p>
+                    <p>{business.tax_id || 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-500">Sitio Web</p>
@@ -129,18 +129,18 @@ export default function ViewBusinessPage() {
                      <div className="space-y-4">
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-slate-500">Dirección</p>
-                            <p>{business.location.addressLine}</p>
+                            <p>{business.address_line}</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-slate-500">Colonia</p>
-                            <p>{business.location.neighborhood}</p>
+                            <p>{business.neighborhood}</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-slate-500">Ciudad, Estado y CP</p>
-                            <p>{business.location.city}, {business.location.state} {business.location.zip}</p>
+                            <p>{business.city}, {business.state} {business.zip_code}</p>
                         </div>
                      </div>
-                     <GHMapStub lat={business.location.lat} lng={business.location.lng} />
+                     <GHMapStub lat={business.latitude} lng={business.longitude} />
                 </div>
             </div>
 

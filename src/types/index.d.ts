@@ -2,7 +2,7 @@ export type Role = {
   id: string;
   name: string;
   permissions: Permissions;
-  createdAt: string;
+  created_at: string;
 };
 
 export type Permissions = {
@@ -84,27 +84,25 @@ export type Business = {
   id: string;
   name: string;
   type: BusinessType;
-  categoryId: string;
+  category_id: string;
   email: string;
-  ownerName: string;
-  phoneWhatsApp: string;
-  location: {
-    addressLine: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-    zip: string;
-    lat?: number;
-    lng?: number;
-  };
-  taxId?: string;
+  owner_name: string;
+  phone_whatsapp: string;
+  address_line: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  latitude?: number;
+  longitude?: number;
+  tax_id?: string;
   website?: string;
   instagram?: string;
-  logoUrl?: string;
+  logo_url?: string;
   notes?: string;
   status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW";
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Document = {
@@ -179,7 +177,7 @@ export type Category = {
   name: string;
   slug: string;
   status: "ACTIVE" | "INACTIVE";
-  createdAt: string;
+  created_at: string;
 };
 
 export type Product = {

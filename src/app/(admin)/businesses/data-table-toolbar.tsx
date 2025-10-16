@@ -48,7 +48,7 @@ export function DataTableToolbar({
         name: '',
         status: '',
         type: '',
-        categoryId: '',
+        category_id: '',
     });
   }
 
@@ -79,7 +79,7 @@ export function DataTableToolbar({
 
             <Select
                 value={filters.type}
-                onValueChange={(value) => setFilters(prev => ({...prev, type: value === 'all' ? '' : value, categoryId: ''}))}
+                onValueChange={(value) => setFilters(prev => ({...prev, type: value === 'all' ? '' : value, category_id: ''}))}
             >
                 <SelectTrigger className="h-8 w-[140px]">
                     <SelectValue placeholder="Tipo" />
@@ -93,8 +93,8 @@ export function DataTableToolbar({
             </Select>
 
              <Select
-                value={filters.categoryId}
-                onValueChange={(value) => setFilters(prev => ({...prev, categoryId: value === 'all' ? '' : value}))}
+                value={filters.category_id}
+                onValueChange={(value) => setFilters(prev => ({...prev, category_id: value === 'all' ? '' : value}))}
                 disabled={!filters.type}
             >
                 <SelectTrigger className="h-8 w-[180px]">
@@ -140,11 +140,11 @@ export function DataTableToolbar({
                 const translation: Record<string, string> = {
                     name: "Nombre",
                     type: "Tipo",
-                    categoryId: "Categoría",
-                    ownerName: "Contacto",
-                    phoneWhatsApp: "WhatsApp",
+                    category_id: "Categoría",
+                    owner_name: "Contacto",
+                    phone_whatsapp: "WhatsApp",
                     status: "Estado",
-                    updatedAt: "Actualizado",
+                    updated_at: "Actualizado",
                 }
                 return (
                   <DropdownMenuCheckboxItem
