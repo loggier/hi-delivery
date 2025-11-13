@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       last_name: data.lastName,
       email: data.email,
       phone_e164: data.phoneE164,
-      status: 'incomplete', // New status for partial registrations
+      status: 'incomplete' as const, // New status for partial registrations
       password_hash: hashedPassword,
     };
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         email: createdRider.email,
         created_at: createdRider.created_at,
         role_id: 'rider', // mock role
-        status: 'ACTIVE'
+        status: 'ACTIVE' as const
     }
 
     return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", rider: userForSession }, { status: 201 });
