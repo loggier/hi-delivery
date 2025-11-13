@@ -331,7 +331,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                 id={name}
                                 accept={accept}
                                 {...field}
-                                value={value?.fileName}
+                                value={''}
                                 ref={(e) => {
                                     ref(e)
                                     inputRef.current = e
@@ -432,7 +432,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
                                 id={name}
                                 accept="image/jpeg,image/png"
                                 {...field}
-                                value={value?.fileName}
+                                value={''}
                                 ref={(e) => {
                                     ref(e);
                                     inputRef.current = e;
@@ -473,16 +473,16 @@ interface FormMultiImageUploadProps {
 }
 
 export const FormMultiImageUpload = ({ name, label, description, count }: FormMultiImageUploadProps) => {
-    const { watch, setValue, formState: { errors } } = useFormContext();
-    const files: FileList | undefined = watch(name);
+    const { control, watch, setValue, formState: { errors } } = useFormContext();
+    const files: FileList | null = watch(name);
     const [previews, setPreviews] = useState<(string | null)[]>(Array(count).fill(null));
     const [isDragging, setIsDragging] = useState(false);
 
     const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useEffect(() => {
+        const newPreviews = Array(count).fill(null);
         if (files && files.length > 0) {
-            const newPreviews = Array(count).fill(null);
             const fileArray = Array.from(files).slice(0, count);
             const promises = fileArray.map((file, index) => {
                 return new Promise<void>((resolve) => {
@@ -496,7 +496,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
             });
             Promise.all(promises).then(() => setPreviews(newPreviews));
         } else {
-            setPreviews(Array(count).fill(null));
+            setPreviews(newPreviews);
         }
     }, [files, count]);
 
@@ -550,7 +550,8 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
     return (
         <FormField
             name={name}
-            render={({ field: { ref, value, ...field } }) => (
+            control={control}
+            render={({ field: { ref, value, onChange, ...field } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -576,7 +577,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                                     accept="image/jpeg,image/png"
                                     multiple
                                     {...field}
-                                    value={value?.fileName}
+                                    value={''}
                                     ref={(e) => {
                                         ref(e)
                                         inputRef.current = e
@@ -586,7 +587,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                                         if (newFiles) {
                                             const dataTransfer = new DataTransfer();
                                             Array.from(newFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
-                                            setValue(name, dataTransfer.files, { shouldValidate: true });
+                                            setValue(name, dataTransfer.files.length > 0 ? dataTransfer.files : null, { shouldValidate: true });
                                         }
                                     }}
                                 />
