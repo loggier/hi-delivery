@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { riderApplicationSchema } from '@/lib/schemas';
+import { riderAccountCreationSchema } from '@/lib/schemas';
 import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
 
@@ -22,12 +22,10 @@ export async function POST(request: Request) {
     
     const rawData: Record<string, any> = {};
     for(const [key, value] of formData.entries()) {
-        if (value) {
-            rawData[key] = value;
-        }
+        rawData[key] = value;
     }
 
-    const validated = riderApplicationSchema.pick({ firstName: true, lastName: true, email: true, phoneE164: true, password: true, passwordConfirmation: true }).safeParse(rawData);
+    const validated = riderAccountCreationSchema.safeParse(rawData);
 
     if (!validated.success) {
       console.error("Validation errors:", validated.error.flatten().fieldErrors);
@@ -82,3 +80,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
+
+    
