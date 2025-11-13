@@ -275,7 +275,7 @@ interface FormFileUploadProps {
 
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
-    const files: FileList | undefined = watch(name);
+    const files: FileList | null = watch(name);
     const file = files?.[0];
     const [isDragging, setIsDragging] = useState(false);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -288,30 +288,23 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         inputRef.current.value = "";
       }
     }
+    
+    const handleFileChange = (files: FileList | null) => {
+      if (files && files.length > 0) {
+        setValue(name, files, { shouldValidate: true });
+      }
+    }
 
-    const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
+    const handleDragEvents = (e: React.DragEvent<HTMLLabelElement>, isEntering: boolean) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
+        setIsDragging(isEntering);
     };
     
     const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
+        handleDragEvents(e, false);
         const droppedFiles = e.dataTransfer.files;
-        if (droppedFiles && droppedFiles.length > 0) {
-            setValue(name, droppedFiles, { shouldValidate: true });
-             if (inputRef.current) {
-                inputRef.current.files = droppedFiles;
-            }
-        }
+        handleFileChange(droppedFiles);
     };
     
     const hasError = !!errors[name];
@@ -320,26 +313,11 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, value, onChange, ...field } }) => (
+            render={({ field: { ref, onChange, onBlur, ...fieldProps } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
                         <div className="relative">
-                             <Input
-                                type="file"
-                                className="hidden"
-                                id={name}
-                                accept={accept}
-                                {...field}
-                                value={''}
-                                ref={(e) => {
-                                    ref(e)
-                                    inputRef.current = e
-                                }}
-                                onChange={(e) => {
-                                    setValue(name, e.target.files, { shouldValidate: true });
-                                }}
-                            />
                             <label 
                                 htmlFor={name}
                                 className={cn(
@@ -347,11 +325,20 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                     isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
                                     hasError ? "border-destructive" : "border-slate-300"
                                 )}
-                                onDragEnter={handleDragEnter}
-                                onDragOver={handleDragEnter}
-                                onDragLeave={handleDragLeave}
+                                onDragEnter={(e) => handleDragEvents(e, true)}
+                                onDragOver={(e) => handleDragEvents(e, true)}
+                                onDragLeave={(e) => handleDragEvents(e, false)}
                                 onDrop={handleDrop}
                             >
+                                <Input
+                                    type="file"
+                                    className="hidden"
+                                    id={name}
+                                    accept={accept}
+                                    ref={inputRef}
+                                    onChange={(e) => handleFileChange(e.target.files)}
+                                    onBlur={onBlur}
+                                />
                                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
                                 <span className="text-sm text-center text-slate-500">
                                     {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
@@ -382,7 +369,7 @@ interface FormImageUploadProps {
 
 export const FormImageUpload = ({ name, label, description, aspectRatio = 'square' }: FormImageUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
-    const files = watch(name);
+    const files: FileList | null = watch(name);
     const file = files?.[0];
     const [preview, setPreview] = useState<string | null>(null);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -413,7 +400,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, value, ...field } }) => (
+            render={({ field: { ref, onBlur, ...fieldProps } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -431,12 +418,8 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
                                 className="hidden"
                                 id={name}
                                 accept="image/jpeg,image/png"
-                                {...field}
-                                value={''}
-                                ref={(e) => {
-                                    ref(e);
-                                    inputRef.current = e;
-                                }}
+                                ref={inputRef}
+                                onBlur={onBlur}
                                 onChange={(e) => {
                                     setValue(name, e.target.files, { shouldValidate: true });
                                 }}
@@ -500,6 +483,19 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         }
     }, [files, count]);
 
+    const handleFiles = (newFiles: FileList | null) => {
+        if (!newFiles) return;
+        
+        const dataTransfer = new DataTransfer();
+        Array.from(newFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
+        
+        setValue(name, dataTransfer.files.length > 0 ? dataTransfer.files : null, { shouldValidate: true });
+        
+        if (inputRef.current) {
+            inputRef.current.files = dataTransfer.files;
+        }
+    };
+
     const handleRemove = (e: React.MouseEvent, indexToRemove: number) => {
         e.preventDefault();
         e.stopPropagation();
@@ -516,33 +512,15 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         }
     }
     
-    const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
+    const handleDragEvents = (e: React.DragEvent<HTMLLabelElement>, isEntering: boolean) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
+        setIsDragging(isEntering);
     };
 
     const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(false);
-        const droppedFiles = e.dataTransfer.files;
-        if (droppedFiles && droppedFiles.length > 0) {
-            const dataTransfer = new DataTransfer();
-            Array.from(droppedFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
-            
-            setValue(name, dataTransfer.files, { shouldValidate: true });
-            
-            if (inputRef.current) {
-                inputRef.current.files = dataTransfer.files;
-            }
-        }
+        handleDragEvents(e, false);
+        handleFiles(e.dataTransfer.files);
     };
     
     const hasError = !!errors[name];
@@ -551,7 +529,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, value, onChange, ...field } }) => (
+            render={({ field: { ref, onBlur, ...fieldProps } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -563,9 +541,9 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                                     isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
                                     hasError ? "border-destructive" : "border-slate-300"
                                 )}
-                                onDragEnter={handleDragEnter}
-                                onDragOver={handleDragEnter}
-                                onDragLeave={handleDragLeave}
+                                onDragEnter={(e) => handleDragEvents(e, true)}
+                                onDragOver={(e) => handleDragEvents(e, true)}
+                                onDragLeave={(e) => handleDragEvents(e, false)}
                                 onDrop={handleDrop}
                             >
                                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
@@ -576,20 +554,9 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                                     id={name}
                                     accept="image/jpeg,image/png"
                                     multiple
-                                    {...field}
-                                    value={''}
-                                    ref={(e) => {
-                                        ref(e)
-                                        inputRef.current = e
-                                    }}
-                                    onChange={(e) => {
-                                        const newFiles = e.target.files;
-                                        if (newFiles) {
-                                            const dataTransfer = new DataTransfer();
-                                            Array.from(newFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
-                                            setValue(name, dataTransfer.files.length > 0 ? dataTransfer.files : null, { shouldValidate: true });
-                                        }
-                                    }}
+                                    ref={inputRef}
+                                    onBlur={onBlur}
+                                    onChange={(e) => handleFiles(e.target.files)}
                                 />
                             </label>
 
