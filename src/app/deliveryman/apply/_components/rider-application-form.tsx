@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from "react";
@@ -23,7 +24,7 @@ import Link from "next/link";
 type RiderFormValues = z.infer<typeof riderApplicationSchema>;
 
 const STEPS = [
-  { id: "01", name: "Información Personal", fields: ["firstName", "lastName", "motherLastName", "birthDate", "zone", "address", "ineFrontUrl", "ineBackUrl", "proofOfAddressUrl"] },
+  { id: "01", name: "Información Personal", fields: ["firstName", "lastName", "motherLastName", "birthDate", "zone_id", "address", "ineFrontUrl", "ineBackUrl", "proofOfAddressUrl"] },
   { id: "02", name: "Vehículo", fields: ["ownership", "brand", "brandOther", "year", "model", "color", "plate", "licenseFrontUrl", "licenseBackUrl", "licenseValidUntil", "circulationCardFrontUrl", "circulationCardBackUrl", "motoPhotos"] },
   { id: "03", name: "Póliza de Seguro", fields: ["insurer", "policyNumber", "policyValidUntil", "policyFirstPageUrl"] },
   { id: "04", name: "Extras", fields: ["hasHelmet", "hasUniform", "hasBox"] },
@@ -57,9 +58,46 @@ export function RiderApplicationForm() {
     resolver: zodResolver(riderApplicationSchema),
     mode: "onChange",
     defaultValues: {
+      // Personal
+      firstName: "",
+      lastName: "",
+      motherLastName: "",
+      birthDate: undefined,
+      zone_id: "",
+      address: "",
+      ineFrontUrl: undefined,
+      ineBackUrl: undefined,
+      proofOfAddressUrl: undefined,
+      // Vehicle
+      ownership: undefined,
+      brand: undefined,
+      brandOther: "",
+      year: undefined,
+      model: "",
+      color: "",
+      plate: "",
+      licenseFrontUrl: undefined,
+      licenseBackUrl: undefined,
+      licenseValidUntil: undefined,
+      circulationCardFrontUrl: undefined,
+      circulationCardBackUrl: undefined,
+      motoPhotos: undefined,
+      // Policy
+      insurer: "",
+      policyNumber: "",
+      policyValidUntil: undefined,
+      policyFirstPageUrl: undefined,
+      // Extras
       hasHelmet: false,
       hasUniform: false,
       hasBox: false,
+      // Login
+      email: "",
+      phoneE164: "",
+      password: "",
+      passwordConfirmation: "",
+      // Submit
+      avatar1x1Url: undefined,
     }
   });
 
