@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +11,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { riderApplicationSchema } from "@/lib/schemas";
 
 import { Step1_AccountCreation } from "./step-1-account-creation";
 import { Step2_PersonalInfo } from "./step-2-personal-info";
@@ -20,8 +22,6 @@ import { Step6_Submit } from "./step-6-submit";
 import Link from "next/link";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/store/auth-store";
-import { Rider } from "@/types";
-import { riderApplicationSchema } from "@/lib/schemas";
 
 
 const STEPS = [
@@ -48,6 +48,8 @@ const slideVariants = {
   }),
 };
 
+type RiderFormValues = z.infer<typeof riderApplicationSchema>;
+
 export function RiderApplicationForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -56,8 +58,7 @@ export function RiderApplicationForm() {
   const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const { login, isAuthenticated, user } = useAuthStore();
-
-  type RiderFormValues = z.infer<typeof riderApplicationSchema>;
+  
 
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderApplicationSchema),
@@ -306,3 +307,5 @@ export function RiderApplicationForm() {
     </FormProvider>
   );
 }
+
+    

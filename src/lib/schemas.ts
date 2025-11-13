@@ -1,7 +1,5 @@
-import { z } from "zod";
 
-const thirtyDaysFromNow = new Date();
-thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+import { z } from "zod";
 
 export const signInSchema = z.object({
   email: z.string().email({ message: "Por favor, ingresa un email válido." }),
@@ -136,9 +134,7 @@ export const riderAccountCreationSchema = z.object({
     path: ["passwordConfirmation"],
 });
 
-
 const isClient = typeof window !== 'undefined';
-
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ACCEPTED_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"];
@@ -160,7 +156,19 @@ const imageFileSchema = (message: string) =>
     : z.any();
 
 
-export const riderApplicationSchema = riderAccountCreationSchema.extend({
+// This is the full schema for client-side validation
+export const riderApplicationSchema = z.object({
+    // Step 1
+    firstName: z.string().min(2, { message: "El nombre es requerido." }),
+    lastName: z.string().min(2, { message: "El apellido paterno es requerido." }),
+    email: z.string().email({ message: "Por favor, ingresa un email válido." }),
+    phoneE164: z.string()
+        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
+        .transform(normalizePhone),
+    password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
+    passwordConfirmation: z.string(),
+    
+    // Step 2
     motherLastName: z.string().optional(),
     birthDate: z.date({ required_error: "La fecha de nacimiento es requerida." }).refine(d => new Date().getFullYear() - d.getFullYear() >= 18, { message: "Debes ser mayor de 18 años." }),
     zone_id: z.string({ required_error: "La zona es requerida." }),
@@ -168,6 +176,8 @@ export const riderApplicationSchema = riderAccountCreationSchema.extend({
     ineFrontUrl: fileSchema("El frente del INE es requerido.").nullable(),
     ineBackUrl: fileSchema("El reverso del INE es requerido.").nullable(),
     proofOfAddressUrl: fileSchema("El comprobante de domicilio es requerido.").nullable(),
+    
+    // Step 3
     ownership: z.enum(['propia', 'rentada', 'prestada'], { required_error: "Debes seleccionar una opción." }),
     brand: z.enum(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki', 'Otra'], { required_error: "La marca es requerida." }),
     brandOther: z.string().optional(),
@@ -184,14 +194,23 @@ export const riderApplicationSchema = riderAccountCreationSchema.extend({
     motoPhotoBack: imageFileSchema("La foto trasera de la moto es requerida.").nullable(),
     motoPhotoLeft: imageFileSchema("La foto del lado izquierdo es requerida.").nullable(),
     motoPhotoRight: imageFileSchema("La foto del lado derecho es requerida.").nullable(),
+
+    // Step 4
     insurer: z.string().min(2, { message: "La aseguradora es requerida." }),
     policyNumber: z.string().min(5, { message: "El número de póliza es requerido." }),
     policyValidUntil: z.date({ required_error: "La vigencia de la póliza es requerida." }).min(new Date(), { message: "La póliza no puede estar vencida." }),
     policyFirstPageUrl: fileSchema("La primera página de la póliza es requerida.").nullable(),
+
+    // Step 5
     hasHelmet: z.boolean().default(false),
     hasUniform: z.boolean().default(false),
     hasBox: z.boolean().default(false),
+
+    // Step 6
     avatar1x1Url: imageFileSchema("La foto de perfil es requerida.").nullable(),
+}).refine(data => data.password === data.passwordConfirmation, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
 });
 
 
@@ -211,3 +230,5 @@ export const planSchema = z.object({
     min_distance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
     details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
 });
+
+    
