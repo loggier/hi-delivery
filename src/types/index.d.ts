@@ -1,3 +1,4 @@
+
 export type Role = {
   id: string;
   name: string;
@@ -124,61 +125,61 @@ export type Document = {
   uploadedAt: string;
 };
 
-export type RiderStatus = 'pending_review' | 'approved' | 'rejected' | 'inactive';
+export type RiderStatus = 'pending_review' | 'approved' | 'rejected' | 'inactive' | 'incomplete';
 export type VehicleOwnership = 'propia' | 'rentada' | 'prestada';
 export type VehicleBrand = 'Italika' | 'Yamaha' | 'Honda' | 'Vento' | 'Veloci' | 'Suzuki' | 'Otra';
 
 export type Rider = {
   id: string
-  firstName: string
-  lastName: string
-  motherLastName?: string
+  first_name: string
+  last_name: string
+  mother_last_name?: string
   email: string
-  birthDate: string
-  riderType: 'Asociado'
-  zone_id: string
-  identityType: 'INE'
-  address: string
+  birth_date?: string
+  rider_type?: 'Asociado'
+  zone_id?: string
+  identity_type?: 'INE'
+  address?: string
 
-  // Archivos obligatorios
-  ineFrontUrl: string
-  ineBackUrl: string
-  proofOfAddressUrl: string
-  licenseFrontUrl: string
-  licenseBackUrl: string
+  // Archivos
+  ine_front_url?: string
+  ine_back_url?: string
+  proof_of_address_url?: string
+  license_front_url?: string
+  license_back_url?: string
 
   // Vehículo
-  vehicleType: 'Moto'
-  ownership: VehicleOwnership
-  brand: VehicleBrand
-  year: number
-  model: string
-  color: string
-  plate: string
-  licenseValidUntil: string
-  motoPhotos: [string, string, string, string]
-  circulationCardFrontUrl: string
-  circulationCardBackUrl: string
+  vehicle_type?: 'Moto'
+  ownership?: VehicleOwnership
+  brand?: VehicleBrand | string
+  year?: number
+  model?: string
+  color?: string
+  plate?: string
+  license_valid_until?: string
+  moto_photos?: string[]
+  circulation_card_front_url?: string
+  circulation_card_back_url?: string
 
   // Póliza
-  insurer: string
-  policyNumber: string
-  policyValidUntil: string
-  policyFirstPageUrl: string
+  insurer?: string
+  policy_number?: string
+  policy_valid_until?: string
+  policy_first_page_url?: string
 
   // Extra
-  hasHelmet: boolean
-  hasUniform: boolean
-  hasBox: boolean
+  has_helmet?: boolean
+  has_uniform?: boolean
+  has_box?: boolean
 
   // Login
-  phoneE164: string
-  passwordHashMock: string
-  avatar1x1Url: string
+  phone_e164: string
+  password_hash: string
+  avatar_1x1_url?: string
 
   status: RiderStatus
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
 };
 
 

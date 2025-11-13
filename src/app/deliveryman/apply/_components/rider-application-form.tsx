@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,23 +13,25 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 
-import { Step1_PersonalInfo } from "./step-1-personal-info";
-import { Step2_VehicleInfo } from "./step-2-vehicle-info";
-import { Step3_PolicyInfo } from "./step-3-policy-info";
-import { Step4_Extras } from "./step-4-extras";
-import { Step5_LoginInfo } from "./step-5-login-info";
+import { Step1_AccountCreation } from "./step-1-account-creation";
+import { Step2_PersonalInfo } from "./step-2-personal-info";
+import { Step3_VehicleInfo } from "./step-3-vehicle-info";
+import { Step4_PolicyInfo } from "./step-4-policy-info";
+import { Step5_Extras } from "./step-5-extras";
 import { Step6_Submit } from "./step-6-submit";
 import Link from "next/link";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuthStore } from "@/store/auth-store";
+import { Rider } from "@/types";
 
 type RiderFormValues = z.infer<typeof riderApplicationSchema>;
 
 const STEPS = [
-  { id: "01", name: "Información Personal", fields: ["firstName", "lastName", "motherLastName", "birthDate", "zone_id", "address", "ineFrontUrl", "ineBackUrl", "proofOfAddressUrl"] },
-  { id: "02", name: "Vehículo", fields: ["ownership", "brand", "brandOther", "year", "model", "color", "plate", "licenseFrontUrl", "licenseBackUrl", "licenseValidUntil", "circulationCardFrontUrl", "circulationCardBackUrl", "motoPhotoFront", "motoPhotoBack", "motoPhotoLeft", "motoPhotoRight"] },
-  { id: "03", name: "Póliza de Seguro", fields: ["insurer", "policyNumber", "policyValidUntil", "policyFirstPageUrl"] },
-  { id: "04", name: "Extras", fields: ["hasHelmet", "hasUniform", "hasBox"] },
-  { id: "05", name: "Cuenta y Acceso", fields: ["email", "phoneE164", "password", "passwordConfirmation"] },
+  { id: "01", name: "Crea tu Cuenta", fields: ["firstName", "lastName", "email", "phoneE164", "password", "passwordConfirmation"] },
+  { id: "02", name: "Información Personal", fields: ["motherLastName", "birthDate", "zone_id", "address", "ineFrontUrl", "ineBackUrl", "proofOfAddressUrl"] },
+  { id: "03", name: "Vehículo", fields: ["ownership", "brand", "brandOther", "year", "model", "color", "plate", "licenseFrontUrl", "licenseBackUrl", "licenseValidUntil", "circulationCardFrontUrl", "circulationCardBackUrl", "motoPhotoFront", "motoPhotoBack", "motoPhotoLeft", "motoPhotoRight"] },
+  { id: "04", name: "Póliza de Seguro", fields: ["insurer", "policyNumber", "policyValidUntil", "policyFirstPageUrl"] },
+  { id: "05", name: "Extras", fields: ["hasHelmet", "hasUniform", "hasBox"] },
   { id: "06", name: "Foto y Envío", fields: ["avatar1x1Url"] },
 ];
 
@@ -53,60 +55,88 @@ export function RiderApplicationForm() {
   const [direction, setDirection] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { login, isAuthenticated } = useAuthStore();
 
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderApplicationSchema),
     mode: "onChange",
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      motherLastName: "",
-      birthDate: undefined,
-      zone_id: "",
-      address: "",
-      ineFrontUrl: null,
-      ineBackUrl: null,
-      proofOfAddressUrl: null,
-      ownership: undefined,
-      brand: undefined,
-      brandOther: "",
-      year: undefined,
-      model: "",
-      color: "",
-      plate: "",
-      licenseFrontUrl: null,
-      licenseBackUrl: null,
-      licenseValidUntil: undefined,
-      circulationCardFrontUrl: null,
-      circulationCardBackUrl: null,
-      motoPhotoFront: null,
-      motoPhotoBack: null,
-      motoPhotoLeft: null,
-      motoPhotoRight: null,
-      insurer: "",
-      policyNumber: "",
-      policyValidUntil: undefined,
-      policyFirstPageUrl: null,
       hasHelmet: false,
       hasUniform: false,
       hasBox: false,
-      email: "",
-      phoneE164: "",
-      password: "",
-      passwordConfirmation: "",
-      avatar1x1Url: null,
     }
   });
 
+  const { trigger, getValues } = methods;
+
+  const handleApiResponse = (result: any, ok: boolean) => {
+    if (!ok) {
+        throw new Error(result.message || 'Ocurrió un error desconocido.');
+    }
+    if (result.rider) {
+        login(result.rider); // Authenticate the user
+        setRiderId(result.rider.id);
+    }
+    toast({
+        title: "Progreso Guardado",
+        description: "Tu información se ha guardado correctamente.",
+        variant: 'success'
+    });
+  };
+
   const nextStep = async () => {
     const fields = STEPS[currentStep].fields;
-    const output = await methods.trigger(fields as any, { shouldFocus: true });
+    const output = await trigger(fields as any, { shouldFocus: true });
 
     if (!output) return;
+    
+    setIsSubmitting(true);
 
-    setDirection(1);
-    setCurrentStep((prev) => Math.min(prev + 1, STEPS.length -1));
+    try {
+        const data = getValues();
+        const formData = new FormData();
+        
+        fields.forEach(fieldKey => {
+            const value = data[fieldKey as keyof RiderFormValues];
+            if (value instanceof FileList) {
+                if (value[0]) formData.append(fieldKey, value[0]);
+            } else if (value instanceof Date) {
+                formData.append(fieldKey, value.toISOString());
+            } else if (typeof value !== 'undefined' && value !== null) {
+                formData.append(fieldKey, String(value));
+            }
+        });
+
+        if (currentStep === 0 && !isAuthenticated) { // Step 1: Create Account
+            const response = await fetch('/api/riders', {
+                method: 'POST',
+                body: formData,
+            });
+            const result = await response.json();
+            handleApiResponse(result, response.ok);
+        } else { // Subsequent steps: Update Account
+            const response = await fetch(`/api/riders/${riderId}`, {
+                method: 'PATCH',
+                body: formData,
+            });
+            const result = await response.json();
+            handleApiResponse(result, response.ok);
+        }
+        
+        setDirection(1);
+        setCurrentStep((prev) => Math.min(prev + 1, STEPS.length -1));
+
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Error al guardar",
+            description: error instanceof Error ? error.message : "No se pudo guardar tu progreso."
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const prevStep = () => {
@@ -114,53 +144,40 @@ export function RiderApplicationForm() {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
   
-  const onSubmit = async (data: RiderFormValues) => {
+  const onSubmitFinal = async () => {
     setIsSubmitting(true);
-    const formData = new FormData();
-    
-    // Append all fields to FormData
-    for (const key in data) {
-        const value = data[key as keyof RiderFormValues];
-        if (value instanceof FileList) {
-            // Special handling for multiple files
-            if (key === 'motoPhotos') {
-                Array.from(value).forEach((file, index) => {
-                    formData.append(`${key}[${index}]`, file);
-                });
-            } else {
-                if (value[0]) formData.append(key, value[0]);
-            }
-        } else if (value instanceof Date) {
-            formData.append(key, value.toISOString());
-        } else if (typeof value !== 'undefined' && value !== null) {
-            formData.append(key, String(value));
-        }
-    }
-    
     try {
-      const response = await fetch('/api/riders', {
-        method: 'POST',
-        body: formData,
-      });
+        const avatarFile = getValues("avatar1x1Url");
+        if (!avatarFile || avatarFile.length === 0) {
+            methods.setError("avatar1x1Url", { type: "manual", message: "La foto de perfil es obligatoria para finalizar." });
+            throw new Error("La foto de perfil es obligatoria.");
+        }
+        
+        const formData = new FormData();
+        formData.append("avatar1x1Url", avatarFile[0]);
+        formData.append("status", "pending_review");
 
-      const result = await response.json();
+        const response = await fetch(`/api/riders/${riderId}`, {
+            method: 'PATCH',
+            body: formData,
+        });
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Ocurrió un error al enviar la solicitud.');
-      }
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || "No se pudo enviar la solicitud.");
+        }
 
-      setIsSuccess(true);
+        setIsSuccess(true);
     } catch (error) {
-      console.error("Submission failed", error)
-      toast({
-        variant: "destructive",
-        title: "Error en el envío",
-        description: error instanceof Error ? error.message : "No se pudo completar el registro. Inténtalo de nuevo."
-      });
+        toast({
+            variant: "destructive",
+            title: "Error en el envío final",
+            description: error instanceof Error ? error.message : "No se pudo completar el registro."
+        });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
-  };
+  }
   
   if (isSuccess) {
     return (
@@ -179,7 +196,7 @@ export function RiderApplicationForm() {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={methods.handleSubmit(onSubmitFinal)} className="space-y-8">
         <ScrollArea className="h-[650px] overflow-hidden relative" >
             <AnimatePresence initial={false} custom={direction}>
                 <motion.div
@@ -192,11 +209,11 @@ export function RiderApplicationForm() {
                 transition={{ duration: 0.3 }}
                 className="w-full px-4"
                 >
-                {currentStep === 0 && <Step1_PersonalInfo />}
-                {currentStep === 1 && <Step2_VehicleInfo />}
-                {currentStep === 2 && <Step3_PolicyInfo />}
-                {currentStep === 3 && <Step4_Extras />}
-                {currentStep === 4 && <Step5_LoginInfo />}
+                {currentStep === 0 && <Step1_AccountCreation />}
+                {currentStep === 1 && <Step2_PersonalInfo />}
+                {currentStep === 2 && <Step3_VehicleInfo />}
+                {currentStep === 3 && <Step4_PolicyInfo />}
+                {currentStep === 4 && <Step5_Extras />}
                 {currentStep === 5 && <Step6_Submit isPending={isSubmitting}/>}
                 </motion.div>
             </AnimatePresence>
@@ -216,7 +233,8 @@ export function RiderApplicationForm() {
               </Button>
               {currentStep < STEPS.length - 1 ? (
                 <Button type="button" onClick={nextStep} disabled={isSubmitting}>
-                  Siguiente
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting ? "Guardando..." : "Guardar y Continuar"}
                 </Button>
               ) : (
                 <Button type="submit" disabled={isSubmitting}>

@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 const thirtyDaysFromNow = new Date();
@@ -131,75 +132,26 @@ export const productSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
-// Helper para validar archivos, compatible con SSR
-const fileSchema = (message: string) => {
-  const baseSchema = typeof window === 'undefined' ? z.any() : z.instanceof(FileList);
-  return baseSchema
-    .refine((files: any) => files?.length === 1, message)
+const fileSchema = (message: string) => z.any()
+    .refine((files: any) => files?.[0], message)
     .refine((files: any) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
       (files: any) => files && ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg, .png y .pdf"
     );
-};
 
-const imageFileSchema = (message: string) => {
-  const baseSchema = typeof window === 'undefined' ? z.any() : z.instanceof(FileList);
-  return baseSchema
-    .refine((files: any) => files?.length === 1, message)
+const imageFileSchema = (message: string) => z.any()
+    .refine((files: any) => files?.[0], message)
     .refine((files: any) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
       (files: any) => files && ["image/jpeg", "image/png"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg y .png"
     );
-};
 
 export const riderApplicationSchema = z.object({
-    // Información del repartidor
+    // Step 1
     firstName: z.string().min(2, { message: "El nombre es requerido." }),
     lastName: z.string().min(2, { message: "El apellido paterno es requerido." }),
-    motherLastName: z.string().optional(),
-    birthDate: z.date({ required_error: "La fecha de nacimiento es requerida." }).refine(date => {
-        const today = new Date();
-        const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-        return date <= eighteenYearsAgo;
-    }, { message: "Debes ser mayor de 18 años." }),
-    zone_id: z.string({ required_error: "La zona es requerida." }),
-    address: z.string().min(5, { message: "La dirección es requerida." }),
-    ineFrontUrl: fileSchema("El frente del INE es requerido."),
-    ineBackUrl: fileSchema("El reverso del INE es requerido."),
-    proofOfAddressUrl: fileSchema("El comprobante de domicilio es requerido."),
-
-    // Vehículo
-    ownership: z.enum(['propia', 'rentada', 'prestada'], { required_error: "Debes seleccionar una opción." }),
-    brand: z.enum(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki', 'Otra'], { required_error: "La marca es requerida." }),
-    brandOther: z.string().optional(),
-    year: z.coerce.number({ required_error: "El año es requerido." }).min(2010).max(new Date().getFullYear() + 1),
-    model: z.string().min(1, { message: "El modelo es requerido." }),
-    color: z.string().min(2, { message: "El color es requerido." }),
-    plate: z.string().min(4, { message: "La placa es requerida." }),
-    licenseFrontUrl: fileSchema("El frente de la licencia es requerido."),
-    licenseBackUrl: fileSchema("El reverso de la licencia es requerido."),
-    licenseValidUntil: z.date({ required_error: "La vigencia de la licencia es requerida." }).min(new Date(), { message: "La licencia no puede estar vencida." }),
-    circulationCardFrontUrl: fileSchema("El frente de la tarjeta de circulación es requerido."),
-    circulationCardBackUrl: fileSchema("El reverso de la tarjeta de circulación es requerido."),
-    motoPhotoFront: imageFileSchema("La foto frontal de la moto es requerida."),
-    motoPhotoBack: imageFileSchema("La foto trasera de la moto es requerida."),
-    motoPhotoLeft: imageFileSchema("La foto del lado izquierdo de la moto es requerida."),
-    motoPhotoRight: imageFileSchema("La foto del lado derecho de la moto es requerida."),
-
-    // Póliza
-    insurer: z.string().min(2, { message: "La aseguradora es requerida." }),
-    policyNumber: z.string().min(5, { message: "El número de póliza es requerido." }),
-    policyValidUntil: z.date({ required_error: "La vigencia de la póliza es requerida." }).min(new Date(), { message: "La póliza no puede estar vencida." }),
-    policyFirstPageUrl: fileSchema("La primera página de la póliza es requerida."),
-
-    // Extras
-    hasHelmet: z.boolean().default(false),
-    hasUniform: z.boolean().default(false),
-    hasBox: z.boolean().default(false),
-    
-    // Login
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
     phoneE164: z.string()
         .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
@@ -207,8 +159,51 @@ export const riderApplicationSchema = z.object({
     password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
     passwordConfirmation: z.string(),
 
-    // Foto
-    avatar1x1Url: imageFileSchema("La foto de perfil es requerida."),
+    // Step 2
+    motherLastName: z.string().optional(),
+    birthDate: z.date({ required_error: "La fecha de nacimiento es requerida." }).refine(date => {
+        const today = new Date();
+        const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+        return date <= eighteenYearsAgo;
+    }, { message: "Debes ser mayor de 18 años." }).optional(),
+    zone_id: z.string({ required_error: "La zona es requerida." }).optional(),
+    address: z.string().min(5, { message: "La dirección es requerida." }).optional(),
+    ineFrontUrl: fileSchema("El frente del INE es requerido.").optional().nullable(),
+    ineBackUrl: fileSchema("El reverso del INE es requerido.").optional().nullable(),
+    proofOfAddressUrl: fileSchema("El comprobante de domicilio es requerido.").optional().nullable(),
+
+    // Step 3
+    ownership: z.enum(['propia', 'rentada', 'prestada'], { required_error: "Debes seleccionar una opción." }).optional(),
+    brand: z.enum(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki', 'Otra'], { required_error: "La marca es requerida." }).optional(),
+    brandOther: z.string().optional(),
+    year: z.coerce.number({ required_error: "El año es requerido." }).min(2010).max(new Date().getFullYear() + 1).optional(),
+    model: z.string().min(1, { message: "El modelo es requerido." }).optional(),
+    color: z.string().min(2, { message: "El color es requerido." }).optional(),
+    plate: z.string().min(4, { message: "La placa es requerida." }).optional(),
+    licenseFrontUrl: fileSchema("El frente de la licencia es requerido.").optional().nullable(),
+    licenseBackUrl: fileSchema("El reverso de la licencia es requerido.").optional().nullable(),
+    licenseValidUntil: z.date({ required_error: "La vigencia de la licencia es requerida." }).min(new Date(), { message: "La licencia no puede estar vencida." }).optional(),
+    circulationCardFrontUrl: fileSchema("El frente de la tarjeta de circulación es requerido.").optional().nullable(),
+    circulationCardBackUrl: fileSchema("El reverso de la tarjeta de circulación es requerido.").optional().nullable(),
+    motoPhotoFront: imageFileSchema("La foto frontal de la moto es requerida.").optional().nullable(),
+    motoPhotoBack: imageFileSchema("La foto trasera de la moto es requerida.").optional().nullable(),
+    motoPhotoLeft: imageFileSchema("La foto del lado izquierdo de la moto es requerida.").optional().nullable(),
+    motoPhotoRight: imageFileSchema("La foto del lado derecho de la moto es requerida.").optional().nullable(),
+    
+    // Step 4
+    insurer: z.string().min(2, { message: "La aseguradora es requerida." }).optional(),
+    policyNumber: z.string().min(5, { message: "El número de póliza es requerido." }).optional(),
+    policyValidUntil: z.date({ required_error: "La vigencia de la póliza es requerida." }).min(new Date(), { message: "La póliza no puede estar vencida." }).optional(),
+    policyFirstPageUrl: fileSchema("La primera página de la póliza es requerida.").optional().nullable(),
+
+    // Step 5
+    hasHelmet: z.boolean().default(false),
+    hasUniform: z.boolean().default(false),
+    hasBox: z.boolean().default(false),
+    
+    // Step 6
+    avatar1x1Url: imageFileSchema("La foto de perfil es requerida.").optional().nullable(),
+
 }).refine(data => data.password === data.passwordConfirmation, {
     message: "Las contraseñas no coinciden.",
     path: ["passwordConfirmation"],

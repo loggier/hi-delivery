@@ -280,21 +280,16 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const [isDragging, setIsDragging] = useState(false);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(name, e.target.files, { shouldValidate: true });
+    }
+
     const handleRemove = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setValue(name, null, { shouldValidate: true });
       if (inputRef.current) {
         inputRef.current.value = "";
-      }
-    }
-    
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const fileList = e.target.files;
-      if (fileList && fileList.length > 0) {
-        setValue(name, fileList, { shouldValidate: true });
-      } else {
-        setValue(name, null, { shouldValidate: true });
       }
     }
 
@@ -323,7 +318,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, onBlur, ...fieldProps } }) => (
+            render={({ field: { ref, onBlur } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -351,7 +346,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                     }}
                                     onChange={handleFileChange}
                                     onBlur={onBlur}
-                                    value={undefined} // Let react-hook-form control it
+                                    value={undefined}
                                 />
                                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
                                 <span className="text-sm text-center text-slate-500">
@@ -410,12 +405,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
     }
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const fileList = e.target.files;
-      if (fileList && fileList.length > 0) {
-        setValue(name, fileList, { shouldValidate: true });
-      } else {
-        setValue(name, null, { shouldValidate: true });
-      }
+      setValue(name, e.target.files, { shouldValidate: true });
     };
 
     const hasError = !!errors[name];
@@ -424,7 +414,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, onBlur, ...fieldProps } }) => (
+            render={({ field: { ref, onBlur } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -478,7 +468,6 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
 interface SingleImageDropzoneProps {
     name: string;
     label: string;
-    description?: string;
 }
 
 const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
@@ -490,36 +479,20 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    let reader: FileReader;
-    let isCancelled = false;
-
     if (file) {
-      reader = new FileReader();
-      reader.onloadend = () => {
-        if (!isCancelled) {
-          setPreview(reader.result as string);
-        }
-      };
+      const reader = new FileReader();
+      reader.onloadend = () => setPreview(reader.result as string);
       reader.readAsDataURL(file);
     } else {
       setPreview(null);
     }
-
-    return () => {
-      isCancelled = true;
-      if (reader && reader.readyState === 1) {
-        reader.abort();
-      }
-    };
   }, [file]);
 
   const handleRemove = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setValue(name, null, { shouldValidate: true });
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -535,12 +508,10 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     handleDragEvents(e, false);
     const dataTransfer = new DataTransfer();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.files?.[0]) {
       dataTransfer.items.add(e.dataTransfer.files[0]);
       setValue(name, dataTransfer.files, { shouldValidate: true });
-      if (inputRef.current) {
-        inputRef.current.files = dataTransfer.files;
-      }
+      if (inputRef.current) inputRef.current.files = dataTransfer.files;
     }
   };
 
