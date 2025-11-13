@@ -57,7 +57,7 @@ export function RiderApplicationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
-  const { login, isAuthenticated } = useAuthStore();
+  const { login, isAuthenticated, user } = useAuthStore();
 
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderApplicationSchema),
@@ -66,19 +66,41 @@ export function RiderApplicationForm() {
       hasHelmet: false,
       hasUniform: false,
       hasBox: false,
+      avatar1x1Url: null,
+      ineFrontUrl: null,
+      ineBackUrl: null,
+      proofOfAddressUrl: null,
+      licenseFrontUrl: null,
+      licenseBackUrl: null,
+      circulationCardFrontUrl: null,
+      circulationCardBackUrl: null,
+      motoPhotoFront: null,
+      motoPhotoBack: null,
+      motoPhotoLeft: null,
+      motoPhotoRight: null,
+      policyFirstPageUrl: null,
     }
   });
 
+  useEffect(() => {
+    if (user) {
+        setRiderId(user.id);
+    }
+  }, [user]);
+
   const { trigger, getValues } = methods;
 
-  const handleApiResponse = (result: any, ok: boolean) => {
+ const handleApiResponse = (result: any, ok: boolean, isCreation: boolean = false) => {
     if (!ok) {
         throw new Error(result.message || 'Ocurrió un error desconocido.');
     }
-    if (result.rider) {
+    if (isCreation && result.rider) {
         login(result.rider); // Authenticate the user
         setRiderId(result.rider.id);
+    } else if (result.rider) {
+        setRiderId(result.rider.id);
     }
+    
     toast({
         title: "Progreso Guardado",
         description: "Tu información se ha guardado correctamente.",
@@ -100,6 +122,7 @@ export function RiderApplicationForm() {
         
         fields.forEach(fieldKey => {
             const value = data[fieldKey as keyof RiderFormValues];
+            
             if (value instanceof FileList) {
                 if (value[0]) formData.append(fieldKey, value[0]);
             } else if (value instanceof Date) {
@@ -115,9 +138,13 @@ export function RiderApplicationForm() {
                 body: formData,
             });
             const result = await response.json();
-            handleApiResponse(result, response.ok);
+            handleApiResponse(result, response.ok, true);
         } else { // Subsequent steps: Update Account
-            const response = await fetch(`/api/riders/${riderId}`, {
+            const riderIdToUpdate = riderId || user?.id;
+            if (!riderIdToUpdate) {
+                throw new Error("No se pudo identificar al repartidor para actualizar.");
+            }
+            const response = await fetch(`/api/riders/${riderIdToUpdate}`, {
                 method: 'PATCH',
                 body: formData,
             });
@@ -153,11 +180,16 @@ export function RiderApplicationForm() {
             throw new Error("La foto de perfil es obligatoria.");
         }
         
+        const riderIdToUpdate = riderId || user?.id;
+         if (!riderIdToUpdate) {
+            throw new Error("No se pudo identificar al repartidor para finalizar.");
+        }
+
         const formData = new FormData();
         formData.append("avatar1x1Url", avatarFile[0]);
         formData.append("status", "pending_review");
 
-        const response = await fetch(`/api/riders/${riderId}`, {
+        const response = await fetch(`/api/riders/${riderIdToUpdate}`, {
             method: 'PATCH',
             body: formData,
         });
@@ -197,7 +229,7 @@ export function RiderApplicationForm() {
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmitFinal)} className="space-y-8">
-        <ScrollArea className="h-[650px] overflow-hidden relative" >
+        <div className="h-[650px] overflow-hidden relative" >
             <AnimatePresence initial={false} custom={direction}>
                 <motion.div
                 key={currentStep}
@@ -207,17 +239,19 @@ export function RiderApplicationForm() {
                 animate="visible"
                 exit="exit"
                 transition={{ duration: 0.3 }}
-                className="w-full px-4"
+                className="absolute w-full px-4"
                 >
-                {currentStep === 0 && <Step1_AccountCreation />}
-                {currentStep === 1 && <Step2_PersonalInfo />}
-                {currentStep === 2 && <Step3_VehicleInfo />}
-                {currentStep === 3 && <Step4_PolicyInfo />}
-                {currentStep === 4 && <Step5_Extras />}
-                {currentStep === 5 && <Step6_Submit isPending={isSubmitting}/>}
+                <ScrollArea className="h-[650px]">
+                    {currentStep === 0 && <Step1_AccountCreation />}
+                    {currentStep === 1 && <Step2_PersonalInfo />}
+                    {currentStep === 2 && <Step3_VehicleInfo />}
+                    {currentStep === 3 && <Step4_PolicyInfo />}
+                    {currentStep === 4 && <Step5_Extras />}
+                    {currentStep === 5 && <Step6_Submit isPending={isSubmitting}/>}
+                </ScrollArea>
                 </motion.div>
             </AnimatePresence>
-        </ScrollArea>
+        </div>
 
         {/* Navigation */}
         <div className="space-y-4">
