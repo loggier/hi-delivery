@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { riderApplicationSchema } from '@/lib/schemas';
 import { faker } from '@faker-js/faker';
+import { hashPassword } from '@/lib/auth-utils';
 
 // Helper function to upload a file and return its public URL
 async function uploadFile(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
         cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+        db: { schema: 'grupohubs' }
       }
     );
     
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
             motoPhotosFiles.push(value as File);
         }
     }
-    // Zod expects a FileList, but we have an array. We will handle it manually.
+    
     const validated = riderApplicationSchema.safeParse(rawData);
 
     if (!validated.success) {
@@ -88,67 +90,66 @@ export async function POST(request: Request) {
         uploadFile(supabaseAdmin, file, riderId, `moto-photo-${index + 1}`)
     );
 
-    const filePromises = fileUploads.map(f => uploadFile(supabaseAdmin, f.file, f.name));
+    const filePromises = fileUploads.map(f => uploadFile(supabaseAdmin, f.file, riderId, f.name));
     
-    const [motoPhotoUrls, ...fileUrls] = await Promise.all([Promise.all(motoPhotosPromises), ...filePromises]);
+    const [motoPhotoUrls, ...otherFileUrls] = await Promise.all([Promise.all(motoPhotosPromises), ...filePromises]);
 
     const urls: Record<string, string> = {};
     fileUploads.forEach((f, index) => {
-        urls[f.key] = fileUrls[index];
+        urls[f.key] = otherFileUrls[index];
     });
+    
+    const hashedPassword = await hashPassword(data.password);
 
-    const newRider = {
+    const newRiderForDb = {
       id: riderId,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      motherLastName: data.motherLastName,
+      first_name: data.firstName,
+      last_name: data.lastName,
+      mother_last_name: data.motherLastName,
       email: data.email,
-      birthDate: data.birthDate.toISOString(),
-      riderType: 'Asociado',
-      zone: data.zone,
-      identityType: 'INE',
+      birth_date: data.birthDate.toISOString(),
+      rider_type: 'Asociado',
+      zone_id: data.zone_id,
       address: data.address,
-      ineFrontUrl: urls.ineFrontUrl,
-      ineBackUrl: urls.ineBackUrl,
-      proofOfAddressUrl: urls.proofOfAddressUrl,
-      licenseFrontUrl: urls.licenseFrontUrl,
-      licenseBackUrl: urls.licenseBackUrl,
-      vehicleType: 'Moto',
+      ine_front_url: urls.ineFrontUrl,
+      ine_back_url: urls.ineBackUrl,
+      proof_of_address_url: urls.proofOfAddressUrl,
+      license_front_url: urls.licenseFrontUrl,
+      license_back_url: urls.licenseBackUrl,
+      vehicle_type: 'Moto',
       ownership: data.ownership,
-      brand: data.brand,
+      brand: data.brand === 'Otra' ? data.brandOther : data.brand,
       year: Number(data.year),
       model: data.model,
       color: data.color,
       plate: data.plate,
-      licenseValidUntil: data.licenseValidUntil.toISOString(),
-      motoPhotos: motoPhotoUrls,
-      circulationCardFrontUrl: urls.circulationCardFrontUrl,
-      circulationCardBackUrl: urls.circulationCardBackUrl,
+      license_valid_until: data.licenseValidUntil.toISOString(),
+      moto_photos: motoPhotoUrls,
+      circulation_card_front_url: urls.circulationCardFrontUrl,
+      circulation_card_back_url: urls.circulationCardBackUrl,
       insurer: data.insurer,
-      policyNumber: data.policyNumber,
-      policyValidUntil: data.policyValidUntil.toISOString(),
-      policyFirstPageUrl: urls.policyFirstPageUrl,
-      hasHelmet: data.hasHelmet,
-      hasUniform: data.hasUniform,
-      hasBox: data.hasBox,
-      phoneE164: data.phoneE164,
-      passwordHashMock: `hashed_${data.password}`, // Real hashing should happen here
-      avatar1x1Url: urls.avatar1x1Url,
+      policy_number: data.policyNumber,
+      policy_valid_until: data.policyValidUntil.toISOString(),
+      policy_first_page_url: urls.policyFirstPageUrl,
+      has_helmet: data.hasHelmet,
+      has_uniform: data.hasUniform,
+      has_box: data.hasBox,
+      phone_e164: data.phoneE164,
+      password_hash: hashedPassword,
+      avatar_1x1_url: urls.avatar1x1Url,
       status: 'pending_review',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
     const { error: insertError } = await supabaseAdmin
       .from('riders')
-      .insert(newRider);
+      .insert(newRiderForDb);
 
     if (insertError) {
       console.error("Error inserting rider:", insertError);
       return NextResponse.json({ message: 'Error al guardar la solicitud en la base de datos.', error: insertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ message: "Solicitud recibida con éxito", riderId: newRider.id }, { status: 201 });
+    return NextResponse.json({ message: "Solicitud recibida con éxito", riderId: newRiderForDb.id }, { status: 201 });
 
   } catch (error) {
     console.error('Error inesperado en la API de registro de repartidores:', error);

@@ -165,7 +165,7 @@ export const riderApplicationSchema = z.object({
         const eighteenYearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
         return date <= eighteenYearsAgo;
     }, { message: "Debes ser mayor de 18 años." }),
-    zone: z.enum(['Monterrey', 'Culiacan', 'Mazatlan'], { required_error: "La zona es requerida." }),
+    zone_id: z.string({ required_error: "La zona es requerida." }),
     address: z.string().min(5, { message: "La dirección es requerida." }),
     ineFrontUrl: fileSchema("El frente del INE es requerido."),
     ineBackUrl: fileSchema("El reverso del INE es requerido."),

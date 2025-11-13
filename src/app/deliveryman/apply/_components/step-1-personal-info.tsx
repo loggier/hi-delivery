@@ -2,8 +2,13 @@
 
 import React from 'react';
 import { FormInput, FormDatePicker, FormSelect, FormFileUpload } from './form-components';
+import { api } from '@/lib/api';
 
 export function Step1_PersonalInfo() {
+  const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll({ status: 'ACTIVE' });
+  
+  const zoneOptions = zones?.map(zone => ({ value: zone.id, label: zone.name })) || [];
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">1. Información Personal</h2>
@@ -13,10 +18,11 @@ export function Step1_PersonalInfo() {
         <FormInput name="motherLastName" label="Apellido Materno (Opcional)" placeholder="Ej. García" />
         <FormDatePicker name="birthDate" label="Fecha de Nacimiento" />
         <FormSelect
-          name="zone"
+          name="zone_id"
           label="Zona de Operación"
-          placeholder="Selecciona tu zona"
-          options={['Monterrey', 'Culiacan', 'Mazatlan']}
+          placeholder={isLoadingZones ? "Cargando zonas..." : "Selecciona tu zona"}
+          options={zoneOptions}
+          disabled={isLoadingZones}
         />
         <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, C.P." className="md:col-span-2" />
         <FormFileUpload name="ineFrontUrl" label="Frente de tu INE" description="Asegúrate que sea legible."/>

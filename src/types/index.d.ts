@@ -136,7 +136,7 @@ export type Rider = {
   email: string
   birthDate: string
   riderType: 'Asociado'
-  zone: 'Monterrey' | 'Culiacan' | 'Mazatlan'
+  zone_id: string
   identityType: 'INE'
   address: string
 
