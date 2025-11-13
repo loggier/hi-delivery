@@ -131,29 +131,37 @@ export const productSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
-const fileSchema = (message: string) => z.instanceof(FileList)
-    .refine(files => files?.length === 1, message)
-    .refine(files => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
+// Helper para validar archivos, compatible con SSR
+const fileSchema = (message: string) => {
+  const baseSchema = typeof window === 'undefined' ? z.any() : z.instanceof(FileList);
+  return baseSchema
+    .refine((files: any) => files?.length === 1, message)
+    .refine((files: any) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
-      files => files && ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
+      (files: any) => files && ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg, .png y .pdf"
     );
+};
 
-const imageFileSchema = (message: string) => z.instanceof(FileList)
-    .refine(files => files?.length === 1, message)
-    .refine(files => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
+const imageFileSchema = (message: string) => {
+  const baseSchema = typeof window === 'undefined' ? z.any() : z.instanceof(FileList);
+  return baseSchema
+    .refine((files: any) => files?.length === 1, message)
+    .refine((files: any) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
-      files => files && ["image/jpeg", "image/png"].includes(files?.[0]?.type),
+      (files: any) => files && ["image/jpeg", "image/png"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg y .png"
     );
+};
 
-
-const motoPhotosSchema = z.instanceof(FileList)
-    .refine(files => files && files.length > 0, "Debes subir al menos una foto.")
-    .refine(files => files?.length <= 4, "Puedes subir un máximo de 4 fotos.")
-    .refine(files => files && Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
-    .refine(files => files && Array.from(files).every((file: any) => ["image/jpeg", "image/png"].includes(file.type)), "Solo se permiten formatos .jpg y .png");
-
+const motoPhotosSchema = () => {
+    const baseSchema = typeof window === 'undefined' ? z.any() : z.instanceof(FileList);
+    return baseSchema
+    .refine((files: any) => files && files.length > 0, "Debes subir al menos una foto.")
+    .refine((files: any) => files?.length <= 4, "Puedes subir un máximo de 4 fotos.")
+    .refine((files: any) => files && Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
+    .refine((files: any) => files && Array.from(files).every((file: any) => ["image/jpeg", "image/png"].includes(file.type)), "Solo se permiten formatos .jpg y .png");
+}
 
 export const riderApplicationSchema = z.object({
     // Información del repartidor
@@ -184,7 +192,7 @@ export const riderApplicationSchema = z.object({
     licenseValidUntil: z.date({ required_error: "La vigencia de la licencia es requerida." }).min(new Date(), { message: "La licencia no puede estar vencida." }),
     circulationCardFrontUrl: fileSchema("El frente de la tarjeta de circulación es requerido."),
     circulationCardBackUrl: fileSchema("El reverso de la tarjeta de circulación es requerido."),
-    motoPhotos: motoPhotosSchema,
+    motoPhotos: motoPhotosSchema(),
 
     // Póliza
     insurer: z.string().min(2, { message: "La aseguradora es requerida." }),
