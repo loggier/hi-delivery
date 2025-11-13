@@ -180,15 +180,20 @@ interface FormFileUploadProps {
 
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
     const { register, watch, setValue, formState: { errors } } = useFormContext();
-    const files = watch(name);
+    const files: FileList | undefined = watch(name);
     const file = files?.[0];
     const [isDragging, setIsDragging] = useState(false);
 
     const inputRef = React.useRef<HTMLInputElement | null>(null);
     const { ref: registerRef, ...rest } = register(name);
 
-    const handleRemove = () => {
-      setValue(name, null, { shouldValidate: true });
+    const handleRemove = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setValue(name, undefined, { shouldValidate: true });
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
     }
 
     const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -202,7 +207,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         e.stopPropagation();
         setIsDragging(false);
     };
-
+    
     const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
         e.preventDefault();
         e.stopPropagation();
@@ -228,9 +233,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                         {...rest}
                         ref={(e) => {
                             registerRef(e);
-                            if (inputRef) {
-                                (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = e;
-                            }
+                            inputRef.current = e;
                         }}
                     />
                     <label 
@@ -348,16 +351,18 @@ interface FormMultiImageUploadProps {
 }
 
 export const FormMultiImageUpload = ({ name, label, description, count }: FormMultiImageUploadProps) => {
-    const { register, watch, setValue } = useFormContext();
-    const files = watch(name);
+    const { register, watch, setValue, formState: { errors } } = useFormContext();
+    const files: FileList | undefined = watch(name);
     const [previews, setPreviews] = useState<(string | null)[]>(Array(count).fill(null));
 
-    const { ref, ...rest } = register(name);
+    const { ref: registerRef, onChange: onRegisterChange, ...rest } = register(name);
+    const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useEffect(() => {
         if (files && files.length > 0) {
             const newPreviews = Array(count).fill(null);
-            const promises = Array.from(files).slice(0, count).map((file, index) => {
+            const fileArray = Array.from(files).slice(0, count);
+            const promises = fileArray.map((file, index) => {
                 return new Promise<void>((resolve) => {
                     const reader = new FileReader();
                     reader.onloadend = () => {
@@ -373,14 +378,23 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         }
     }, [files, count]);
 
-    const handleRemove = (e: React.MouseEvent, index: number) => {
+    const handleRemove = (e: React.MouseEvent, indexToRemove: number) => {
         e.preventDefault();
         const currentFiles = Array.from(files || []);
-        currentFiles.splice(index, 1);
+        currentFiles.splice(indexToRemove, 1);
+        
         const dataTransfer = new DataTransfer();
         currentFiles.forEach(file => dataTransfer.items.add(file as File));
+        
         setValue(name, dataTransfer.files, { shouldValidate: true });
+        
+        // This is needed to make sure react-hook-form knows the input has changed
+        if(inputRef.current) {
+            inputRef.current.files = dataTransfer.files;
+        }
     }
+    
+    const hasError = !!errors[name];
 
     return (
         <FormItem>
@@ -389,10 +403,10 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                 <div className="grid grid-cols-2 gap-4">
                      <label 
                         htmlFor={name}
-                        className="col-span-2 border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer hover:border-primary hover:bg-slate-50 transition-colors"
+                        className={cn("col-span-2 border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors", hasError ? "border-destructive" : "border-slate-300", "hover:border-primary hover:bg-slate-50")}
                     >
                         <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
-                        <span className="text-sm text-center text-slate-500">Selecciona 4 fotos</span>
+                        <span className="text-sm text-center text-slate-500">Selecciona {count} fotos</span>
                          <Input
                             type="file"
                             className="hidden"
@@ -400,15 +414,18 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                             accept="image/jpeg,image/png"
                             multiple
                             {...rest}
-                            ref={ref}
+                            ref={(e) => {
+                                registerRef(e)
+                                inputRef.current = e
+                            }}
                             onChange={(e) => {
-                                const files = e.target.files;
-                                if (files) {
+                                const newFiles = e.target.files;
+                                if (newFiles) {
                                     const dataTransfer = new DataTransfer();
-                                    Array.from(files).slice(0, count).forEach(file => dataTransfer.items.add(file));
+                                    Array.from(newFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
                                     setValue(name, dataTransfer.files, { shouldValidate: true });
                                 }
-                                rest.onChange(e);
+                                onRegisterChange(e);
                             }}
                         />
                     </label>

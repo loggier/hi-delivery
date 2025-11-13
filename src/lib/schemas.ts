@@ -131,7 +131,7 @@ export const productSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
-const fileSchema = (message: string) => z.any()
+const fileSchema = (message: string) => z.instanceof(FileList)
     .refine(files => files?.length === 1, message)
     .refine(files => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
@@ -139,7 +139,7 @@ const fileSchema = (message: string) => z.any()
       "Solo se permiten formatos .jpg, .png y .pdf"
     );
 
-const imageFileSchema = (message: string) => z.any()
+const imageFileSchema = (message: string) => z.instanceof(FileList)
     .refine(files => files?.length === 1, message)
     .refine(files => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
@@ -148,7 +148,7 @@ const imageFileSchema = (message: string) => z.any()
     );
 
 
-const motoPhotosSchema = z.any()
+const motoPhotosSchema = z.instanceof(FileList)
     .refine(files => files && files.length > 0, "Debes subir al menos una foto.")
     .refine(files => files?.length <= 4, "Puedes subir un máximo de 4 fotos.")
     .refine(files => files && Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
