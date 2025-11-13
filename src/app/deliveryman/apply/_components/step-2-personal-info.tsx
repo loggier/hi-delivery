@@ -30,3 +30,5 @@ export function Step2_PersonalInfo() {
     </div>
   );
 }
+
+    

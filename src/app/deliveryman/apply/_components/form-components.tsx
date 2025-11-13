@@ -83,87 +83,6 @@ interface FormDatePickerProps {
   description?: string;
 }
 
-const FormSimpleDateInput = ({ name, label, description }: FormDatePickerProps) => {
-  const { control, setValue, watch, trigger } = useFormContext();
-  const currentValue = watch(name);
-
-  const [day, setDay] = useState('');
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState('');
-
-  useEffect(() => {
-    if (currentValue && currentValue instanceof Date) {
-      setDay(String(currentValue.getDate()));
-      setMonth(String(currentValue.getMonth() + 1));
-      setYear(String(currentValue.getFullYear()));
-    }
-  }, [currentValue]);
-  
-  const handleDateChange = (part: 'day' | 'month' | 'year', value: string) => {
-    let newDay = part === 'day' ? value : day;
-    let newMonth = part === 'month' ? value : month;
-    let newYear = part === 'year' ? value : year;
-
-    setDay(newDay);
-    setMonth(newMonth);
-    setYear(newYear);
-
-    const dayInt = parseInt(newDay, 10);
-    const monthInt = parseInt(newMonth, 10);
-    const yearInt = parseInt(newYear, 10);
-
-    if (dayInt > 0 && monthInt > 0 && yearInt > 999) {
-      const date = new Date(yearInt, monthInt - 1, dayInt);
-      // Check if date is valid (e.g. not Feb 30)
-      if (date.getFullYear() === yearInt && date.getMonth() === monthInt - 1 && date.getDate() === dayInt) {
-        setValue(name, date, { shouldValidate: true });
-      } else {
-        setValue(name, undefined, { shouldValidate: true });
-      }
-    } else {
-      setValue(name, undefined, { shouldValidate: true });
-    }
-  };
-
-  return (
-    <FormField
-      name={name}
-      control={control}
-      render={() => (
-        <FormItem>
-          <FormLabel>{label}</FormLabel>
-          <div className="grid grid-cols-3 gap-2">
-            <Input
-              type="number"
-              placeholder="DD"
-              value={day}
-              onChange={(e) => handleDateChange('day', e.target.value)}
-              onBlur={() => trigger(name)}
-            />
-            <Input
-              type="number"
-              placeholder="MM"
-              value={month}
-              onChange={(e) => handleDateChange('month', e.target.value)}
-               onBlur={() => trigger(name)}
-            />
-            <Input
-              type="number"
-              placeholder="AAAA"
-              value={year}
-              onChange={(e) => handleDateChange('year', e.target.value)}
-              onBlur={() => trigger(name)}
-            />
-          </div>
-          {description && <FormDescription>{description}</FormDescription>}
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-};
-
-
 export const FormDatePicker = ({ name, label, description }: FormDatePickerProps) => (
   <FormField
     name={name}
@@ -590,3 +509,5 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
+
+    
