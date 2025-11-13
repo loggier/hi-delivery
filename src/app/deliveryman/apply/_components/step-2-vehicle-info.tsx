@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useWatch } from 'react-hook-form';
-import { FormInput, FormSelect, FormDatePicker, FormFileUpload, FormMultiImageUpload } from './form-components';
+import { FormInput, FormSelect, FormFutureDatePicker, FormFileUpload, FormMultiImageUpload } from './form-components';
 import { vehicleBrands, vehicleYears } from '@/lib/constants';
 
 export function Step2_VehicleInfo() {
@@ -36,7 +36,7 @@ export function Step2_VehicleInfo() {
 
         <FormFileUpload name="licenseFrontUrl" label="Licencia de Conducir (Frente)" />
         <FormFileUpload name="licenseBackUrl" label="Licencia de Conducir (Reverso)" />
-        <FormDatePicker name="licenseValidUntil" label="Vigencia de la Licencia" />
+        <FormFutureDatePicker name="licenseValidUntil" label="Vigencia de la Licencia" />
         <div />
         
         <FormFileUpload name="circulationCardFrontUrl" label="Tarjeta de Circulación (Frente)" />

@@ -134,6 +134,58 @@ export const FormDatePicker = ({ name, label, description }: FormDatePickerProps
   />
 );
 
+export const FormFutureDatePicker = ({ name, label, description }: FormDatePickerProps) => (
+  <FormField
+    name={name}
+    render={({ field }) => (
+      <FormItem className="flex flex-col">
+        <FormLabel>{label}</FormLabel>
+        <Popover>
+          <PopoverTrigger asChild>
+            <FormControl>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full pl-3 text-left font-normal",
+                  !field.value && "text-muted-foreground"
+                )}
+              >
+                {field.value ? (
+                  format(field.value, "PPP", { locale: es })
+                ) : (
+                  <span>Selecciona una fecha</span>
+                )}
+                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+              </Button>
+            </FormControl>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              locale={es}
+              mode="single"
+              selected={field.value}
+              onSelect={field.onChange}
+              disabled={(date) =>
+                date < new Date(new Date().setHours(0,0,0,0))
+              }
+              initialFocus
+              captionLayout="dropdown-buttons"
+              fromYear={new Date().getFullYear()}
+              toYear={new Date().getFullYear() + 10}
+              labels={{
+                labelMonthDropdown: () => "Mes",
+                labelYearDropdown: () => "Año",
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+        {description && <FormDescription>{description}</FormDescription>}
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+);
+
 interface FormFileUploadProps {
   name: string;
   label: string;
@@ -147,10 +199,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const file = files?.[0];
     const [isDragging, setIsDragging] = useState(false);
 
-    // We need to use a separate ref for the input because register.ref is not a standard React ref object
     const inputRef = React.useRef<HTMLInputElement | null>(null);
-
-    // We handle the `ref` from `register` manually
     const { ref: registerRef, ...rest } = register(name);
 
     const handleRemove = () => {
@@ -193,19 +242,21 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                         accept={accept}
                         {...rest}
                         ref={(e) => {
-                            registerRef(e); // Pass the element to RHF's ref
-                            inputRef.current = e; // Also assign it to our own ref
+                            registerRef(e);
+                            if (inputRef) {
+                                (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = e;
+                            }
                         }}
                     />
-                    <div 
+                    <label 
+                        htmlFor={name}
                         className={cn(
                             "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
                             isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
                             hasError ? "border-destructive" : "border-slate-300"
                         )}
-                        onClick={() => inputRef.current?.click()}
                         onDragEnter={handleDragEnter}
-                        onDragOver={handleDragEnter} // onDragOver is also needed
+                        onDragOver={handleDragEnter}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                     >
@@ -214,7 +265,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                              {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
                          </span>
                          {file && <span className="font-medium text-sm text-slate-700 mt-1">{file.name}</span>}
-                    </div>
+                    </label>
                     {file && (
                         <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
                             <X className="h-4 w-4"/>

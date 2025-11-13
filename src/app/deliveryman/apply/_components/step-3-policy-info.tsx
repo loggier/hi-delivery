@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { FormInput, FormDatePicker, FormFileUpload } from './form-components';
+import { FormInput, FormFutureDatePicker, FormFileUpload } from './form-components';
 
 export function Step3_PolicyInfo() {
   return (
@@ -10,7 +10,7 @@ export function Step3_PolicyInfo() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormInput name="insurer" label="Aseguradora" placeholder="Ej. Quálitas, GNP, AXA..." />
         <FormInput name="policyNumber" label="Número de Póliza" placeholder="Ej. 9876543210" />
-        <FormDatePicker name="policyValidUntil" label="Vigencia de la Póliza" />
+        <FormFutureDatePicker name="policyValidUntil" label="Vigencia de la Póliza" />
         <FormFileUpload name="policyFirstPageUrl" label="Carátula de la Póliza" description="Sube la primera página o carátula de tu póliza de seguro vigente."/>
       </div>
     </div>

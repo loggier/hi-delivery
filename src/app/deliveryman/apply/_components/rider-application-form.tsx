@@ -20,6 +20,7 @@ import { Step4_Extras } from "./step-4-extras";
 import { Step5_LoginInfo } from "./step-5-login-info";
 import { Step6_Submit } from "./step-6-submit";
 import Link from "next/link";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type RiderFormValues = z.infer<typeof riderApplicationSchema>;
 
@@ -58,7 +59,6 @@ export function RiderApplicationForm() {
     resolver: zodResolver(riderApplicationSchema),
     mode: "onChange",
     defaultValues: {
-      // Personal
       firstName: "",
       lastName: "",
       motherLastName: "",
@@ -68,7 +68,6 @@ export function RiderApplicationForm() {
       ineFrontUrl: undefined,
       ineBackUrl: undefined,
       proofOfAddressUrl: undefined,
-      // Vehicle
       ownership: undefined,
       brand: undefined,
       brandOther: "",
@@ -82,21 +81,17 @@ export function RiderApplicationForm() {
       circulationCardFrontUrl: undefined,
       circulationCardBackUrl: undefined,
       motoPhotos: undefined,
-      // Policy
       insurer: "",
       policyNumber: "",
       policyValidUntil: undefined,
       policyFirstPageUrl: undefined,
-      // Extras
       hasHelmet: false,
       hasUniform: false,
       hasBox: false,
-      // Login
       email: "",
       phoneE164: "",
       password: "",
       passwordConfirmation: "",
-      // Submit
       avatar1x1Url: undefined,
     }
   });
@@ -182,27 +177,27 @@ export function RiderApplicationForm() {
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
-        <div className="overflow-hidden relative h-[650px]">
-          <AnimatePresence initial={false} custom={direction}>
-            <motion.div
-              key={currentStep}
-              custom={direction}
-              variants={slideVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              transition={{ duration: 0.3 }}
-              className="absolute w-full"
-            >
-              {currentStep === 0 && <Step1_PersonalInfo />}
-              {currentStep === 1 && <Step2_VehicleInfo />}
-              {currentStep === 2 && <Step3_PolicyInfo />}
-              {currentStep === 3 && <Step4_Extras />}
-              {currentStep === 4 && <Step5_LoginInfo />}
-              {currentStep === 5 && <Step6_Submit isPending={isSubmitting}/>}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+        <ScrollArea className="h-[650px] overflow-hidden relative" >
+            <AnimatePresence initial={false} custom={direction}>
+                <motion.div
+                key={currentStep}
+                custom={direction}
+                variants={slideVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.3 }}
+                className="w-full px-4"
+                >
+                {currentStep === 0 && <Step1_PersonalInfo />}
+                {currentStep === 1 && <Step2_VehicleInfo />}
+                {currentStep === 2 && <Step3_PolicyInfo />}
+                {currentStep === 3 && <Step4_Extras />}
+                {currentStep === 4 && <Step5_LoginInfo />}
+                {currentStep === 5 && <Step6_Submit isPending={isSubmitting}/>}
+                </motion.div>
+            </AnimatePresence>
+        </ScrollArea>
 
         {/* Navigation */}
         <div className="space-y-4">
