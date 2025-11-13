@@ -292,6 +292,9 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const handleFileChange = (files: FileList | null) => {
       if (files && files.length > 0) {
         setValue(name, files, { shouldValidate: true });
+      } else {
+        // This ensures that if a user cancels the file dialog, the value is cleared.
+        setValue(name, null, { shouldValidate: true });
       }
     }
 
@@ -394,6 +397,15 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         inputRef.current.value = "";
       }
     }
+    
+    const handleFileChange = (files: FileList | null) => {
+      if (files && files.length > 0) {
+        setValue(name, files, { shouldValidate: true });
+      } else {
+        setValue(name, null, { shouldValidate: true });
+      }
+    };
+
     const hasError = !!errors[name];
 
     return (
@@ -420,9 +432,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
                                 accept="image/jpeg,image/png"
                                 ref={inputRef}
                                 onBlur={onBlur}
-                                onChange={(e) => {
-                                    setValue(name, e.target.files, { shouldValidate: true });
-                                }}
+                                onChange={(e) => handleFileChange(e.target.files)}
                             />
                             {preview ? (
                                 <>
@@ -484,12 +494,12 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
     }, [files, count]);
 
     const handleFiles = (newFiles: FileList | null) => {
-        if (!newFiles) return;
+        if (!newFiles || newFiles.length === 0) return;
         
         const dataTransfer = new DataTransfer();
         Array.from(newFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
         
-        setValue(name, dataTransfer.files.length > 0 ? dataTransfer.files : null, { shouldValidate: true });
+        setValue(name, dataTransfer.files, { shouldValidate: true });
         
         if (inputRef.current) {
             inputRef.current.files = dataTransfer.files;
@@ -505,7 +515,8 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         const dataTransfer = new DataTransfer();
         currentFiles.forEach(file => dataTransfer.items.add(file as File));
         
-        setValue(name, dataTransfer.files.length > 0 ? dataTransfer.files : null, { shouldValidate: true });
+        const newFiles = dataTransfer.files.length > 0 ? dataTransfer.files : null;
+        setValue(name, newFiles, { shouldValidate: true });
         
         if(inputRef.current) {
             inputRef.current.files = dataTransfer.files;
