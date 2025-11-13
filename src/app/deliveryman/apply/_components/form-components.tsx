@@ -42,15 +42,16 @@ interface FormSelectProps {
   placeholder: string;
   options: { value: string; label: string }[] | readonly string[];
   description?: string;
+  disabled?: boolean;
 }
 
-export const FormSelect = ({ name, label, placeholder, options, description }: FormSelectProps) => (
+export const FormSelect = ({ name, label, placeholder, options, description, disabled }: FormSelectProps) => (
   <FormField
     name={name}
     render={({ field }) => (
       <FormItem>
         <FormLabel>{label}</FormLabel>
-        <Select onValueChange={field.onChange} defaultValue={field.value}>
+        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={disabled}>
           <FormControl>
             <SelectTrigger>
               <SelectValue placeholder={placeholder} />
