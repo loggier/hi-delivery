@@ -108,6 +108,7 @@ export const FormDatePicker = ({ name, label, description }: FormDatePickerProps
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
+              locale={es}
               mode="single"
               selected={field.value}
               onSelect={field.onChange}
