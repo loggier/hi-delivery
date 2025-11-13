@@ -139,20 +139,25 @@ export const riderAccountCreationSchema = z.object({
 
 
 // Full client-side schema with file validation
+const isBrowser = typeof window !== 'undefined';
+
 const MAX_FILE_SIZE = 5000000;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png"];
 const ACCEPTED_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"];
 
-const fileSchema = (message: string) => z.instanceof(FileList, { message })
-    .refine((files) => files.length > 0, message)
-    .refine((files) => files[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-    .refine((files) => ACCEPTED_DOCUMENT_TYPES.includes(files[0]?.type), "Solo se permiten formatos .jpg, .png y .pdf");
+const fileSchema = (message: string) => isBrowser 
+    ? z.instanceof(FileList, { message })
+        .refine((files) => files?.length > 0, message)
+        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
+        .refine((files) => ACCEPTED_DOCUMENT_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg, .png y .pdf")
+    : z.any();
 
-const imageFileSchema = (message: string) => z.instanceof(FileList, { message })
-    .refine((files) => files.length > 0, message)
-    .refine((files) => files[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-    .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files[0]?.type), "Solo se permiten formatos .jpg y .png");
-
+const imageFileSchema = (message: string) => isBrowser
+    ? z.instanceof(FileList, { message })
+        .refine((files) => files?.length > 0, message)
+        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
+        .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg y .png")
+    : z.any();
 
 export const riderApplicationSchema = z.object({
     // Step 1
@@ -232,5 +237,3 @@ export const planSchema = z.object({
     min_distance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
     details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
 });
-
-    
