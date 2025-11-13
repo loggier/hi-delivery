@@ -88,9 +88,9 @@ export default function AdminLayout({
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 
   const SidebarContent = ({ isMobile = false }) => (
-    <div className="flex h-full flex-col bg-slate-100/40 dark:bg-muted/40">
+    <div className="flex h-full flex-col bg-secondary text-secondary-foreground">
       <div className={cn(
-          "flex items-center border-b h-14 px-4 lg:px-6",
+          "flex items-center border-b border-white/10 h-14 px-4 lg:px-6",
           isSidebarCollapsed && !isMobile ? "justify-center" : "justify-between"
         )}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
@@ -98,7 +98,7 @@ export default function AdminLayout({
           <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>{appName}</span>
         </Link>
         {!isMobile && (
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex hover:bg-white/10">
             <PanelLeft className="h-5 w-5" />
           </Button>
         )}
@@ -119,8 +119,8 @@ export default function AdminLayout({
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 my-1",
                         isActive
-                          ? "bg-primary text-white"
-                          : "text-slate-600 hover:bg-white hover:text-primary dark:text-slate-400 dark:hover:bg-muted"
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-white/10"
                       )}
                     >
                       <item.icon className="h-5 w-5" />
@@ -138,8 +138,8 @@ export default function AdminLayout({
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 transition-all my-1 text-sm font-medium",
                   isActive
-                    ? "bg-primary text-white"
-                    : "text-slate-600 hover:bg-white hover:text-primary dark:text-slate-400 dark:hover:bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-white/10"
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -155,7 +155,7 @@ export default function AdminLayout({
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[auto_1fr]">
       <aside className={cn(
-          "hidden border-r bg-slate-100/40 dark:bg-muted/40 lg:block transition-all duration-300",
+          "hidden lg:block transition-all duration-300",
           isSidebarCollapsed ? "lg:w-16" : "lg:w-64"
         )}>
           <SidebarContent />
