@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --hid-primary: 359 77% 55%; /* #E33739 */
-    --hid-secondary: 197 98% 48%; /* #04AAF1 */
+    --hid-primary: 211 100% 50%; /* Bright Blue */
+    --hid-secondary: 216 75% 20%; /* Dark Blue */
     
     --background: 0 0% 100%; /* #FFFFFF */
     --foreground: 222 84% 4.9%; /* #0c0a09 */
@@ -45,8 +45,8 @@
   }
  
   .dark {
-    --hid-primary: 359 77% 55%;
-    --hid-secondary: 197 98% 48%;
+    --hid-primary: 211 100% 50%; /* Bright Blue */
+    --hid-secondary: 216 75% 20%; /* Dark Blue */
 
     --background: 222 84% 4.9%; /* #0c0a09 */
     --foreground: 210 40% 98%;

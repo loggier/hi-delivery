@@ -94,7 +94,7 @@ export default function AdminLayout({
           isSidebarCollapsed && !isMobile ? "justify-center" : "justify-between"
         )}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <Image src="/logo-hidelivery.png" alt={`Logo ${appName}`} width={28} height={28} />
+          <Image src="/logo-hid.png" alt={`Logo ${appName}`} width={28} height={28} />
           <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>{appName}</span>
         </Link>
         {!isMobile && (
