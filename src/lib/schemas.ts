@@ -121,24 +121,30 @@ export const businessSchema = z.object({
     path: ["password"],
 });
 
-
-const fileSchema = (message: string) => 
-  z.any()
-    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files.length > 0), message)
-    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files?.[0]?.size <= 5000000), `El tamaño máximo es 5MB.`)
+// Helper para validación de archivos en el cliente. En el servidor, se aceptará `any`.
+const clientFileSchema = (message: string) => z.any()
+    .refine((files) => files instanceof FileList && files.length > 0, message)
+    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
-      (files) => typeof window === 'undefined' || (files instanceof FileList && ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type)),
+      (files) => ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg, .png y .pdf"
     );
 
-const imageFileSchema = (message: string) => 
-  z.any()
-    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files.length > 0), message)
-    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files?.[0]?.size <= 5000000), `El tamaño máximo es 5MB.`)
+const clientImageFileSchema = (message: string) => z.any()
+    .refine((files) => files instanceof FileList && files.length > 0, message)
+    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
     .refine(
-      (files) => typeof window === 'undefined' || (files instanceof FileList && ["image/jpeg", "image/png"].includes(files?.[0]?.type)),
+      (files) => ["image/jpeg", "image/png"].includes(files?.[0]?.type),
       "Solo se permiten formatos .jpg y .png"
     );
+
+const fileSchema = (message: string) => typeof window === 'undefined'
+  ? z.any()
+  : clientFileSchema(message);
+
+const imageFileSchema = (message: string) => typeof window === 'undefined'
+  ? z.any()
+  : clientImageFileSchema(message);
 
 export const riderApplicationSchema = z.object({
     // Step 1
