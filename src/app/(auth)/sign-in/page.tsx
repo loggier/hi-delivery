@@ -96,7 +96,7 @@ export default function SignInPage() {
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
         <div className="mb-4 flex justify-center">
-            <Image src="/logo-grupohubs.png" alt={`Logo ${appName}`} width={48} height={48} />
+            <Image src="/logo-hidelivery.png" alt={`Logo ${appName}`} width={48} height={48} />
         </div>
         <CardTitle className="text-2xl">{appName}</CardTitle>
         <CardDescription>Ingresa tus credenciales para acceder al panel</CardDescription>
