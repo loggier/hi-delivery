@@ -10,6 +10,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { riderApplicationSchema } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 
 import { Step1_PersonalInfo } from "./step-1-personal-info";
 import { Step2_VehicleInfo } from "./step-2-vehicle-info";
@@ -17,7 +18,6 @@ import { Step3_PolicyInfo } from "./step-3-policy-info";
 import { Step4_Extras } from "./step-4-extras";
 import { Step5_LoginInfo } from "./step-5-login-info";
 import { Step6_Submit } from "./step-6-submit";
-import { api } from "@/lib/api";
 import Link from "next/link";
 
 type RiderFormValues = z.infer<typeof riderApplicationSchema>;
@@ -50,46 +50,16 @@ export function RiderApplicationForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
-  const createRiderMutation = api.riders.useCreateWithFormData();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderApplicationSchema),
     mode: "onChange",
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      motherLastName: "",
-      birthDate: undefined,
-      zone: undefined,
-      address: "",
-      ineFrontUrl: undefined,
-      ineBackUrl: undefined,
-      proofOfAddressUrl: undefined,
-      ownership: undefined,
-      brand: undefined,
-      brandOther: "",
-      year: undefined,
-      model: "",
-      color: "",
-      plate: "",
-      licenseFrontUrl: undefined,
-      licenseBackUrl: undefined,
-      licenseValidUntil: undefined,
-      circulationCardFrontUrl: undefined,
-      circulationCardBackUrl: undefined,
-      motoPhotos: undefined,
-      insurer: "",
-      policyNumber: "",
-      policyValidUntil: undefined,
-      policyFirstPageUrl: undefined,
       hasHelmet: false,
       hasUniform: false,
       hasBox: false,
-      email: "",
-      phoneE164: "",
-      password: "",
-      passwordConfirmation: "",
-      avatar1x1Url: undefined,
     }
   });
 
@@ -109,35 +79,50 @@ export function RiderApplicationForm() {
   };
   
   const onSubmit = async (data: RiderFormValues) => {
+    setIsSubmitting(true);
     const formData = new FormData();
+    
+    // Append all fields to FormData
     for (const key in data) {
         const value = data[key as keyof RiderFormValues];
         if (value instanceof FileList) {
+            // Special handling for multiple files
             if (key === 'motoPhotos') {
                 Array.from(value).forEach((file, index) => {
-                    formData.append(`motoPhotos[${index}]`, file);
+                    formData.append(`${key}[${index}]`, file);
                 });
             } else {
-                formData.append(key, value[0]);
+                if (value[0]) formData.append(key, value[0]);
             }
         } else if (value instanceof Date) {
             formData.append(key, value.toISOString());
-        } else if (typeof value === 'boolean') {
-            formData.append(key, value.toString());
-        } else if (typeof value === 'object' && value !== null) {
-            // This case should not be common with FormData, but as a fallback
-            formData.append(key, JSON.stringify(value));
-        } else if (value !== undefined && value !== null) {
-            formData.append(key, value as string);
+        } else if (typeof value !== 'undefined' && value !== null) {
+            formData.append(key, String(value));
         }
     }
     
     try {
-      await createRiderMutation.mutateAsync(formData);
+      const response = await fetch('/api/riders', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Ocurrió un error al enviar la solicitud.');
+      }
+
       setIsSuccess(true);
     } catch (error) {
       console.error("Submission failed", error)
-      // The api hook already shows a toast on error
+      toast({
+        variant: "destructive",
+        title: "Error en el envío",
+        description: error instanceof Error ? error.message : "No se pudo completar el registro. Inténtalo de nuevo."
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -176,7 +161,7 @@ export function RiderApplicationForm() {
               {currentStep === 2 && <Step3_PolicyInfo />}
               {currentStep === 3 && <Step4_Extras />}
               {currentStep === 4 && <Step5_LoginInfo />}
-              {currentStep === 5 && <Step6_Submit isPending={createRiderMutation.isPending}/>}
+              {currentStep === 5 && <Step6_Submit isPending={isSubmitting}/>}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -190,17 +175,17 @@ export function RiderApplicationForm() {
               <span className="font-medium text-slate-700 dark:text-slate-300">{STEPS[currentStep].name}</span>
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={prevStep} disabled={currentStep === 0 || createRiderMutation.isPending}>
+              <Button type="button" variant="outline" onClick={prevStep} disabled={currentStep === 0 || isSubmitting}>
                 Anterior
               </Button>
               {currentStep < STEPS.length - 1 ? (
-                <Button type="button" onClick={nextStep} disabled={createRiderMutation.isPending}>
+                <Button type="button" onClick={nextStep} disabled={isSubmitting}>
                   Siguiente
                 </Button>
               ) : (
-                <Button type="submit" disabled={createRiderMutation.isPending}>
-                  {createRiderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {createRiderMutation.isPending ? "Enviando..." : "Enviar Solicitud"}
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting ? "Enviando..." : "Enviar Solicitud"}
                 </Button>
               )}
             </div>

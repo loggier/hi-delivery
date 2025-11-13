@@ -58,8 +58,9 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
         Object.entries(params).forEach(([key, value]) => {
             if(value) {
-                if(key === 'name') {
-                    query = query.ilike(key, `%${value}%`);
+                if(['name', 'search'].includes(key)) {
+                    const searchKey = (entity === 'riders' || entity === 'customers') ? 'name_search' : 'name';
+                    query = query.ilike(searchKey, `%${value}%`);
                 } else {
                     query = query.eq(key, value);
                 }
@@ -168,12 +169,16 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const { toast } = useToast();
     return useMutation<T, Error, FormData>({
       mutationFn: async (formData) => {
-        const newItem = Object.fromEntries(formData.entries());
-         const itemWithId = {
-            id: `${entity.slice(0, 3)}-${faker.string.uuid()}`,
-            ...newItem
+        // This is a client-side hook, so we call our own API route.
+        const response = await fetch(`/api/${entity}`, {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || `Error al crear ${translatedEntity}`);
         }
-        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
+        return result;
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -201,15 +206,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       mutationFn: (item) => {
         const { id, ...updateData } = item;
 
-        // Explicitly remove password fields if they exist on the object
-        if ('password' in updateData) {
-          delete (updateData as any).password;
-        }
-        if ('passwordConfirmation' in updateData) {
-          delete (updateData as any).passwordConfirmation;
-        }
+        const cleanUpdateData = { ...updateData };
+        if ('password' in cleanUpdateData) delete (cleanUpdateData as any).password;
+        if ('passwordConfirmation' in cleanUpdateData) delete (cleanUpdateData as any).passwordConfirmation;
         
-        return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
+        return handleSupabaseQuery(supabase.from(entity).update({ ...cleanUpdateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
