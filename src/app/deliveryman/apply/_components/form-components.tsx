@@ -120,6 +120,10 @@ export const FormDatePicker = ({ name, label, description }: FormDatePickerProps
               captionLayout="dropdown-buttons"
               fromYear={1930}
               toYear={new Date().getFullYear()}
+              labels={{
+                labelMonthDropdown: () => "Mes",
+                labelYearDropdown: () => "Año",
+              }}
             />
           </PopoverContent>
         </Popover>
@@ -141,12 +145,36 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const { register, watch, setValue } = useFormContext();
     const files = watch(name);
     const file = files?.[0];
+    const [isDragging, setIsDragging] = useState(false);
 
     const { ref, ...rest } = register(name);
 
     const handleRemove = () => {
       setValue(name, null, { shouldValidate: true });
     }
+
+    const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles && droppedFiles.length > 0) {
+            setValue(name, droppedFiles, { shouldValidate: true });
+        }
+    };
+
 
     return (
         <FormItem>
@@ -163,7 +191,14 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                     />
                     <label 
                         htmlFor={name}
-                        className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer hover:border-primary hover:bg-slate-50 transition-colors"
+                        className={cn(
+                            "border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
+                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50"
+                        )}
+                        onDragEnter={handleDragEnter}
+                        onDragOver={handleDragEnter} // onDragOver is also needed
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
                     >
                          <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
                          <span className="text-sm text-center text-slate-500">
