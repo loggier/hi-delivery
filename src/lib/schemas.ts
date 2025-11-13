@@ -154,15 +154,6 @@ const imageFileSchema = (message: string) => {
     );
 };
 
-const motoPhotosSchema = () => {
-    const baseSchema = typeof window === 'undefined' ? z.any() : z.instanceof(FileList);
-    return baseSchema
-    .refine((files: any) => files && files.length > 0, "Debes subir al menos una foto.")
-    .refine((files: any) => files?.length <= 4, "Puedes subir un máximo de 4 fotos.")
-    .refine((files: any) => files && Array.from(files).every((file: any) => file.size <= 5000000), `El tamaño máximo por foto es 5MB.`)
-    .refine((files: any) => files && Array.from(files).every((file: any) => ["image/jpeg", "image/png"].includes(file.type)), "Solo se permiten formatos .jpg y .png");
-}
-
 export const riderApplicationSchema = z.object({
     // Información del repartidor
     firstName: z.string().min(2, { message: "El nombre es requerido." }),
@@ -192,7 +183,10 @@ export const riderApplicationSchema = z.object({
     licenseValidUntil: z.date({ required_error: "La vigencia de la licencia es requerida." }).min(new Date(), { message: "La licencia no puede estar vencida." }),
     circulationCardFrontUrl: fileSchema("El frente de la tarjeta de circulación es requerido."),
     circulationCardBackUrl: fileSchema("El reverso de la tarjeta de circulación es requerido."),
-    motoPhotos: motoPhotosSchema(),
+    motoPhotoFront: imageFileSchema("La foto frontal de la moto es requerida."),
+    motoPhotoBack: imageFileSchema("La foto trasera de la moto es requerida."),
+    motoPhotoLeft: imageFileSchema("La foto del lado izquierdo de la moto es requerida."),
+    motoPhotoRight: imageFileSchema("La foto del lado derecho de la moto es requerida."),
 
     // Póliza
     insurer: z.string().min(2, { message: "La aseguradora es requerida." }),

@@ -43,7 +43,10 @@ export function Step2_VehicleInfo() {
         <FormFileUpload name="circulationCardBackUrl" label="Tarjeta de Circulación (Reverso)" />
         
         <div className="md:col-span-2">
-            <FormMultiImageUpload name="motoPhotos" label="Fotos de tu Moto (4)" description="Sube 4 fotos: frente, atrás, lado izquierdo y lado derecho." count={4}/>
+            <FormMultiImageUpload 
+                label="Fotos de tu Moto" 
+                description="Sube 4 fotos: frente, atrás, lado izquierdo y lado derecho." 
+            />
         </div>
       </div>
     </div>

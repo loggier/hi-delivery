@@ -26,7 +26,7 @@ type RiderFormValues = z.infer<typeof riderApplicationSchema>;
 
 const STEPS = [
   { id: "01", name: "Información Personal", fields: ["firstName", "lastName", "motherLastName", "birthDate", "zone_id", "address", "ineFrontUrl", "ineBackUrl", "proofOfAddressUrl"] },
-  { id: "02", name: "Vehículo", fields: ["ownership", "brand", "brandOther", "year", "model", "color", "plate", "licenseFrontUrl", "licenseBackUrl", "licenseValidUntil", "circulationCardFrontUrl", "circulationCardBackUrl", "motoPhotos"] },
+  { id: "02", name: "Vehículo", fields: ["ownership", "brand", "brandOther", "year", "model", "color", "plate", "licenseFrontUrl", "licenseBackUrl", "licenseValidUntil", "circulationCardFrontUrl", "circulationCardBackUrl", "motoPhotoFront", "motoPhotoBack", "motoPhotoLeft", "motoPhotoRight"] },
   { id: "03", name: "Póliza de Seguro", fields: ["insurer", "policyNumber", "policyValidUntil", "policyFirstPageUrl"] },
   { id: "04", name: "Extras", fields: ["hasHelmet", "hasUniform", "hasBox"] },
   { id: "05", name: "Cuenta y Acceso", fields: ["email", "phoneE164", "password", "passwordConfirmation"] },
@@ -80,7 +80,10 @@ export function RiderApplicationForm() {
       licenseValidUntil: undefined,
       circulationCardFrontUrl: null,
       circulationCardBackUrl: null,
-      motoPhotos: null,
+      motoPhotoFront: null,
+      motoPhotoBack: null,
+      motoPhotoLeft: null,
+      motoPhotoRight: null,
       insurer: "",
       policyNumber: "",
       policyValidUntil: undefined,
