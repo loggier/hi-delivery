@@ -104,7 +104,7 @@ export function RiderApplicationForm() {
   });
 
   useEffect(() => {
-    if (user) {
+    if (user && user.role_id === 'rider') {
         setRiderId(user.id);
     }
   }, [user]);
@@ -118,7 +118,7 @@ export function RiderApplicationForm() {
     if (isCreation && result.rider) {
         login(result.rider); // Authenticate the user
         setRiderId(result.rider.id);
-    } else if (result.rider) {
+    } else if (result.rider?.id) {
         setRiderId(result.rider.id);
     }
     
@@ -148,12 +148,12 @@ export function RiderApplicationForm() {
                 if (value[0]) formData.append(fieldKey, value[0]);
             } else if (value instanceof Date) {
                 formData.append(fieldKey, value.toISOString());
-            } else if (typeof value !== 'undefined' && value !== null) {
+            } else if (value !== undefined && value !== null && value !== '') {
                 formData.append(fieldKey, String(value));
             }
         });
 
-        if (currentStep === 0 && !isAuthenticated) { // Step 1: Create Account
+        if (currentStep === 0) { // Always POST on step 0
             const response = await fetch('/api/riders', {
                 method: 'POST',
                 body: formData,
