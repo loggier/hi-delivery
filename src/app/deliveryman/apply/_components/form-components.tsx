@@ -283,7 +283,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const handleRemove = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setValue(name, undefined, { shouldValidate: true });
+      setValue(name, null, { shouldValidate: true });
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -320,7 +320,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, ...field } }) => (
+            render={({ field: { ref, value, onChange, ...field } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -331,6 +331,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                 id={name}
                                 accept={accept}
                                 {...field}
+                                value={value?.fileName}
                                 ref={(e) => {
                                     ref(e)
                                     inputRef.current = e
@@ -412,7 +413,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, ...field } }) => (
+            render={({ field: { ref, value, ...field } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -431,6 +432,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
                                 id={name}
                                 accept="image/jpeg,image/png"
                                 {...field}
+                                value={value?.fileName}
                                 ref={(e) => {
                                     ref(e);
                                     inputRef.current = e;
@@ -507,7 +509,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         const dataTransfer = new DataTransfer();
         currentFiles.forEach(file => dataTransfer.items.add(file as File));
         
-        setValue(name, dataTransfer.files, { shouldValidate: true });
+        setValue(name, dataTransfer.files.length > 0 ? dataTransfer.files : null, { shouldValidate: true });
         
         if(inputRef.current) {
             inputRef.current.files = dataTransfer.files;
@@ -548,7 +550,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
     return (
         <FormField
             name={name}
-            render={({ field: { ref, ...field } }) => (
+            render={({ field: { ref, value, ...field } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -574,6 +576,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                                     accept="image/jpeg,image/png"
                                     multiple
                                     {...field}
+                                    value={value?.fileName}
                                     ref={(e) => {
                                         ref(e)
                                         inputRef.current = e
@@ -618,4 +621,5 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
     
 
 
+    
     
