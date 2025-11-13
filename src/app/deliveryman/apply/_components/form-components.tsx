@@ -165,11 +165,97 @@ const FormSimpleDateInput = ({ name, label, description }: FormDatePickerProps) 
 
 
 export const FormDatePicker = ({ name, label, description }: FormDatePickerProps) => (
-  <FormSimpleDateInput name={name} label={label} description={description} />
+  <FormField
+    name={name}
+    render={({ field }) => (
+      <FormItem className="flex flex-col">
+        <FormLabel>{label}</FormLabel>
+        <Popover>
+          <PopoverTrigger asChild>
+            <FormControl>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "pl-3 text-left font-normal",
+                  !field.value && "text-muted-foreground"
+                )}
+              >
+                {field.value ? (
+                  format(field.value, "PPP", { locale: es })
+                ) : (
+                  <span>Selecciona una fecha</span>
+                )}
+                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+              </Button>
+            </FormControl>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              captionLayout="dropdown-buttons"
+              fromYear={1950}
+              toYear={new Date().getFullYear() - 18}
+              mode="single"
+              selected={field.value}
+              onSelect={field.onChange}
+              disabled={(date) =>
+                date > new Date() || date < new Date("1900-01-01")
+              }
+              initialFocus
+              locale={es}
+            />
+          </PopoverContent>
+        </Popover>
+        {description && <FormDescription>{description}</FormDescription>}
+        <FormMessage />
+      </FormItem>
+    )}
+  />
 );
 
 export const FormFutureDatePicker = ({ name, label, description }: FormDatePickerProps) => (
-  <FormSimpleDateInput name={name} label={label} description={description} />
+  <FormField
+    name={name}
+    render={({ field }) => (
+      <FormItem className="flex flex-col">
+        <FormLabel>{label}</FormLabel>
+        <Popover>
+          <PopoverTrigger asChild>
+            <FormControl>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "pl-3 text-left font-normal",
+                  !field.value && "text-muted-foreground"
+                )}
+              >
+                {field.value ? (
+                  format(field.value, "PPP", { locale: es })
+                ) : (
+                  <span>Selecciona una fecha</span>
+                )}
+                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+              </Button>
+            </FormControl>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              captionLayout="dropdown-buttons"
+              fromYear={new Date().getFullYear()}
+              toYear={new Date().getFullYear() + 10}
+              mode="single"
+              selected={field.value}
+              onSelect={field.onChange}
+              disabled={(date) => date < new Date()}
+              initialFocus
+              locale={es}
+            />
+          </PopoverContent>
+        </Popover>
+        {description && <FormDescription>{description}</FormDescription>}
+        <FormMessage />
+      </FormItem>
+    )}
+  />
 );
 
 interface FormFileUploadProps {
@@ -180,13 +266,12 @@ interface FormFileUploadProps {
 }
 
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
-    const { register, watch, setValue, formState: { errors } } = useFormContext();
+    const { control, register, watch, setValue, formState: { errors } } = useFormContext();
     const files: FileList | undefined = watch(name);
     const file = files?.[0];
     const [isDragging, setIsDragging] = useState(false);
 
     const inputRef = React.useRef<HTMLInputElement | null>(null);
-    const { ref: registerRef, ...rest } = register(name);
 
     const handleRemove = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -216,55 +301,65 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         const droppedFiles = e.dataTransfer.files;
         if (droppedFiles && droppedFiles.length > 0) {
             setValue(name, droppedFiles, { shouldValidate: true });
+             if (inputRef.current) {
+                inputRef.current.files = droppedFiles;
+            }
         }
     };
     
     const hasError = !!errors[name];
 
     return (
-        <FormItem>
-            <FormLabel>{label}</FormLabel>
-            <FormControl>
-                <div className="relative">
-                    <Input
-                        type="file"
-                        className="hidden"
-                        id={name}
-                        accept={accept}
-                        {...rest}
-                        ref={(e) => {
-                            registerRef(e);
-                            inputRef.current = e;
-                        }}
-                    />
-                    <label 
-                        htmlFor={name}
-                        className={cn(
-                            "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
-                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
-                            hasError ? "border-destructive" : "border-slate-300"
-                        )}
-                        onDragEnter={handleDragEnter}
-                        onDragOver={handleDragEnter}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                    >
-                         <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
-                         <span className="text-sm text-center text-slate-500">
-                             {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
-                         </span>
-                         {file && <span className="font-medium text-sm text-slate-700 mt-1">{file.name}</span>}
-                    </label>
-                    {file && (
-                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
-                            <X className="h-4 w-4"/>
-                        </Button>
-                    )}
-                </div>
-            </FormControl>
-            {description && <FormDescription>{description}</FormDescription>}
-            <FormMessage />
-        </FormItem>
+        <FormField
+            name={name}
+            control={control}
+            render={({ field: { onChange, onBlur, value, ...field } }) => (
+                <FormItem>
+                    <FormLabel>{label}</FormLabel>
+                    <FormControl>
+                        <div className="relative">
+                            <Input
+                                type="file"
+                                className="hidden"
+                                id={name}
+                                accept={accept}
+                                onBlur={onBlur}
+                                {...field}
+                                ref={inputRef}
+                                onChange={(e) => {
+                                    setValue(name, e.target.files, { shouldValidate: true });
+                                }}
+                            />
+                            <label 
+                                htmlFor={name}
+                                className={cn(
+                                    "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
+                                    isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
+                                    hasError ? "border-destructive" : "border-slate-300"
+                                )}
+                                onDragEnter={handleDragEnter}
+                                onDragOver={handleDragEnter}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                            >
+                                <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
+                                <span className="text-sm text-center text-slate-500">
+                                    {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
+                                </span>
+                                {file && <span className="font-medium text-sm text-slate-700 mt-1">{file.name}</span>}
+                            </label>
+                            {file && (
+                                <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
+                                    <X className="h-4 w-4"/>
+                                </Button>
+                            )}
+                        </div>
+                    </FormControl>
+                    {description && <FormDescription>{description}</FormDescription>}
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
     );
 };
 
@@ -355,6 +450,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
     const { register, watch, setValue, formState: { errors } } = useFormContext();
     const files: FileList | undefined = watch(name);
     const [previews, setPreviews] = useState<(string | null)[]>(Array(count).fill(null));
+    const [isDragging, setIsDragging] = useState(false);
 
     const { ref: registerRef, onChange: onRegisterChange, ...rest } = register(name);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -395,6 +491,35 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         }
     }
     
+    const handleDragEnter = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles && droppedFiles.length > 0) {
+            const dataTransfer = new DataTransfer();
+            Array.from(droppedFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
+            
+            setValue(name, dataTransfer.files, { shouldValidate: true });
+            
+            if (inputRef.current) {
+                inputRef.current.files = dataTransfer.files;
+            }
+        }
+    };
+    
     const hasError = !!errors[name];
 
     return (
@@ -404,10 +529,18 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                 <div className="grid grid-cols-2 gap-4">
                      <label 
                         htmlFor={name}
-                        className={cn("col-span-2 border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors", hasError ? "border-destructive" : "border-slate-300", "hover:border-primary hover:bg-slate-50")}
+                        className={cn(
+                            "col-span-2 border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
+                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
+                            hasError ? "border-destructive" : "border-slate-300"
+                        )}
+                        onDragEnter={handleDragEnter}
+                        onDragOver={handleDragEnter}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
                     >
                         <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
-                        <span className="text-sm text-center text-slate-500">Selecciona {count} fotos</span>
+                        <span className="text-sm text-center text-slate-500">Selecciona o arrastra {count} fotos</span>
                          <Input
                             type="file"
                             className="hidden"
