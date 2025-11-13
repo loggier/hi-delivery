@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFormContext } from "react-hook-form";
@@ -380,6 +381,7 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
 
     const handleRemove = (e: React.MouseEvent, indexToRemove: number) => {
         e.preventDefault();
+        e.stopPropagation();
         const currentFiles = Array.from(files || []);
         currentFiles.splice(indexToRemove, 1);
         
@@ -388,7 +390,6 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
         
         setValue(name, dataTransfer.files, { shouldValidate: true });
         
-        // This is needed to make sure react-hook-form knows the input has changed
         if(inputRef.current) {
             inputRef.current.files = dataTransfer.files;
         }
@@ -419,13 +420,13 @@ export const FormMultiImageUpload = ({ name, label, description, count }: FormMu
                                 inputRef.current = e
                             }}
                             onChange={(e) => {
+                                onRegisterChange(e); // This is important!
                                 const newFiles = e.target.files;
                                 if (newFiles) {
                                     const dataTransfer = new DataTransfer();
                                     Array.from(newFiles).slice(0, count).forEach(file => dataTransfer.items.add(file));
                                     setValue(name, dataTransfer.files, { shouldValidate: true });
                                 }
-                                onRegisterChange(e);
                             }}
                         />
                     </label>
