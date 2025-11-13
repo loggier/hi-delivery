@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --gh-primary: 359 77% 55%; /* #E33739 */
-    --gh-secondary: 197 98% 48%; /* #04AAF1 */
+    --hid-primary: 359 77% 55%; /* #E33739 */
+    --hid-secondary: 197 98% 48%; /* #04AAF1 */
     
     --background: 0 0% 100%; /* #FFFFFF */
     --foreground: 222 84% 4.9%; /* #0c0a09 */
@@ -16,10 +16,10 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 84% 4.9%;
 
-    --primary: var(--gh-primary);
+    --primary: var(--hid-primary);
     --primary-foreground: 210 40% 98%;
 
-    --secondary: var(--gh-secondary);
+    --secondary: var(--hid-secondary);
     --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96.1%;
@@ -33,7 +33,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: var(--gh-primary);
+    --ring: var(--hid-primary);
     
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -45,8 +45,8 @@
   }
  
   .dark {
-    --gh-primary: 359 77% 55%;
-    --gh-secondary: 197 98% 48%;
+    --hid-primary: 359 77% 55%;
+    --hid-secondary: 197 98% 48%;
 
     --background: 222 84% 4.9%; /* #0c0a09 */
     --foreground: 210 40% 98%;
@@ -57,10 +57,10 @@
     --popover: 222 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: var(--gh-primary);
+    --primary: var(--hid-primary);
     --primary-foreground: 210 40% 98%;
 
-    --secondary: var(--gh-secondary);
+    --secondary: var(--hid-secondary);
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
@@ -74,7 +74,7 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: var(--gh-primary);
+    --ring: var(--hid-primary);
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;

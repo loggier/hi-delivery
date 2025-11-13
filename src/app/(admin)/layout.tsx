@@ -51,7 +51,7 @@ const navItems = [
     { href: "/settings", icon: Settings, label: "Configuración" },
 ];
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
 
 const FullScreenLoader = () => (
     <div className="flex h-screen w-full items-center justify-center bg-background">

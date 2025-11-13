@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
 
 export const metadata: Metadata = {
   title: appName,

@@ -48,9 +48,9 @@ const GeofenceMap = ({ geofence }: { geofence?: { lat: number; lng: number }[] }
                 <Polygon
                     paths={geofence}
                     options={{
-                        fillColor: "hsl(var(--gh-primary))",
+                        fillColor: "hsl(var(--hid-primary))",
                         fillOpacity: 0.2,
-                        strokeColor: "hsl(var(--gh-primary))",
+                        strokeColor: "hsl(var(--hid-primary))",
                         strokeOpacity: 0.8,
                         strokeWeight: 2,
                     }}

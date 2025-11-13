@@ -1,6 +1,6 @@
-# Hubs Admin Panel
+# Hi Delivery Admin Panel
 
-This is a Next.js starter project for the "Grupo Hubs" admin panel, built with Firebase Studio.
+This is a Next.js starter project for the "Hi Delivery" admin panel, built with Firebase Studio.
 
 It features a complete, mock-data-driven administrative dashboard with CRUD operations for managing businesses, riders, products, and more.
 
@@ -33,7 +33,7 @@ It features a complete, mock-data-driven administrative dashboard with CRUD oper
 1.  **Clone the repository:**
     ```bash
     git clone <repository-url>
-    cd hubs-admin-panel
+    cd hi-delivery-admin-panel
     ```
 
 2.  **Install dependencies:**
@@ -66,13 +66,13 @@ To change the theme:
 
 1.  Open `src/app/globals.css`.
 2.  Find the `:root` and `.dark` blocks.
-3.  Replace the HSL values for `--gh-primary`, `--gh-secondary`, and `--gh-accent` with your brand's colors. You can use an online converter to get HSL values from Hex codes.
+3.  Replace the HSL values for `--hid-primary`, `--hid-secondary`, and `--hid-accent` with your brand's colors. You can use an online converter to get HSL values from Hex codes.
 
 ```css
 :root {
-  --gh-primary: 221 98% 53%; /* #0F62FE */
-  --gh-secondary: 28 100% 50%; /* #FF6F00 */
-  --gh-accent: 165 100% 35%; /* #00B388 */
+  --hid-primary: 221 98% 53%; /* #0F62FE */
+  --hid-secondary: 28 100% 50%; /* #FF6F00 */
+  --hid-accent: 165 100% 35%; /* #00B388 */
   /* ... other variables ... */
 }
 ```

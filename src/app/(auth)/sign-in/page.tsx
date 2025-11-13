@@ -27,7 +27,7 @@ import Link from "next/link";
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Admin Hubs";
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
 
 export default function SignInPage() {
   const router = useRouter();

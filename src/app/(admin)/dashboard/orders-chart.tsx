@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 const chartConfig = {
   pedidos: {
     label: "Pedidos",
-    color: "hsl(var(--gh-secondary))",
+    color: "hsl(var(--hid-secondary))",
   },
 }
 

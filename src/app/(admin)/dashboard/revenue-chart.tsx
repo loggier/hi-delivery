@@ -22,7 +22,7 @@ import { formatCurrency } from "@/lib/utils"
 const chartConfig = {
   ingresos: {
     label: "Ingresos",
-    color: "hsl(var(--gh-primary))",
+    color: "hsl(var(--hid-primary))",
   },
 }
 

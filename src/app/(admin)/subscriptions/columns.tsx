@@ -60,7 +60,7 @@ export const getColumns = (): ColumnDef<SubscriptionRow>[] => [
         return (
             <div className="flex items-center gap-3">
                  <Image 
-                    src={row.original.logo_url || 'https://placehold.co/40x40/E33739/FFFFFF/png?text=H'}
+                    src={row.original.logo_url || 'https://placehold.co/40x40/E33739/FFFFFF/png?text=HID'}
                     alt={`Logo de ${row.original.name}`}
                     width={40}
                     height={40}

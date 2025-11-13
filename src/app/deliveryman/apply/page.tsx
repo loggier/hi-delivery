@@ -13,7 +13,7 @@ export default function RiderApplyPage() {
             </div>
             <CardTitle className="text-3xl font-bold">¡Únete a la flota!</CardTitle>
             <CardDescription className="text-lg text-slate-600 dark:text-slate-400">
-              Completa tu solicitud para convertirte en repartidor asociado de Hubs.
+              Completa tu solicitud para convertirte en repartidor asociado de Hi Delivery.
             </CardDescription>
           </CardHeader>
           <CardContent>
