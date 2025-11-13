@@ -8,7 +8,7 @@ import { z } from "zod";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle, Loader2 } from "lucide-react";
 
-import { riderApplicationSchema } from "@/lib/schemas";
+import { riderApplicationSchema } from "@/lib/rider-schemas";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
