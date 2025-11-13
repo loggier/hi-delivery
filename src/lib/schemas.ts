@@ -122,29 +122,21 @@ export const businessSchema = z.object({
 });
 
 
-export const productSchema = z.object({
-  name: z.string().min(2, { message: "El nombre del producto debe tener al menos 2 caracteres." }),
-  sku: z.string().optional(),
-  price: z.coerce.number().min(0.01, { message: "El precio debe ser mayor que 0." }),
-  status: z.enum(["ACTIVE", "INACTIVE"]),
-  businessId: z.string({ required_error: "Por favor, selecciona un negocio." }),
-  categoryId: z.string({ required_error: "Por favor, selecciona una categoría." }),
-  imageUrl: z.string().optional(),
-});
-
-const fileSchema = (message: string) => z.instanceof(typeof window === 'undefined' ? z.any().constructor : FileList)
-    .refine((files) => files?.length > 0, message)
-    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
+const fileSchema = (message: string) => 
+  z.any()
+    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files.length > 0), message)
+    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files?.[0]?.size <= 5000000), `El tamaño máximo es 5MB.`)
     .refine(
-      (files) => ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type),
+      (files) => typeof window === 'undefined' || (files instanceof FileList && ["image/jpeg", "image/png", "application/pdf"].includes(files?.[0]?.type)),
       "Solo se permiten formatos .jpg, .png y .pdf"
     );
 
-const imageFileSchema = (message: string) => z.instanceof(typeof window === 'undefined' ? z.any().constructor : FileList)
-    .refine((files) => files?.length > 0, message)
-    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo es 5MB.`)
+const imageFileSchema = (message: string) => 
+  z.any()
+    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files.length > 0), message)
+    .refine((files) => typeof window === 'undefined' || (files instanceof FileList && files?.[0]?.size <= 5000000), `El tamaño máximo es 5MB.`)
     .refine(
-      (files) => ["image/jpeg", "image/png"].includes(files?.[0]?.type),
+      (files) => typeof window === 'undefined' || (files instanceof FileList && ["image/jpeg", "image/png"].includes(files?.[0]?.type)),
       "Solo se permiten formatos .jpg y .png"
     );
 
