@@ -55,11 +55,9 @@ export function RiderApplicationForm() {
   const [direction, setDirection] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const { login, isAuthenticated, user } = useAuthStore();
   
-
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderApplicationSchema),
     mode: "onChange",
@@ -104,23 +102,14 @@ export function RiderApplicationForm() {
     }
   });
 
-  useEffect(() => {
-    if (user && user.role_id === 'rider') {
-        setRiderId(user.id);
-    }
-  }, [user]);
-
   const { trigger, getValues } = methods;
 
- const handleApiResponse = (result: any, ok: boolean, isCreation: boolean = false) => {
+  const handleApiResponse = (result: any, ok: boolean, isCreation: boolean = false) => {
     if (!ok) {
         throw new Error(result.message || 'Ocurrió un error desconocido.');
     }
     if (isCreation && result.rider) {
-        login(result.rider); // Authenticate the user
-        setRiderId(result.rider.id);
-    } else if (result.rider?.id) {
-        setRiderId(result.rider.id);
+        login(result.rider); // Authenticate the user and set their ID
     }
     
     toast({
@@ -151,12 +140,12 @@ export function RiderApplicationForm() {
             } else if (value instanceof Date) {
                 formData.append(key, value.toISOString());
             } else if (value !== undefined && value !== null && value !== '') {
-                // The key must be a string for FormData.
                 formData.append(String(key), value as any);
             }
         });
 
         if (currentStep === 0 && !isAuthenticated) {
+            // First step: Create the user/rider record
             const response = await fetch('/api/riders', {
                 method: 'POST',
                 body: formData,
@@ -164,11 +153,12 @@ export function RiderApplicationForm() {
             const result = await response.json();
             handleApiResponse(result, response.ok, true);
         } else {
-            const riderIdToUpdate = riderId || user?.id;
+             // Subsequent steps: Update the existing rider record
+            const riderIdToUpdate = user?.id;
             if (!riderIdToUpdate) {
-                throw new Error("No se pudo identificar al repartidor para actualizar.");
+                throw new Error("No se pudo identificar al repartidor para actualizar. Por favor, inicia sesión de nuevo.");
             }
-            const response = await fetch(`/api/riders/${riderIdToUpdate}`, {
+             const response = await fetch(`/api/riders/${riderIdToUpdate}`, {
                 method: 'PATCH',
                 body: formData,
             });
@@ -204,7 +194,7 @@ export function RiderApplicationForm() {
             throw new Error("La foto de perfil es obligatoria.");
         }
         
-        const riderIdToUpdate = riderId || user?.id;
+        const riderIdToUpdate = user?.id;
          if (!riderIdToUpdate) {
             throw new Error("No se pudo identificar al repartidor para finalizar.");
         }
@@ -307,5 +297,3 @@ export function RiderApplicationForm() {
     </FormProvider>
   );
 }
-
-    

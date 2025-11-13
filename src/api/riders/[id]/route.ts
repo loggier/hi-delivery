@@ -43,7 +43,7 @@ export async function PATCH(
     );
 
     const updateData: Record<string, any> = {};
-    const fileUploads: Promise<void>[] = [];
+    const fileUploadPromises: { key: string, promise: Promise<string> }[] = [];
 
     // Map form fields to database columns and handle file uploads
     const fieldMapping: Record<string, string> = {
@@ -68,7 +68,15 @@ export async function PATCH(
         status: 'status',
     };
 
-    const fileFieldMapping: Record<string, string> = {
+    const fileFields = [
+        'ineFrontUrl', 'ineBackUrl', 'proofOfAddressUrl',
+        'licenseFrontUrl', 'licenseBackUrl', 
+        'circulationCardFrontUrl', 'circulationCardBackUrl',
+        'motoPhotoFront', 'motoPhotoBack', 'motoPhotoLeft', 'motoPhotoRight',
+        'policyFirstPageUrl', 'avatar1x1Url'
+    ];
+
+    const dbFileFieldMapping: Record<string, string> = {
         ineFrontUrl: 'ine_front_url',
         ineBackUrl: 'ine_back_url',
         proofOfAddressUrl: 'proof_of_address_url',
@@ -76,12 +84,12 @@ export async function PATCH(
         licenseBackUrl: 'license_back_url',
         circulationCardFrontUrl: 'circulation_card_front_url',
         circulationCardBackUrl: 'circulation_card_back_url',
-t        motoPhotoFront: 'moto_photos.0',
+        policyFirstPageUrl: 'policy_first_page_url',
+        avatar1x1Url: 'avatar_1x1_url',
+        motoPhotoFront: 'moto_photos.0',
         motoPhotoBack: 'moto_photos.1',
         motoPhotoLeft: 'moto_photos.2',
         motoPhotoRight: 'moto_photos.3',
-        policyFirstPageUrl: 'policy_first_page_url',
-        avatar1x1Url: 'avatar_1x1_url',
     };
 
     for (const [key, value] of formData.entries()) {
@@ -92,29 +100,42 @@ t        motoPhotoFront: 'moto_photos.0',
         } else {
             updateData[dbKey] = value;
         }
-      } else if (key in fileFieldMapping && value instanceof File) {
-        const dbKey = fileFieldMapping[key];
-        const promise = uploadFileAndGetUrl(supabaseAdmin, value, riderId, key).then(url => {
-          if (dbKey.includes('.')) { // Handle moto_photos array
-            const [mainKey, index] = dbKey.split('.');
-            if (!updateData[mainKey]) updateData[mainKey] = [];
-            updateData[mainKey][parseInt(index)] = url;
-          } else {
-            updateData[dbKey] = url;
-          }
-        });
-        fileUploads.push(promise);
+      } else if (fileFields.includes(key) && value instanceof File) {
+        const promise = uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+        fileUploadPromises.push({ key, promise });
       }
     }
+    
+    // Fetch existing moto_photos if they exist to merge with new ones
+    if (fileUploadPromises.some(p => p.key.startsWith('motoPhoto'))) {
+        const { data: existingRider } = await supabaseAdmin.from('riders').select('moto_photos').eq('id', riderId).single();
+        updateData.moto_photos = existingRider?.moto_photos || [];
+    }
+
 
     // Wait for all file uploads to complete
-    await Promise.all(fileUploads);
+    const uploadedFiles = await Promise.all(fileUploadPromises.map(p => p.promise));
+    uploadedFiles.forEach((url, index) => {
+        const { key } = fileUploadPromises[index];
+        const dbKey = dbFileFieldMapping[key];
+        if (dbKey.includes('.')) { // Handle moto_photos array
+            const [mainKey, arrayIndexStr] = dbKey.split('.');
+            const arrayIndex = parseInt(arrayIndexStr);
+            if (!updateData[mainKey]) updateData[mainKey] = [];
+            // Ensure array is large enough
+            while(updateData[mainKey].length <= arrayIndex) {
+                updateData[mainKey].push(null);
+            }
+            updateData[mainKey][arrayIndex] = url;
+        } else {
+            updateData[dbKey] = url;
+        }
+    });
     
     if (updateData.brand === 'Otra' && updateData.brandOther) {
         updateData.brand = updateData.brandOther;
     }
     delete updateData.brandOther;
-
 
     if (Object.keys(updateData).length > 0) {
         const { data, error } = await supabaseAdmin
@@ -124,12 +145,26 @@ t        motoPhotoFront: 'moto_photos.0',
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            // PGRST116: "JSON object requested, multiple (or no) rows returned"
+            // This can happen if the ID doesn't exist. Instead of throwing, we'll treat it as "nothing to update".
+            if (error.code === 'PGRST116') {
+                 const { data: currentRider } = await supabaseAdmin.from('riders').select('*').eq('id', riderId).single();
+                 return NextResponse.json({ message: 'El repartidor no fue encontrado, no se aplicaron cambios.', rider: currentRider }, { status: 404 });
+            }
+            throw error;
+        };
 
         return NextResponse.json({ message: 'Datos actualizados con éxito', rider: data }, { status: 200 });
     }
 
-    return NextResponse.json({ message: 'No hay datos para actualizar' }, { status: 200 });
+    // If only status was updated (or nothing), fetch the current rider data to return
+     const { data: currentRider, error: currentRiderError } = await supabaseAdmin.from('riders').select('*').eq('id', riderId).single();
+     if(currentRiderError) {
+         return NextResponse.json({ message: 'No se pudo encontrar el repartidor para devolver el estado actual.', error: currentRiderError.message }, { status: 404 });
+     }
+
+    return NextResponse.json({ message: 'No hay datos nuevos que actualizar', rider: currentRider }, { status: 200 });
 
   } catch (error) {
     console.error('Update Rider Error:', error);
