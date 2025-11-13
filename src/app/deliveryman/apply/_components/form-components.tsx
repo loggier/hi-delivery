@@ -142,12 +142,16 @@ interface FormFileUploadProps {
 }
 
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
-    const { register, watch, setValue } = useFormContext();
+    const { register, watch, setValue, formState: { errors } } = useFormContext();
     const files = watch(name);
     const file = files?.[0];
     const [isDragging, setIsDragging] = useState(false);
 
-    const { ref, ...rest } = register(name);
+    // We need to use a separate ref for the input because register.ref is not a standard React ref object
+    const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+    // We handle the `ref` from `register` manually
+    const { ref: registerRef, ...rest } = register(name);
 
     const handleRemove = () => {
       setValue(name, null, { shouldValidate: true });
@@ -174,7 +178,8 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
             setValue(name, droppedFiles, { shouldValidate: true });
         }
     };
-
+    
+    const hasError = !!errors[name];
 
     return (
         <FormItem>
@@ -187,14 +192,18 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                         id={name}
                         accept={accept}
                         {...rest}
-                        ref={ref}
+                        ref={(e) => {
+                            registerRef(e); // Pass the element to RHF's ref
+                            inputRef.current = e; // Also assign it to our own ref
+                        }}
                     />
-                    <label 
-                        htmlFor={name}
+                    <div 
                         className={cn(
-                            "border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
-                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50"
+                            "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
+                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
+                            hasError ? "border-destructive" : "border-slate-300"
                         )}
+                        onClick={() => inputRef.current?.click()}
                         onDragEnter={handleDragEnter}
                         onDragOver={handleDragEnter} // onDragOver is also needed
                         onDragLeave={handleDragLeave}
@@ -205,7 +214,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                              {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
                          </span>
                          {file && <span className="font-medium text-sm text-slate-700 mt-1">{file.name}</span>}
-                    </label>
+                    </div>
                     {file && (
                         <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
                             <X className="h-4 w-4"/>
