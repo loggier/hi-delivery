@@ -1,17 +1,19 @@
-
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { riderApplicationSchema } from "@/lib/schemas";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuthStore } from "@/store/auth-store";
 
 import { Step1_AccountCreation } from "./step-1-account-creation";
 import { Step2_PersonalInfo } from "./step-2-personal-info";
@@ -19,10 +21,6 @@ import { Step3_VehicleInfo } from "./step-3-vehicle-info";
 import { Step4_PolicyInfo } from "./step-4-policy-info";
 import { Step5_Extras } from "./step-5-extras";
 import { Step6_Submit } from "./step-6-submit";
-import Link from "next/link";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuthStore } from "@/store/auth-store";
-
 
 const STEPS = [
   { id: "01", name: "Crea tu Cuenta", fields: ["firstName", "lastName", "email", "phoneE164", "password", "passwordConfirmation"] },
@@ -30,7 +28,7 @@ const STEPS = [
   { id: "03", name: "Vehículo", fields: ["ownership", "brand", "brandOther", "year", "model", "color", "plate", "licenseFrontUrl", "licenseBackUrl", "licenseValidUntil", "circulationCardFrontUrl", "circulationCardBackUrl", "motoPhotoFront", "motoPhotoBack", "motoPhotoLeft", "motoPhotoRight"] },
   { id: "04", name: "Póliza de Seguro", fields: ["insurer", "policyNumber", "policyValidUntil", "policyFirstPageUrl"] },
   { id: "05", name: "Extras", fields: ["hasHelmet", "hasUniform", "hasBox"] },
-  { id: "06", name: "Foto y Envío", fields: ["avatar1x1Url"] },
+  { id: "06", name: "Foto y Envío", fields: ["avatar1x1Url", "status"] },
 ];
 
 const slideVariants = {
@@ -62,52 +60,30 @@ export function RiderApplicationForm() {
     resolver: zodResolver(riderApplicationSchema),
     mode: "onChange",
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phoneE164: '',
-      password: '',
-      passwordConfirmation: '',
-      motherLastName: '',
-      birthDate: undefined,
-      zone_id: '',
-      address: '',
-      ownership: undefined,
-      brand: undefined,
-      brandOther: '',
-      year: undefined,
-      model: '',
-      color: '',
-      plate: '',
-      licenseValidUntil: undefined,
-      insurer: '',
-      policyNumber: '',
-      policyValidUntil: undefined,
-      hasHelmet: false,
-      hasUniform: false,
-      hasBox: false,
-      avatar1x1Url: null,
-      ineFrontUrl: null,
-      ineBackUrl: null,
-      proofOfAddressUrl: null,
-      licenseFrontUrl: null,
-      licenseBackUrl: null,
-      circulationCardFrontUrl: null,
-      circulationCardBackUrl: null,
-      motoPhotoFront: null,
-      motoPhotoBack: null,
-      motoPhotoLeft: null,
-      motoPhotoRight: null,
+      firstName: '', lastName: '', email: '', phoneE164: '', password: '', passwordConfirmation: '',
+      motherLastName: '', birthDate: undefined, zone_id: '', address: '',
+      ownership: undefined, brand: undefined, brandOther: '', year: undefined, model: '', color: '', plate: '', licenseValidUntil: undefined,
+      insurer: '', policyNumber: '', policyValidUntil: undefined,
+      hasHelmet: false, hasUniform: false, hasBox: false,
+      avatar1x1Url: null, ineFrontUrl: null, ineBackUrl: null, proofOfAddressUrl: null,
+      licenseFrontUrl: null, licenseBackUrl: null, circulationCardFrontUrl: null, circulationCardBackUrl: null,
+      motoPhotoFront: null, motoPhotoBack: null, motoPhotoLeft: null, motoPhotoRight: null,
       policyFirstPageUrl: null,
     }
   });
 
   const { trigger, getValues } = methods;
 
-  const handleApiResponse = (result: any, ok: boolean, isCreation: boolean = false) => {
-    if (!ok) {
-        throw new Error(result.message || 'Ocurrió un error desconocido.');
+  const handleApiResponse = async (response: Response, isCreation: boolean = false) => {
+    const result = await response.json();
+    console.log(`API Response (isCreation: ${isCreation}):`, { status: response.status, body: result });
+
+    if (!response.ok) {
+        // Log the detailed error from the server and throw it to be caught by the mutation handler
+        console.error("Server returned an error:", result);
+        throw new Error(result.message || 'Ocurrió un error desconocido en el servidor.');
     }
+
     if (isCreation && result.rider) {
         login(result.rider); // Authenticate the user and set their ID
     }
@@ -117,13 +93,14 @@ export function RiderApplicationForm() {
         description: "Tu información se ha guardado correctamente.",
         variant: 'success'
     });
+    return result;
   };
 
   const nextStep = async () => {
-    const fields = STEPS[currentStep].fields;
-    const output = await trigger(fields as any, { shouldFocus: true });
+    const fieldsToValidate = STEPS[currentStep].fields;
+    const isFormValid = await trigger(fieldsToValidate as any, { shouldFocus: true });
 
-    if (!output) return;
+    if (!isFormValid) return;
     
     setIsSubmitting(true);
 
@@ -131,7 +108,7 @@ export function RiderApplicationForm() {
         const data = getValues();
         const formData = new FormData();
         
-        fields.forEach(fieldKey => {
+        fieldsToValidate.forEach(fieldKey => {
             const key = fieldKey as keyof RiderFormValues;
             const value = data[key];
             
@@ -145,31 +122,24 @@ export function RiderApplicationForm() {
         });
 
         if (currentStep === 0 && !isAuthenticated) {
-            // First step: Create the user/rider record
-            const response = await fetch('/api/riders', {
-                method: 'POST',
-                body: formData,
-            });
-            const result = await response.json();
-            handleApiResponse(result, response.ok, true);
+            // Step 1: Create the user/rider record
+            const response = await fetch('/api/riders', { method: 'POST', body: formData });
+            await handleApiResponse(response, true);
         } else {
-             // Subsequent steps: Update the existing rider record
+            // Subsequent steps: Update the existing rider record
             const riderIdToUpdate = user?.id;
             if (!riderIdToUpdate) {
                 throw new Error("No se pudo identificar al repartidor para actualizar. Por favor, inicia sesión de nuevo.");
             }
-             const response = await fetch(`/api/riders/${riderIdToUpdate}`, {
-                method: 'PATCH',
-                body: formData,
-            });
-            const result = await response.json();
-            handleApiResponse(result, response.ok);
+             const response = await fetch(`/api/riders/${riderIdToUpdate}`, { method: 'PATCH', body: formData });
+             await handleApiResponse(response);
         }
         
         setDirection(1);
         setCurrentStep((prev) => Math.min(prev + 1, STEPS.length -1));
 
     } catch (error) {
+        console.error("Error in nextStep:", error);
         toast({
             variant: "destructive",
             title: "Error al guardar",
@@ -186,35 +156,31 @@ export function RiderApplicationForm() {
   };
   
   const onSubmitFinal = async () => {
+    const isFinalStepValid = await trigger(STEPS[STEPS.length - 1].fields as any);
+    if (!isFinalStepValid) return;
+
     setIsSubmitting(true);
     try {
-        const avatarFile = getValues("avatar1x1Url");
-        if (!avatarFile || avatarFile.length === 0) {
-            methods.setError("avatar1x1Url", { type: "manual", message: "La foto de perfil es obligatoria para finalizar." });
-            throw new Error("La foto de perfil es obligatoria.");
-        }
-        
         const riderIdToUpdate = user?.id;
          if (!riderIdToUpdate) {
             throw new Error("No se pudo identificar al repartidor para finalizar.");
         }
 
         const formData = new FormData();
-        formData.append("avatar1x1Url", avatarFile[0]);
+        const avatarFile = getValues("avatar1x1Url");
+        
+        if (avatarFile?.[0]) {
+            formData.append("avatar1x1Url", avatarFile[0]);
+        }
         formData.append("status", "pending_review");
 
-        const response = await fetch(`/api/riders/${riderIdToUpdate}`, {
-            method: 'PATCH',
-            body: formData,
-        });
-
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || "No se pudo enviar la solicitud.");
-        }
-
+        const response = await fetch(`/api/riders/${riderIdToUpdate}`, { method: 'PATCH', body: formData });
+        await handleApiResponse(response);
+        
         setIsSuccess(true);
+
     } catch (error) {
+        console.error("Error in onSubmitFinal:", error);
         toast({
             variant: "destructive",
             title: "Error en el envío final",

@@ -3,7 +3,6 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { riderApplicationSchema } from '@/lib/schemas';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
     const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
@@ -30,6 +29,8 @@ export async function PATCH(
   if (!riderId) {
     return NextResponse.json({ message: 'ID de repartidor no proporcionado.' }, { status: 400 });
   }
+
+  console.log(`[API PATCH /api/riders/${riderId}] - Received request`);
 
   try {
     const formData = await request.formData();
@@ -91,8 +92,11 @@ export async function PATCH(
         motoPhotoLeft: 'moto_photos.2',
         motoPhotoRight: 'moto_photos.3',
     };
-
+    
+    let receivedDataForLog: Record<string, any> = {};
     for (const [key, value] of formData.entries()) {
+      receivedDataForLog[key] = value instanceof File ? `File: ${value.name}` : value;
+
       if (key in fieldMapping) {
         const dbKey = fieldMapping[key];
         if (typeof value === 'string' && (value.toLowerCase() === 'true' || value.toLowerCase() === 'false')) {
@@ -106,6 +110,8 @@ export async function PATCH(
       }
     }
     
+    console.log(`[API PATCH /api/riders/${riderId}] - Received data:`, receivedDataForLog);
+
     // Fetch existing moto_photos if they exist to merge with new ones
     if (fileUploadPromises.some(p => p.key.startsWith('motoPhoto'))) {
         const { data: existingRider } = await supabaseAdmin.from('riders').select('moto_photos').eq('id', riderId).single();
@@ -138,6 +144,7 @@ export async function PATCH(
     delete updateData.brandOther;
 
     if (Object.keys(updateData).length > 0) {
+        console.log(`[API PATCH /api/riders/${riderId}] - Updating with data:`, updateData);
         const { data, error } = await supabaseAdmin
             .from('riders')
             .update(updateData)
@@ -146,29 +153,30 @@ export async function PATCH(
             .single();
 
         if (error) {
+            console.error(`[API PATCH /api/riders/${riderId}] - Supabase update error:`, error);
             // PGRST116: "JSON object requested, multiple (or no) rows returned"
-            // This can happen if the ID doesn't exist. Instead of throwing, we'll treat it as "nothing to update".
             if (error.code === 'PGRST116') {
-                 const { data: currentRider } = await supabaseAdmin.from('riders').select('*').eq('id', riderId).single();
-                 return NextResponse.json({ message: 'El repartidor no fue encontrado, no se aplicaron cambios.', rider: currentRider }, { status: 404 });
+                 return NextResponse.json({ message: `El repartidor con ID '${riderId}' no fue encontrado. No se aplicaron cambios.` }, { status: 404 });
             }
             throw error;
         };
-
+        console.log(`[API PATCH /api/riders/${riderId}] - Update successful.`);
         return NextResponse.json({ message: 'Datos actualizados con éxito', rider: data }, { status: 200 });
     }
 
-    // If only status was updated (or nothing), fetch the current rider data to return
+    console.log(`[API PATCH /api/riders/${riderId}] - No new data to update. Fetching current rider state.`);
+    // If no new data was sent, just fetch and return the current state
      const { data: currentRider, error: currentRiderError } = await supabaseAdmin.from('riders').select('*').eq('id', riderId).single();
      if(currentRiderError) {
+         console.error(`[API PATCH /api/riders/${riderId}] - Error fetching current rider:`, currentRiderError);
          return NextResponse.json({ message: 'No se pudo encontrar el repartidor para devolver el estado actual.', error: currentRiderError.message }, { status: 404 });
      }
 
-    return NextResponse.json({ message: 'No hay datos nuevos que actualizar', rider: currentRider }, { status: 200 });
+    return NextResponse.json({ message: 'No hay datos nuevos que actualizar.', rider: currentRider }, { status: 200 });
 
   } catch (error) {
-    console.error('Update Rider Error:', error);
+    console.error(`[API PATCH /api/riders/${riderId}] - Unexpected error:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
+    return NextResponse.json({ message: errorMessage, error }, { status: 500 });
   }
 }
