@@ -1,6 +1,6 @@
 
 'use server';
-
+// This comment is added to force a server recompilation.
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { verifyPassword, hashPassword } from '@/lib/auth-utils';
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       .single();
       
     if (userError || !user || !user.password) {
-      return NextResponse.json({ message: 'Credenciales inválidas.', error: userError?.message }, { status: 401 });
+      return NextResponse.json({ message: 'Credenciales inválidas.'+JSON.stringify(userError) }, { status: 401 });
     }
     
     if (user.status !== 'ACTIVE') {
@@ -77,14 +77,13 @@ export async function POST(request: Request) {
       .single();
     
     if(fullUserError || !fullUser) {
-        return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.', error: fullUserError?.message }, { status: 500 });
+        return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.'+JSON.stringify(fullUserError) }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Inicio de sesión exitoso', user: fullUser as User }, { status: 200 });
 
   } catch (error) {
     console.error('Error inesperado en la API de Login:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
+    return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 });
   }
 }

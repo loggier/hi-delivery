@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       email: data.email,
       phone_e164: data.phoneE164,
       status: 'incomplete' as const,
-      password_hash: hashedPassword,
+      password_hash: hashedPassword, // Storing hash here as well, might be redundant but keeping schema
     };
 
     const { data: createdRider, error: insertError } = await supabaseAdmin
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
+        // If rider creation fails, we MUST roll back the user creation.
         console.error("Error inserting rider profile, rolling back user creation...", insertError);
         if (createdUserId) {
             await supabaseAdmin.from('users').delete().eq('id', createdUserId);
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Error al crear el perfil del repartidor.', error: insertError.message }, { status: 500 });
     }
     
+    // Shape the response to look like a User object for the auth store
     const userForSession: User = {
         id: createdUser.id,
         name: createdUser.name,
@@ -101,11 +103,13 @@ export async function POST(request: Request) {
         status: createdUser.status,
     };
 
+    // ONLY return success if everything worked
     return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", rider: userForSession }, { status: 201 });
 
   } catch (error) {
     console.error('Unexpected error in rider registration API:', error);
     
+    // If we have a created user ID, it means the error happened after user creation. Rollback.
     if (createdUserId) {
         console.log(`Rolling back user ${createdUserId} due to unexpected error.`);
         await supabaseAdmin.from('users').delete().eq('id', createdUserId);
