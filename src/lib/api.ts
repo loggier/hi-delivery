@@ -136,20 +136,15 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         });
         const result = await response.json();
         if (!response.ok) {
-            // If creation fails, attempt to delete the orphaned user if one was created
-            if (result.createdUserId) {
-                console.log(`Attempting to delete orphaned user ${result.createdUserId}`);
-                const { error: deleteUserError } = await supabase.from('users').delete().eq('id', result.createdUserId);
-                if (deleteUserError) {
-                    console.error(`Failed to delete orphaned user ${result.createdUserId}:`, deleteUserError.message);
-                }
-            }
             throw new Error(result.message || `Error al crear ${translatedEntity}`);
         }
         return result;
       },
-      onSuccess: () => {
+      onSuccess: (result: any) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
+        if (result.user) { // If a user was created alongside (e.g. business owner)
+            queryClient.invalidateQueries({queryKey: ['users']});
+        }
         toast({
           title: "Éxito",
           description: `${translatedEntity} creado exitosamente.`,
@@ -170,17 +165,22 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useUpdate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T, Error, Partial<T> & { id: string }>({
-      mutationFn: (item) => {
-        const { id, ...updateData } = item;
-        
-        // Remove fields that should not be sent on update
-        const cleanUpdateData: Partial<T> = { ...updateData };
-        delete (cleanUpdateData as any).created_at;
-        delete (cleanUpdateData as any).password;
-        delete (cleanUpdateData as any).passwordConfirmation;
-
-        return handleSupabaseQuery(supabase.from(entity).update({ ...cleanUpdateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
+    return useMutation<T, Error, { formData: FormData; id: string } | (Partial<T> & { id: string })>({
+      mutationFn: async (item) => {
+        if ('formData' in item) {
+          const response = await fetch(`/api/${entity}/${item.id}`, {
+            method: 'POST', // Using POST for FormData with file uploads
+            body: item.formData,
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
+          }
+          return result.business; // The API returns the updated business object
+        } else {
+          const { id, ...updateData } = item;
+          return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
+        }
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -208,9 +208,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<void, Error, string>({
         mutationFn: async (id) => {
             const supabase = createClient();
-            
             const { error: deleteError } = await supabase.from(entity).delete().eq('id', id);
-            
             if (deleteError) {
                 throw new Error(deleteError.message || `No se pudo eliminar el ${translatedEntity}.`);
             }

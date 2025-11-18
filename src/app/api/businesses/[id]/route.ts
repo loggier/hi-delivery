@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Process files first
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
-            if (key === 'logoUrl') {
+            if (key === 'logo_url') {
                 updateData['logo_url'] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, 'logo');
             } else {
                  updateData[key] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, key);
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     // Process other fields, excluding files and the special flag
     for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File) && key !== 'final_submission' && key !== 'logoUrl') {
+      if (!(value instanceof File) && key !== 'final_submission') {
         if (['latitude', 'longitude'].includes(key)) {
              updateData[key] = parseFloat(value as string);
         } else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {

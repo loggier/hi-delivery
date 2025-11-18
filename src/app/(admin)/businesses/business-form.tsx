@@ -203,9 +203,20 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
 
   const onSubmit = async (data: BusinessFormValues) => {
     try {
+      const formData = new FormData();
+
+      // Append all form data to FormData object
+      for (const key in data) {
+        const value = data[key as keyof typeof data];
+        if (key === 'logo_url' && value instanceof FileList && value.length > 0) {
+          formData.append('logo_url', value[0]);
+        } else if (value !== null && value !== undefined && typeof value !== 'object') {
+          formData.append(key, String(value));
+        }
+      }
+
       if (isEditing && initialData) {
-        const { password, passwordConfirmation, ...updateData } = data;
-        await updateMutation.mutateAsync({ ...updateData, id: initialData.id });
+        await updateMutation.mutateAsync({ formData, id: initialData.id });
       } else {
         if (!data.password) {
             form.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
