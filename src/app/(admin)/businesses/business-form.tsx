@@ -81,12 +81,13 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
     resolver: zodResolver(businessSchema),
     defaultValues: initialData ? {
       ...initialData,
+      category_id: initialData.category_id || "",
+      zone_id: initialData.zone_id || "",
       tax_id: initialData.tax_id || "",
       website: initialData.website || "",
       instagram: initialData.instagram || "",
       logo_url: initialData.logo_url || "",
       notes: initialData.notes || "",
-      zone_id: initialData.zone_id || "",
       password: "",
       passwordConfirmation: "",
     } : {
