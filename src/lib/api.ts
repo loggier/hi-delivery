@@ -97,7 +97,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         const newItem = newItemDTO as any;
         
         if (entity === 'businesses' && newItem.password) {
-          const { password, passwordConfirmation, owner_name, email, name, ...businessData } = newItem;
+          const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
           
           const { data: roleData, error: roleError } = await supabase.from('roles').select('id').eq('name', 'Dueño de Negocio').single();
           if (roleError || !roleData) {
@@ -128,12 +128,18 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
           const businessId = `biz-${faker.string.uuid()}`;
           const businessToCreate = {
-            ...businessData,
             id: businessId,
             user_id: createdUser.id,
-            name,
-            owner_name: owner_name,
+            name: owner_name, // Use owner_name as a placeholder for name initially
+            type: 'restaurant', // Default value
             email: email,
+            owner_name: owner_name,
+            phone_whatsapp: '0000000000', // Default value
+            address_line: 'N/A', // Default value
+            neighborhood: 'N/A', // Default value
+            city: 'N/A', // Default value
+            state: 'N/A', // Default value
+            zip_code: '00000', // Default value
             status: 'INCOMPLETE',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
