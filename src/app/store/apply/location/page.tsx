@@ -1,8 +1,11 @@
+
+"use client";
+import { Suspense } from 'react';
 import { Icons } from "@/components/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Step3_LocationInfo } from "../_components/step-3-location-info";
 
-export default function LocationInfoPage() {
+function LocationInfoPageContent() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -24,3 +27,13 @@ export default function LocationInfoPage() {
     </main>
   );
 }
+
+
+export default function LocationInfoPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <LocationInfoPageContent />
+    </Suspense>
+  )
+}
+

@@ -6,7 +6,6 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get(AUTH_STORAGE_KEY);
 
-  // Redirigir de la raíz al dashboard si hay sesión, si no, al login.
   if (pathname === '/') {
      if (sessionCookie) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
@@ -14,27 +13,25 @@ export function middleware(request: NextRequest) {
      return NextResponse.redirect(new URL('/sign-in', request.url));
   }
   
-  // Proteger rutas de admin si no hay sesión
-  if (pathname.startsWith('/dashboard') && !sessionCookie) {
+  const isAdminPath = pathname.startsWith('/dashboard') || pathname.startsWith('/business-categories') || pathname.startsWith('/businesses') || pathname.startsWith('/customers') || pathname.startsWith('/plans') || pathname.startsWith('/product-categories') || pathname.startsWith('/riders') || pathname.startsWith('/roles') || pathname.startsWith('/settings') || pathname.startsWith('/subscriptions') || pathname.startsWith('/users') || pathname.startsWith('/zones');
+
+  if (isAdminPath && !sessionCookie) {
       const url = request.nextUrl.clone();
       url.pathname = '/sign-in';
-      url.searchParams.set('next', pathname); // Opcional: para redirigir de vuelta después del login
+      url.searchParams.set('next', pathname);
       return NextResponse.redirect(url);
   }
 
-  // Si el usuario está logueado e intenta ir a sign-in, redirigirlo
   if (pathname === '/sign-in' && sessionCookie) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // Proteger los pasos del formulario de repartidor si no hay sesión (excepto el primero)
   if (pathname.startsWith('/deliveryman/apply/') && pathname !== '/deliveryman/apply' && !sessionCookie) {
       return NextResponse.redirect(new URL('/deliveryman/apply', request.url));
   }
   
-  // Proteger los pasos del formulario de negocio si no hay sesión (excepto el primero)
-  if (pathname.startsWith('/store/apply/') && pathname !== '/store/apply' && !sessionCookie) {
-      return NextResponse.redirect(new URL('/store/apply', request.url));
+  if (pathname.startsWith('/store/apply/') && pathname !== '/store/apply') {
+      // Public flow, no session check needed, state is in URL
   }
 
   return NextResponse.next();
@@ -42,14 +39,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (imágenes públicas, etc.)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|logo-hid.png|logo-hidelivery.png).*)',
   ],
 }

@@ -3,11 +3,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useForm, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { businessInfoSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -20,8 +19,9 @@ type BusinessInfoFormValues = z.infer<typeof businessInfoSchema>;
 
 export function Step2_BusinessInfo() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const businessId = searchParams.get('id');
   const { toast } = useToast();
-  const { businessId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const { data: categories, isLoading: isLoadingCategories } = api.business_categories.useGetAll({ active: 'true' });
@@ -58,7 +58,8 @@ export function Step2_BusinessInfo() {
   useEffect(() => {
     async function fetchBusinessData() {
       if (!businessId) {
-        setIsFetchingData(false);
+        toast({ title: "Error", description: "No se encontró el ID del negocio. Por favor, vuelve a empezar.", variant: "destructive" });
+        router.push('/store/apply');
         return;
       };
       setIsFetchingData(true);
@@ -89,7 +90,7 @@ export function Step2_BusinessInfo() {
       }
     }
     fetchBusinessData();
-  }, [businessId, methods, toast]);
+  }, [businessId, methods, toast, router]);
 
   const onSubmit = async (data: BusinessInfoFormValues) => {
     if (!businessId) {
@@ -116,7 +117,7 @@ export function Step2_BusinessInfo() {
       if (!response.ok) throw new Error(result.message || "Error al guardar tu información.");
       
       toast({ title: "Información Guardada", variant: "success" });
-      router.push('/store/apply/location');
+      router.push(`/store/apply/location?id=${businessId}`);
 
     } catch (error) {
       toast({ variant: "destructive", title: "Error al guardar", description: error instanceof Error ? error.message : "No se pudo guardar tu información." });
@@ -128,11 +129,13 @@ export function Step2_BusinessInfo() {
   if (isFetchingData || isLoadingCategories) {
       return (
         <div className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <div className="space-y-6">
               <Skeleton className="h-20 w-full"/>
-              <Skeleton className="h-44 w-44"/>
               <Skeleton className="h-20 w-full"/>
               <Skeleton className="h-20 w-full"/>
+            </div>
+            <Skeleton className="aspect-square w-44"/>
           </div>
            <div className="flex justify-between"> <Skeleton className="h-10 w-24" /> <Skeleton className="h-10 w-44" /></div>
         </div>
@@ -167,7 +170,7 @@ export function Step2_BusinessInfo() {
             <FormImageUpload name="logo_url" label="Logo de tu Negocio" description="Recomendado: 400x400px, formato PNG o JPG."/>
           </div>
           <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}> Anterior </Button>
+            <Button type="button" variant="outline" onClick={() => router.push('/store/apply')} disabled={isSubmitting}> Anterior </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar y Continuar

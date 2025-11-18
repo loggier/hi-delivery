@@ -1,8 +1,11 @@
+
+"use client";
+import { Suspense } from 'react';
 import { Icons } from "@/components/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Step2_BusinessInfo } from "../_components/step-2-business-info";
 
-export default function BusinessInfoPage() {
+function BusinessInfoPageContent() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -23,4 +26,12 @@ export default function BusinessInfoPage() {
       </div>
     </main>
   );
+}
+
+export default function BusinessInfoPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <BusinessInfoPageContent />
+    </Suspense>
+  )
 }

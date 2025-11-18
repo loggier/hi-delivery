@@ -92,7 +92,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    return useMutation<T, Error, T_DTO>({
+    return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
         const newItem = newItemDTO as any;
         
@@ -120,20 +120,26 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           const { data: createdUser, error: userError } = await supabase.from('users').insert(userToCreate).select().single();
           if (userError) {
             console.error("Error creating user for business:", userError);
+            if (userError.code === '23505') {
+              throw new Error('El correo electrónico ya está registrado.');
+            }
             throw new Error(userError.message || "No se pudo crear el usuario para el negocio.");
           }
 
+          const businessId = `biz-${faker.string.uuid()}`;
           const businessToCreate = {
             ...businessData,
-            id: `biz-${faker.string.uuid()}`,
+            id: businessId,
             user_id: createdUser.id,
             name: newItem.name,
             owner_name: owner_name,
             email: email,
+            status: 'INCOMPLETE',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
-          return handleSupabaseQuery(supabase.from(entity).insert(businessToCreate).select().single());
+          const createdBusiness = await handleSupabaseQuery(supabase.from(entity).insert(businessToCreate).select().single());
+          return { ...createdBusiness, businessId: businessId, user: createdUser as User };
         }
 
         const itemWithId = {

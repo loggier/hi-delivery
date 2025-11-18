@@ -3,11 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { submitBusinessSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -21,8 +20,9 @@ type SubmitFormValues = z.infer<typeof submitBusinessSchema>;
 
 export function Step4_Submit() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const businessId = searchParams.get('id');
   const { toast } = useToast();
-  const { businessId, logout } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
@@ -39,7 +39,7 @@ export function Step4_Submit() {
 
   useEffect(() => {
     if (!businessId) {
-        toast({ title: "Error de sesión", description: "Por favor, inicia sesión de nuevo.", variant: "destructive" });
+        toast({ title: "Error de sesión", description: "No se encontró el ID del negocio. Por favor, inicia sesión de nuevo.", variant: "destructive" });
         router.push('/store/apply');
         return;
     }
@@ -87,7 +87,9 @@ export function Step4_Submit() {
       if (!response.ok) throw new Error(result.message || "Error al enviar tu solicitud.");
       
       setIsSuccess(true);
-      logout();
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('businessId');
+      }
 
     } catch (error) {
       toast({ variant: "destructive", title: "Error al enviar la solicitud", description: error instanceof Error ? error.message : "No se pudo enviar tu solicitud." });
@@ -151,7 +153,7 @@ export function Step4_Submit() {
                 </ul>
             </div>
              <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Anterior</Button>
+              <Button type="button" variant="outline" onClick={() => router.push(`/store/apply/location?id=${businessId}`)} disabled={isSubmitting}>Anterior</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enviar Solicitud

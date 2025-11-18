@@ -3,13 +3,12 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { useLoadScript, GoogleMap, Autocomplete } from '@react-google-maps/api';
 
 import { Form, FormControl, FormField, FormMessage, FormLabel } from '@/components/ui/form';
 import { locationInfoSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -23,8 +22,9 @@ type LocationInfoFormValues = z.infer<typeof locationInfoSchema>;
 
 export function Step3_LocationInfo() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const businessId = searchParams.get('id');
   const { toast } = useToast();
-  const { businessId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -58,7 +58,8 @@ export function Step3_LocationInfo() {
   useEffect(() => {
     async function fetchBusinessData() {
       if (!businessId) {
-        setIsFetchingData(false);
+        toast({ title: "Error", description: "No se encontró el ID del negocio. Por favor, vuelve a empezar.", variant: "destructive" });
+        router.push('/store/apply');
         return;
       }
       setIsFetchingData(true);
@@ -90,7 +91,7 @@ export function Step3_LocationInfo() {
       }
     }
     fetchBusinessData();
-  }, [businessId, methods, toast]);
+  }, [businessId, methods, toast, router]);
 
   const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
     autocompleteRef.current = autocomplete;
@@ -156,7 +157,7 @@ export function Step3_LocationInfo() {
       if (!response.ok) throw new Error(result.message || "Error al guardar tu información.");
       
       toast({ title: "Ubicación Guardada", variant: "success" });
-      router.push('/store/apply/submit');
+      router.push(`/store/apply/submit?id=${businessId}`);
 
     } catch (error) {
       toast({ variant: "destructive", title: "Error al guardar", description: error instanceof Error ? error.message : "No se pudo guardar tu información." });
@@ -236,7 +237,7 @@ export function Step3_LocationInfo() {
           </div>
 
           <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Anterior</Button>
+            <Button type="button" variant="outline" onClick={() => router.push(`/store/apply/business-info?id=${businessId}`)} disabled={isSubmitting}>Anterior</Button>
             <Button type="submit" disabled={isSubmitting || !isLoaded}>
               {(isSubmitting || !isLoaded) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar y Continuar

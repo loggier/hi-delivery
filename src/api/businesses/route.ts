@@ -41,12 +41,12 @@ async function handleUpdateBusiness(request: Request, supabaseAdmin: any, busine
     for (const [key, value] of formData.entries()) {
       if (!(value instanceof File) && value !== null && value !== undefined) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        // Handle numeric and float fields that might come as strings from FormData
+        
         if (['latitude', 'longitude'].includes(dbKey)) {
              updateData[dbKey] = parseFloat(value as string);
         } else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
             updateData[dbKey] = `+52${value}`;
-        } else {
+        } else if (key !== 'logoUrl') { // Prevent form key from being added directly
             updateData[dbKey] = value;
         }
       }
@@ -58,7 +58,6 @@ async function handleUpdateBusiness(request: Request, supabaseAdmin: any, busine
 
     updateData.updated_at = new Date().toISOString();
     
-    // If submitting the final step, change status
     if (formData.has('final_submission')) {
         updateData.status = 'PENDING_REVIEW';
     }

@@ -9,17 +9,16 @@ import { businessAccountCreationSchema } from '@/lib/schemas';
 import { FormInput } from './form-components';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/store/auth-store';
 import { Loader2 } from 'lucide-react';
 import { Form } from '@/components/ui/form';
+import { api } from '@/lib/api';
 
 type AccountCreationFormValues = z.infer<typeof businessAccountCreationSchema>;
 
 export function Step1_AccountCreation() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loginBusiness } = useAuthStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const createBusinessMutation = api.businesses.useCreate();
 
   const methods = useForm<AccountCreationFormValues>({
     resolver: zodResolver(businessAccountCreationSchema),
@@ -32,40 +31,24 @@ export function Step1_AccountCreation() {
   });
 
   const onSubmit = async (data: AccountCreationFormValues) => {
-    setIsSubmitting(true);
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
-
     try {
-      const response = await fetch('/api/businesses', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Ocurrió un error al crear la cuenta.');
-      }
+      const result = await createBusinessMutation.mutateAsync(data);
       
-      loginBusiness(result.user, result.businessId);
-      toast({
-        title: "Cuenta Creada Exitosamente",
-        description: "Ahora completa el perfil de tu negocio.",
-        variant: "success",
-      });
-      router.push('/store/apply/business-info');
-
+      if (result && result.businessId) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('businessId', result.businessId);
+        }
+        toast({
+          title: "Cuenta Creada Exitosamente",
+          description: "Ahora completa el perfil de tu negocio.",
+          variant: "success",
+        });
+        router.push(`/store/apply/business-info?id=${result.businessId}`);
+      } else {
+        throw new Error("No se pudo obtener el ID del negocio creado.");
+      }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error al crear la cuenta",
-        description: error instanceof Error ? error.message : "No se pudo crear tu cuenta.",
-      });
-    } finally {
-      setIsSubmitting(false);
+      // The onError in useMutation will handle the toast
     }
   };
 
@@ -82,9 +65,9 @@ export function Step1_AccountCreation() {
             </div>
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? "Creando cuenta..." : "Crear Cuenta y Continuar"}
+            <Button type="submit" disabled={createBusinessMutation.isPending}>
+              {createBusinessMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {createBusinessMutation.isPending ? "Creando cuenta..." : "Crear Cuenta y Continuar"}
             </Button>
           </div>
         </form>
