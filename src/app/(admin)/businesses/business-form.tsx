@@ -45,7 +45,7 @@ interface BusinessFormProps {
 
 const libraries: ('places')[] = ['places'];
 
-const BusinessMap = ({ value, onChange }: { value: { lat?: number, lng?: number }, onChange: (coords: { lat: number, lng: number }) => void }) => {
+const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number }, onChange: (coords: { lat: number, lng: number }) => void }) => {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
@@ -170,10 +170,12 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     name: 'type',
   });
   
-  const mapCoords = useWatch({
+  const [lat, lng] = useWatch({
     control: form.control,
     name: ['latitude', 'longitude']
-  })
+  });
+
+  const mapCenter = React.useMemo(() => ({ lat: lat || 19.4326, lng: lng || -99.1332 }), [lat, lng]);
 
   const availableCategories = React.useMemo(() => {
     return categories?.filter(c => c.type === selectedType && c.active) || [];
@@ -481,7 +483,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         <FormLabel>Geolocalización</FormLabel>
                         <FormControl>
                              <BusinessMap 
-                                value={{ lat: mapCoords[0], lng: mapCoords[1] }} 
+                                value={mapCenter} 
                                 onChange={(coords) => {
                                     form.setValue('latitude', coords.lat, { shouldValidate: true });
                                     form.setValue('longitude', coords.lng, { shouldValidate: true });
@@ -601,3 +603,5 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     </Form>
   );
 }
+
+    
