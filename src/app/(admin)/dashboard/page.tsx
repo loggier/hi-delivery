@@ -24,6 +24,7 @@ import { es } from 'date-fns/locale';
 import { RevenueChart } from "./revenue-chart";
 import { OrdersChart } from "./orders-chart";
 import { formatCurrency } from "@/lib/utils";
+import { OrderStatusGrid } from "./order-status-grid";
 
 function KPICard({ title, value, icon: Icon, description }: { title: string, value: string | number, icon: React.ElementType, description: string }) {
   return (
@@ -112,6 +113,7 @@ export default function DashboardPage() {
             </>
         ) : null}
       </div>
+      <OrderStatusGrid data={data?.orderStatusSummary} isLoading={isLoading} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RevenueChart data={data?.revenueData} isLoading={isLoading} />
         <OrdersChart data={data?.ordersData} isLoading={isLoading} />

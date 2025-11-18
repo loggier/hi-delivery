@@ -24,6 +24,19 @@ function generateChartData() {
     return { revenueData, ordersData };
 }
 
+function generateOrderStatusSummary() {
+    return {
+        unassigned: faker.number.int({ min: 0, max: 5 }),
+        accepted: faker.number.int({ min: 1, max: 10 }),
+        cooking: faker.number.int({ min: 0, max: 8 }),
+        outForDelivery: faker.number.int({ min: 0, max: 12 }),
+        delivered: faker.number.int({ min: 20, max: 50 }),
+        cancelled: faker.number.int({ min: 1, max: 5 }),
+        refunded: faker.number.int({ min: 0, max: 2 }),
+        failed: faker.number.int({ min: 0, max: 1 }),
+    };
+}
+
 
 export async function GET() {
   try {
@@ -31,10 +44,11 @@ export async function GET() {
 
     const allEntities = [...businesses, ...riders, ...products, ...productCategories];
     const latestChanges = allEntities
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => new Date(b.created_at || b.createdAt).getTime() - new Date(a.created_at || a.createdAt).getTime())
       .slice(0, 5);
 
     const { revenueData, ordersData } = generateChartData();
+    const orderStatusSummary = generateOrderStatusSummary();
 
     const stats = {
       activeBusinesses: businesses.filter(b => b.status === 'ACTIVE').length,
@@ -44,6 +58,7 @@ export async function GET() {
       latestChanges,
       revenueData,
       ordersData,
+      orderStatusSummary,
       totalRevenue: revenueData.reduce((acc, item) => acc + item.ingresos, 0),
       totalOrders: ordersData.reduce((acc, item) => acc + item.pedidos, 0),
     };

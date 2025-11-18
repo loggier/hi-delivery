@@ -62,8 +62,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
                 } else if (key === 'name') {
                     query = query.ilike('name', `%${value}%`);
-                } else if (key === 'active' && typeof value === 'boolean') {
-                    query = query.eq('active', value);
+                } else if (key === 'active' && typeof value === 'string') {
+                    query = query.eq('active', value === 'true');
                 } else if (typeof value === 'string') {
                     query = query.eq(key, value);
                 }
@@ -326,6 +326,17 @@ export const useCustomerOrders = (customerId: string) => {
 
 type RevenueData = { date: string; ingresos: number };
 type OrdersData = { date: string; pedidos: number };
+type OrderStatusSummary = {
+    unassigned: number;
+    accepted: number;
+    cooking: number;
+    outForDelivery: number;
+    delivered: number;
+    cancelled: number;
+    refunded: number;
+    failed: number;
+};
+
 
 // --- Dashboard Stats ---
 export const useDashboardStats = () => useQuery<{
@@ -336,6 +347,7 @@ export const useDashboardStats = () => useQuery<{
     latestChanges: (Category | Business | Product | Rider)[];
     revenueData: RevenueData[];
     ordersData: OrdersData[];
+    orderStatusSummary: OrderStatusSummary;
     totalRevenue: number;
     totalOrders: number;
 }>({
