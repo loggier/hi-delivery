@@ -12,7 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { riderApplicationSchema, riderAccountCreationSchema } from "@/lib/schemas";
+import { riderApplicationSchema } from "@/lib/schemas";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -22,7 +22,6 @@ import { Step3_VehicleInfo } from "./step-3-vehicle-info";
 import { Step4_PolicyInfo } from "./step-4-policy-info";
 import { Step5_Extras } from "./step-5-extras";
 import { Step6_Submit } from "./step-6-submit";
-import { Rider } from "@/types";
 
 const STEPS = [
   { id: "01", name: "Crea tu Cuenta", fields: ["firstName", "lastName", "email", "phoneE164", "password", "passwordConfirmation"] },
@@ -81,13 +80,12 @@ export function RiderApplicationForm() {
     console.log(`API Response (isCreation: ${isCreation}):`, { status: response.status, body: result });
 
     if (!response.ok) {
-        // Log the detailed error from the server and throw it to be caught by the mutation handler
         console.error("Server returned an error:", result);
         throw new Error(result.message || 'Ocurrió un error desconocido en el servidor.');
     }
 
     if (isCreation && result.rider) {
-        login(result.rider); // Authenticate the user and set their ID
+        login(result.rider);
     }
     
     toast({
@@ -112,8 +110,13 @@ export function RiderApplicationForm() {
         
         fieldsToValidate.forEach(fieldKey => {
             const key = fieldKey as keyof RiderFormValues;
-            const value = data[key];
+            let value = data[key];
             
+             // Specific handling for 'brand' if 'brandOther' has a value
+            if (key === 'brand' && data.brand === 'Otra' && data.brandOther) {
+                value = data.brandOther;
+            }
+
             if (value instanceof FileList) {
                 if (value[0]) formData.append(key, value[0]);
             } else if (value instanceof Date) {
@@ -124,21 +127,20 @@ export function RiderApplicationForm() {
         });
 
         if (currentStep === 0 && !isAuthenticated) {
-            // Step 1: Create the user/rider record
             const response = await fetch('/api/riders', { method: 'POST', body: formData });
             await handleApiResponse(response, true);
         } else {
-            // Subsequent steps: Update the existing rider record
             const riderIdToUpdate = user?.id;
             if (!riderIdToUpdate) {
                 throw new Error("No se pudo identificar al repartidor para actualizar. Por favor, inicia sesión de nuevo.");
             }
+             console.log(`Sending PATCH to /api/riders/${riderIdToUpdate}`);
              const response = await fetch(`/api/riders/${riderIdToUpdate}`, { method: 'PATCH', body: formData });
              await handleApiResponse(response);
         }
         
         setDirection(1);
-        setCurrentStep((prev) => Math.min(prev + 1, STEPS.length -1));
+        setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
 
     } catch (error) {
         console.error("Error in nextStep:", error);
