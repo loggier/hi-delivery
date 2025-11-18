@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -34,6 +34,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FormImageUpload } from "@/app/deliveryman/apply/_components/form-components";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
@@ -106,39 +107,6 @@ const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number },
     );
 };
 
-
-const ImageUpload = ({ value, onChange }: { value?: string, onChange: (value: any) => void }) => {
-    const [preview, setPreview] = React.useState(value);
-
-    React.useEffect(() => {
-        setPreview(value);
-    }, [value]);
-
-    const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-       const file = event.target.files?.[0];
-        if (file) {
-            onChange(event.target.files);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-    
-    const inputRef = React.useRef<HTMLInputElement>(null);
-    
-    return (
-        <div className="flex items-center gap-4">
-             <div className="w-24 h-24 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden border">
-                {preview ? <img src={preview} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-500">Sin logo</span>}
-            </div>
-            <Input type="file" onChange={handleUpload} accept="image/*" className="hidden" ref={inputRef}/>
-            <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}><Upload className="mr-2"/> Subir logo</Button>
-        </div>
-    )
-}
-
 export function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
   const router = useRouter();
   const createMutation = api.businesses.useCreate();
@@ -147,13 +115,13 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
 
-  const form = useForm<BusinessFormValues>({
+  const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: {
       name: "", type: "restaurant", category_id: "", zone_id: "",
       email: "", owner_name: "", phone_whatsapp: "", address_line: "",
       neighborhood: "", city: "Ciudad de México", state: "CDMX",
-      zip_code: "", tax_id: "", website: "", instagram: "", logo_url: "",
+      zip_code: "", tax_id: "", website: "", instagram: "", logo_url: undefined,
       notes: "", status: "ACTIVE", password: "", passwordConfirmation: "",
       latitude: 19.4326, longitude: -99.1332,
     },
@@ -161,14 +129,14 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   
   React.useEffect(() => {
     if (initialData) {
-        form.reset({
+        methods.reset({
             ...initialData,
             category_id: initialData.category_id || "",
             zone_id: initialData.zone_id || "",
             tax_id: initialData.tax_id || "",
             website: initialData.website || "",
             instagram: initialData.instagram || "",
-            logo_url: initialData.logo_url || "",
+            logo_url: initialData.logo_url, // Keep as string for preview, FormImageUpload handles FileList
             notes: initialData.notes || "",
             latitude: initialData.latitude || 19.4326,
             longitude: initialData.longitude || -99.1332,
@@ -176,15 +144,15 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             passwordConfirmation: "",
         });
     }
-  }, [initialData, form]);
+  }, [initialData, methods]);
 
   const selectedType = useWatch({
-    control: form.control,
+    control: methods.control,
     name: 'type',
   });
   
   const [lat, lng] = useWatch({
-    control: form.control,
+    control: methods.control,
     name: ['latitude', 'longitude']
   });
 
@@ -195,31 +163,34 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   }, [selectedType, categories]);
 
   React.useEffect(() => {
-    const currentCategoryId = form.getValues('category_id');
+    const currentCategoryId = methods.getValues('category_id');
     if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
-        form.setValue('category_id', '');
+        methods.setValue('category_id', '');
     }
-  }, [selectedType, availableCategories, form]);
+  }, [selectedType, availableCategories, methods]);
 
   const onSubmit = async (data: BusinessFormValues) => {
     try {
       const formData = new FormData();
-
-      // Append all form data to FormData object
+      
       for (const key in data) {
         const value = data[key as keyof typeof data];
+        
         if (key === 'logo_url' && value instanceof FileList && value.length > 0) {
-          formData.append('logo_url', value[0]);
+            formData.append('logo_url', value[0]);
         } else if (value !== null && value !== undefined && typeof value !== 'object') {
-          formData.append(key, String(value));
+            formData.append(key, String(value));
+        } else if (typeof value === 'number') {
+            formData.append(key, String(value));
         }
       }
+
 
       if (isEditing && initialData) {
         await updateMutation.mutateAsync({ formData, id: initialData.id });
       } else {
         if (!data.password) {
-            form.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
+            methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
             return;
         }
         await createMutation.mutateAsync(data);
@@ -234,13 +205,14 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+    <FormProvider {...methods}>
+      <Form {...methods}>
+      <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
             <CardContent className="pt-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="name"
                         render={({ field }) => (
                         <FormItem>
@@ -254,7 +226,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                     />
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
-                            control={form.control}
+                            control={methods.control}
                             name="type"
                             render={({ field }) => (
                             <FormItem>
@@ -276,7 +248,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                             )}
                         />
                          <FormField
-                            control={form.control}
+                            control={methods.control}
                             name="category_id"
                             render={({ field }) => (
                             <FormItem>
@@ -299,7 +271,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         />
                      </div>
                       <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="zone_id"
                         render={({ field }) => (
                         <FormItem>
@@ -323,19 +295,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                     />
                 </div>
                 <div className="lg:row-span-2">
-                    <FormField
-                        control={form.control}
-                        name="logo_url"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Logo</FormLabel>
-                            <FormControl>
-                               <ImageUpload value={field.value} onChange={field.onChange} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                    <FormImageUpload name="logo_url" label="Logo" aspectRatio="square"/>
                 </div>
             </CardContent>
         </Card>
@@ -348,7 +308,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="owner_name"
                         render={({ field }) => (
                         <FormItem>
@@ -361,7 +321,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         )}
                     />
                      <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="email"
                         render={({ field }) => (
                         <FormItem>
@@ -375,7 +335,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         )}
                     />
                      <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="phone_whatsapp"
                         render={({ field }) => (
                         <FormItem>
@@ -395,7 +355,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         <h3 className="text-md font-medium text-slate-800">Crear Contraseña para el Propietario</h3>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              <FormField
-                                control={form.control}
+                                control={methods.control}
                                 name="password"
                                 render={({ field }) => (
                                 <FormItem>
@@ -409,7 +369,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                                 )}
                             />
                              <FormField
-                                control={form.control}
+                                control={methods.control}
                                 name="passwordConfirmation"
                                 render={({ field }) => (
                                 <FormItem>
@@ -436,7 +396,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">
                         <FormField
-                            control={form.control}
+                            control={methods.control}
                             name="address_line"
                             render={({ field }) => (
                             <FormItem>
@@ -449,7 +409,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                             )}
                         />
                          <FormField
-                            control={form.control}
+                            control={methods.control}
                             name="neighborhood"
                             render={({ field }) => (
                             <FormItem>
@@ -463,7 +423,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         />
                          <div className="grid grid-cols-3 gap-6">
                             <FormField
-                                control={form.control}
+                                control={methods.control}
                                 name="city"
                                 render={({ field }) => (
                                 <FormItem>
@@ -476,7 +436,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                                 )}
                             />
                             <FormField
-                                control={form.control}
+                                control={methods.control}
                                 name="state"
                                 render={({ field }) => (
                                 <FormItem>
@@ -489,7 +449,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                                 )}
                             />
                             <FormField
-                                control={form.control}
+                                control={methods.control}
                                 name="zip_code"
                                 render={({ field }) => (
                                 <FormItem>
@@ -509,13 +469,13 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                              <BusinessMap 
                                 value={mapCenter} 
                                 onChange={(coords) => {
-                                    form.setValue('latitude', coords.lat, { shouldValidate: true });
-                                    form.setValue('longitude', coords.lng, { shouldValidate: true });
+                                    methods.setValue('latitude', coords.lat, { shouldValidate: true });
+                                    methods.setValue('longitude', coords.lng, { shouldValidate: true });
                                 }}
                             />
                         </FormControl>
                         <FormField
-                            control={form.control}
+                            control={methods.control}
                             name="latitude"
                             render={() => <FormMessage />}
                         />
@@ -531,7 +491,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             <CardContent className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="tax_id"
                         render={({ field }) => (
                         <FormItem>
@@ -544,7 +504,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         )}
                     />
                     <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="website"
                         render={({ field }) => (
                         <FormItem>
@@ -557,7 +517,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         )}
                     />
                      <FormField
-                        control={form.control}
+                        control={methods.control}
                         name="instagram"
                         render={({ field }) => (
                         <FormItem>
@@ -571,7 +531,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                     />
                  </div>
                   <FormField
-                    control={form.control}
+                    control={methods.control}
                     name="notes"
                     render={({ field }) => (
                     <FormItem>
@@ -595,7 +555,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
         
         <div className="flex items-center justify-end gap-2">
             <FormField
-                    control={form.control}
+                    control={methods.control}
                     name="status"
                     render={({ field }) => (
                     <FormItem className="w-48">
@@ -625,5 +585,6 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
         </div>
       </form>
     </Form>
+    </FormProvider>
   );
 }

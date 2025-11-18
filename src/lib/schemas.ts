@@ -91,11 +91,12 @@ const fileSchema = (message: string) =>
 const imageFileSchema = (message: string) =>
   isClient
     ? z.instanceof(FileList, { message })
-        .refine((files) => files?.length > 0, message)
+        .refine((files) => files?.length >= 1, message)
         .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
         .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg y .png")
         .nullable()
-    : z.any().nullable();
+        .optional()
+    : z.any().nullable().optional();
 
 export const businessAccountCreationSchema = z.object({
   owner_name: z.string().min(2, { message: "Tu nombre completo es requerido." }),
@@ -152,7 +153,7 @@ export const businessSchema = z.object({
     tax_id: z.string().optional(),
     website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
     instagram: z.string().optional(),
-    logo_url: z.string().optional(),
+    logo_url: imageFileSchema("El logo es requerido."),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
     // Campos de contraseña (opcionales, solo para creación)
@@ -269,5 +270,3 @@ export const planSchema = z.object({
     min_distance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
     details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
 });
-
-    
