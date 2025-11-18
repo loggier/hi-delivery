@@ -39,18 +39,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
   
-  const fileFields = [
-    'avatar_1x1_url', 'ine_front_url', 'ine_back_url', 'proof_of_address_url',
-    'license_front_url', 'license_back_url', 'circulation_card_front_url', 'circulation_card_back_url',
-    'policy_first_page_url',
-    // Moto photos are handled separately
-    'motoPhotoFront', 'motoPhotoBack', 'motoPhotoLeft', 'motoPhotoRight',
-  ];
-  
   const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
 
   try {
-    const { data: existingRider, error: fetchError } = await supabaseAdmin.from('riders').select('moto_photos').eq('id', riderId).single();
+    const { data: existingRider, error: fetchError } = await supabaseAdmin.from('riders').select('moto_photos, status').eq('id', riderId).single();
     if(fetchError) {
       console.error('Error fetching existing rider for update:', fetchError);
       return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
@@ -61,11 +53,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Handle file uploads
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
+            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
             if (key.startsWith('motoPhoto')) {
                 const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
                 motoPhotos.push(url);
             } else {
-                 const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase to snake_case
                  updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             }
         }
@@ -78,11 +70,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Handle plain text fields
     for (const [key, value] of formData.entries()) {
       if (!(value instanceof File)) {
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase to snake_case
+        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
         } else if (dateFields.includes(dbKey)) {
-            updateData[dbKey] = new Date(value).toISOString();
+            updateData[dbKey] = new Date(value as string).toISOString();
         } else {
             updateData[dbKey] = value;
         }
@@ -95,7 +87,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     updateData.updated_at = new Date().toISOString();
     
-    // Ensure 'status' is updated to 'pending_review' if it's currently 'incomplete'
+    // Ensure 'status' is updated to 'pending_review' if it's currently 'incomplete' and we're adding more data
     if (existingRider && (existingRider as Rider).status === 'incomplete' && Object.keys(updateData).length > 1) {
         updateData.status = 'pending_review';
     }
@@ -121,4 +113,3 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
-
