@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, MapPin } from "lucide-react";
 import { useLoadScript, GoogleMap, Autocomplete as GoogleAutocomplete, Marker } from '@react-google-maps/api';
 
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,12 @@ const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number },
             }
         }
     };
+    
+    const onMapClick = (e: google.maps.MapMouseEvent) => {
+        if (e.latLng) {
+            onChange({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+        }
+    }
 
     const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
         autocompleteRef.current = autocomplete;
@@ -88,6 +94,7 @@ const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number },
                 center={value}
                 zoom={15}
                 onLoad={onMapLoad}
+                onClick={onMapClick}
                  options={{
                     disableDefaultUI: true,
                     zoomControl: true,
@@ -100,28 +107,34 @@ const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number },
 };
 
 
-const ImageUpload = ({ value, onChange }: { value?: string, onChange: (value: string) => void }) => {
+const ImageUpload = ({ value, onChange }: { value?: string, onChange: (value: any) => void }) => {
     const [preview, setPreview] = React.useState(value);
 
     React.useEffect(() => {
         setPreview(value);
     }, [value]);
 
-    const handleUpload = async () => {
-        // En una app real, esto abriría un selector de archivos
-        // y subiría el archivo a un servicio de almacenamiento.
-        // Aquí simulamos ese proceso.
-        const mockImageUrl = `https://picsum.photos/seed/${Math.random()}/200/200`;
-        setPreview(mockImageUrl);
-        onChange(mockImageUrl);
+    const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+       const file = event.target.files?.[0];
+        if (file) {
+            onChange(event.target.files);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
     };
+    
+    const inputRef = React.useRef<HTMLInputElement>(null);
     
     return (
         <div className="flex items-center gap-4">
              <div className="w-24 h-24 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden border">
                 {preview ? <img src={preview} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-500">Sin logo</span>}
             </div>
-            <Button type="button" variant="outline" onClick={handleUpload}><Upload className="mr-2"/> Subir logo</Button>
+            <Input type="file" onChange={handleUpload} accept="image/*" className="hidden" ref={inputRef}/>
+            <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}><Upload className="mr-2"/> Subir logo</Button>
         </div>
     )
 }
@@ -145,7 +158,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
       latitude: 19.4326, longitude: -99.1332,
     },
   });
-
+  
   React.useEffect(() => {
     if (initialData) {
         form.reset({
@@ -306,7 +319,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                         <FormItem>
                             <FormLabel>Logo</FormLabel>
                             <FormControl>
-                               <ImageUpload {...field} />
+                               <ImageUpload value={field.value} onChange={field.onChange} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -603,5 +616,3 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     </Form>
   );
 }
-
-    

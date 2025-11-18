@@ -166,8 +166,8 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
     <div className="relative">
       <GoogleMap
         mapContainerStyle={{ height: '500px', width: '100%', borderRadius: '0.5rem' }}
-        center={{ lat: 25.738, lng: -100.45 }}
-        zoom={10}
+        center={value?.[0] || { lat: 25.738, lng: -100.45 }}
+        zoom={12}
         onLoad={onMapLoad}
         options={{ mapTypeControl: false, streetViewControl: false, fullscreenControl: true }}
       >
@@ -184,7 +184,6 @@ const GeofenceMap = ({ value, onChange }: { value?: any; onChange: (value: any) 
           </div>
         </div>
 
-        {/* ✅ Renderiza el DrawingManager solo cuando el mapa ya existe y con opciones memorizadas */}
         {map && drawingOptions && (
           <DrawingManager
             onLoad={onDrawingManagerLoad}
@@ -241,6 +240,15 @@ export function ZoneForm({ initialData }: ZoneFormProps) {
     resolver: zodResolver(zoneSchema),
     defaultValues: initialData || { name: "", status: "ACTIVE", geofence: undefined },
   });
+
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        ...initialData,
+        geofence: initialData.geofence || undefined,
+      });
+    }
+  }, [initialData, form]);
 
   const onSubmit = async (data: ZoneFormValues) => {
     try {
