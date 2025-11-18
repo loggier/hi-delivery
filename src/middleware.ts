@@ -7,38 +7,22 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get(AUTH_STORAGE_KEY);
 
+  // Si el usuario va a la raíz, lo mandamos directo al dashboard
   if (pathname === '/') {
-     if (sessionCookie) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-     }
-     return NextResponse.redirect(new URL('/sign-in', request.url));
+     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
   
-  const isAdminPath = pathname.startsWith('/dashboard') || pathname.startsWith('/business-categories') || pathname.startsWith('/businesses') || pathname.startsWith('/customers') || pathname.startsWith('/plans') || pathname.startsWith('/product-categories') || pathname.startsWith('/riders') || pathname.startsWith('/roles') || pathname.startsWith('/settings') || pathname.startsWith('/subscriptions') || pathname.startsWith('/users') || pathname.startsWith('/zones');
-
-  // if (isAdminPath && !sessionCookie) {
-  //     const url = request.nextUrl.clone();
-  //     url.pathname = '/sign-in';
-  //     url.searchParams.set('next', pathname);
-  //     return NextResponse.redirect(url);
+  // Proteger rutas de admin si no hay sesión (excepto la de login)
+  // if (pathname.startsWith('/admin') && !sessionCookie) {
+  //     // return NextResponse.redirect(new URL('/sign-in', request.url))
   // }
 
-  if (pathname === '/sign-in' && sessionCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+  // Si el usuario está logueado e intenta ir a sign-in, redirigirlo
+  // if (pathname === '/sign-in' && sessionCookie) {
+  //   // return NextResponse.redirect(new URL('/dashboard', request.url))
+  // }
 
-  // Allow access to the root of apply pages without a session
-  if (pathname.startsWith('/deliveryman/apply/') && pathname !== '/deliveryman/apply') {
-    // For subsequent steps in rider application, we don't need a session cookie,
-    // as state might be handled client-side or via URL params.
-    // Let's assume no server-side session check is needed for these steps.
-  }
-  
-  if (pathname.startsWith('/store/apply/') && pathname !== '/store/apply') {
-    // Same for store application
-  }
-
-  return NextResponse.next();
+  return NextResponse.next()
 }
 
 export const config = {

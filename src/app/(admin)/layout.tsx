@@ -53,37 +53,14 @@ const navItems = [
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
 
-const FullScreenLoader = () => (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4">
-        <Skeleton className="h-12 w-12 rounded-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-[250px]" />
-          <Skeleton className="h-4 w-[200px]" />
-        </div>
-      </div>
-    </div>
-);
-
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { isAuthenticated, isLoading } = useAuthStore();
-  
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/sign-in');
-    }
-  }, [isLoading, isAuthenticated, router]);
-
-  if (isLoading || !isAuthenticated) {
-    return <FullScreenLoader />;
-  }
+  const { user } = useAuthStore.getState(); // Directly get state
 
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 

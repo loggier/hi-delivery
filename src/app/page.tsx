@@ -2,22 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth-store";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace("/dashboard");
-      } else {
-        router.replace("/sign-in");
-      }
-    }
-  }, [isAuthenticated, isLoading, router]);
+    router.replace("/dashboard");
+  }, [router]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
