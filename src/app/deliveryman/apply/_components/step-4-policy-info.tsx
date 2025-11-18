@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { FormInput, FormFutureDatePicker, FormFileUpload } from './form-components';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const policyInfoSchema = riderApplicationBaseSchema.pick({
   insurer: true,
@@ -28,7 +29,8 @@ export function Step4_PolicyInfo() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const methods = useForm<PolicyInfoFormValues>({
     resolver: zodResolver(policyInfoSchema),
@@ -36,9 +38,44 @@ export function Step4_PolicyInfo() {
     defaultValues: {
       insurer: '',
       policyNumber: '',
+      policyValidUntil: undefined,
       policyFirstPageUrl: null,
     }
   });
+
+  useEffect(() => {
+    async function fetchRiderData() {
+      if (!user) return;
+      setIsFetchingData(true);
+      try {
+        const supabase = createClient();
+        const { data: riderData, error } = await supabase
+          .from('riders')
+          .select('insurer, policy_number, policy_valid_until')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+
+        if (riderData) {
+          methods.reset({
+            insurer: riderData.insurer || '',
+            policyNumber: riderData.policy_number || '',
+            policyValidUntil: riderData.policy_valid_until ? new Date(riderData.policy_valid_until) : undefined,
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error al cargar datos",
+          description: error instanceof Error ? error.message : "Ocurrió un error inesperado."
+        });
+      } finally {
+        setIsFetchingData(false);
+      }
+    }
+    fetchRiderData();
+  }, [user, methods, toast]);
 
   const onSubmit = async (data: PolicyInfoFormValues) => {
     if (!user) {
@@ -62,7 +99,7 @@ export function Step4_PolicyInfo() {
           if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
           } else if (value instanceof Date) {
-            formData.append(key, value.toISOString());
+            formData.append(key, value.toISOString().split('T')[0]);
           } else if (value) {
             formData.append(key, value);
           }
@@ -92,6 +129,20 @@ export function Step4_PolicyInfo() {
     }
   };
 
+  if (isFetchingData) {
+      return (
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-20 w-full"/>)}
+          </div>
+           <div className="flex justify-between">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-44" />
+          </div>
+        </div>
+      )
+  }
+
   return (
     <FormProvider {...methods}>
        <Form {...methods}>
@@ -103,11 +154,11 @@ export function Step4_PolicyInfo() {
                 <FormFileUpload name="policyFirstPageUrl" label="Carátula de la Póliza" description="Sube la primera página o carátula de tu póliza de seguro vigente."/>
             </div>
              <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isFetchingData}>
                 Anterior
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting || isFetchingData}>
+                {(isSubmitting || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar y Continuar
               </Button>
             </div>

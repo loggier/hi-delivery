@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const extrasSchema = riderApplicationBaseSchema.pick({
   hasHelmet: true,
@@ -49,7 +50,8 @@ export function Step5_Extras() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const methods = useForm<ExtrasFormValues>({
     resolver: zodResolver(extrasSchema),
@@ -60,6 +62,40 @@ export function Step5_Extras() {
       hasBox: false,
     }
   });
+
+  useEffect(() => {
+    async function fetchRiderData() {
+      if (!user) return;
+      setIsFetchingData(true);
+      try {
+        const supabase = createClient();
+        const { data: riderData, error } = await supabase
+          .from('riders')
+          .select('has_helmet, has_uniform, has_box')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+
+        if (riderData) {
+          methods.reset({
+            hasHelmet: riderData.has_helmet || false,
+            hasUniform: riderData.has_uniform || false,
+            hasBox: riderData.has_box || false,
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error al cargar datos",
+          description: error instanceof Error ? error.message : "Ocurrió un error inesperado."
+        });
+      } finally {
+        setIsFetchingData(false);
+      }
+    }
+    fetchRiderData();
+  }, [user, methods, toast]);
 
   const onSubmit = async (data: ExtrasFormValues) => {
     if (!user) {
@@ -107,6 +143,20 @@ export function Step5_Extras() {
     }
   };
 
+  if (isFetchingData) {
+      return (
+        <div className="space-y-8">
+          <div className="space-y-4">
+              {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-14 w-full"/>)}
+          </div>
+           <div className="flex justify-between">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-44" />
+          </div>
+        </div>
+      )
+  }
+
   return (
     <FormProvider {...methods}>
        <Form {...methods}>
@@ -117,11 +167,11 @@ export function Step5_Extras() {
                 <ExtraCheckbox name="hasBox" label="Cuento con caja de reparto" />
             </div>
              <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isFetchingData}>
                 Anterior
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting || isFetchingData}>
+                {(isSubmitting || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar y Continuar
               </Button>
             </div>

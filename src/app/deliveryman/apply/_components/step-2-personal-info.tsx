@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -12,9 +12,10 @@ import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { FormInput, FormDatePicker, FormSelect, FormFileUpload } from './form-components';
 import { api } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const personalInfoSchema = riderApplicationBaseSchema.pick({
   motherLastName: true,
@@ -31,7 +32,8 @@ export function Step2_PersonalInfo() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
   const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll({ status: 'ACTIVE' });
   
   const zoneOptions = zones?.map(zone => ({ value: zone.id, label: zone.name })) || [];
@@ -48,6 +50,41 @@ export function Step2_PersonalInfo() {
       proofOfAddressUrl: null,
     }
   });
+
+  useEffect(() => {
+    async function fetchRiderData() {
+      if (!user) return;
+      setIsFetchingData(true);
+      try {
+        const supabase = createClient();
+        const { data: riderData, error } = await supabase
+          .from('riders')
+          .select('mother_last_name, birth_date, zone_id, address')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+
+        if (riderData) {
+          methods.reset({
+            motherLastName: riderData.mother_last_name || '',
+            birthDate: riderData.birth_date ? new Date(riderData.birth_date) : undefined,
+            zone_id: riderData.zone_id || '',
+            address: riderData.address || '',
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error al cargar datos",
+          description: error instanceof Error ? error.message : "Ocurrió un error inesperado."
+        });
+      } finally {
+        setIsFetchingData(false);
+      }
+    }
+    fetchRiderData();
+  }, [user, methods, toast]);
 
   const onSubmit = async (data: PersonalInfoFormValues) => {
     if (!user) {
@@ -71,7 +108,7 @@ export function Step2_PersonalInfo() {
           if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
           } else if (value instanceof Date) {
-            formData.append(key, value.toISOString());
+            formData.append(key, value.toISOString().split('T')[0]); // Send as YYYY-MM-DD
           } else if (value) {
             formData.append(key, value);
           }
@@ -101,6 +138,20 @@ export function Step2_PersonalInfo() {
     }
   };
 
+  if (isFetchingData) {
+      return (
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-20 w-full"/>)}
+          </div>
+           <div className="flex justify-between">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-44" />
+          </div>
+        </div>
+      )
+  }
+
   return (
     <FormProvider {...methods}>
       <Form {...methods}>
@@ -124,8 +175,8 @@ export function Step2_PersonalInfo() {
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
               Anterior
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isSubmitting || isFetchingData}>
+              {(isSubmitting || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar y Continuar
             </Button>
           </div>

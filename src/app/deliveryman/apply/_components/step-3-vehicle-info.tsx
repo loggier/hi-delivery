@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { FormInput, FormSelect, FormFutureDatePicker, FormFileUpload, FormMultiImageUpload } from './form-components';
 import { vehicleBrands, vehicleYears } from '@/lib/constants';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const vehicleInfoSchema = riderApplicationBaseSchema.pick({
   ownership: true,
@@ -41,18 +42,23 @@ export function Step3_VehicleInfo() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const methods = useForm<VehicleInfoFormValues>({
     resolver: zodResolver(vehicleInfoSchema),
     mode: 'onChange',
     defaultValues: {
+        ownership: undefined,
+        brand: undefined,
         brandOther: '',
+        year: undefined,
         model: '',
         color: '',
         plate: '',
         licenseFrontUrl: null,
         licenseBackUrl: null,
+        licenseValidUntil: undefined,
         circulationCardFrontUrl: null,
         circulationCardBackUrl: null,
         motoPhotoFront: null,
@@ -62,6 +68,45 @@ export function Step3_VehicleInfo() {
     }
   });
   
+  useEffect(() => {
+    async function fetchRiderData() {
+      if (!user) return;
+      setIsFetchingData(true);
+      try {
+        const supabase = createClient();
+        const { data: riderData, error } = await supabase
+          .from('riders')
+          .select('ownership, brand, year, model, color, plate, license_valid_until')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+
+        if (riderData) {
+          methods.reset({
+            ownership: riderData.ownership || undefined,
+            brand: vehicleBrands.includes(riderData.brand as any) ? riderData.brand : 'Otra',
+            brandOther: !vehicleBrands.includes(riderData.brand as any) ? riderData.brand : '',
+            year: riderData.year || undefined,
+            model: riderData.model || '',
+            color: riderData.color || '',
+            plate: riderData.plate || '',
+            licenseValidUntil: riderData.license_valid_until ? new Date(riderData.license_valid_until) : undefined,
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error al cargar datos",
+          description: error instanceof Error ? error.message : "Ocurrió un error inesperado."
+        });
+      } finally {
+        setIsFetchingData(false);
+      }
+    }
+    fetchRiderData();
+  }, [user, methods, toast]);
+
   const brand = useWatch({ control: methods.control, name: 'brand' });
 
   const onSubmit = async (data: VehicleInfoFormValues) => {
@@ -86,9 +131,14 @@ export function Step3_VehicleInfo() {
           if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
           } else if (value instanceof Date) {
-            formData.append(key, value.toISOString());
+            formData.append(key, value.toISOString().split('T')[0]);
           } else if (value) {
-            formData.append(key, value);
+            // If brand is 'Otra', send `brandOther` as `brand`
+            if (key === 'brand' && value === 'Otra') {
+              formData.append('brand', data.brandOther || 'Otra');
+            } else if (key !== 'brandOther') {
+              formData.append(key, value);
+            }
           }
       });
       
@@ -116,6 +166,26 @@ export function Step3_VehicleInfo() {
     }
   };
 
+  if (isFetchingData) {
+      return (
+        <div className="space-y-8">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Array.from({length: 11}).map((_, i) => <Skeleton key={i} className="h-20 w-full"/>)}
+                <div className="md:col-span-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-32 w-full"/>)}
+                  </div>
+                </div>
+              </div>
+            </div>
+             <div className="flex justify-between">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-44" />
+            </div>
+        </div>
+      )
+  }
 
   return (
      <FormProvider {...methods}>
@@ -162,11 +232,11 @@ export function Step3_VehicleInfo() {
               </div>
             </div>
              <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isFetchingData}>
                 Anterior
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting || isFetchingData}>
+                {(isSubmitting || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar y Continuar
               </Button>
             </div>

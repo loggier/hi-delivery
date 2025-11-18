@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -16,6 +16,7 @@ import { Loader2, Check, ShieldCheck, CheckCircle } from 'lucide-react';
 import { FormImageUpload } from './form-components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const submitSchema = riderApplicationBaseSchema.pick({
   avatar1x1Url: true,
@@ -27,8 +28,9 @@ export function Step6_Submit() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isSuccess, setIsSuccess] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
   const methods = useForm<SubmitFormValues>({
     resolver: zodResolver(submitSchema),
@@ -37,6 +39,16 @@ export function Step6_Submit() {
         avatar1x1Url: null,
     }
   });
+
+  useEffect(() => {
+    async function fetchRiderData() {
+      if (!user) return;
+      // No need to fetch data for this step as file inputs cannot be pre-filled
+      // but we keep the structure for consistency.
+      setIsFetchingData(false);
+    }
+    fetchRiderData();
+  }, [user]);
 
   const onSubmit = async (data: SubmitFormValues) => {
     if (!user) {
@@ -59,6 +71,8 @@ export function Step6_Submit() {
       if(data.avatar1x1Url && data.avatar1x1Url.length > 0) {
         formData.append('avatar1x1Url', data.avatar1x1Url[0]);
       }
+      // Also update status to 'pending_review'
+      formData.append('status', 'pending_review');
       
       const response = await fetch(`/api/riders/${rider.id}`, {
         method: 'PATCH',
@@ -98,6 +112,22 @@ export function Step6_Submit() {
     )
   }
 
+  if (isFetchingData) {
+      return (
+          <div className="space-y-8">
+            <Skeleton className="h-16 w-full" />
+            <div className="max-w-xs mx-auto">
+                <Skeleton className="aspect-square w-full" />
+            </div>
+            <Skeleton className="h-36 w-full" />
+            <div className="flex justify-between">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-44" />
+          </div>
+        </div>
+      )
+  }
+
   return (
     <FormProvider {...methods}>
        <Form {...methods}>
@@ -125,11 +155,11 @@ export function Step6_Submit() {
                 </ul>
             </div>
              <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isFetchingData}>
                 Anterior
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting || isFetchingData}>
+                {(isSubmitting || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enviar Solicitud
               </Button>
             </div>
