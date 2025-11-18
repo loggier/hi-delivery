@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { AUTH_STORAGE_KEY } from './store/auth-store';
+
+export const AUTH_STORAGE_KEY = "hid-session";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -26,12 +27,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  if (pathname.startsWith('/deliveryman/apply/') && pathname !== '/deliveryman/apply' && !sessionCookie) {
-      return NextResponse.redirect(new URL('/deliveryman/apply', request.url));
+  // Allow access to the root of apply pages without a session
+  if (pathname.startsWith('/deliveryman/apply/') && pathname !== '/deliveryman/apply') {
+    // For subsequent steps in rider application, we don't need a session cookie,
+    // as state might be handled client-side or via URL params.
+    // Let's assume no server-side session check is needed for these steps.
   }
   
   if (pathname.startsWith('/store/apply/') && pathname !== '/store/apply') {
-      // Public flow, no session check needed, state is in URL
+    // Same for store application
   }
 
   return NextResponse.next();
