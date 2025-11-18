@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,7 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { riderApplicationSchema } from "@/lib/schemas";
+import { riderApplicationSchema, riderAccountCreationSchema } from "@/lib/schemas";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -21,6 +22,7 @@ import { Step3_VehicleInfo } from "./step-3-vehicle-info";
 import { Step4_PolicyInfo } from "./step-4-policy-info";
 import { Step5_Extras } from "./step-5-extras";
 import { Step6_Submit } from "./step-6-submit";
+import { Rider } from "@/types";
 
 const STEPS = [
   { id: "01", name: "Crea tu Cuenta", fields: ["firstName", "lastName", "email", "phoneE164", "password", "passwordConfirmation"] },

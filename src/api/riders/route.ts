@@ -67,6 +67,7 @@ export async function POST(request: Request) {
         id: createdRider.id,
         name: `${createdRider.first_name} ${createdRider.last_name}`,
         email: createdRider.email,
+        avatar_url: '',
         created_at: createdRider.created_at,
         role_id: 'rider', // mock role
         status: 'ACTIVE' as const
