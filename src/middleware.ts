@@ -31,7 +31,11 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith('/deliveryman/apply/') && pathname !== '/deliveryman/apply' && !sessionCookie) {
       return NextResponse.redirect(new URL('/deliveryman/apply', request.url));
   }
-
+  
+  // Proteger los pasos del formulario de negocio si no hay sesión (excepto el primero)
+  if (pathname.startsWith('/store/apply/') && pathname !== '/store/apply' && !sessionCookie) {
+      return NextResponse.redirect(new URL('/store/apply', request.url));
+  }
 
   return NextResponse.next();
 }

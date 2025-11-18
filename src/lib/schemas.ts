@@ -1,4 +1,5 @@
 
+
 import { z } from "zod";
 
 export const signInSchema = z.object({
@@ -73,6 +74,60 @@ const normalizePhone = (phone: string) => {
 // Mínimo 8 caracteres, y al menos una mayúscula, un número o un símbolo.
 const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
 
+const isClient = typeof window !== 'undefined';
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ACCEPTED_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"];
+
+const fileSchema = (message: string) => 
+  isClient
+    ? z.instanceof(FileList, { message })
+        .refine((files) => files?.length > 0, message)
+        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
+        .refine((files) => ACCEPTED_DOCUMENT_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg, .png y .pdf")
+        .nullable()
+    : z.any().nullable();
+
+const imageFileSchema = (message: string) =>
+  isClient
+    ? z.instanceof(FileList, { message })
+        .refine((files) => files?.length > 0, message)
+        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
+        .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg y .png")
+        .nullable()
+    : z.any().nullable();
+
+export const businessAccountCreationSchema = z.object({
+  owner_name: z.string().min(2, { message: "Tu nombre completo es requerido." }),
+  email: z.string().email({ message: "Por favor, ingresa un email válido." }),
+  password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
+  passwordConfirmation: z.string(),
+}).refine(data => data.password === data.passwordConfirmation, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
+});
+
+export const businessBaseSchema = z.object({
+    name: z.string().min(2, { message: "El nombre del negocio es requerido." }),
+    type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo de negocio."}),
+    category_id: z.string({ required_error: "Debes seleccionar una categoría." }),
+    logo_url: imageFileSchema("El logo es requerido."),
+    phone_whatsapp: z.string()
+        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos." })
+        .transform(normalizePhone),
+    address_line: z.string().min(5, { message: "La dirección es requerida." }),
+    neighborhood: z.string().min(3, { message: "La colonia es requerida." }),
+    city: z.string().min(3, { message: "La ciudad es requerida." }),
+    state: z.string().min(3, { message: "El estado es requerido." }),
+    zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
+    latitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
+    longitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
+    tax_id: z.string().optional(),
+    website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
+    instagram: z.string().optional(),
+});
+
+
 export const businessSchema = z.object({
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
@@ -117,31 +172,6 @@ export const businessSchema = z.object({
     message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo.",
     path: ["password"],
 });
-
-
-const isClient = typeof window !== 'undefined';
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ACCEPTED_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"];
-
-const fileSchema = (message: string) => 
-  isClient
-    ? z.instanceof(FileList, { message })
-        .refine((files) => files?.length > 0, message)
-        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-        .refine((files) => ACCEPTED_DOCUMENT_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg, .png y .pdf")
-        .nullable()
-    : z.any().nullable();
-
-const imageFileSchema = (message: string) =>
-  isClient
-    ? z.instanceof(FileList, { message })
-        .refine((files) => files?.length > 0, message)
-        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-        .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg y .png")
-        .nullable()
-    : z.any().nullable();
-
 
 // Schema for the server-side validation of the initial account creation
 export const riderAccountCreationSchema = z.object({
