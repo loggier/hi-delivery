@@ -151,7 +151,7 @@ export function Step3_LocationInfo() {
           if (value) formData.append(key, String(value));
       });
       
-      const response = await fetch(`/api/businesses?id=${businessId}`, { method: 'POST', body: formData });
+      const response = await fetch(`/api/businesses/${businessId}`, { method: 'POST', body: formData });
       const result = await response.json();
 
       if (!response.ok) throw new Error(result.message || "Error al guardar tu información.");

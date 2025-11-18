@@ -32,7 +32,12 @@ export function Step1_AccountCreation() {
 
   const onSubmit = async (data: AccountCreationFormValues) => {
     try {
-      const result = await createBusinessMutation.mutateAsync(data);
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+          formData.append(key, value);
+      });
+
+      const result = await createBusinessMutation.mutateAsync(formData as any);
       
       if (result && result.businessId) {
         if (typeof window !== 'undefined') {

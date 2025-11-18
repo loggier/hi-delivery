@@ -33,7 +33,7 @@ export function Step2_BusinessInfo() {
         name: '',
         type: undefined,
         category_id: '',
-        logo_url: null
+        logoUrl: null
     }
   });
 
@@ -104,11 +104,11 @@ export function Step2_BusinessInfo() {
     try {
       const formData = new FormData();
        Object.entries(data).forEach(([key, value]: [string, any]) => {
-          if (value instanceof FileList && value.length > 0) formData.append(key.replace('_url', 'Url'), value[0]);
+          if (value instanceof FileList && value.length > 0) formData.append(key, value[0]);
           else if (value) formData.append(key, value);
       });
       
-      const response = await fetch(`/api/businesses?id=${businessId}`, {
+      const response = await fetch(`/api/businesses/${businessId}`, {
         method: 'POST',
         body: formData,
       });
@@ -167,7 +167,7 @@ export function Step2_BusinessInfo() {
                 disabled={!selectedType || isLoadingCategories || availableCategories.length === 0}
                 />
             </div>
-            <FormImageUpload name="logo_url" label="Logo de tu Negocio" description="Recomendado: 400x400px, formato PNG o JPG."/>
+            <FormImageUpload name="logoUrl" label="Logo de tu Negocio" description="Recomendado: 400x400px, formato PNG o JPG."/>
           </div>
           <div className="flex justify-between">
             <Button type="button" variant="outline" onClick={() => router.push('/store/apply')} disabled={isSubmitting}> Anterior </Button>

@@ -82,7 +82,7 @@ export function Step4_Submit() {
       });
       formData.append('final_submission', 'true');
       
-      const response = await fetch(`/api/businesses?id=${businessId}`, { method: 'POST', body: formData });
+      const response = await fetch(`/api/businesses/${businessId}`, { method: 'POST', body: formData });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Error al enviar tu solicitud.");
       

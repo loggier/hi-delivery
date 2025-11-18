@@ -94,65 +94,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
     return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
-        const newItem = newItemDTO as any;
-        
-        if (entity === 'businesses' && newItem.password) {
-          const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
-          
-          const { data: roleData, error: roleError } = await supabase.from('roles').select('id').eq('name', 'Dueño de Negocio').single();
-          if (roleError || !roleData) {
-            console.error("Error finding role:", roleError);
-            throw new Error("No se pudo encontrar el rol 'Dueño de Negocio'. Asegúrate de que exista en la base de datos.");
-          }
-          const ownerRoleId = roleData.id;
-
-          const hashedPassword = await hashPassword(password);
-          const userToCreate = {
-            id: `user-${faker.string.uuid()}`,
-            name: owner_name,
-            email: email,
-            password: hashedPassword,
-            role_id: ownerRoleId,
-            status: 'ACTIVE',
-            created_at: new Date().toISOString(),
-          };
-
-          const { data: createdUser, error: userError } = await supabase.from('users').insert(userToCreate).select().single();
-          if (userError) {
-            console.error("Error creating user for business:", userError);
-            if (userError.code === '23505') {
-              throw new Error('El correo electrónico ya está registrado.');
-            }
-            throw new Error(userError.message || "No se pudo crear el usuario para el negocio.");
-          }
-
-          const businessId = `biz-${faker.string.uuid()}`;
-          const businessToCreate = {
-            id: businessId,
-            user_id: createdUser.id,
-            name: owner_name, // Use owner_name as a placeholder for name initially
-            type: 'restaurant', // Default value
-            email: email,
-            owner_name: owner_name,
-            phone_whatsapp: '0000000000', // Default value
-            address_line: 'N/A', // Default value
-            neighborhood: 'N/A', // Default value
-            city: 'N/A', // Default value
-            state: 'N/A', // Default value
-            zip_code: '00000', // Default value
-            status: 'INCOMPLETE',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          const createdBusiness = await handleSupabaseQuery(supabase.from(entity).insert(businessToCreate).select().single());
-          return { ...createdBusiness, businessId: businessId, user: createdUser as User };
-        }
-
         const itemWithId = {
             id: `${entity.slice(0,4)}-${faker.string.uuid()}`,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            ...newItem
+            ...newItemDTO
         }
         return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
       },
@@ -222,7 +168,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         
         // Remove fields that should not be sent on update
         const cleanUpdateData: Partial<T> = { ...updateData };
-        delete (cleanUpdateData as any).id;
         delete (cleanUpdateData as any).created_at;
         delete (cleanUpdateData as any).password;
         delete (cleanUpdateData as any).passwordConfirmation;
