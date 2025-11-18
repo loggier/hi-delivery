@@ -297,13 +297,15 @@ interface FormImageUploadProps {
 
 export const FormImageUpload = ({ name, label, description, aspectRatio = 'square' }: FormImageUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
-    const files: FileList | null = watch(name);
-    const file = files?.[0];
+    const watchedValue = watch(name);
     const [preview, setPreview] = useState<string | null>(null);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useEffect(() => {
-        if (file) {
+        if (typeof watchedValue === 'string') {
+            setPreview(watchedValue);
+        } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
+            const file = watchedValue[0];
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreview(reader.result as string);
@@ -312,7 +314,8 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         } else {
             setPreview(null);
         }
-    }, [file]);
+    }, [watchedValue]);
+
 
     const handleRemove = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -509,5 +512,3 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
-
-    
