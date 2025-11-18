@@ -252,3 +252,5 @@ export type SystemSettings = {
     created_at: string;
     updated_at: string;
 }
+
+    
