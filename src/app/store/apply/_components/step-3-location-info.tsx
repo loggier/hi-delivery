@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useLoadScript, GoogleMap, Autocomplete } from '@react-google-maps/api';
 
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { businessBaseSchema } from '@/lib/schemas';
+import { Form, FormControl, FormField, FormMessage, FormLabel } from '@/components/ui/form';
+import { locationInfoSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,23 +16,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, MapPin } from 'lucide-react';
 import { FormInput } from './form-components';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
-
-const libraries: ('places' | 'drawing')[] = ['places'];
-
-const locationInfoSchema = businessBaseSchema.pick({
-  phone_whatsapp: true,
-  address_line: true,
-  neighborhood: true,
-  city: true,
-  state: true,
-  zip_code: true,
-  latitude: true,
-  longitude: true,
-});
-
+const libraries: ('places')[] = ['places'];
 type LocationInfoFormValues = z.infer<typeof locationInfoSchema>;
 
 export function Step3_LocationInfo() {
@@ -55,11 +41,11 @@ export function Step3_LocationInfo() {
         phone_whatsapp: '',
         address_line: '',
         neighborhood: '',
-        city: 'Ciudad de México',
-        state: 'CDMX',
+        city: '',
+        state: '',
         zip_code: '',
-        latitude: undefined,
-        longitude: undefined,
+        latitude: 19.4326, // Default to a central location
+        longitude: -99.1332,
     }
   });
   
@@ -87,7 +73,15 @@ export function Step3_LocationInfo() {
         if (error && error.code !== 'PGRST116') throw new Error("No se pudo recuperar tu información.");
 
         if (data) {
-          methods.reset({ ...data, phone_whatsapp: data.phone_whatsapp?.replace('+52', '') || '' });
+          const defaultData = methods.getValues();
+          const resetData = {
+            ...defaultData,
+            ...data,
+            phone_whatsapp: data.phone_whatsapp?.replace('+52', '') || '',
+            latitude: data.latitude || defaultData.latitude,
+            longitude: data.longitude || defaultData.longitude,
+          };
+          methods.reset(resetData);
         }
       } catch (error) {
         toast({ variant: "destructive", title: "Error al cargar datos", description: error instanceof Error ? error.message : "Ocurrió un error." });
@@ -117,8 +111,8 @@ export function Step3_LocationInfo() {
 
         place.address_components?.forEach(component => {
             const types = component.types;
-            if (types.includes('street_number')) address = `${component.long_name} ${address}`;
-            if (types.includes('route')) address = `${address} ${component.long_name}`;
+            if (types.includes('street_number')) address = `${address} ${component.long_name}`;
+            if (types.includes('route')) address = `${component.long_name}${address ? ' ' + address : ''}`;
             if (types.includes('sublocality_level_1') || types.includes('neighborhood')) neighborhood = component.long_name;
             if (types.includes('locality')) city = component.long_name;
             if (types.includes('administrative_area_level_1')) state = component.short_name;
@@ -204,7 +198,14 @@ export function Step3_LocationInfo() {
                     center={mapCenter}
                     zoom={15}
                     onClick={onMapClick}
-                    options={{ disableDefaultUI: true, zoomControl: true }}
+                    onCenterChanged={() => {
+                        const newCenter = methods.getValues();
+                        if(newCenter.latitude && newCenter.longitude){
+                            methods.setValue('latitude', newCenter.latitude);
+                            methods.setValue('longitude', newCenter.longitude);
+                        }
+                    }}
+                    options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' }}
                 >
                     <MapPin
                         style={{

@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { type User } from "@/types";
 
-export const AUTH_STORAGE_KEY = "supabase_session";
+export const AUTH_STORAGE_KEY = "hid-session";
 
 type AuthState = {
   user: User | null;
@@ -11,6 +11,7 @@ type AuthState = {
   businessId: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  login: (user: User) => void;
   loginRider: (user: User, riderId: string) => void;
   loginBusiness: (user: User, businessId: string) => void;
   logout: () => void;
@@ -29,6 +30,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   businessId: null,
   isAuthenticated: false,
   isLoading: true, 
+  
+  login: (user) => {
+    try {
+      const sessionData: SessionData = { user };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionData));
+      set({ user: user, riderId: null, businessId: null, isAuthenticated: true });
+    } catch (e) {
+      console.error("Failed to save session to localStorage", e);
+    }
+  },
   
   loginRider: (user, riderId) => {
     try {

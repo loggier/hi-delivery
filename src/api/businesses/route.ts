@@ -11,7 +11,7 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: s
     const filePath = `businesses/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
     
     const { error: uploadError } = await supabaseAdmin.storage
-        .from("hidelivery")
+        .from('hidelivery')
         .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
@@ -19,7 +19,7 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: s
         throw new Error(`Failed to upload ${fileName}. Details: ${uploadError.message}`);
     }
 
-    const { data } = supabaseAdmin.storage.from("hidelivery").getPublicUrl(filePath);
+    const { data } = supabaseAdmin.storage.from('hidelivery').getPublicUrl(filePath);
     return data.publicUrl;
 }
 
@@ -29,7 +29,7 @@ async function handleUpdateBusiness(request: Request, supabaseAdmin: any, busine
   const updateData: Record<string, any> = {};
 
   try {
-    // Procesar archivos primero
+    // Process files first
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
             const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -37,13 +37,15 @@ async function handleUpdateBusiness(request: Request, supabaseAdmin: any, busine
         }
     }
 
-    // Procesar otros campos
+    // Process other fields
     for (const [key, value] of formData.entries()) {
       if (!(value instanceof File) && value !== null && value !== undefined) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        // Handle numeric fields that might come as strings from FormData
+        // Handle numeric and float fields that might come as strings from FormData
         if (['latitude', 'longitude'].includes(dbKey)) {
              updateData[dbKey] = parseFloat(value as string);
+        } else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
+            updateData[dbKey] = `+52${value}`;
         } else {
             updateData[dbKey] = value;
         }
@@ -101,7 +103,10 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
   let createdUserId: string | null = null;
   
   try {
-    const ownerRoleId = 'owen-business'; 
+    const { data: roleData, error: roleError } = await supabaseAdmin.from('roles').select('id').eq('name', 'Dueño de Negocio').single();
+    if (roleError || !roleData) throw new Error("No se pudo encontrar el rol 'Dueño de Negocio'.");
+    
+    const ownerRoleId = roleData.id;
     const userId = `user-${faker.string.uuid()}`;
     const hashedPassword = await hashPassword(data.password);
     
@@ -156,6 +161,7 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
         created_at: createdUser.created_at,
         role_id: createdUser.role_id,
         status: createdUser.status,
+        avatar_url: createdUser.avatar_url,
     };
 
     return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa el perfil de tu negocio.", user: userForSession, businessId: createdBusiness.id }, { status: 201 });

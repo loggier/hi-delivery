@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
-import { businessBaseSchema } from '@/lib/schemas';
+import { submitBusinessSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,13 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const submitSchema = businessBaseSchema.pick({
-  tax_id: true,
-  website: true,
-  instagram: true,
-});
-
-type SubmitFormValues = z.infer<typeof submitSchema>;
+type SubmitFormValues = z.infer<typeof submitBusinessSchema>;
 
 export function Step4_Submit() {
   const router = useRouter();
@@ -34,7 +28,7 @@ export function Step4_Submit() {
   const [isFetchingData, setIsFetchingData] = useState(true);
 
   const methods = useForm<SubmitFormValues>({
-    resolver: zodResolver(submitSchema),
+    resolver: zodResolver(submitBusinessSchema),
     mode: 'onChange',
     defaultValues: {
         tax_id: '',
@@ -55,7 +49,14 @@ export function Step4_Submit() {
             const supabase = createClient();
             const { data, error } = await supabase.from('businesses').select('tax_id, website, instagram').eq('id', businessId).single();
             if (error && error.code !== 'PGRST116') throw new Error("No se pudo recuperar tu información.");
-            if (data) methods.reset(data);
+            if (data) {
+              const resetData = {
+                tax_id: data.tax_id || '',
+                website: data.website || '',
+                instagram: data.instagram || '',
+              };
+              methods.reset(resetData);
+            }
         } catch (error) {
             toast({ variant: "destructive", title: "Error al cargar datos", description: error instanceof Error ? error.message : "Ocurrió un error." });
         } finally {

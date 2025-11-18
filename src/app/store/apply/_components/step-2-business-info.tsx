@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
-import { businessBaseSchema } from '@/lib/schemas';
+import { businessInfoSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,12 +16,6 @@ import { FormInput, FormSelect, FormImageUpload } from './form-components';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const businessInfoSchema = businessBaseSchema.pick({
-  name: true,
-  type: true,
-  category_id: true,
-  logo_url: true,
-});
 type BusinessInfoFormValues = z.infer<typeof businessInfoSchema>;
 
 export function Step2_BusinessInfo() {
@@ -72,7 +66,7 @@ export function Step2_BusinessInfo() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from('businesses')
-          .select('name, type, category_id')
+          .select('name, type, category_id, logo_url')
           .eq('id', businessId)
           .single();
         
@@ -85,6 +79,7 @@ export function Step2_BusinessInfo() {
             name: data.name || '',
             type: data.type || undefined,
             category_id: data.category_id || '',
+            // logo_url is handled by preview, not by resetting the FileList
           });
         }
       } catch (error) {
@@ -108,7 +103,7 @@ export function Step2_BusinessInfo() {
     try {
       const formData = new FormData();
        Object.entries(data).forEach(([key, value]: [string, any]) => {
-          if (value instanceof FileList && value.length > 0) formData.append(key, value[0]);
+          if (value instanceof FileList && value.length > 0) formData.append(key.replace('_url', 'Url'), value[0]);
           else if (value) formData.append(key, value);
       });
       

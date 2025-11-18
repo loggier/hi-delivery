@@ -107,24 +107,28 @@ export const businessAccountCreationSchema = z.object({
     path: ["passwordConfirmation"],
 });
 
-export const businessBaseSchema = z.object({
-    name: z.string().min(2, { message: "El nombre del negocio es requerido." }),
-    type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo de negocio."}),
-    category_id: z.string({ required_error: "Debes seleccionar una categoría." }),
-    logo_url: imageFileSchema("El logo es requerido."),
-    phone_whatsapp: z.string()
-        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos." })
-        .transform(normalizePhone),
-    address_line: z.string().min(5, { message: "La dirección es requerida." }),
-    neighborhood: z.string().min(3, { message: "La colonia es requerida." }),
-    city: z.string().min(3, { message: "La ciudad es requerida." }),
-    state: z.string().min(3, { message: "El estado es requerido." }),
-    zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
-    latitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
-    longitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
-    tax_id: z.string().optional(),
-    website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
-    instagram: z.string().optional(),
+export const businessInfoSchema = z.object({
+  name: z.string().min(2, { message: "El nombre del negocio es requerido." }),
+  type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo de negocio."}),
+  category_id: z.string({ required_error: "Debes seleccionar una categoría." }).min(1, "Debes seleccionar una categoría."),
+  logo_url: imageFileSchema("El logo es requerido."),
+});
+
+export const locationInfoSchema = z.object({
+  phone_whatsapp: z.string().min(10, "El teléfono es requerido."),
+  address_line: z.string().min(5, { message: "La dirección es requerida." }),
+  neighborhood: z.string().min(3, { message: "La colonia es requerida." }),
+  city: z.string().min(3, { message: "La ciudad es requerida." }),
+  state: z.string().min(2, { message: "El estado es requerido." }),
+  zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
+  latitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
+  longitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
+});
+
+export const submitBusinessSchema = z.object({
+  tax_id: z.string().optional(),
+  website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
+  instagram: z.string().optional(),
 });
 
 
