@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useForm, useWatch, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { Loader2, Upload, MapPin } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 import { useLoadScript, GoogleMap, Autocomplete as GoogleAutocomplete, Marker } from '@react-google-maps/api';
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ interface BusinessFormProps {
 
 const libraries: ('places')[] = ['places'];
 
-const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number }, onChange: (coords: { lat: number, lng: number }) => void }) => {
+const BusinessMap = ({ value, onChange, onPlaceSelected }: { value: { lat: number, lng: number }, onChange: (coords: { lat: number, lng: number }) => void, onPlaceSelected: (place: google.maps.places.PlaceResult) => void }) => {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
@@ -66,6 +66,7 @@ const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number },
                 const lat = place.geometry.location.lat();
                 const lng = place.geometry.location.lng();
                 onChange({ lat, lng });
+                onPlaceSelected(place);
                 mapRef.current?.panTo({ lat, lng });
                 mapRef.current?.setZoom(15);
             }
@@ -109,7 +110,7 @@ const BusinessMap = ({ value, onChange }: { value: { lat: number, lng: number },
 
 export function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
   const router = useRouter();
-  const createMutation = api.businesses.useCreate();
+  const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdate();
 
   const isEditing = !!initialData;
@@ -117,7 +118,20 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
 
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    defaultValues: {
+    defaultValues: initialData ? {
+        ...initialData,
+        category_id: initialData.category_id || "",
+        zone_id: initialData.zone_id || "",
+        tax_id: initialData.tax_id || "",
+        website: initialData.website || "",
+        instagram: initialData.instagram || "",
+        logo_url: initialData.logo_url || undefined,
+        notes: initialData.notes || "",
+        latitude: initialData.latitude || 19.4326,
+        longitude: initialData.longitude || -99.1332,
+        password: "",
+        passwordConfirmation: "",
+    } : {
       name: "", type: "restaurant", category_id: "", zone_id: "",
       email: "", owner_name: "", phone_whatsapp: "", address_line: "",
       neighborhood: "", city: "Ciudad de México", state: "CDMX",
@@ -126,25 +140,6 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
       latitude: 19.4326, longitude: -99.1332,
     },
   });
-  
-  React.useEffect(() => {
-    if (initialData) {
-        methods.reset({
-            ...initialData,
-            category_id: initialData.category_id || "",
-            zone_id: initialData.zone_id || "",
-            tax_id: initialData.tax_id || "",
-            website: initialData.website || "",
-            instagram: initialData.instagram || "",
-            logo_url: initialData.logo_url, // Keep as string for preview, FormImageUpload handles FileList
-            notes: initialData.notes || "",
-            latitude: initialData.latitude || 19.4326,
-            longitude: initialData.longitude || -99.1332,
-            password: "",
-            passwordConfirmation: "",
-        });
-    }
-  }, [initialData, methods]);
 
   const selectedType = useWatch({
     control: methods.control,
@@ -169,21 +164,47 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     }
   }, [selectedType, availableCategories, methods]);
 
+  const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
+    let address = '';
+    let neighborhood = '';
+    let city = '';
+    let state = '';
+    let postalCode = '';
+
+    place.address_components?.forEach(component => {
+        const types = component.types;
+        if (types.includes('street_number')) address = `${address} ${component.long_name}`;
+        if (types.includes('route')) address = `${component.long_name}${address ? ' ' + address : ''}`;
+        if (types.includes('sublocality_level_1') || types.includes('neighborhood')) neighborhood = component.long_name;
+        if (types.includes('locality')) city = component.long_name;
+        if (types.includes('administrative_area_level_1')) state = component.short_name;
+        if (types.includes('postal_code')) postalCode = component.long_name;
+    });
+
+    methods.setValue('address_line', address.trim());
+    methods.setValue('neighborhood', neighborhood);
+    methods.setValue('city', city);
+    methods.setValue('state', state);
+    methods.setValue('zip_code', postalCode);
+  };
+
   const onSubmit = async (data: BusinessFormValues) => {
     try {
       const formData = new FormData();
       
-      for (const key in data) {
-        const value = data[key as keyof typeof data];
-        
-        if (key === 'logo_url' && value instanceof FileList && value.length > 0) {
-            formData.append('logo_url', value[0]);
+      // Using Object.keys on the schema guarantees all defined fields are checked.
+      Object.keys(businessSchema.shape).forEach(key => {
+        const fieldKey = key as keyof BusinessFormValues;
+        const value = data[fieldKey];
+
+        if (fieldKey === 'logo_url' && value instanceof FileList && value.length > 0) {
+            formData.append(fieldKey, value[0]);
         } else if (value !== null && value !== undefined && typeof value !== 'object') {
-            formData.append(key, String(value));
+            formData.append(fieldKey, String(value));
         } else if (typeof value === 'number') {
-            formData.append(key, String(value));
+            formData.append(fieldKey, String(value));
         }
-      }
+      });
 
 
       if (isEditing && initialData) {
@@ -193,7 +214,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
             return;
         }
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(formData);
       }
       router.push("/businesses");
       router.refresh();
@@ -472,6 +493,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                                     methods.setValue('latitude', coords.lat, { shouldValidate: true });
                                     methods.setValue('longitude', coords.lng, { shouldValidate: true });
                                 }}
+                                onPlaceSelected={handlePlaceSelected}
                             />
                         </FormControl>
                         <FormField

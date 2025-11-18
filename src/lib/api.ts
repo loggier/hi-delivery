@@ -48,7 +48,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const supabase = createClient();
 
   // GET all
-  const useGetAll = (params: Record<string, string> = {}) => {
+  const useGetAll = (params: Record<string, string | boolean> = {}) => {
     const queryKey = [entity, params];
     
     return useQuery<T[]>({
@@ -62,8 +62,9 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
                 } else if (key === 'name') {
                     query = query.ilike('name', `%${value}%`);
-                }
-                else {
+                } else if (key === 'active' && typeof value === 'boolean') {
+                    query = query.eq('active', value);
+                } else if (typeof value === 'string') {
                     query = query.eq(key, value);
                 }
             }
@@ -296,7 +297,10 @@ function createSettingsApi() {
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
     business_categories: createCRUDApi<BusinessCategory>('business_categories'),
-    businesses: createCRUDApi<Business>('businesses'),
+    businesses: {
+        ...createCRUDApi<Business>('businesses'),
+        useCreateWithFormData: createCRUDApi<Business>('businesses').useCreateWithFormData,
+    },
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
     users: createCRUDApi<User>('users'),
