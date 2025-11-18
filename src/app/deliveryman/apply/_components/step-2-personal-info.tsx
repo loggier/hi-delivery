@@ -53,7 +53,10 @@ export function Step2_PersonalInfo() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!user) return;
+      if (!user) {
+        setIsFetchingData(false);
+        return;
+      };
       setIsFetchingData(true);
       try {
         const supabase = createClient();
@@ -63,8 +66,10 @@ export function Step2_PersonalInfo() {
           .eq('user_id', user.id)
           .single();
         
-        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
-
+        if (error && error.code !== 'PGRST116') { // Ignore 'exact one row' error if profile is empty
+          throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+        }
+        
         if (riderData) {
           methods.reset({
             motherLastName: riderData.mother_last_name || '',

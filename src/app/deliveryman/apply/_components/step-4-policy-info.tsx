@@ -45,7 +45,10 @@ export function Step4_PolicyInfo() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!user) return;
+      if (!user) {
+        setIsFetchingData(false);
+        return;
+      }
       setIsFetchingData(true);
       try {
         const supabase = createClient();
@@ -55,8 +58,10 @@ export function Step4_PolicyInfo() {
           .eq('user_id', user.id)
           .single();
         
-        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
-
+        if (error && error.code !== 'PGRST116') {
+            throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+        }
+        
         if (riderData) {
           methods.reset({
             insurer: riderData.insurer || '',

@@ -42,7 +42,10 @@ export function Step6_Submit() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!user) return;
+      if (!user) {
+        setIsFetchingData(false);
+        return;
+      }
       // No need to fetch data for this step as file inputs cannot be pre-filled
       // but we keep the structure for consistency.
       setIsFetchingData(false);
