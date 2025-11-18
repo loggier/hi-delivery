@@ -79,18 +79,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
 
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    defaultValues: initialData ? {
-      ...initialData,
-      category_id: initialData.category_id || "",
-      zone_id: initialData.zone_id || "",
-      tax_id: initialData.tax_id || "",
-      website: initialData.website || "",
-      instagram: initialData.instagram || "",
-      logo_url: initialData.logo_url || "",
-      notes: initialData.notes || "",
-      password: "",
-      passwordConfirmation: "",
-    } : {
+    defaultValues: {
       name: "",
       type: "restaurant",
       category_id: "",
@@ -113,6 +102,23 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
       passwordConfirmation: "",
     },
   });
+
+  React.useEffect(() => {
+    if (initialData) {
+        form.reset({
+            ...initialData,
+            category_id: initialData.category_id || "",
+            zone_id: initialData.zone_id || "",
+            tax_id: initialData.tax_id || "",
+            website: initialData.website || "",
+            instagram: initialData.instagram || "",
+            logo_url: initialData.logo_url || "",
+            notes: initialData.notes || "",
+            password: "",
+            passwordConfirmation: "",
+        });
+    }
+  }, [initialData, form]);
 
   const selectedType = useWatch({
     control: form.control,
@@ -506,7 +512,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                     name="status"
                     render={({ field }) => (
                     <FormItem className="w-48">
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                         <FormControl>
                             <SelectTrigger>
                             <SelectValue placeholder="Selecciona un estado" />
@@ -533,3 +539,5 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
     </Form>
   );
 }
+
+    
