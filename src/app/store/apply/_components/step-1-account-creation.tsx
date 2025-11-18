@@ -18,7 +18,7 @@ type AccountCreationFormValues = z.infer<typeof businessAccountCreationSchema>;
 export function Step1_AccountCreation() {
   const router = useRouter();
   const { toast } = useToast();
-  const createBusinessMutation = api.businesses.useCreate();
+  const createBusinessMutation = api.businesses.useCreateWithFormData();
 
   const methods = useForm<AccountCreationFormValues>({
     resolver: zodResolver(businessAccountCreationSchema),
