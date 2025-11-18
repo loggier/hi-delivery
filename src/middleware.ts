@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
   }
   
   // Proteger rutas de admin si no hay sesión
-  if (pathname.startsWith('/admin') && !sessionCookie) {
+  if (pathname.startsWith('/dashboard') && !sessionCookie) {
       const url = request.nextUrl.clone();
       url.pathname = '/sign-in';
       url.searchParams.set('next', pathname); // Opcional: para redirigir de vuelta después del login
@@ -26,6 +26,12 @@ export function middleware(request: NextRequest) {
   if (pathname === '/sign-in' && sessionCookie) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
+
+  // Proteger los pasos del formulario de repartidor si no hay sesión (excepto el primero)
+  if (pathname.startsWith('/deliveryman/apply/') && pathname !== '/deliveryman/apply' && !sessionCookie) {
+      return NextResponse.redirect(new URL('/deliveryman/apply', request.url));
+  }
+
 
   return NextResponse.next();
 }
@@ -38,8 +44,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - deliveryman (public apply form)
+     * - public (imágenes públicas, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|deliveryman).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|logo-hid.png|logo-hidelivery.png).*)',
   ],
 }

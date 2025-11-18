@@ -53,6 +53,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Handle file uploads
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
+            // Convert camelCase from form to snake_case for DB
             const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
             if (key.startsWith('motoPhoto')) {
                 const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
@@ -67,13 +68,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         updateData['moto_photos'] = motoPhotos;
     }
 
-    // Handle plain text fields
+    // Handle plain text fields and dates
     for (const [key, value] of formData.entries()) {
       if (!(value instanceof File)) {
+        // Convert camelCase from form to snake_case for DB
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
         } else if (dateFields.includes(dbKey)) {
+            // Ensure date is in ISO format
             updateData[dbKey] = new Date(value as string).toISOString();
         } else {
             updateData[dbKey] = value;
@@ -113,3 +116,4 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
+

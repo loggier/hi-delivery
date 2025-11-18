@@ -131,56 +131,56 @@ export type VehicleOwnership = 'propia' | 'rentada' | 'prestada';
 export type VehicleBrand = 'Italika' | 'Yamaha' | 'Honda' | 'Vento' | 'Veloci' | 'Suzuki' | 'Otra';
 
 export type Rider = {
-  id: string
+  id: string;
   user_id: string;
-  first_name: string
-  last_name: string
-  mother_last_name?: string
-  email: string
-  birth_date?: string
-  rider_type?: 'Asociado'
-  zone_id?: string
-  address?: string
+  first_name: string;
+  last_name: string;
+  mother_last_name?: string;
+  email: string;
+  birth_date?: string;
+  rider_type?: 'Asociado';
+  zone_id?: string;
+  address?: string;
 
   // Archivos
-  ine_front_url?: string
-  ine_back_url?: string
-  proof_of_address_url?: string
-  license_front_url?: string
-  license_back_url?: string
+  ine_front_url?: string;
+  ine_back_url?: string;
+  proof_of_address_url?: string;
+  license_front_url?: string;
+  license_back_url?: string;
 
   // Vehículo
-  vehicle_type?: 'Moto'
-  ownership?: VehicleOwnership
-  brand?: VehicleBrand | string
-  year?: number
-  model?: string
-  color?: string
-  plate?: string
-  license_valid_until?: string
-  moto_photos?: string[]
-  circulation_card_front_url?: string
-  circulation_card_back_url?: string
+  vehicle_type?: 'Moto';
+  ownership?: VehicleOwnership;
+  brand?: VehicleBrand | string;
+  year?: number;
+  model?: string;
+  color?: string;
+  plate?: string;
+  license_valid_until?: string;
+  moto_photos?: string[];
+  circulation_card_front_url?: string;
+  circulation_card_back_url?: string;
 
   // Póliza
-  insurer?: string
-  policy_number?: string
-  policy_valid_until?: string
-  policy_first_page_url?: string
+  insurer?: string;
+  policy_number?: string;
+  policy_valid_until?: string;
+  policy_first_page_url?: string;
 
   // Extra
-  has_helmet?: boolean
-  has_uniform?: boolean
-  has_box?: boolean
+  has_helmet?: boolean;
+  has_uniform?: boolean;
+  has_box?: boolean;
 
   // Login
-  phone_e164: string
-  password_hash: string
-  avatar_1x1_url?: string
+  phone_e164: string;
+  password_hash: string;
+  avatar_1x1_url?: string;
 
-  status: RiderStatus
-  created_at: string
-  updated_at: string
+  status: RiderStatus;
+  created_at: string;
+  updated_at: string;
 };
 
 
@@ -251,5 +251,3 @@ export type SystemSettings = {
     created_at: string;
     updated_at: string;
 }
-
-    
