@@ -138,7 +138,6 @@ export function Step3_VehicleInfo() {
           } else if (value instanceof Date) {
             formData.append(key, value.toISOString().split('T')[0]);
           } else if (value) {
-            // If brand is 'Otra', send `brandOther` as `brand`
             if (key === 'brand' && value === 'Otra') {
               formData.append('brand', data.brandOther || 'Otra');
             } else if (key !== 'brandOther') {
@@ -147,7 +146,7 @@ export function Step3_VehicleInfo() {
           }
       });
       
-      const response = await fetch(`/api/riders/${rider.id}`, {
+      const response = await fetch(`/api/riders?id=${rider.id}`, {
         method: 'POST',
         body: formData,
       });

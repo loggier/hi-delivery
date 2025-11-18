@@ -120,7 +120,7 @@ export function Step5_Extras() {
       });
       
       const response = await fetch(`/api/riders/${rider.id}`, {
-        method: 'PATCH',
+        method: 'POST', // Changed from PATCH to POST
         body: formData,
       });
 

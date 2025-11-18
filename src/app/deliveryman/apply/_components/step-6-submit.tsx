@@ -46,8 +46,6 @@ export function Step6_Submit() {
         setIsFetchingData(false);
         return;
       }
-      // No need to fetch data for this step as file inputs cannot be pre-filled
-      // but we keep the structure for consistency.
       setIsFetchingData(false);
     }
     fetchRiderData();
@@ -74,10 +72,9 @@ export function Step6_Submit() {
       if(data.avatar1x1Url && data.avatar1x1Url.length > 0) {
         formData.append('avatar1x1Url', data.avatar1x1Url[0]);
       }
-      // Also update status to 'pending_review'
       formData.append('status', 'pending_review');
       
-      const response = await fetch(`/api/riders/${rider.id}`, {
+      const response = await fetch(`/api/riders?id=${rider.id}`, {
         method: 'POST',
         body: formData,
       });

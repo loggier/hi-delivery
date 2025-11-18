@@ -110,7 +110,7 @@ export function Step4_PolicyInfo() {
           }
       });
       
-      const response = await fetch(`/api/riders/${rider.id}`, {
+      const response = await fetch(`/api/riders?id=${rider.id}`, {
         method: 'POST',
         body: formData,
       });
