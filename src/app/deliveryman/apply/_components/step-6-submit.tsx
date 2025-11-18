@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, ShieldCheck, CheckCircle } from 'lucide-react';
@@ -41,11 +40,13 @@ export function Step6_Submit() {
 
   useEffect(() => {
     if (!riderId) {
-        setIsFetchingData(false);
-        return;
+        // This case should ideally not happen if middleware is correct
+        toast({ title: "Error de sesión", description: "No se pudo encontrar tu ID. Por favor, inicia sesión de nuevo.", variant: "destructive" });
+        router.push('/deliveryman/apply');
     }
+    // No data to fetch for this step, just check riderId
     setIsFetchingData(false);
-  }, [riderId]);
+  }, [riderId, router, toast]);
 
   const onSubmit = async (data: SubmitFormValues) => {
     if (!riderId) {

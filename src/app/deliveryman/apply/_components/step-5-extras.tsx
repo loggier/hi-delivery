@@ -77,7 +77,9 @@ export function Step5_Extras() {
           .eq('id', riderId)
           .single();
         
-        if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+        if (error && error.code !== 'PGRST116') {
+          throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
+        }
 
         if (riderData) {
           methods.reset({
