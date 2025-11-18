@@ -6,35 +6,36 @@ import { createServerClient } from '@supabase/ssr';
 import { riderAccountCreationSchema } from '@/lib/schemas';
 import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
-import { User } from '@/types';
+import type { User } from '@/types';
 
 export async function POST(request: Request) {
+  const formData = await request.formData();
+  
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+      db: { schema: process.env.SUPABASE_SCHEMA! }
+    }
+  );
+  
+  const rawData: Record<string, any> = {};
+  for(const [key, value] of formData.entries()) {
+      rawData[key] = value;
+  }
+
+  const validated = riderAccountCreationSchema.safeParse(rawData);
+
+  if (!validated.success) {
+    console.error("Validation errors:", validated.error.flatten().fieldErrors);
+    return NextResponse.json({ message: "Datos de creación de cuenta inválidos.", errors: validated.error.flatten().fieldErrors }, { status: 400 });
+  }
+
+  const data = validated.data;
+  let createdUserId: string | null = null;
+  
   try {
-    const formData = await request.formData();
-    
-    const supabaseAdmin = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-        db: { schema: process.env.SUPABASE_SCHEMA! }
-      }
-    );
-    
-    const rawData: Record<string, any> = {};
-    for(const [key, value] of formData.entries()) {
-        rawData[key] = value;
-    }
-
-    const validated = riderAccountCreationSchema.safeParse(rawData);
-
-    if (!validated.success) {
-      console.error("Validation errors:", validated.error.flatten().fieldErrors);
-      return NextResponse.json({ message: "Datos de creación de cuenta inválidos.", errors: validated.error.flatten().fieldErrors }, { status: 400 });
-    }
-
-    const data = validated.data;
-    
     // 1. Get 'Repartidor' role ID
     const { data: roleData, error: roleError } = await supabaseAdmin.from('roles').select('id').eq('name', 'Repartidor').single();
     if(roleError || !roleData) {
@@ -58,14 +59,17 @@ export async function POST(request: Request) {
     };
 
     const { data: createdUser, error: userError } = await supabaseAdmin.from('users').insert(userToCreate).select().single();
-
+    
     if (userError) {
       console.error("Error creating user for rider:", userError);
       if (userError.code === '23505') { // unique_violation for email
           return NextResponse.json({ message: 'El correo electrónico ya está registrado.' }, { status: 409 });
       }
-      return NextResponse.json({ message: 'Error al crear la cuenta de usuario.', error: userError.message }, { status: 500 });
+      // For any other user creation error, we stop here.
+      return NextResponse.json({ message: userError.message || 'Error al crear la cuenta de usuario.', error: userError.details }, { status: 500 });
     }
+    
+    createdUserId = createdUser.id;
 
     // 3. Create the rider record linked to the user
     const riderId = `rider-${faker.string.uuid()}`;
@@ -87,12 +91,15 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      console.error("Error inserting rider profile:", insertError);
-      // Optional: Rollback user creation if rider creation fails
-      await supabaseAdmin.from('users').delete().eq('id', createdUser.id);
-      return NextResponse.json({ message: 'Error al crear el perfil del repartidor.', error: insertError.message }, { status: 500 });
+        // If rider creation fails, we MUST roll back the user creation.
+        console.error("Error inserting rider profile, rolling back user creation...", insertError);
+        if (createdUserId) {
+            await supabaseAdmin.from('users').delete().eq('id', createdUserId);
+        }
+        return NextResponse.json({ message: 'Error al crear el perfil del repartidor.', error: insertError.message }, { status: 500 });
     }
     
+    // Shape the response to look like a User object for the auth store
     const userForSession: User = {
         id: createdUser.id,
         name: createdUser.name,
@@ -102,10 +109,18 @@ export async function POST(request: Request) {
         status: createdUser.status,
     };
 
+    // ONLY return success if everything worked
     return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", rider: userForSession }, { status: 201 });
 
   } catch (error) {
-    console.error('Error inesperado en la API de registro de repartidores:', error);
+    console.error('Unexpected error in rider registration API:', error);
+    
+    // If we have a created user ID, it means the error happened after user creation. Rollback.
+    if (createdUserId) {
+        console.log(`Rolling back user ${createdUserId} due to unexpected error.`);
+        await supabaseAdmin.from('users').delete().eq('id', createdUserId);
+    }
+    
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
