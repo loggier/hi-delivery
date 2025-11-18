@@ -139,6 +139,7 @@ export type Rider = {
   password_hash: string;
   created_at: string;
   updated_at: string;
+  zone?: string; // Legacy field for mock data, prefer zone_id
   
   mother_last_name?: string;
   birth_date?: string;

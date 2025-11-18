@@ -19,7 +19,7 @@ import {
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { type Rider, RiderStatus } from "@/types";
+import { type Rider, RiderStatus, type Zone } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -29,9 +29,10 @@ const statusConfig: Record<RiderStatus, { label: string; variant: "success" | "w
     pending_review: { label: "Pendiente", variant: "warning", icon: Pencil },
     rejected: { label: "Rechazado", variant: "destructive", icon: XCircle },
     inactive: { label: "Inactivo", variant: "outline", icon: Ban },
+    incomplete: { label: "Incompleto", variant: "outline", icon: Pencil },
 }
 
-export const columns: ColumnDef<Rider>[] = [
+export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -55,23 +56,27 @@ export const columns: ColumnDef<Rider>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "firstName",
+    accessorKey: "first_name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Nombre" />
     ),
     cell: ({ row }) => {
-        const name = `${row.original.firstName} ${row.original.lastName}`;
+        const name = `${row.original.first_name} ${row.original.last_name}`;
         return (
             <div className="font-medium">{name}</div>
         )
     }
   },
    {
-    accessorKey: "zone",
+    accessorKey: "zone_id",
     header: "Zona",
+    cell: ({ row }) => {
+      const zone = zones.find(z => z.id === row.original.zone_id);
+      return zone?.name || 'N/A';
+    }
   },
   {
-    accessorKey: "phoneE164",
+    accessorKey: "phone_e164",
     header: "Teléfono",
   },
   {
@@ -79,7 +84,7 @@ export const columns: ColumnDef<Rider>[] = [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as RiderStatus;
-      const config = statusConfig[status];
+      const config = statusConfig[status] || statusConfig['inactive'];
       const variant = config.variant;
 
       return <Badge variant={variant} className={cn(
@@ -112,7 +117,7 @@ export const columns: ColumnDef<Rider>[] = [
       const handleDelete = async () => {
         const ok = await confirm({
           title: "¿Estás seguro?",
-          description: `Esto eliminará permanentemente al repartidor "${rider.firstName} ${rider.lastName}".`,
+          description: `Esto eliminará permanentemente al repartidor "${rider.first_name} ${rider.last_name}".`,
           confirmText: "Eliminar",
           confirmVariant: "destructive",
         });
@@ -126,7 +131,7 @@ export const columns: ColumnDef<Rider>[] = [
         const config = statusConfig[newStatus];
         const ok = await confirm({
             title: `¿Confirmas que quieres cambiar el estado a "${config.label}"?`,
-            description: `El repartidor "${rider.firstName} ${rider.lastName}" será marcado como ${config.label.toLowerCase()}.`,
+            description: `El repartidor "${rider.first_name} ${rider.last_name}" será marcado como ${config.label.toLowerCase()}.`,
             confirmText: `Marcar como ${config.label}`,
         })
 
@@ -168,11 +173,11 @@ export const columns: ColumnDef<Rider>[] = [
                     <Ban /> Inactivar
                 </DropdownMenuItem>
              )}
-             {rider.status === "inactive" || rider.status === 'rejected' ? (
+             {(rider.status === "inactive" || rider.status === 'rejected') && (
                 <DropdownMenuItem onClick={() => handleStatusChange('approved')}>
                     <Power /> Reactivar/Aprobar
                 </DropdownMenuItem>
-             ) : null}
+             )}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600 focus:bg-red-50">

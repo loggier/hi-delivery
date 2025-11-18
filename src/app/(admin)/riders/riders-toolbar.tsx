@@ -1,14 +1,16 @@
 "use client";
 
-import { X, SlidersHorizontal } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RiderStatus } from "@/types";
+import { RiderStatus, Zone } from "@/types";
 
 interface RidersToolbarProps {
   filters: { search: string; status: string; zone: string };
   setFilters: React.Dispatch<React.SetStateAction<{ search: string; status: string; zone: string }>>;
+  zones: Zone[];
+  isLoadingZones: boolean;
 }
 
 const statusOptions: { value: RiderStatus; label: string }[] = [
@@ -16,11 +18,10 @@ const statusOptions: { value: RiderStatus; label: string }[] = [
     { value: 'approved', label: 'Aprobado' },
     { value: 'rejected', label: 'Rechazado' },
     { value: 'inactive', label: 'Inactivo' },
+    { value: 'incomplete', label: 'Incompleto' },
 ];
 
-const zoneOptions = ['Monterrey', 'Culiacan', 'Mazatlan'];
-
-export function RidersToolbar({ filters, setFilters }: RidersToolbarProps) {
+export function RidersToolbar({ filters, setFilters, zones, isLoadingZones }: RidersToolbarProps) {
   const isFiltered = filters.status !== '' || filters.zone !== '' || filters.search !== '';
 
   const handleResetFilters = () => {
@@ -55,14 +56,15 @@ export function RidersToolbar({ filters, setFilters }: RidersToolbarProps) {
         <Select
           value={filters.zone}
           onValueChange={(value) => setFilters(prev => ({ ...prev, zone: value === 'all' ? '' : value }))}
+          disabled={isLoadingZones}
         >
           <SelectTrigger className="h-8 w-[140px]">
             <SelectValue placeholder="Zona" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las zonas</SelectItem>
-            {zoneOptions.map(zone => (
-                <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+            {zones.map(zone => (
+                <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>

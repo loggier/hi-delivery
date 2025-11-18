@@ -2,25 +2,30 @@
 
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useDebounce } from 'use-debounce';
 
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/page-header";
 import { api } from "@/lib/api";
-import { columns } from "./columns";
+import { getColumns } from "./columns";
 import { RidersToolbar } from "./riders-toolbar";
 
 export default function RidersPage() {
   const [filters, setFilters] = useState({ search: '', status: '', zone: '' });
   const [debouncedSearch] = useDebounce(filters.search, 500);
 
-  const { data, isLoading } = api.riders.useGetAll({ 
-      search: debouncedSearch,
+  const { data: ridersData, isLoading: isLoadingRiders } = api.riders.useGetAll({ 
+      name_search: debouncedSearch,
       status: filters.status,
-      zone: filters.zone,
+      zone_id: filters.zone,
   });
+
+  const { data: zonesData, isLoading: isLoadingZones } = api.zones.useGetAll();
+  
+  const columns = useMemo(() => getColumns(zonesData || []), [zonesData]);
+  const isLoading = isLoadingRiders || isLoadingZones;
   
   return (
     <div className="space-y-4">
@@ -35,12 +40,14 @@ export default function RidersPage() {
       </PageHeader>
        <DataTable
         columns={columns}
-        data={data || []}
+        data={ridersData || []}
         isLoading={isLoading}
         toolbar={
             <RidersToolbar
                 filters={filters}
                 setFilters={setFilters}
+                zones={zonesData || []}
+                isLoadingZones={isLoadingZones}
              />
         }
       />
