@@ -1,5 +1,3 @@
-
-
 export type Role = {
   id: string;
   name: string;
@@ -135,8 +133,14 @@ export type Rider = {
   user_id: string;
   first_name: string;
   last_name: string;
-  mother_last_name?: string;
   email: string;
+  phone_e164: string;
+  status: RiderStatus;
+  password_hash: string;
+  created_at: string;
+  updated_at: string;
+  
+  mother_last_name?: string;
   birth_date?: string;
   rider_type?: 'Asociado';
   zone_id?: string;
@@ -148,6 +152,7 @@ export type Rider = {
   proof_of_address_url?: string;
   license_front_url?: string;
   license_back_url?: string;
+  avatar_1x1_url?: string;
 
   // Vehículo
   vehicle_type?: 'Moto';
@@ -172,15 +177,6 @@ export type Rider = {
   has_helmet?: boolean;
   has_uniform?: boolean;
   has_box?: boolean;
-
-  // Login
-  phone_e164: string;
-  password_hash: string;
-  avatar_1x1_url?: string;
-
-  status: RiderStatus;
-  created_at: string;
-  updated_at: string;
 };
 
 

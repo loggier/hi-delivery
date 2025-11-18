@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -27,7 +26,7 @@ type SubmitFormValues = z.infer<typeof submitSchema>;
 export function Step6_Submit() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
@@ -41,18 +40,15 @@ export function Step6_Submit() {
   });
 
   useEffect(() => {
-    async function fetchRiderData() {
-      if (!user) {
+    if (!riderId) {
         setIsFetchingData(false);
         return;
-      }
-      setIsFetchingData(false);
     }
-    fetchRiderData();
-  }, [user]);
+    setIsFetchingData(false);
+  }, [riderId]);
 
   const onSubmit = async (data: SubmitFormValues) => {
-    if (!user) {
+    if (!riderId) {
       toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
       router.push('/deliveryman/apply');
       return;
@@ -61,20 +57,13 @@ export function Step6_Submit() {
     setIsSubmitting(true);
     
     try {
-      const supabase = createClient();
-      const { data: rider, error: riderError } = await supabase.from('riders').select('id').eq('user_id', user.id).single();
-
-      if (riderError || !rider) {
-        throw new Error("No se encontró tu perfil de repartidor. Por favor, vuelve al paso anterior.");
-      }
-
       const formData = new FormData();
       if(data.avatar1x1Url && data.avatar1x1Url.length > 0) {
         formData.append('avatar1x1Url', data.avatar1x1Url[0]);
       }
       formData.append('status', 'pending_review');
       
-      const response = await fetch(`/api/riders?id=${rider.id}`, {
+      const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
         body: formData,
       });

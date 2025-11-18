@@ -52,7 +52,7 @@ export function Step1_AccountCreation() {
         throw new Error(result.message || 'Ocurrió un error al crear la cuenta.');
       }
       
-      login(result.rider);
+      login(result.user, result.riderId);
       toast({
         title: "Cuenta Creada Exitosamente",
         description: "Ahora completa el resto de tu información.",

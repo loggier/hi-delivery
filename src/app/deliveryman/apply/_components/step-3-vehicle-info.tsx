@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -41,7 +40,7 @@ type VehicleInfoFormValues = z.infer<typeof vehicleInfoSchema>;
 export function Step3_VehicleInfo() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
@@ -70,7 +69,7 @@ export function Step3_VehicleInfo() {
   
   useEffect(() => {
     async function fetchRiderData() {
-      if (!user) {
+      if (!riderId) {
         setIsFetchingData(false);
         return;
       }
@@ -80,7 +79,7 @@ export function Step3_VehicleInfo() {
         const { data: riderData, error } = await supabase
           .from('riders')
           .select('ownership, brand, year, model, color, plate, license_valid_until')
-          .eq('user_id', user.id)
+          .eq('id', riderId)
           .single();
         
         if (error && error.code !== 'PGRST116') {
@@ -110,12 +109,12 @@ export function Step3_VehicleInfo() {
       }
     }
     fetchRiderData();
-  }, [user, methods, toast]);
+  }, [riderId, methods, toast]);
 
   const brand = useWatch({ control: methods.control, name: 'brand' });
 
   const onSubmit = async (data: VehicleInfoFormValues) => {
-    if (!user) {
+    if (!riderId) {
       toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
       router.push('/deliveryman/apply');
       return;
@@ -124,13 +123,6 @@ export function Step3_VehicleInfo() {
     setIsSubmitting(true);
     
     try {
-      const supabase = createClient();
-      const { data: rider, error: riderError } = await supabase.from('riders').select('id').eq('user_id', user.id).single();
-
-      if (riderError || !rider) {
-        throw new Error("No se encontró tu perfil de repartidor. Por favor, vuelve al paso anterior.");
-      }
-
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]: [string, any]) => {
           if (value instanceof FileList && value.length > 0) {
@@ -146,7 +138,7 @@ export function Step3_VehicleInfo() {
           }
       });
       
-      const response = await fetch(`/api/riders?id=${rider.id}`, {
+      const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
         body: formData,
       });

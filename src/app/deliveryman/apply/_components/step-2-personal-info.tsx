@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -31,7 +30,7 @@ type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 export function Step2_PersonalInfo() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { user, riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll({ status: 'ACTIVE' });
@@ -53,7 +52,7 @@ export function Step2_PersonalInfo() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!user) {
+      if (!riderId) {
         setIsFetchingData(false);
         return;
       };
@@ -63,7 +62,7 @@ export function Step2_PersonalInfo() {
         const { data: riderData, error } = await supabase
           .from('riders')
           .select('mother_last_name, birth_date, zone_id, address')
-          .eq('user_id', user.id)
+          .eq('id', riderId)
           .single();
         
         if (error && error.code !== 'PGRST116') { // Ignore 'exact one row' error if profile is empty
@@ -89,11 +88,11 @@ export function Step2_PersonalInfo() {
       }
     }
     fetchRiderData();
-  }, [user, methods, toast]);
+  }, [riderId, methods, toast]);
 
   const onSubmit = async (data: PersonalInfoFormValues) => {
-    if (!user) {
-      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
+    if (!riderId) {
+      toast({ title: "Error de autenticación", description: "No se encontró ID de repartidor. Debes iniciar sesión para continuar.", variant: "destructive" });
       router.push('/deliveryman/apply');
       return;
     }
@@ -101,25 +100,18 @@ export function Step2_PersonalInfo() {
     setIsSubmitting(true);
     
     try {
-      const supabase = createClient();
-      const { data: rider, error: riderError } = await supabase.from('riders').select('id').eq('user_id', user.id).single();
-
-      if (riderError || !rider) {
-        throw new Error("No se encontró tu perfil de repartidor. Por favor, vuelve al paso anterior.");
-      }
-
       const formData = new FormData();
        Object.entries(data).forEach(([key, value]: [string, any]) => {
           if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
           } else if (value instanceof Date) {
-            formData.append(key, value.toISOString().split('T')[0]); // Send as YYYY-MM-DD
+            formData.append(key, value.toISOString().split('T')[0]);
           } else if (value) {
             formData.append(key, value);
           }
       });
       
-      const response = await fetch(`/api/riders?id=${rider.id}`, {
+      const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
         body: formData,
       });

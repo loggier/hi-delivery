@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -49,7 +48,7 @@ const ExtraCheckbox = ({ name, label }: { name: keyof ExtrasFormValues, label: s
 export function Step5_Extras() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuthStore();
+  const { riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
@@ -65,14 +64,17 @@ export function Step5_Extras() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!user) return;
+      if (!riderId) {
+        setIsFetchingData(false);
+        return
+      };
       setIsFetchingData(true);
       try {
         const supabase = createClient();
         const { data: riderData, error } = await supabase
           .from('riders')
           .select('has_helmet, has_uniform, has_box')
-          .eq('user_id', user.id)
+          .eq('id', riderId)
           .single();
         
         if (error) throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
@@ -95,10 +97,10 @@ export function Step5_Extras() {
       }
     }
     fetchRiderData();
-  }, [user, methods, toast]);
+  }, [riderId, methods, toast]);
 
   const onSubmit = async (data: ExtrasFormValues) => {
-    if (!user) {
+    if (!riderId) {
       toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
       router.push('/deliveryman/apply');
       return;
@@ -107,20 +109,13 @@ export function Step5_Extras() {
     setIsSubmitting(true);
     
     try {
-      const supabase = createClient();
-      const { data: rider, error: riderError } = await supabase.from('riders').select('id').eq('user_id', user.id).single();
-
-      if (riderError || !rider) {
-        throw new Error("No se encontró tu perfil de repartidor. Por favor, vuelve al paso anterior.");
-      }
-
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
           formData.append(key, String(value));
       });
       
-      const response = await fetch(`/api/riders/${rider.id}`, {
-        method: 'POST', // Changed from PATCH to POST
+      const response = await fetch(`/api/riders/${riderId}`, {
+        method: 'POST',
         body: formData,
       });
 
