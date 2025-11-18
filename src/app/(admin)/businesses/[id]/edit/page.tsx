@@ -10,7 +10,12 @@ import React from 'react';
 export default function EditBusinessPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { data: business, isLoading, isError } = api.businesses.useGetOne(id);
+  
+  const { data: business, isLoading: isLoadingBusiness, isError } = api.businesses.useGetOne(id);
+  const { data: categories, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
+  const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll();
+
+  const isLoading = isLoadingBusiness || isLoadingCategories || isLoadingZones;
 
   if (isLoading) {
     return (
@@ -48,7 +53,11 @@ export default function EditBusinessPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Editar Negocio" />
-      <BusinessForm initialData={business} />
+      <BusinessForm 
+        initialData={business} 
+        categories={categories || []}
+        zones={zones || []}
+      />
     </div>
   );
 }

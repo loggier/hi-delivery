@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import { type Business, type BusinessType } from "@/types";
+import { type Business, type BusinessType, type BusinessCategory, type Zone } from "@/types";
 import { businessSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,8 @@ type BusinessFormValues = z.infer<typeof businessSchema>;
 
 interface BusinessFormProps {
   initialData?: Business | null;
+  categories: BusinessCategory[];
+  zones: Zone[];
 }
 
 const GHMapStub = ({ onChange }: { onChange: (coords: {lat: number, lng: number}) => void }) => (
@@ -67,12 +69,10 @@ const ImageUpload = ({ value, onChange }: { value?: string, onChange: (value: st
     )
 }
 
-export function BusinessForm({ initialData }: BusinessFormProps) {
+export function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
   const router = useRouter();
   const createMutation = api.businesses.useCreate();
   const updateMutation = api.businesses.useUpdate();
-  const { data: categories } = api.business_categories.useGetAll();
-  const { data: zones } = api.zones.useGetAll();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
@@ -185,7 +185,7 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Tipo</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                                 <FormControl>
                                     <SelectTrigger>
                                     <SelectValue placeholder="Selecciona un tipo" />
@@ -539,5 +539,3 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
     </Form>
   );
 }
-
-    
