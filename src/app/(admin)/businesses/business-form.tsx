@@ -79,7 +79,17 @@ export function BusinessForm({ initialData }: BusinessFormProps) {
 
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      ...initialData,
+      tax_id: initialData.tax_id || "",
+      website: initialData.website || "",
+      instagram: initialData.instagram || "",
+      logo_url: initialData.logo_url || "",
+      notes: initialData.notes || "",
+      zone_id: initialData.zone_id || "",
+      password: "",
+      passwordConfirmation: "",
+    } : {
       name: "",
       type: "restaurant",
       category_id: "",
