@@ -136,6 +136,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         });
         const result = await response.json();
         if (!response.ok) {
+            // If creation fails, attempt to delete the orphaned user if one was created
+            if (result.createdUserId) {
+                console.log(`Attempting to delete orphaned user ${result.createdUserId}`);
+                const { error: deleteUserError } = await supabase.from('users').delete().eq('id', result.createdUserId);
+                if (deleteUserError) {
+                    console.error(`Failed to delete orphaned user ${result.createdUserId}:`, deleteUserError.message);
+                }
+            }
             throw new Error(result.message || `Error al crear ${translatedEntity}`);
         }
         return result;
@@ -200,35 +208,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<void, Error, string>({
         mutationFn: async (id) => {
             const supabase = createClient();
-            let userIdToDelete: string | null = null;
-
-            if (entity === 'businesses' || entity === 'riders') {
-                const { data: entityData, error: getError } = await supabase.from(entity).select('user_id').eq('id', id).single();
-                if (getError) {
-                     console.error(`Error fetching ${entity} for deletion:`, getError.message);
-                } else if (entityData?.user_id) {
-                    userIdToDelete = entityData.user_id;
-                }
-            }
             
             const { error: deleteError } = await supabase.from(entity).delete().eq('id', id);
             
             if (deleteError) {
                 throw new Error(deleteError.message || `No se pudo eliminar el ${translatedEntity}.`);
-            }
-
-            if (userIdToDelete) {
-                console.log(`Attempting to delete user ${userIdToDelete}`);
-                const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
-                if (deleteUserError) {
-                    console.error(`Entity deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
-                    // Do not throw an error here, just notify. The main entity was deleted.
-                    toast({
-                        variant: "warning",
-                        title: "Error de Sincronización",
-                        description: `El ${translatedEntity} fue eliminado, pero no se pudo eliminar el usuario asociado.`,
-                    });
-                }
             }
         },
         onSuccess: (_, id) => {

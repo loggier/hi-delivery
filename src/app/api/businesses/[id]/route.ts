@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
-    const filePath = `businesses/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
+    const filePath = `store/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
     
     const { error: uploadError } = await supabaseAdmin.storage
         .from(process.env.SUPABASE_BUCKET!)
