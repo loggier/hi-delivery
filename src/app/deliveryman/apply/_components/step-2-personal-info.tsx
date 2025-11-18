@@ -39,6 +39,14 @@ export function Step2_PersonalInfo() {
   const methods = useForm<PersonalInfoFormValues>({
     resolver: zodResolver(personalInfoSchema),
     mode: 'onChange',
+    defaultValues: {
+      motherLastName: '',
+      address: '',
+      zone_id: '',
+      ineFrontUrl: null,
+      ineBackUrl: null,
+      proofOfAddressUrl: null,
+    }
   });
 
   const onSubmit = async (data: PersonalInfoFormValues) => {

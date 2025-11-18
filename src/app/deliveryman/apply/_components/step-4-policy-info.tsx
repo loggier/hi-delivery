@@ -33,6 +33,11 @@ export function Step4_PolicyInfo() {
   const methods = useForm<PolicyInfoFormValues>({
     resolver: zodResolver(policyInfoSchema),
     mode: 'onChange',
+    defaultValues: {
+      insurer: '',
+      policyNumber: '',
+      policyFirstPageUrl: null,
+    }
   });
 
   const onSubmit = async (data: PolicyInfoFormValues) => {

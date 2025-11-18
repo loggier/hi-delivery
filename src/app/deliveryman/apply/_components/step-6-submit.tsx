@@ -33,6 +33,9 @@ export function Step6_Submit() {
   const methods = useForm<SubmitFormValues>({
     resolver: zodResolver(submitSchema),
     mode: 'onChange',
+    defaultValues: {
+        avatar1x1Url: null,
+    }
   });
 
   const onSubmit = async (data: SubmitFormValues) => {

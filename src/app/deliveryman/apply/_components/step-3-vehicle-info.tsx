@@ -46,6 +46,20 @@ export function Step3_VehicleInfo() {
   const methods = useForm<VehicleInfoFormValues>({
     resolver: zodResolver(vehicleInfoSchema),
     mode: 'onChange',
+    defaultValues: {
+        brandOther: '',
+        model: '',
+        color: '',
+        plate: '',
+        licenseFrontUrl: null,
+        licenseBackUrl: null,
+        circulationCardFrontUrl: null,
+        circulationCardBackUrl: null,
+        motoPhotoFront: null,
+        motoPhotoBack: null,
+        motoPhotoLeft: null,
+        motoPhotoRight: null,
+    }
   });
   
   const brand = useWatch({ control: methods.control, name: 'brand' });

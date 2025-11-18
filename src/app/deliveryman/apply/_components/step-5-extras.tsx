@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -6,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Form, FormField, FormControl } from '@/components/ui/form';
-import { riderApplicationSchema } from '@/lib/schemas';
+import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
-const extrasSchema = riderApplicationSchema.pick({
+const extrasSchema = riderApplicationBaseSchema.pick({
   hasHelmet: true,
   hasUniform: true,
   hasBox: true,
@@ -23,7 +24,7 @@ const extrasSchema = riderApplicationSchema.pick({
 
 type ExtrasFormValues = z.infer<typeof extrasSchema>;
 
-const ExtraCheckbox = ({ name, label }: { name: string, label: string }) => (
+const ExtraCheckbox = ({ name, label }: { name: keyof ExtrasFormValues, label: string }) => (
     <FormField
         name={name}
         render={({ field }) => (
