@@ -39,7 +39,7 @@ async function handleUpdateBusiness(request: Request, supabaseAdmin: any, busine
 
     // Process other fields
     for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File) && value !== null && value !== undefined) {
+      if (!(value instanceof File) && value !== null && value !== undefined && value !== '') {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         
         if (['latitude', 'longitude'].includes(dbKey)) {
@@ -147,10 +147,12 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
       .single();
 
     if (insertError) {
+        // If business creation fails, roll back user creation
         if (createdUserId) {
             await supabaseAdmin.from('users').delete().eq('id', createdUserId);
         }
-        return NextResponse.json({ message: 'Error al crear el perfil del negocio.', error: insertError.message }, { status: 500 });
+        console.error('Error creating business profile:', insertError);
+        return NextResponse.json({ message: 'Error al crear el perfil del negocio.', error: insertError.details || insertError.message }, { status: 500 });
     }
     
     const userForSession: User = {
