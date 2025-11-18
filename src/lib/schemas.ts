@@ -231,3 +231,5 @@ export const planSchema = z.object({
     min_distance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
     details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
 });
+
+    
