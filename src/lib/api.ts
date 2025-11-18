@@ -97,7 +97,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         const newItem = newItemDTO as any;
         
         if (entity === 'businesses' && newItem.password) {
-          const { password, passwordConfirmation, owner_name, email, ...businessData } = newItem;
+          const { password, passwordConfirmation, owner_name, email, name, ...businessData } = newItem;
           
           const { data: roleData, error: roleError } = await supabase.from('roles').select('id').eq('name', 'Dueño de Negocio').single();
           if (roleError || !roleData) {
@@ -131,7 +131,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             ...businessData,
             id: businessId,
             user_id: createdUser.id,
-            name: newItem.name,
+            name,
             owner_name: owner_name,
             email: email,
             status: 'INCOMPLETE',
