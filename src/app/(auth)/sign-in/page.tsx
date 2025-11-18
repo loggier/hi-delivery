@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,7 +30,7 @@ const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { login, isAuthenticated, isLoading } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   const { toast } = useToast();
 
   const form = useForm<SignInFormValues>({
@@ -42,12 +41,6 @@ export default function SignInPage() {
       remember: false,
     },
   });
-  
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace('/dashboard');
-    }
-  }, [isLoading, isAuthenticated, router]);
 
   async function onSubmit(data: SignInFormValues) {
     try {
@@ -65,7 +58,7 @@ export default function SignInPage() {
         throw new Error(result.message || 'Error al iniciar sesión.');
       }
       
-      login(result.user);
+      login(result.user, result.remember);
       
       toast({
         title: "Inicio de Sesión Exitoso",
@@ -84,7 +77,7 @@ export default function SignInPage() {
     }
   }
 
-  if (isLoading || isAuthenticated) {
+  if (isLoading) {
      return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <p>Cargando...</p>

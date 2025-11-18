@@ -32,8 +32,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
 import { Breadcrumb } from '@/components/breadcrumb';
-import { useAuthStore } from '@/store/auth-store';
-import { Skeleton } from '@/components/ui/skeleton';
 
 const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
@@ -60,7 +58,6 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user } = useAuthStore.getState(); // Directly get state
 
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 
