@@ -34,7 +34,8 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FormImageUpload } from "@/app/deliveryman/apply/_components/form-components";
+import { FormImageUpload, FormFileUpload } from "@/app/deliveryman/apply/_components/form-components";
+import { Switch } from "@/components/ui/switch";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
@@ -46,11 +47,19 @@ interface BusinessFormProps {
 
 const libraries: ('places')[] = ['places'];
 
-const BusinessMap = ({ value, onChange, onPlaceSelected }: { value: { lat: number, lng: number }, onChange: (coords: { lat: number, lng: number }) => void, onPlaceSelected: (place: google.maps.places.PlaceResult) => void }) => {
+const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps.places.PlaceResult) => void }) => {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
+    
+    const methods = useFormContext();
+    const { setValue } = methods;
+
+    const lat = useWatch({ control: methods.control, name: 'latitude' });
+    const lng = useWatch({ control: methods.control, name: 'longitude' });
+
+    const mapCenter = React.useMemo(() => ({ lat: lat || 19.4326, lng: lng || -99.1332 }), [lat, lng]);
 
     const autocompleteRef = React.useRef<google.maps.places.Autocomplete | null>(null);
     const mapRef = React.useRef<google.maps.Map | null>(null);
@@ -65,7 +74,8 @@ const BusinessMap = ({ value, onChange, onPlaceSelected }: { value: { lat: numbe
             if (place.geometry?.location) {
                 const lat = place.geometry.location.lat();
                 const lng = place.geometry.location.lng();
-                onChange({ lat, lng });
+                setValue('latitude', lat);
+                setValue('longitude', lng);
                 onPlaceSelected(place);
                 mapRef.current?.panTo({ lat, lng });
                 mapRef.current?.setZoom(15);
@@ -75,7 +85,8 @@ const BusinessMap = ({ value, onChange, onPlaceSelected }: { value: { lat: numbe
     
     const onMapClick = (e: google.maps.MapMouseEvent) => {
         if (e.latLng) {
-            onChange({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+            setValue('latitude', e.latLng.lat());
+            setValue('longitude', e.latLng.lng());
         }
     }
 
@@ -93,7 +104,7 @@ const BusinessMap = ({ value, onChange, onPlaceSelected }: { value: { lat: numbe
             </GoogleAutocomplete>
             <GoogleMap
                 mapContainerClassName="h-80 w-full rounded-md"
-                center={value}
+                center={mapCenter}
                 zoom={15}
                 onLoad={onMapLoad}
                 onClick={onMapClick}
@@ -102,7 +113,7 @@ const BusinessMap = ({ value, onChange, onPlaceSelected }: { value: { lat: numbe
                     zoomControl: true,
                 }}
             >
-                {value.lat && value.lng && <Marker position={value} />}
+                {lat && lng && <Marker position={{ lat, lng }} />}
             </GoogleMap>
         </div>
     );
@@ -118,26 +129,42 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
 
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    defaultValues: initialData ? {
-        ...initialData,
-        category_id: initialData.category_id || "",
-        zone_id: initialData.zone_id || "",
-        tax_id: initialData.tax_id || "",
-        website: initialData.website || "",
-        instagram: initialData.instagram || "",
-        logo_url: initialData.logo_url || undefined,
-        notes: initialData.notes || "",
-        latitude: initialData.latitude || 19.4326,
-        longitude: initialData.longitude || -99.1332,
-        password: "",
-        passwordConfirmation: "",
-    } : {
-      name: "", type: "restaurant", category_id: "", zone_id: "",
-      email: "", owner_name: "", phone_whatsapp: "", address_line: "",
-      neighborhood: "", city: "Ciudad de México", state: "CDMX",
-      zip_code: "", tax_id: "", website: "", instagram: "", logo_url: undefined,
-      notes: "", status: "ACTIVE", password: "", passwordConfirmation: "",
-      latitude: 19.4326, longitude: -99.1332,
+    defaultValues: {
+      name: initialData?.name || "",
+      type: initialData?.type || undefined,
+      category_id: initialData?.category_id || "",
+      zone_id: initialData?.zone_id || "",
+      email: initialData?.email || "",
+      owner_name: initialData?.owner_name || "",
+      phone_whatsapp: initialData?.phone_whatsapp || "",
+      address_line: initialData?.address_line || "",
+      neighborhood: initialData?.neighborhood || "",
+      city: initialData?.city || "Ciudad de México",
+      state: initialData?.state || "CDMX",
+      zip_code: initialData?.zip_code || "",
+      latitude: initialData?.latitude || 19.4326,
+      longitude: initialData?.longitude || -99.1332,
+      tax_id: initialData?.tax_id || "",
+      website: initialData?.website || "",
+      instagram: initialData?.instagram || "",
+      logo_url: initialData?.logo_url || undefined,
+      notes: initialData?.notes || "",
+      status: initialData?.status || "ACTIVE",
+      password: "",
+      passwordConfirmation: "",
+      
+      // Nuevos campos
+      delivery_time_min: initialData?.delivery_time_min || undefined,
+      delivery_time_max: initialData?.delivery_time_max || undefined,
+      has_delivery_service: initialData?.has_delivery_service ?? true,
+      average_ticket: initialData?.average_ticket || undefined,
+      weekly_demand: initialData?.weekly_demand || undefined,
+      business_photo_facade_url: initialData?.business_photo_facade_url || undefined,
+      business_photo_interior_url: initialData?.business_photo_interior_url || undefined,
+      digital_menu_url: initialData?.digital_menu_url || undefined,
+      owner_ine_front_url: initialData?.owner_ine_front_url || undefined,
+      owner_ine_back_url: initialData?.owner_ine_back_url || undefined,
+      tax_situation_proof_url: initialData?.tax_situation_proof_url || undefined,
     },
   });
 
@@ -145,13 +172,6 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     control: methods.control,
     name: 'type',
   });
-  
-  const [lat, lng] = useWatch({
-    control: methods.control,
-    name: ['latitude', 'longitude']
-  });
-
-  const mapCenter = React.useMemo(() => ({ lat: lat || 19.4326, lng: lng || -99.1332 }), [lat, lng]);
 
   const availableCategories = React.useMemo(() => {
     return categories?.filter(c => c.type === selectedType && c.active) || [];
@@ -192,15 +212,16 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     try {
       const formData = new FormData();
       
-      // Using Object.keys on the schema guarantees all defined fields are checked.
       Object.keys(businessSchema.shape).forEach(key => {
         const fieldKey = key as keyof BusinessFormValues;
         const value = data[fieldKey];
 
-        if (fieldKey === 'logo_url' && value instanceof FileList && value.length > 0) {
+        if (value instanceof FileList && value.length > 0) {
             formData.append(fieldKey, value[0]);
-        } else if (value !== null && value !== undefined && typeof value !== 'object') {
+        } else if (value !== null && value !== undefined && typeof value !== 'object' && typeof value !== 'boolean') {
             formData.append(fieldKey, String(value));
+        } else if (typeof value === 'boolean') {
+             formData.append(fieldKey, String(value));
         } else if (typeof value === 'number') {
             formData.append(fieldKey, String(value));
         }
@@ -219,7 +240,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
       router.push("/businesses");
       router.refresh();
     } catch (error) {
-      console.error("No se pudo guardar el negocio", error);
+      // El error ya es manejado por el hook de la mutación (muestra un toast)
     }
   };
 
@@ -410,97 +431,58 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
 
         <Card>
             <CardHeader>
+                <CardTitle>Detalles Operativos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="space-y-2">
+                        <FormLabel>Tiempo aprox. de entrega (min)</FormLabel>
+                        <div className="flex items-center gap-2">
+                            <FormField control={methods.control} name="delivery_time_min" render={({field}) => <FormItem className="flex-1"><FormControl><Input type="number" placeholder="Mín." {...field} /></FormControl><FormMessage /></FormItem>} />
+                            <FormField control={methods.control} name="delivery_time_max" render={({field}) => <FormItem className="flex-1"><FormControl><Input type="number" placeholder="Máx." {...field} /></FormControl><FormMessage /></FormItem>} />
+                        </div>
+                    </div>
+                     <FormField control={methods.control} name="average_ticket" render={({field}) => <FormItem><FormLabel>Ticket promedio diario</FormLabel><FormControl><Input type="number" placeholder="Ej. 150.00" {...field} /></FormControl><FormMessage /></FormItem>} />
+                     <FormField control={methods.control} name="weekly_demand" render={({field}) => <FormItem><FormLabel>Demanda semanal</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="nuevo">Nuevo</SelectItem><SelectItem value="0-10">0-10</SelectItem><SelectItem value="11-50">11-50</SelectItem><SelectItem value="51-100">51-100</SelectItem><SelectItem value="101-200">101-200</SelectItem><SelectItem value="201-500">201-500</SelectItem><SelectItem value="mas de 500">Más de 500</SelectItem></SelectContent></Select><FormMessage /></FormItem>} />
+                     <FormField control={methods.control} name="has_delivery_service" render={({ field }) => (
+                        <FormItem className="flex flex-col rounded-lg border p-3 shadow-sm justify-center">
+                            <FormLabel>¿Servicio a domicilio propio?</FormLabel>
+                            <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                        </FormItem>
+                    )} />
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                    <FormImageUpload name="business_photo_facade_url" label="Foto de Fachada" aspectRatio="video" />
+                    <FormImageUpload name="business_photo_interior_url" label="Foto de Interior" aspectRatio="video" />
+                    <FormFileUpload name="digital_menu_url" label="Menú Digitalizado" description="Sube tu menú en PDF o imagen." accept="image/jpeg,image/png,application/pdf" />
+                 </div>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
                 <CardTitle>Ubicación</CardTitle>
                 <CardDescription>Busca la dirección o arrastra el marcador para definir la ubicación exacta de tu negocio.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">
-                        <FormField
-                            control={methods.control}
-                            name="address_line"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Dirección (Calle y Número)</FormLabel>
-                                <FormControl>
-                                <Input placeholder="Av. Insurgentes Sur 123" {...field} disabled={isPending}/>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={methods.control}
-                            name="neighborhood"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Colonia</FormLabel>
-                                <FormControl>
-                                <Input placeholder="Col. Roma Norte" {...field} disabled={isPending}/>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         <div className="grid grid-cols-3 gap-6">
-                            <FormField
-                                control={methods.control}
-                                name="city"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Ciudad</FormLabel>
-                                    <FormControl>
-                                    <Input {...field} disabled={isPending}/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={methods.control}
-                                name="state"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Estado</FormLabel>
-                                    <FormControl>
-                                    <Input {...field} disabled={isPending}/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={methods.control}
-                                name="zip_code"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>C.P.</FormLabel>
-                                    <FormControl>
-                                    <Input placeholder="06700" {...field} disabled={isPending}/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
+                        <FormField control={methods.control} name="address_line" render={({ field }) => (<FormItem><FormLabel>Dirección (Calle y Número)</FormLabel><FormControl><Input placeholder="Av. Insurgentes Sur 123" {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={methods.control} name="neighborhood" render={({ field }) => (<FormItem><FormLabel>Colonia</FormLabel><FormControl><Input placeholder="Col. Roma Norte" {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
+                        <div className="grid grid-cols-3 gap-6">
+                            <FormField control={methods.control} name="city" render={({ field }) => (<FormItem><FormLabel>Ciudad</FormLabel><FormControl><Input {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={methods.control} name="state" render={({ field }) => (<FormItem><FormLabel>Estado</FormLabel><FormControl><Input {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={methods.control} name="zip_code" render={({ field }) => (<FormItem><FormLabel>C.P.</FormLabel><FormControl><Input placeholder="06700" {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
                         </div>
                     </div>
                      <div>
                         <FormLabel>Geolocalización</FormLabel>
                         <FormControl>
-                             <BusinessMap 
-                                value={mapCenter} 
-                                onChange={(coords) => {
-                                    methods.setValue('latitude', coords.lat, { shouldValidate: true });
-                                    methods.setValue('longitude', coords.lng, { shouldValidate: true });
-                                }}
-                                onPlaceSelected={handlePlaceSelected}
-                            />
+                             <BusinessMap onPlaceSelected={handlePlaceSelected} />
                         </FormControl>
-                        <FormField
-                            control={methods.control}
-                            name="latitude"
-                            render={() => <FormMessage />}
-                        />
+                        <FormField control={methods.control} name="latitude" render={() => <FormMessage />} />
                      </div>
                 </div>
             </CardContent>
@@ -508,72 +490,22 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
 
         <Card>
             <CardHeader>
-                <CardTitle>Información Adicional (Opcional)</CardTitle>
+                <CardTitle>Información Adicional y Fiscal</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     <FormField
-                        control={methods.control}
-                        name="tax_id"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>RFC</FormLabel>
-                            <FormControl>
-                            <Input {...field} disabled={isPending}/>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={methods.control}
-                        name="website"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Sitio Web</FormLabel>
-                            <FormControl>
-                            <Input type="url" placeholder="https://ejemplo.com" {...field} disabled={isPending}/>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={methods.control}
-                        name="instagram"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Instagram</FormLabel>
-                            <FormControl>
-                            <Input placeholder="@usuario" {...field} disabled={isPending}/>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                     <FormField control={methods.control} name="tax_id" render={({ field }) => (<FormItem><FormLabel>RFC</FormLabel><FormControl><Input {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
+                     <FormField control={methods.control} name="website" render={({ field }) => (<FormItem><FormLabel>Sitio Web</FormLabel><FormControl><Input type="url" placeholder="https://ejemplo.com" {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
+                     <FormField control={methods.control} name="instagram" render={({ field }) => (<FormItem><FormLabel>Instagram</FormLabel><FormControl><Input placeholder="@usuario" {...field} disabled={isPending}/></FormControl><FormMessage /></FormItem>)} />
                  </div>
-                  <FormField
-                    control={methods.control}
-                    name="notes"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Notas</FormLabel>
-                        <FormControl>
-                        <Textarea
-                            placeholder="Anotaciones internas sobre el negocio."
-                            className="resize-none"
-                            {...field}
-                            disabled={isPending}
-                        />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                     <FormFileUpload name="owner_ine_front_url" label="INE del Propietario (Frente)" />
+                     <FormFileUpload name="owner_ine_back_url" label="INE del Propietario (Reverso)" />
+                     <FormFileUpload name="tax_situation_proof_url" label="Constancia de Situación Fiscal" accept="application/pdf" />
+                 </div>
+                 <FormField control={methods.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea placeholder="Anotaciones internas sobre el negocio." className="resize-none" {...field} disabled={isPending} /></FormControl><FormMessage /></FormItem>)} />
             </CardContent>
         </Card>
-
-        <Separator />
         
         <div className="flex items-center justify-end gap-2">
             <FormField

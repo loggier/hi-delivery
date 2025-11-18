@@ -178,6 +178,19 @@ export const businessSchema = z.object({
     // Campos de contraseña (opcionales, solo para creación)
     password: z.string().optional(),
     passwordConfirmation: z.string().optional(),
+    
+    // Nuevos campos
+    delivery_time_min: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
+    delivery_time_max: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
+    has_delivery_service: z.boolean().optional(),
+    average_ticket: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
+    weekly_demand: z.enum(['nuevo', '0-10', '11-50', '51-100', '101-200', '201-500', 'mas de 500']).optional(),
+    business_photo_facade_url: imageFileSchema("Foto de fachada opcional.").optional(),
+    business_photo_interior_url: imageFileSchema("Foto de interior opcional.").optional(),
+    digital_menu_url: fileSchema("Menú opcional.").optional(),
+    owner_ine_front_url: imageFileSchema("INE frontal opcional.").optional(),
+    owner_ine_back_url: imageFileSchema("INE reverso opcional.").optional(),
+    tax_situation_proof_url: fileSchema("Constancia fiscal opcional.").optional(),
 }).refine(data => {
     // Si se proporciona una contraseña, la confirmación también debe proporcionarse y coincidir.
     if (data.password) {

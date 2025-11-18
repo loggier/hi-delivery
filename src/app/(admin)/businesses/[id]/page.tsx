@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+import { Pencil, FileText, CheckCircle, XCircle } from "lucide-react";
 import { notFound, useParams } from 'next/navigation';
 import React from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
@@ -13,8 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { SubscriptionManager } from "./subscription-manager";
+import Image from "next/image";
+import { Separator } from "@/components/ui/separator";
 
 const libraries: ('places')[] = ['places'];
 
@@ -47,6 +49,27 @@ const BusinessLocationMap = ({ lat, lng }: { lat?: number, lng?: number }) => {
     );
 };
 
+const DetailItem = ({ label, value, children }: { label: string, value?: string | number, children?: React.ReactNode }) => (
+    <div className="space-y-1">
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        {children ? children : <p className="text-sm">{value || 'N/A'}</p>}
+    </div>
+);
+
+const DocumentLink = ({ label, url }: { label: string, url?: string }) => (
+    <DetailItem label={label}>
+        {url ? (
+            <Button variant="outline" size="sm" asChild>
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                    <FileText className="mr-2 h-4 w-4" /> Ver documento
+                </a>
+            </Button>
+        ) : (
+            <p className="text-sm text-slate-500">No disponible</p>
+        )}
+    </DetailItem>
+);
+
 
 export default function ViewBusinessPage() {
   const params = useParams();
@@ -67,7 +90,7 @@ export default function ViewBusinessPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                       {Array.from({length: 6}).map((_, i) => (
+                       {Array.from({length: 9}).map((_, i) => (
                            <div key={i} className="space-y-2">
                                <Skeleton className="h-4 w-1/3" />
                                <Skeleton className="h-5 w-2/3" />
@@ -103,74 +126,89 @@ export default function ViewBusinessPage() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <div className="lg:col-span-2 space-y-6">
         <Card>
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-2xl">{business.name}</CardTitle>
-                        <CardDescription>{category?.name || "Categoría no definida"}</CardDescription>
+            <CardHeader className="flex-row items-start gap-4 space-y-0">
+                <Image 
+                    src={business.logo_url || 'https://placehold.co/80x80/E33739/FFFFFF/png?text=HID'}
+                    alt={`Logo de ${business.name}`}
+                    width={80}
+                    height={80}
+                    className="rounded-md border"
+                />
+                <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="text-2xl">{business.name}</CardTitle>
+                            <CardDescription>{category?.name || "Categoría no definida"}</CardDescription>
+                        </div>
+                        <Badge variant={status === "ACTIVE" ? "success" : status === "PENDING_REVIEW" ? "warning" : "outline"} className={cn(
+                            "capitalize text-base",
+                            status === "ACTIVE" && "border-green-600/20 bg-green-50 text-green-700",
+                            status === "INACTIVE" && "bg-slate-100 text-slate-600",
+                            status === "PENDING_REVIEW" && "border-amber-500/20 bg-amber-50 text-amber-700",
+                        )}>{statusText}</Badge>
                     </div>
-                    <Badge variant={status === "ACTIVE" ? "success" : status === "PENDING_REVIEW" ? "warning" : "outline"} className={cn(
-                        "capitalize text-base",
-                        status === "ACTIVE" && "border-green-600/20 bg-green-50 text-green-700",
-                        status === "INACTIVE" && "bg-slate-100 text-slate-600",
-                        status === "PENDING_REVIEW" && "border-amber-500/20 bg-amber-50 text-amber-700",
-                    )}>{statusText}</Badge>
                 </div>
             </CardHeader>
             <CardContent className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500">Contacto</p>
-                        <p>{business.owner_name}</p>
+                <section>
+                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Información de Contacto</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+                        <DetailItem label="Contacto" value={business.owner_name} />
+                        <DetailItem label="Email" value={business.email} />
+                        <DetailItem label="WhatsApp" value={business.phone_whatsapp} />
+                        <DetailItem label="RFC" value={business.tax_id} />
+                        <DetailItem label="Sitio Web">
+                            {business.website ? <a href={business.website} target="_blank" rel="noreferrer" className="text-primary text-sm hover:underline">{business.website}</a> : 'N/A'}
+                        </DetailItem>
+                        <DetailItem label="Instagram" value={business.instagram} />
+                        {business.notes && (
+                            <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                                <p className="text-sm font-medium text-slate-500">Notas</p>
+                                <p className="text-sm whitespace-pre-wrap">{business.notes}</p>
+                            </div>
+                        )}
                     </div>
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500">Email</p>
-                        <p>{business.email}</p>
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500">WhatsApp</p>
-                        <p>{business.phone_whatsapp}</p>
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500">RFC</p>
-                        <p>{business.tax_id || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500">Sitio Web</p>
-                        <p>{business.website ? <a href={business.website} target="_blank" rel="noreferrer" className="text-primary hover:underline">{business.website}</a> : 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-slate-500">Instagram</p>
-                        <p>{business.instagram || 'N/A'}</p>
-                    </div>
-                    {business.notes && (
-                        <div className="space-y-1 md:col-span-2">
-                            <p className="text-sm font-medium text-slate-500">Notas</p>
-                            <p className="text-sm whitespace-pre-wrap">{business.notes}</p>
-                        </div>
-                    )}
-                </div>
-                
-                <div>
-                    <h3 className="text-lg font-medium mb-4">Ubicación</h3>
+                </section>
+                <Separator />
+                <section>
+                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Ubicación</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium text-slate-500">Dirección</p>
-                                <p>{business.address_line}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium text-slate-500">Colonia</p>
-                                <p>{business.neighborhood}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium text-slate-500">Ciudad, Estado y CP</p>
-                                <p>{business.city}, {business.state} {business.zip_code}</p>
-                            </div>
+                            <DetailItem label="Dirección" value={business.address_line} />
+                            <DetailItem label="Colonia" value={business.neighborhood} />
+                            <DetailItem label="Ciudad, Estado y CP" value={`${business.city}, ${business.state} ${business.zip_code}`} />
                         </div>
                         <BusinessLocationMap lat={business.latitude} lng={business.longitude} />
                     </div>
-                </div>
+                </section>
+                 <Separator />
+                <section>
+                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Detalles Operativos</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+                        <DetailItem label="Tiempo de entrega" value={`${business.delivery_time_min || '?'} - ${business.delivery_time_max || '?'} min.`} />
+                        <DetailItem label="Ticket promedio" value={business.average_ticket ? formatCurrency(business.average_ticket) : 'N/A'} />
+                        <DetailItem label="Demanda semanal" value={business.weekly_demand} />
+                        <DetailItem label="Servicio a domicilio propio">
+                           {typeof business.has_delivery_service === 'boolean' ? (
+                                business.has_delivery_service ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />
+                           ) : 'N/A'}
+                        </DetailItem>
+                    </div>
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <DocumentLink label="Foto de Fachada" url={business.business_photo_facade_url} />
+                       <DocumentLink label="Foto de Interior" url={business.business_photo_interior_url} />
+                       <DocumentLink label="Menú Digital" url={business.digital_menu_url} />
+                    </div>
+                </section>
+                <Separator />
+                 <section>
+                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Documentos del Propietario</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+                        <DocumentLink label="INE (Frente)" url={business.owner_ine_front_url} />
+                        <DocumentLink label="INE (Reverso)" url={business.owner_ine_back_url} />
+                        <DocumentLink label="Constancia Fiscal" url={business.tax_situation_proof_url} />
+                    </div>
+                </section>
 
             </CardContent>
         </Card>
