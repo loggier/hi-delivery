@@ -24,28 +24,6 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: stri
     return data.publicUrl;
 }
 
-export async function POST(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const riderId = searchParams.get('id');
-
-  const supabaseAdmin = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-        db: { schema: process.env.SUPABASE_SCHEMA! }
-      }
-    );
-
-  if (riderId) {
-    // --- MODO ACTUALIZACIÓN ---
-    return handleUpdateRider(request, supabaseAdmin, riderId);
-  } else {
-    // --- MODO CREACIÓN ---
-    return handleCreateRider(request, supabaseAdmin);
-  }
-}
-
 async function handleUpdateRider(request: Request, supabaseAdmin: any, riderId: string) {
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
@@ -61,12 +39,16 @@ async function handleUpdateRider(request: Request, supabaseAdmin: any, riderId: 
 
     let motoPhotos: string[] = existingRiderData.moto_photos || [];
 
+    // Procesar archivos primero
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
             const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
             if (key.startsWith('motoPhoto')) {
                 const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
-                motoPhotos.push(url);
+                // Evitar duplicados si se vuelve a subir
+                if (!motoPhotos.includes(url)) {
+                    motoPhotos.push(url);
+                }
             } else {
                  updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             }
@@ -77,6 +59,7 @@ async function handleUpdateRider(request: Request, supabaseAdmin: any, riderId: 
         updateData['moto_photos'] = motoPhotos;
     }
 
+    // Procesar otros campos
     for (const [key, value] of formData.entries()) {
       if (!(value instanceof File)) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -100,9 +83,10 @@ async function handleUpdateRider(request: Request, supabaseAdmin: any, riderId: 
 
     updateData.updated_at = new Date().toISOString();
     
+    // Si el perfil estaba incompleto y ahora se le añaden datos, pasa a "pendiente"
     if (existingRiderData && existingRiderData.status === 'incomplete' && Object.keys(updateData).length > 1) { 
         updateData.status = 'pending_review';
-    } else if (formData.has('status')) { 
+    } else if (formData.has('status')) { // Permite al paso final enviar el status
         updateData.status = formData.get('status');
     }
 
@@ -215,5 +199,27 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
     }
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const riderId = searchParams.get('id');
+
+  const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+        db: { schema: process.env.SUPABASE_SCHEMA! }
+      }
+    );
+
+  if (riderId) {
+    // --- MODO ACTUALIZACIÓN ---
+    return handleUpdateRider(request, supabaseAdmin, riderId);
+  } else {
+    // --- MODO CREACIÓN ---
+    return handleCreateRider(request, supabaseAdmin);
   }
 }
