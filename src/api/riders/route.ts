@@ -36,14 +36,14 @@ export async function POST(request: Request) {
     const riderId = `rider-${faker.string.uuid()}`;
     const hashedPassword = await hashPassword(data.password);
 
-    // Create the Rider record first
+    // Crear el registro del repartidor con los datos del primer paso
     const newRiderForDb = {
       id: riderId,
       first_name: data.firstName,
       last_name: data.lastName,
       email: data.email,
       phone_e164: data.phoneE164,
-      status: 'incomplete' as const, // New status for partial registrations
+      status: 'incomplete' as const, // Nuevo estado para registros parciales
       password_hash: hashedPassword,
     };
 
@@ -61,15 +61,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Error al crear la cuenta en la base de datos.', error: insertError.message }, { status: 500 });
     }
 
-    // In a real scenario, you'd create a proper User record and associate it.
-    // For this mock, we'll just return the created rider data and shape it like a User object for the auth store.
+    // Devolver un objeto con el formato de usuario para la sesión del cliente
     const userForSession = {
         id: createdRider.id,
         name: `${createdRider.first_name} ${createdRider.last_name}`,
         email: createdRider.email,
         avatar_url: '',
         created_at: createdRider.created_at,
-        role_id: 'rider', // mock role
+        role_id: 'rider', // rol temporal para el estado de la app
         status: 'ACTIVE' as const
     }
 
