@@ -111,7 +111,7 @@ export const businessInfoSchema = z.object({
   name: z.string().min(2, { message: "El nombre del negocio es requerido." }),
   type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo de negocio."}),
   category_id: z.string({ required_error: "Debes seleccionar una categoría." }).min(1, "Debes seleccionar una categoría."),
-  logo_url: imageFileSchema("El logo es requerido."),
+  logo_url: imageFileSchema("El logo es requerido.").optional(),
 });
 
 export const locationInfoSchema = z.object({
@@ -269,3 +269,5 @@ export const planSchema = z.object({
     min_distance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
     details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
 });
+
+    
