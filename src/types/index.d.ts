@@ -104,7 +104,7 @@ export type Business = {
   instagram?: string;
   logo_url?: string;
   notes?: string;
-  status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW";
+  status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW" | "INCOMPLETE";
   plan_id?: string;
   subscription_status?: SubscriptionStatus;
   current_period_ends_at?: string;
