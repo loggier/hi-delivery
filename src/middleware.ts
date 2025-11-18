@@ -16,12 +16,12 @@ export function middleware(request: NextRequest) {
   
   const isAdminPath = pathname.startsWith('/dashboard') || pathname.startsWith('/business-categories') || pathname.startsWith('/businesses') || pathname.startsWith('/customers') || pathname.startsWith('/plans') || pathname.startsWith('/product-categories') || pathname.startsWith('/riders') || pathname.startsWith('/roles') || pathname.startsWith('/settings') || pathname.startsWith('/subscriptions') || pathname.startsWith('/users') || pathname.startsWith('/zones');
 
-  if (isAdminPath && !sessionCookie) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/sign-in';
-      url.searchParams.set('next', pathname);
-      return NextResponse.redirect(url);
-  }
+  // if (isAdminPath && !sessionCookie) {
+  //     const url = request.nextUrl.clone();
+  //     url.pathname = '/sign-in';
+  //     url.searchParams.set('next', pathname);
+  //     return NextResponse.redirect(url);
+  // }
 
   if (pathname === '/sign-in' && sessionCookie) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
