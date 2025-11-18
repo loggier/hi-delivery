@@ -1,6 +1,7 @@
 import { businesses, productCategories, products, riders } from "@/mocks/data";
 import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
 import { subDays, format } from 'date-fns';
+import { faker } from "@faker-js/faker";
 
 function generateChartData() {
     const today = new Date();
@@ -13,12 +14,12 @@ function generateChartData() {
         
         revenueData.push({
             date: formattedDate,
-            ingresos: Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000,
+            ingresos: faker.number.int({ min: 1000, max: 8000 }),
         });
 
         ordersData.push({
             date: formattedDate,
-            pedidos: Math.floor(Math.random() * (120 - 40 + 1)) + 40,
+            pedidos: faker.number.int({ min: 40, max: 150 }),
         });
     }
     return { revenueData, ordersData };
@@ -44,7 +45,7 @@ export async function GET() {
 
     const allEntities = [...businesses, ...riders, ...products, ...productCategories];
     const latestChanges = allEntities
-      .sort((a, b) => new Date(b.created_at || b.createdAt).getTime() - new Date(a.created_at || a.createdAt).getTime())
+      .sort((a, b) => new Date(b.created_at || (b as any).createdAt).getTime() - new Date(a.created_at || (a as any).createdAt).getTime())
       .slice(0, 5);
 
     const { revenueData, ordersData } = generateChartData();
