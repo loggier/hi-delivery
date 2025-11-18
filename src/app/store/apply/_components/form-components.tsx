@@ -27,7 +27,7 @@ export const FormInput = ({ name, label, description, ...props }: FormInputProps
       <FormItem>
         <FormLabel>{label}</FormLabel>
         <FormControl>
-          <Input {...props} {...field} />
+          <Input {...props} {...field} value={field.value ?? ''} />
         </FormControl>
         {description && <FormDescription>{description}</FormDescription>}
         <FormMessage />
@@ -75,6 +75,110 @@ export const FormSelect = ({ name, label, placeholder, options, description, dis
   />
 );
 
+interface FormFileUploadProps {
+  name: string;
+  label: string;
+  description?: string;
+  accept?: string;
+}
+
+export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
+    const { control, watch, setValue, formState: { errors } } = useFormContext();
+    const files: FileList | null = watch(name);
+    const file = files?.[0];
+    const [isDragging, setIsDragging] = useState(false);
+    const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(name, e.target.files, { shouldValidate: true });
+    }
+
+    const handleRemove = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setValue(name, null, { shouldValidate: true });
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
+
+    const handleDragEvents = (e: React.DragEvent<HTMLLabelElement>, isEntering: boolean) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(isEntering);
+    };
+    
+    const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+        handleDragEvents(e, false);
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles && droppedFiles.length > 0) {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(droppedFiles[0]);
+            setValue(name, dataTransfer.files, { shouldValidate: true });
+            if (inputRef.current) {
+                inputRef.current.files = dataTransfer.files;
+            }
+        }
+    };
+    
+    const hasError = !!errors[name];
+
+    return (
+        <FormField
+            name={name}
+            control={control}
+            render={({ field: { ref, onBlur } }) => (
+                <FormItem>
+                    <FormLabel>{label}</FormLabel>
+                    <FormControl>
+                        <div className="relative">
+                            <label 
+                                htmlFor={name}
+                                className={cn(
+                                    "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
+                                    isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
+                                    hasError ? "border-destructive" : "border-slate-300"
+                                )}
+                                onDragEnter={(e) => handleDragEvents(e, true)}
+                                onDragOver={(e) => handleDragEvents(e, true)}
+                                onDragLeave={(e) => handleDragEvents(e, false)}
+                                onDrop={handleDrop}
+                            >
+                                <Input
+                                    type="file"
+                                    className="hidden"
+                                    id={name}
+                                    accept={accept}
+                                    ref={(e) => {
+                                        ref(e);
+                                        inputRef.current = e;
+                                    }}
+                                    onChange={handleFileChange}
+                                    onBlur={onBlur}
+                                    value={undefined}
+                                />
+                                <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
+                                <span className="text-sm text-center text-slate-500">
+                                    {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
+                                </span>
+                                {file && <span className="font-medium text-sm text-slate-700 mt-1">{file.name}</span>}
+                            </label>
+                            {file && (
+                                <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
+                                    <X className="h-4 w-4"/>
+                                </Button>
+                            )}
+                        </div>
+                    </FormControl>
+                    {description && <FormDescription>{description}</FormDescription>}
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+    );
+};
+
+
 interface FormImageUploadProps {
   name: string;
   label: string;
@@ -84,13 +188,15 @@ interface FormImageUploadProps {
 
 export const FormImageUpload = ({ name, label, description, aspectRatio = 'square' }: FormImageUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
-    const files: FileList | null = watch(name);
-    const file = files?.[0];
+    const watchedValue = watch(name);
     const [preview, setPreview] = useState<string | null>(null);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useEffect(() => {
-        if (file) {
+        if (typeof watchedValue === 'string') {
+            setPreview(watchedValue);
+        } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
+            const file = watchedValue[0];
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreview(reader.result as string);
@@ -99,7 +205,8 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         } else {
             setPreview(null);
         }
-    }, [file]);
+    }, [watchedValue]);
+
 
     const handleRemove = (e: React.MouseEvent) => {
       e.preventDefault();

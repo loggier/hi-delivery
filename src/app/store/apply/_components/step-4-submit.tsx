@@ -11,10 +11,11 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, ShieldCheck, CheckCircle } from 'lucide-react';
-import { FormInput } from './form-components';
+import { FormInput, FormFileUpload } from './form-components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 type SubmitFormValues = z.infer<typeof submitBusinessSchema>;
 
@@ -34,6 +35,9 @@ export function Step4_Submit() {
         tax_id: '',
         website: '',
         instagram: '',
+        owner_ine_front_url: null,
+        owner_ine_back_url: null,
+        tax_situation_proof_url: null,
     }
   });
 
@@ -78,7 +82,11 @@ export function Step4_Submit() {
     try {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
-        if(value) formData.append(key, String(value));
+         if (value instanceof FileList && value.length > 0) {
+            formData.append(key, value[0]);
+        } else if (value) {
+            formData.append(key, String(value));
+        }
       });
       formData.append('final_submission', 'true');
       
@@ -139,10 +147,26 @@ export function Step4_Submit() {
                 Esta información es opcional, pero nos ayuda a conocer mejor tu negocio.
               </AlertDescription>
            </Alert>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <FormInput name="tax_id" label="RFC (Opcional)" placeholder="Tu Registro Federal de Contribuyentes"/>
-                <FormInput name="website" label="Sitio Web (Opcional)" type="url" placeholder="https://tunegocio.com"/>
-                <FormInput name="instagram" label="Instagram (Opcional)" placeholder="@tu_negocio"/>
+           <div className="space-y-6">
+                <div>
+                    <h3 className="text-lg font-medium">Información Fiscal y Redes (Opcional)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                        <FormInput name="tax_id" label="RFC" placeholder="Tu Registro Federal de Contribuyentes"/>
+                        <FormInput name="website" label="Sitio Web" type="url" placeholder="https://tunegocio.com"/>
+                        <FormInput name="instagram" label="Instagram" placeholder="@tu_negocio"/>
+                    </div>
+                </div>
+
+                <Separator />
+
+                 <div>
+                    <h3 className="text-lg font-medium">Documentos del Propietario (Opcional)</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                        <FormFileUpload name="owner_ine_front_url" label="INE (Frente)" />
+                        <FormFileUpload name="owner_ine_back_url" label="INE (Reverso)" />
+                        <FormFileUpload name="tax_situation_proof_url" label="Constancia de Situación Fiscal" accept="image/jpeg,image/png,application/pdf" />
+                    </div>
+                </div>
            </div>
 
             <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-4 border border-slate-200 dark:border-slate-700">

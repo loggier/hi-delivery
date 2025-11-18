@@ -81,6 +81,7 @@ export type BusinessCategory = {
 };
 
 export type SubscriptionStatus = "active" | "inactive" | "past_due";
+export type WeeklyDemand = 'nuevo' | '0-10' | '11-50' | '51-100' | '101-200' | '201-500' | 'mas de 500';
 
 export type Business = {
   id: string;
@@ -113,6 +114,19 @@ export type Business = {
   updated_at: string;
   password?: string;
   passwordConfirmation?: string;
+
+  // New Fields
+  delivery_time_min?: number;
+  delivery_time_max?: number;
+  has_delivery_service?: boolean;
+  average_ticket?: number;
+  weekly_demand?: WeeklyDemand;
+  business_photo_facade_url?: string;
+  business_photo_interior_url?: string;
+  digital_menu_url?: string;
+  owner_ine_front_url?: string;
+  owner_ine_back_url?: string;
+  tax_situation_proof_url?: string;
 };
 
 export type Document = {
@@ -247,5 +261,3 @@ export type SystemSettings = {
     created_at: string;
     updated_at: string;
 }
-
-    

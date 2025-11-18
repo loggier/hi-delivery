@@ -1,5 +1,3 @@
-
-
 import { z } from "zod";
 
 export const signInSchema = z.object({
@@ -113,6 +111,23 @@ export const businessInfoSchema = z.object({
   type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo de negocio."}),
   category_id: z.string({ required_error: "Debes seleccionar una categoría." }).min(1, "Debes seleccionar una categoría."),
   logo_url: imageFileSchema("El logo es requerido.").optional(),
+  // New fields
+  delivery_time_min: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
+  delivery_time_max: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
+  has_delivery_service: z.boolean().optional(),
+  average_ticket: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
+  weekly_demand: z.enum(['nuevo', '0-10', '11-50', '51-100', '101-200', '201-500', 'mas de 500']).optional(),
+  business_photo_facade_url: imageFileSchema("La foto de la fachada es requerida.").optional(),
+  business_photo_interior_url: imageFileSchema("La foto del interior es requerida.").optional(),
+  digital_menu_url: fileSchema("El menú es requerido.").optional(),
+}).refine(data => {
+    if (data.delivery_time_min && data.delivery_time_max) {
+        return data.delivery_time_max >= data.delivery_time_min;
+    }
+    return true;
+}, {
+    message: "El tiempo máximo debe ser mayor o igual al mínimo.",
+    path: ["delivery_time_max"],
 });
 
 export const locationInfoSchema = z.object({
@@ -130,6 +145,10 @@ export const submitBusinessSchema = z.object({
   tax_id: z.string().optional(),
   website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
   instagram: z.string().optional(),
+   // New fields for owner documents
+  owner_ine_front_url: imageFileSchema("El frente del INE es requerido.").optional(),
+  owner_ine_back_url: imageFileSchema("El reverso del INE es requerido.").optional(),
+  tax_situation_proof_url: fileSchema("La constancia de situación fiscal es requerida.").optional(),
 });
 
 
@@ -153,7 +172,7 @@ export const businessSchema = z.object({
     tax_id: z.string().optional(),
     website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
     instagram: z.string().optional(),
-    logo_url: imageFileSchema("El logo es requerido."),
+    logo_url: imageFileSchema("El logo es requerido.").optional(),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
     // Campos de contraseña (opcionales, solo para creación)

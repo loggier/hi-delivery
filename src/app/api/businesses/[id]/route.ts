@@ -37,24 +37,34 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
 
+  const fileFields = [
+    'logo_url', 'business_photo_facade_url', 'business_photo_interior_url',
+    'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'
+  ];
+
   try {
     // Process files first
-    for (const [key, value] of formData.entries()) {
-        if (value instanceof File && value.size > 0) {
-            if (key === 'logo_url') {
-                updateData['logo_url'] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, 'logo');
-            } else {
-                 updateData[key] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, key);
+    for (const fieldName of fileFields) {
+        if (formData.has(fieldName)) {
+            const file = formData.get(fieldName) as File;
+            if (file && file.size > 0) {
+                 updateData[fieldName] = await uploadFileAndGetUrl(supabaseAdmin, file, businessId, fieldName);
             }
         }
     }
-
-    // Process other fields, excluding files and the special flag
+    
+    // Process other fields
     for (const [key, value] of formData.entries()) {
       if (!(value instanceof File) && key !== 'final_submission') {
-        if (['latitude', 'longitude'].includes(key)) {
+        const numericFields = ['latitude', 'longitude', 'delivery_time_min', 'delivery_time_max', 'average_ticket'];
+        const booleanFields = ['has_delivery_service'];
+
+        if (numericFields.includes(key)) {
              updateData[key] = parseFloat(value as string);
-        } else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
+        } else if (booleanFields.includes(key)) {
+            updateData[key] = value === 'true';
+        }
+        else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
             updateData[key] = `+52${value}`;
         } else if (value !== null && value !== undefined && value !== '') {
             updateData[key] = value;
