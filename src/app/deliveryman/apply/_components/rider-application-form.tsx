@@ -77,22 +77,27 @@ export function RiderApplicationForm() {
 
   const handleApiResponse = async (response: Response, isCreation: boolean = false) => {
     const result = await response.json();
-    console.log(`API Response (isCreation: ${isCreation}):`, { status: response.status, body: result });
 
     if (!response.ok) {
         console.error("Server returned an error:", result);
         throw new Error(result.message || 'Ocurrió un error desconocido en el servidor.');
     }
 
-    if (isCreation && result.rider) {
-        login(result.rider);
+    if (isCreation && result.user) {
+        login(result.user);
+        toast({
+            title: "Cuenta Creada Exitosamente",
+            description: "Ahora puedes continuar con el resto de tu información.",
+            variant: "success",
+        });
+        console.log("Creation successful, user and rider data:", result);
+    } else {
+        toast({
+            title: "Progreso Guardado",
+            description: "Tu información se ha guardado correctamente.",
+            variant: 'success'
+        });
     }
-    
-    toast({
-        title: "Progreso Guardado",
-        description: "Tu información se ha guardado correctamente.",
-        variant: 'success'
-    });
     return result;
   };
 
@@ -106,42 +111,56 @@ export function RiderApplicationForm() {
 
     try {
       if (currentStep === 0) {
+        // --- STEP 1: Account Creation ---
         if (!isAuthenticated) {
             const data = getValues();
             const formData = new FormData();
             
             fieldsToValidate.forEach(fieldKey => {
                 const key = fieldKey as keyof RiderFormValues;
-                let value = data[key];
-
-                if (value instanceof FileList) {
-                    if (value[0]) formData.append(key, value[0]);
-                } else if (value instanceof Date) {
-                    formData.append(key, value.toISOString());
-                } else if (value !== undefined && value !== null && value !== '') {
-                    formData.append(String(key), value as any);
-                }
+                formData.append(String(key), data[key] as any);
             });
 
             const response = await fetch('/api/riders', { method: 'POST', body: formData });
-            const result = await handleApiResponse(response, true);
-            
-            console.log("Rider created successfully. Result:", result);
-            toast({
-                title: "Cuenta Creada",
-                description: `¡Bien! Ahora puedes continuar con el resto de tu información. El ID del repartidor es: ${result.rider.id}`,
-            });
-            
-            // ATURAMOS EL PROCESO AQUÍ PARA DEPURAR
-            // Para avanzar, habilitar la siguiente línea:
-            // setDirection(1);
-            // setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
-        } else {
-             toast({
-                title: "Depuración",
-                description: `Aún no hemos implementado el guardado para el paso ${currentStep + 1}.`,
-            });
+            await handleApiResponse(response, true);
         }
+        // For debugging: Stop after creation.
+        toast({
+          title: "Paso 1 Completado",
+          description: "La creación de cuenta se ha ejecutado. Revisa la consola y la base de datos.",
+        });
+        // Remove the line below to stop auto-advancing
+        // setDirection(1);
+        // setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+
+      } else {
+        // --- STEPS 2 and onwards: Profile Update ---
+        if (!isAuthenticated || !user?.id) {
+            toast({ variant: "destructive", title: "Error de Sesión", description: "No se pudo encontrar tu sesión. Por favor, inicia sesión de nuevo."});
+            return;
+        }
+
+        const data = getValues();
+        const formData = new FormData();
+
+        fieldsToValidate.forEach(fieldKey => {
+            const key = fieldKey as keyof RiderFormValues;
+            const value = data[key];
+
+            if (value instanceof FileList && value[0]) {
+                formData.append(key, value[0]);
+            } else if (value instanceof Date) {
+                formData.append(key, value.toISOString());
+            } else if (value !== undefined && value !== null && value !== '') {
+                formData.append(String(key), value as any);
+            }
+        });
+
+        const response = await fetch(`/api/riders/${user.id}`, { method: 'PATCH', body: formData });
+        await handleApiResponse(response);
+        
+        setDirection(1);
+        setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
       }
     } catch (error) {
         console.error("Error in nextStep:", error);
@@ -161,10 +180,10 @@ export function RiderApplicationForm() {
   };
   
   const onSubmitFinal = async () => {
-     toast({
-        title: "Depuración",
-        description: "El envío final aún no está implementado.",
-    });
+     // The last step is handled by the nextStep logic when it's on the last step
+     await nextStep();
+     // If successful, you could set the success state
+     // setIsSuccess(true);
   }
   
   if (isSuccess) {

@@ -33,46 +33,64 @@ export async function POST(request: Request) {
     }
 
     const data = validated.data;
-    const riderId = `rider-${faker.string.uuid()}`;
+    const userId = `user-${faker.string.uuid()}`;
     const hashedPassword = await hashPassword(data.password);
 
-    // Crear el registro del repartidor con los datos del primer paso
+    // 1. Crear el usuario en la tabla 'users'
+    const newUserForDb = {
+        id: userId,
+        name: `${data.firstName} ${data.lastName}`,
+        email: data.email,
+        password: hashedPassword,
+        role_id: 'delivery-man', // Usando el ID de rol proporcionado
+        status: 'ACTIVE',
+        created_at: new Date().toISOString()
+    };
+
+    const { data: createdUser, error: userInsertError } = await supabaseAdmin
+        .from('users')
+        .insert(newUserForDb)
+        .select()
+        .single();
+    
+    if (userInsertError) {
+      console.error("Error inserting user:", userInsertError);
+      if (userInsertError.code === '23505') { // unique_violation
+          return NextResponse.json({ message: 'El correo electrónico ya está registrado.' }, { status: 409 });
+      }
+      return NextResponse.json({ message: 'Error al crear la cuenta de usuario.', error: userInsertError.message }, { status: 500 });
+    }
+
+    // 2. Crear el registro del repartidor en la tabla 'riders'
     const newRiderForDb = {
-      id: riderId,
+      id: `rider-${faker.string.uuid()}`,
+      user_id: createdUser.id, // Vinculando al usuario recién creado
       first_name: data.firstName,
       last_name: data.lastName,
       email: data.email,
       phone_e164: data.phoneE164,
-      status: 'incomplete' as const, // Nuevo estado para registros parciales
+      status: 'incomplete' as const,
       password_hash: hashedPassword,
     };
 
-    const { data: createdRider, error: insertError } = await supabaseAdmin
+    const { data: createdRider, error: riderInsertError } = await supabaseAdmin
       .from('riders')
       .insert(newRiderForDb)
       .select()
       .single();
 
-    if (insertError) {
-      console.error("Error inserting rider:", insertError);
-      if (insertError.code === '23505') { // unique_violation
-          return NextResponse.json({ message: 'El correo electrónico o teléfono ya está registrado.' }, { status: 409 });
-      }
-      return NextResponse.json({ message: 'Error al crear la cuenta en la base de datos.', error: insertError.message }, { status: 500 });
+    if (riderInsertError) {
+      console.error("Error inserting rider:", riderInsertError);
+      // Opcional: podrías eliminar el usuario recién creado para mantener la consistencia
+      await supabaseAdmin.from('users').delete().eq('id', createdUser.id);
+      return NextResponse.json({ message: 'Error al crear el perfil de repartidor.', error: riderInsertError.message }, { status: 500 });
     }
 
-    // Devolver un objeto con el formato de usuario para la sesión del cliente
-    const userForSession = {
-        id: createdRider.id,
-        name: `${createdRider.first_name} ${createdRider.last_name}`,
-        email: createdRider.email,
-        avatar_url: '',
-        created_at: createdRider.created_at,
-        role_id: 'rider', // rol temporal para el estado de la app
-        status: 'ACTIVE' as const
-    }
-
-    return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", rider: userForSession }, { status: 201 });
+    return NextResponse.json({ 
+        message: "Cuenta creada con éxito. Ahora completa tu perfil.", 
+        user: createdUser, // Devolvemos el objeto User para el estado de autenticación
+        rider: createdRider // Devolvemos el repartidor para referencia futura
+    }, { status: 201 });
 
   } catch (error) {
     console.error('Error inesperado en la API de registro de repartidores:', error);

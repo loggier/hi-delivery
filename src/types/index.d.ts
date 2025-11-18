@@ -1,4 +1,5 @@
 
+
 export type Role = {
   id: string;
   name: string;
@@ -131,6 +132,7 @@ export type VehicleBrand = 'Italika' | 'Yamaha' | 'Honda' | 'Vento' | 'Veloci' |
 
 export type Rider = {
   id: string
+  user_id: string; // Add this to link to the users table
   first_name: string
   last_name: string
   mother_last_name?: string
