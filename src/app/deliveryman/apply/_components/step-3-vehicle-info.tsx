@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -6,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
-import { riderApplicationSchema } from '@/lib/schemas';
+import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { FormInput, FormSelect, FormFutureDatePicker, FormFileUpload, FormMultiImageUpload } from './form-components';
 import { vehicleBrands, vehicleYears } from '@/lib/constants';
 
-const vehicleInfoSchema = riderApplicationSchema.pick({
+const vehicleInfoSchema = riderApplicationBaseSchema.pick({
   ownership: true,
   brand: true,
   brandOther: true,

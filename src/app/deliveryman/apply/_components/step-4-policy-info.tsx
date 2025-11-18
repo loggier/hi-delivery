@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -6,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
-import { riderApplicationSchema } from '@/lib/schemas';
+import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { FormInput, FormFutureDatePicker, FormFileUpload } from './form-components';
 
-const policyInfoSchema = riderApplicationSchema.pick({
+const policyInfoSchema = riderApplicationBaseSchema.pick({
   insurer: true,
   policyNumber: true,
   policyValidUntil: true,

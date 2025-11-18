@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -6,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
-import { riderApplicationSchema } from '@/lib/schemas';
+import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +17,7 @@ import { FormImageUpload } from './form-components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 
-const submitSchema = riderApplicationSchema.pick({
+const submitSchema = riderApplicationBaseSchema.pick({
   avatar1x1Url: true,
 });
 
