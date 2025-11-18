@@ -132,7 +132,7 @@ export type VehicleBrand = 'Italika' | 'Yamaha' | 'Honda' | 'Vento' | 'Veloci' |
 
 export type Rider = {
   id: string
-  user_id: string; // Add this to link to the users table
+  user_id: string;
   first_name: string
   last_name: string
   mother_last_name?: string
@@ -140,7 +140,6 @@ export type Rider = {
   birth_date?: string
   rider_type?: 'Asociado'
   zone_id?: string
-  identity_type?: 'INE'
   address?: string
 
   // Archivos

@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       email: data.email,
       phone_e164: data.phoneE164,
       status: 'incomplete' as const,
-      password_hash: hashedPassword, // Storing hash here as well, might be redundant but keeping schema
+      password_hash: hashedPassword,
     };
 
     const { data: createdRider, error: insertError } = await supabaseAdmin
