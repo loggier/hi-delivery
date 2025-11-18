@@ -42,13 +42,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
 
   try {
-    const { data: existingRider, error: fetchError } = await supabaseAdmin.from('riders').select('moto_photos, status').eq('id', riderId).single();
+    const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
+    
     if(fetchError) {
       console.error('Error fetching existing rider for update:', fetchError);
       return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
     }
 
-    let motoPhotos: string[] = existingRider.moto_photos || [];
+    let motoPhotos: string[] = existingRiderData.moto_photos || [];
 
     // Handle file uploads
     for (const [key, value] of formData.entries()) {
@@ -57,6 +58,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
             if (key.startsWith('motoPhoto')) {
                 const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+                // Simple push for now. A real app might need to replace based on index.
                 motoPhotos.push(url);
             } else {
                  updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
@@ -78,10 +80,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         } else if (dateFields.includes(dbKey)) {
             // Ensure date is in ISO format
             updateData[dbKey] = new Date(value as string).toISOString();
-        } else {
+        } else if (key !== 'brandOther') {
             updateData[dbKey] = value;
         }
       }
+    }
+    
+    // Handle 'brandOther' specifically
+    if (formData.get('brand') === 'Otra' && formData.get('brandOther')) {
+        updateData['brand'] = formData.get('brandOther');
     }
     
     if (Object.keys(updateData).length === 0) {
@@ -90,9 +97,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     updateData.updated_at = new Date().toISOString();
     
+    const existingRider = existingRiderData as Rider;
     // Ensure 'status' is updated to 'pending_review' if it's currently 'incomplete' and we're adding more data
-    if (existingRider && (existingRider as Rider).status === 'incomplete' && Object.keys(updateData).length > 1) {
+    if (existingRider && existingRider.status === 'incomplete' && Object.keys(updateData).length > 1) { // >1 to avoid only status change
         updateData.status = 'pending_review';
+    } else if (formData.has('status')) { // Allow explicit status change (e.g., in final step)
+        updateData.status = formData.get('status');
     }
 
 
@@ -116,4 +126,3 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
-
