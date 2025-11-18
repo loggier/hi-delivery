@@ -119,21 +119,6 @@ export const businessSchema = z.object({
 });
 
 
-// A simplified schema for server-side validation of the initial account creation
-export const riderAccountCreationSchema = z.object({
-    firstName: z.string().min(2, { message: "El nombre es requerido." }),
-    lastName: z.string().min(2, { message: "El apellido paterno es requerido." }),
-    email: z.string().email({ message: "Por favor, ingresa un email válido." }),
-    phoneE164: z.string()
-        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
-        .transform(normalizePhone),
-    password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
-    passwordConfirmation: z.string(),
-}).refine(data => data.password === data.passwordConfirmation, {
-    message: "Las contraseñas no coinciden.",
-    path: ["passwordConfirmation"],
-});
-
 const isClient = typeof window !== 'undefined';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -154,6 +139,22 @@ const imageFileSchema = (message: string) =>
         .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
         .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg y .png")
     : z.any();
+
+
+// Schema for the server-side validation of the initial account creation
+export const riderAccountCreationSchema = z.object({
+    firstName: z.string().min(2, { message: "El nombre es requerido." }),
+    lastName: z.string().min(2, { message: "El apellido paterno es requerido." }),
+    email: z.string().email({ message: "Por favor, ingresa un email válido." }),
+    phoneE164: z.string()
+        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
+        .transform(normalizePhone),
+    password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
+    passwordConfirmation: z.string(),
+}).refine(data => data.password === data.passwordConfirmation, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
+});
 
 
 // This is the full schema for client-side validation
