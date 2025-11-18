@@ -37,10 +37,10 @@ export async function POST(request: Request) {
   
   try {
     // 1. Get 'Repartidor' role ID
-    const { data: roleData, error: roleError } = await supabaseAdmin.from('roles').select('id').eq('name', 'Repartidor').single();
+    const { data: roleData, error: roleError } = await supabaseAdmin.from('roles').select('id').eq('name', 'delivery-man').single();
     if(roleError || !roleData) {
-        console.error("Role 'Repartidor' not found:", roleError);
-        return NextResponse.json({ message: 'Error interno: El rol "Repartidor" no está configurado en el sistema.' }, { status: 500 });
+        console.error("Role 'delivery-man' not found:", roleError);
+        return NextResponse.json({ message: 'Error interno: El rol "delivery-man" no está configurado en el sistema.' }, { status: 500 });
     }
     const riderRoleId = roleData.id;
 
