@@ -91,7 +91,7 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
         status === "approved" && "border-green-600/20 bg-green-50 text-green-700",
         status === "inactive" && "bg-slate-100 text-slate-600",
         status === "rejected" && "border-red-600/10 bg-red-50 text-red-700",
-        status === "pending_review" && "border-amber-500/20 bg-amber-50 text-amber-700",
+        (status === "pending_review" || status === 'incomplete') && "border-amber-500/20 bg-amber-50 text-amber-700",
         "capitalize"
       )}>{config.label}</Badge>;
     },
@@ -155,33 +155,33 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <Link href={`/riders/${rider.id}`}>
-                    <Eye /> Ver Detalles
+                    <Eye className="mr-2 h-4 w-4" /> Ver Detalles
                 </Link>
             </DropdownMenuItem>
              {rider.status === "pending_review" && (
                 <>
                     <DropdownMenuItem onClick={() => handleStatusChange('approved')} className="text-green-600 focus:text-green-600">
-                        <CheckCircle /> Aprobar
+                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleStatusChange('rejected')} className="text-red-600 focus:text-red-600">
-                        <XCircle /> Rechazar
+                        <XCircle className="mr-2 h-4 w-4" /> Rechazar
                     </DropdownMenuItem>
                 </>
              )}
              {rider.status === "approved" && (
                 <DropdownMenuItem onClick={() => handleStatusChange('inactive')}>
-                    <Ban /> Inactivar
+                    <Ban className="mr-2 h-4 w-4" /> Inactivar
                 </DropdownMenuItem>
              )}
              {(rider.status === "inactive" || rider.status === 'rejected') && (
                 <DropdownMenuItem onClick={() => handleStatusChange('approved')}>
-                    <Power /> Reactivar/Aprobar
+                    <Power className="mr-2 h-4 w-4" /> Reactivar/Aprobar
                 </DropdownMenuItem>
              )}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600 focus:bg-red-50">
-              <Trash2 /> Eliminar
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -190,3 +190,5 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
     },
   },
 ];
+
+    
