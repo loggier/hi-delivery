@@ -105,43 +105,44 @@ export function RiderApplicationForm() {
     setIsSubmitting(true);
 
     try {
-        const data = getValues();
-        const formData = new FormData();
-        
-        fieldsToValidate.forEach(fieldKey => {
-            const key = fieldKey as keyof RiderFormValues;
-            let value = data[key];
+      if (currentStep === 0) {
+        if (!isAuthenticated) {
+            const data = getValues();
+            const formData = new FormData();
             
-             // Specific handling for 'brand' if 'brandOther' has a value
-            if (key === 'brand' && data.brand === 'Otra' && data.brandOther) {
-                value = data.brandOther;
-            }
+            fieldsToValidate.forEach(fieldKey => {
+                const key = fieldKey as keyof RiderFormValues;
+                let value = data[key];
 
-            if (value instanceof FileList) {
-                if (value[0]) formData.append(key, value[0]);
-            } else if (value instanceof Date) {
-                formData.append(key, value.toISOString());
-            } else if (value !== undefined && value !== null && value !== '') {
-                formData.append(String(key), value as any);
-            }
-        });
+                if (value instanceof FileList) {
+                    if (value[0]) formData.append(key, value[0]);
+                } else if (value instanceof Date) {
+                    formData.append(key, value.toISOString());
+                } else if (value !== undefined && value !== null && value !== '') {
+                    formData.append(String(key), value as any);
+                }
+            });
 
-        if (currentStep === 0 && !isAuthenticated) {
             const response = await fetch('/api/riders', { method: 'POST', body: formData });
-            await handleApiResponse(response, true);
+            const result = await handleApiResponse(response, true);
+            
+            console.log("Rider created successfully. Result:", result);
+            toast({
+                title: "Cuenta Creada",
+                description: `¡Bien! Ahora puedes continuar con el resto de tu información. El ID del repartidor es: ${result.rider.id}`,
+            });
+            
+            // ATURAMOS EL PROCESO AQUÍ PARA DEPURAR
+            // Para avanzar, habilitar la siguiente línea:
+            // setDirection(1);
+            // setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
         } else {
-            const riderIdToUpdate = user?.id;
-            if (!riderIdToUpdate) {
-                throw new Error("No se pudo identificar al repartidor para actualizar. Por favor, inicia sesión de nuevo.");
-            }
-             console.log(`Sending PATCH to /api/riders/${riderIdToUpdate}`);
-             const response = await fetch(`/api/riders/${riderIdToUpdate}`, { method: 'PATCH', body: formData });
-             await handleApiResponse(response);
+             toast({
+                title: "Depuración",
+                description: `Aún no hemos implementado el guardado para el paso ${currentStep + 1}.`,
+            });
         }
-        
-        setDirection(1);
-        setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
-
+      }
     } catch (error) {
         console.error("Error in nextStep:", error);
         toast({
@@ -160,39 +161,10 @@ export function RiderApplicationForm() {
   };
   
   const onSubmitFinal = async () => {
-    const isFinalStepValid = await trigger(STEPS[STEPS.length - 1].fields as any);
-    if (!isFinalStepValid) return;
-
-    setIsSubmitting(true);
-    try {
-        const riderIdToUpdate = user?.id;
-         if (!riderIdToUpdate) {
-            throw new Error("No se pudo identificar al repartidor para finalizar.");
-        }
-
-        const formData = new FormData();
-        const avatarFile = getValues("avatar1x1Url");
-        
-        if (avatarFile?.[0]) {
-            formData.append("avatar1x1Url", avatarFile[0]);
-        }
-        formData.append("status", "pending_review");
-
-        const response = await fetch(`/api/riders/${riderIdToUpdate}`, { method: 'PATCH', body: formData });
-        await handleApiResponse(response);
-        
-        setIsSuccess(true);
-
-    } catch (error) {
-        console.error("Error in onSubmitFinal:", error);
-        toast({
-            variant: "destructive",
-            title: "Error en el envío final",
-            description: error instanceof Error ? error.message : "No se pudo completar el registro."
-        });
-    } finally {
-        setIsSubmitting(false);
-    }
+     toast({
+        title: "Depuración",
+        description: "El envío final aún no está implementado.",
+    });
   }
   
   if (isSuccess) {
