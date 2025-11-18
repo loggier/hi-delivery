@@ -58,10 +58,12 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
         Object.entries(params).forEach(([key, value]) => {
             if(value) {
-                if(['name', 'search'].includes(key)) {
-                    const searchKey = (entity === 'riders' || entity === 'customers') ? 'name_search' : 'name';
-                    query = query.ilike(searchKey, `%${value}%`);
-                } else {
+                if(key === 'name_search') {
+                    query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
+                } else if (key === 'name') {
+                    query = query.ilike('name', `%${value}%`);
+                }
+                else {
                     query = query.eq(key, value);
                 }
             }
@@ -205,11 +207,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: (item) => {
         const { id, ...updateData } = item;
-
-        const cleanUpdateData = { ...updateData };
-        if ('password' in cleanUpdateData) delete (cleanUpdateData as any).password;
-        if ('passwordConfirmation' in cleanUpdateData) delete (cleanUpdateData as any).passwordConfirmation;
         
+        // Remove fields that should not be sent on update
+        const cleanUpdateData: Partial<T> = { ...updateData };
+        delete (cleanUpdateData as any).id;
+        delete (cleanUpdateData as any).created_at;
+        delete (cleanUpdateData as any).password;
+        delete (cleanUpdateData as any).passwordConfirmation;
+
         return handleSupabaseQuery(supabase.from(entity).update({ ...cleanUpdateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
       onSuccess: (data) => {
@@ -240,12 +245,12 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             const supabase = createClient();
             let userIdToDelete: string | null = null;
 
-            if (entity === 'businesses') {
-                const { data: business, error: getError } = await supabase.from('businesses').select('user_id').eq('id', id).single();
+            if (entity === 'businesses' || entity === 'riders') {
+                const { data: entityData, error: getError } = await supabase.from(entity).select('user_id').eq('id', id).single();
                 if (getError) {
-                     console.error("Error fetching business for deletion:", getError.message);
-                } else if (business?.user_id) {
-                    userIdToDelete = business.user_id;
+                     console.error(`Error fetching ${entity} for deletion:`, getError.message);
+                } else if (entityData?.user_id) {
+                    userIdToDelete = entityData.user_id;
                 }
             }
             
@@ -259,19 +264,19 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                 console.log(`Attempting to delete user ${userIdToDelete}`);
                 const { error: deleteUserError } = await supabase.from('users').delete().eq('id', userIdToDelete);
                 if (deleteUserError) {
-                    console.error(`Business deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
+                    console.error(`Entity deleted, but failed to delete associated user ${userIdToDelete}:`, deleteUserError.message);
                     // Do not throw an error here, just notify. The main entity was deleted.
                     toast({
                         variant: "warning",
                         title: "Error de Sincronización",
-                        description: `El negocio fue eliminado, pero no se pudo eliminar el usuario asociado.`,
+                        description: `El ${translatedEntity} fue eliminado, pero no se pudo eliminar el usuario asociado.`,
                     });
                 }
             }
         },
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
-            if (entity === 'businesses') {
+            if (entity === 'businesses' || entity === 'riders') {
                 queryClient.invalidateQueries({ queryKey: ['users'] });
             }
             toast({

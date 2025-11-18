@@ -190,5 +190,3 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
     },
   },
 ];
-
-    
