@@ -3,23 +3,23 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { Rider } from '@/types';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
     const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
     
     const { error: uploadError } = await supabaseAdmin.storage
-        .from('hidelivery') // your bucket name
+        .from(process.env.SUPABASE_BUCKET!)
         .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
         console.error(`Upload Error for ${fileName}:`, uploadError);
-        throw new Error(`Failed to upload ${fileName}.`);
+        throw new Error(`Failed to upload ${fileName}. Details: ${uploadError.message}`);
     }
 
-    const { data } = supabaseAdmin.storage.from('hidelivery').getPublicUrl(filePath);
+    const { data } = supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).getPublicUrl(filePath);
     return data.publicUrl;
 }
-
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const supabaseAdmin = createServerClient(
@@ -42,34 +42,49 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const fileFields = [
     'avatar_1x1_url', 'ine_front_url', 'ine_back_url', 'proof_of_address_url',
     'license_front_url', 'license_back_url', 'circulation_card_front_url', 'circulation_card_back_url',
-    'moto_photos_front', 'moto_photos_back', 'moto_photos_left', 'moto_photos_right',
-    'policy_first_page_url'
+    'policy_first_page_url',
+    // Moto photos are handled separately
+    'motoPhotoFront', 'motoPhotoBack', 'motoPhotoLeft', 'motoPhotoRight',
   ];
+  
+  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
 
   try {
+    const { data: existingRider, error: fetchError } = await supabaseAdmin.from('riders').select('moto_photos').eq('id', riderId).single();
+    if(fetchError) {
+      console.error('Error fetching existing rider for update:', fetchError);
+      return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
+    }
+
+    let motoPhotos: string[] = existingRider.moto_photos || [];
+
     // Handle file uploads
-    for (const field of fileFields) {
-      if (formData.has(field)) {
-        const file = formData.get(field) as File;
-        if (file && file.size > 0) {
-            // Special handling for moto photos
-            if(field.startsWith('moto_photos')) {
-                // This part needs more complex logic to handle array of photos
-                // For now, we'll just upload one by one if they exist
+    for (const [key, value] of formData.entries()) {
+        if (value instanceof File && value.size > 0) {
+            if (key.startsWith('motoPhoto')) {
+                const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+                motoPhotos.push(url);
             } else {
-                 updateData[field] = await uploadFileAndGetUrl(supabaseAdmin, file, riderId, field);
+                 const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase to snake_case
+                 updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             }
         }
-      }
+    }
+    
+    if (motoPhotos.length > 0) {
+        updateData['moto_photos'] = motoPhotos;
     }
 
     // Handle plain text fields
     for (const [key, value] of formData.entries()) {
-      if (!fileFields.includes(key) && typeof value === 'string') {
+      if (!(value instanceof File)) {
+        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase to snake_case
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
-            updateData[key] = value === 'true';
+            updateData[dbKey] = value === 'true';
+        } else if (dateFields.includes(dbKey)) {
+            updateData[dbKey] = new Date(value).toISOString();
         } else {
-            updateData[key] = value;
+            updateData[dbKey] = value;
         }
       }
     }
@@ -79,6 +94,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     updateData.updated_at = new Date().toISOString();
+    
+    // Ensure 'status' is updated to 'pending_review' if it's currently 'incomplete'
+    if (existingRider && (existingRider as Rider).status === 'incomplete' && Object.keys(updateData).length > 1) {
+        updateData.status = 'pending_review';
+    }
+
 
     const { data, error } = await supabaseAdmin
       .from('riders')
@@ -100,3 +121,4 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
+

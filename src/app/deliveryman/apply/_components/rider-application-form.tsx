@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { riderApplicationSchema } from "@/lib/schemas";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/store/auth-store";
+import { createClient } from "@/lib/supabase/client";
 
 import { Step1_AccountCreation } from "./step-1-account-creation";
 import { Step2_PersonalInfo } from "./step-2-personal-info";
@@ -76,7 +77,6 @@ export function RiderApplicationForm() {
   const { trigger, getValues } = methods;
 
   const handleApiResponse = async (response: Response) => {
-    // Try to parse JSON, but if it fails, get the raw text.
     let result;
     try {
         result = await response.json();
@@ -115,7 +115,6 @@ export function RiderApplicationForm() {
         const response = await fetch('/api/riders', { method: 'POST', body: formData });
         const result = await handleApiResponse(response);
 
-        // Only if the API returns a success status (201) will we proceed.
         if (response.status === 201 && result.rider) {
             login(result.rider);
             toast({
@@ -123,11 +122,9 @@ export function RiderApplicationForm() {
                 description: "Ahora puedes continuar con el resto de tu información.",
                 variant: "success",
             });
-            // Advance to the next step ONLY on success
             setDirection(1);
             setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
         } else {
-            // If it's not 201, it's an error handled by handleApiResponse, but we add a fallback toast.
             throw new Error(result.message || "No se pudo crear la cuenta.");
         }
       } else {
@@ -137,9 +134,32 @@ export function RiderApplicationForm() {
             return;
         }
 
-        // Logic for steps 2 onwards will be implemented once step 1 is solid.
-        // For now, we just advance visually.
-        console.log("Would be updating rider now...");
+        const supabase = createClient();
+        const { data: riderData, error: riderError } = await supabase.from('riders').select('id').eq('user_id', user.id).single();
+        if (riderError || !riderData) {
+            throw new Error("No se pudo encontrar el perfil de repartidor asociado a tu cuenta.");
+        }
+        const riderId = riderData.id;
+
+        const data = getValues();
+        const formData = new FormData();
+        const stepFields = STEPS[currentStep].fields as (keyof RiderFormValues)[];
+        
+        stepFields.forEach(key => {
+          const value = data[key] as any;
+          if (value instanceof FileList && value.length > 0) {
+            formData.append(key, value[0]);
+          } else if (value instanceof Date) {
+            formData.append(key, value.toISOString());
+          } else if (value !== null && value !== undefined && value !== '') {
+            formData.append(key, value);
+          }
+        });
+        
+        const response = await fetch(`/api/riders/${riderId}`, { method: 'PATCH', body: formData });
+        await handleApiResponse(response);
+        
+        toast({ title: "Progreso Guardado", description: "Tu información ha sido guardada.", variant: "success" });
         
         setDirection(1);
         setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
@@ -162,9 +182,11 @@ export function RiderApplicationForm() {
   };
   
   const onSubmitFinal = async () => {
-     // This will eventually handle the final submission.
-     // For now, it will trigger the logic for the last step.
      await nextStep();
+     // On final step, after PATCH, show success screen
+     if (methods.formState.isValid) {
+       setIsSuccess(true);
+     }
   }
   
   if (isSuccess) {
