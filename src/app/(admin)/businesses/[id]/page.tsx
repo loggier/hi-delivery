@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { notFound, useParams } from 'next/navigation';
 import React from 'react';
+import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
+
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -14,15 +16,36 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SubscriptionManager } from "./subscription-manager";
 
-const GHMapStub = ({ lat, lng }: { lat?: number, lng?: number }) => (
-    <div className="h-64 w-full bg-slate-200 rounded-md flex items-center justify-center">
-        {lat && lng ? (
-            <p className="text-slate-500 text-sm">Mapa para ({lat.toFixed(4)}, {lng.toFixed(4)})</p>
-        ) : (
-            <p className="text-slate-500 text-sm">Ubicación no disponible</p>
-        )}
-    </div>
-);
+const libraries: ('places')[] = ['places'];
+
+const BusinessLocationMap = ({ lat, lng }: { lat?: number, lng?: number }) => {
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries,
+    });
+
+    const center = React.useMemo(() => {
+        if (lat && lng) return { lat, lng };
+        return { lat: 19.4326, lng: -99.1332 }; // Default a Ciudad de México
+    }, [lat, lng]);
+
+    if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
+    if (!isLoaded) return <Skeleton className="h-64 w-full" />;
+
+    return (
+        <GoogleMap
+            mapContainerClassName="h-64 w-full rounded-md"
+            center={center}
+            zoom={15}
+            options={{
+                disableDefaultUI: true,
+                zoomControl: true,
+            }}
+        >
+            {lat && lng && <Marker position={{ lat, lng }} />}
+        </GoogleMap>
+    );
+};
 
 
 export default function ViewBusinessPage() {
@@ -145,7 +168,7 @@ export default function ViewBusinessPage() {
                                 <p>{business.city}, {business.state} {business.zip_code}</p>
                             </div>
                         </div>
-                        <GHMapStub lat={business.latitude} lng={business.longitude} />
+                        <BusinessLocationMap lat={business.latitude} lng={business.longitude} />
                     </div>
                 </div>
 
