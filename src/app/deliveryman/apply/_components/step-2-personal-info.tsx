@@ -120,7 +120,7 @@ export function Step2_PersonalInfo() {
       });
       
       const response = await fetch(`/api/riders/${rider.id}`, {
-        method: 'PATCH',
+        method: 'POST',
         body: formData,
       });
 

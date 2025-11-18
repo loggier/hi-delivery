@@ -148,7 +148,7 @@ export function Step3_VehicleInfo() {
       });
       
       const response = await fetch(`/api/riders/${rider.id}`, {
-        method: 'PATCH',
+        method: 'POST',
         body: formData,
       });
 

@@ -111,7 +111,7 @@ export function Step4_PolicyInfo() {
       });
       
       const response = await fetch(`/api/riders/${rider.id}`, {
-        method: 'PATCH',
+        method: 'POST',
         body: formData,
       });
 

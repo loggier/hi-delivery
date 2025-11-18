@@ -78,7 +78,7 @@ export function Step6_Submit() {
       formData.append('status', 'pending_review');
       
       const response = await fetch(`/api/riders/${rider.id}`, {
-        method: 'PATCH',
+        method: 'POST',
         body: formData,
       });
 

@@ -21,7 +21,7 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: stri
     return data.publicUrl;
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   const supabaseAdmin = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -121,7 +121,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ message: 'Perfil actualizado con éxito.', rider: data }, { status: 200 });
 
   } catch (error) {
-    console.error('Unexpected error in PATCH rider API:', error);
+    console.error('Unexpected error in POST rider API:', error);
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
