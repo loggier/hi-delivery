@@ -76,7 +76,7 @@ export function RiderApplicationForm() {
   const { trigger, getValues } = methods;
 
   const handleApiResponse = async (response: Response, isCreation: boolean = false) => {
-    const result = await response.json();
+    const result = await response.json().catch(() => ({ message: 'La respuesta del servidor no es un JSON válido.' }));
 
     if (!response.ok) {
         console.error("Server returned an error:", result);
@@ -116,23 +116,23 @@ export function RiderApplicationForm() {
             const data = getValues();
             const formData = new FormData();
             
-            fieldsToValidate.forEach(fieldKey => {
-                const key = fieldKey as keyof RiderFormValues;
-                formData.append(String(key), data[key] as any);
+            // Only send the required fields for account creation
+            const accountFields = STEPS[0].fields as (keyof RiderFormValues)[];
+            accountFields.forEach(key => {
+                formData.append(key, data[key] as any);
             });
 
             const response = await fetch('/api/riders', { method: 'POST', body: formData });
-            await handleApiResponse(response, true);
+            const result = await handleApiResponse(response, true);
+            
+            // For debugging: Stop after creation to verify in DB.
+            // Do not advance automatically.
+            console.log("Step 1 complete. Result:", result);
+        } else {
+            console.log("User already authenticated, advancing to next step without creating account.");
+            setDirection(1);
+            setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
         }
-        // For debugging: Stop after creation.
-        toast({
-          title: "Paso 1 Completado",
-          description: "La creación de cuenta se ha ejecutado. Revisa la consola y la base de datos.",
-        });
-        // Remove the line below to stop auto-advancing
-        // setDirection(1);
-        // setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
-
       } else {
         // --- STEPS 2 and onwards: Profile Update ---
         if (!isAuthenticated || !user?.id) {
@@ -180,10 +180,7 @@ export function RiderApplicationForm() {
   };
   
   const onSubmitFinal = async () => {
-     // The last step is handled by the nextStep logic when it's on the last step
      await nextStep();
-     // If successful, you could set the success state
-     // setIsSuccess(true);
   }
   
   if (isSuccess) {
@@ -258,3 +255,5 @@ export function RiderApplicationForm() {
     </FormProvider>
   );
 }
+
+    
