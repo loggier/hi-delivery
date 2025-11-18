@@ -41,30 +41,28 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Process files first
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
-            // Handle logoUrl specifically
             if (key === 'logoUrl') {
                 updateData['logo_url'] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, 'logo');
             } else {
-                 const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-                 updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, key);
+                 updateData[key] = await uploadFileAndGetUrl(supabaseAdmin, value, businessId, key);
             }
         }
     }
 
-    // Process other fields
+    // Process other fields, excluding files and the special flag
     for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File) && value !== null && value !== undefined && value !== '' && key !== 'logoUrl') {
+      if (!(value instanceof File) && key !== 'final_submission' && key !== 'logoUrl') {
         if (['latitude', 'longitude'].includes(key)) {
              updateData[key] = parseFloat(value as string);
         } else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
             updateData[key] = `+52${value}`;
-        } else {
+        } else if (value !== null && value !== undefined && value !== '') {
             updateData[key] = value;
         }
       }
     }
     
-    if (Object.keys(updateData).length === 0) {
+    if (Object.keys(updateData).length === 0 && !formData.has('final_submission')) {
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 400 });
     }
 
