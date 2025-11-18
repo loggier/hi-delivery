@@ -5,7 +5,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
+import { useLoadScript, GoogleMap, Autocomplete as GoogleAutocomplete, Marker } from '@react-google-maps/api';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,11 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import { type Business, type BusinessType, type BusinessCategory, type Zone } from "@/types";
+import { type Business, type BusinessCategory, type Zone } from "@/types";
 import { businessSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
@@ -41,28 +43,83 @@ interface BusinessFormProps {
   zones: Zone[];
 }
 
-const GHMapStub = ({ onChange }: { onChange: (coords: {lat: number, lng: number}) => void }) => (
-    <div className="h-full min-h-[200px] w-full bg-slate-200 rounded-md flex items-center justify-center">
-        <Button type="button" variant="outline" onClick={() => onChange({ lat: 19.4326, lng: -99.1332 })}>
-            Simular selección de mapa
-        </Button>
-    </div>
-);
+const libraries: ('places')[] = ['places'];
+
+const BusinessMap = ({ value, onChange }: { value: { lat?: number, lng?: number }, onChange: (coords: { lat: number, lng: number }) => void }) => {
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries,
+    });
+
+    const autocompleteRef = React.useRef<google.maps.places.Autocomplete | null>(null);
+    const mapRef = React.useRef<google.maps.Map | null>(null);
+
+    const onMapLoad = React.useCallback((map: google.maps.Map) => {
+        mapRef.current = map;
+    }, []);
+
+    const onPlaceChanged = () => {
+        if (autocompleteRef.current) {
+            const place = autocompleteRef.current.getPlace();
+            if (place.geometry?.location) {
+                const lat = place.geometry.location.lat();
+                const lng = place.geometry.location.lng();
+                onChange({ lat, lng });
+                mapRef.current?.panTo({ lat, lng });
+                mapRef.current?.setZoom(15);
+            }
+        }
+    };
+
+    const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
+        autocompleteRef.current = autocomplete;
+    };
+
+    if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
+    if (!isLoaded) return <Skeleton className="h-96 w-full" />;
+
+    return (
+        <div className="space-y-4">
+            <GoogleAutocomplete onLoad={onAutocompleteLoad} onPlaceChanged={onPlaceChanged}>
+                <Input type="text" placeholder="Buscar dirección para ubicar en el mapa..." className="w-full" />
+            </GoogleAutocomplete>
+            <GoogleMap
+                mapContainerClassName="h-80 w-full rounded-md"
+                center={value}
+                zoom={15}
+                onLoad={onMapLoad}
+                 options={{
+                    disableDefaultUI: true,
+                    zoomControl: true,
+                }}
+            >
+                {value.lat && value.lng && <Marker position={value} />}
+            </GoogleMap>
+        </div>
+    );
+};
+
 
 const ImageUpload = ({ value, onChange }: { value?: string, onChange: (value: string) => void }) => {
     const [preview, setPreview] = React.useState(value);
 
-    const handleUpload = () => {
-        // Mock upload logic
-        const mockImageUrl = "https://picsum.photos/seed/newlogo/200/200";
+    React.useEffect(() => {
+        setPreview(value);
+    }, [value]);
+
+    const handleUpload = async () => {
+        // En una app real, esto abriría un selector de archivos
+        // y subiría el archivo a un servicio de almacenamiento.
+        // Aquí simulamos ese proceso.
+        const mockImageUrl = `https://picsum.photos/seed/${Math.random()}/200/200`;
         setPreview(mockImageUrl);
         onChange(mockImageUrl);
-    }
+    };
     
     return (
         <div className="flex items-center gap-4">
-             <div className="w-24 h-24 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden">
-                {preview ? <img src={preview} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-500">Logo</span>}
+             <div className="w-24 h-24 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden border">
+                {preview ? <img src={preview} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-xs text-slate-500">Sin logo</span>}
             </div>
             <Button type="button" variant="outline" onClick={handleUpload}><Upload className="mr-2"/> Subir logo</Button>
         </div>
@@ -80,26 +137,12 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: {
-      name: "",
-      type: "restaurant",
-      category_id: "",
-      zone_id: "",
-      email: "",
-      owner_name: "",
-      phone_whatsapp: "",
-      address_line: "",
-      neighborhood: "",
-      city: "Ciudad de México",
-      state: "CDMX",
-      zip_code: "",
-      tax_id: "",
-      website: "",
-      instagram: "",
-      logo_url: "",
-      notes: "",
-      status: "ACTIVE",
-      password: "",
-      passwordConfirmation: "",
+      name: "", type: "restaurant", category_id: "", zone_id: "",
+      email: "", owner_name: "", phone_whatsapp: "", address_line: "",
+      neighborhood: "", city: "Ciudad de México", state: "CDMX",
+      zip_code: "", tax_id: "", website: "", instagram: "", logo_url: "",
+      notes: "", status: "ACTIVE", password: "", passwordConfirmation: "",
+      latitude: 19.4326, longitude: -99.1332,
     },
   });
 
@@ -114,6 +157,8 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             instagram: initialData.instagram || "",
             logo_url: initialData.logo_url || "",
             notes: initialData.notes || "",
+            latitude: initialData.latitude || 19.4326,
+            longitude: initialData.longitude || -99.1332,
             password: "",
             passwordConfirmation: "",
         });
@@ -124,13 +169,17 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
     control: form.control,
     name: 'type',
   });
+  
+  const mapCoords = useWatch({
+    control: form.control,
+    name: ['latitude', 'longitude']
+  })
 
   const availableCategories = React.useMemo(() => {
     return categories?.filter(c => c.type === selectedType && c.active) || [];
   }, [selectedType, categories]);
 
   React.useEffect(() => {
-    // Reset category if type changes and current category is not valid for the new type
     const currentCategoryId = form.getValues('category_id');
     if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
         form.setValue('category_id', '');
@@ -140,7 +189,6 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   const onSubmit = async (data: BusinessFormValues) => {
     try {
       if (isEditing && initialData) {
-        // Exclude password fields on update
         const { password, passwordConfirmation, ...updateData } = data;
         await updateMutation.mutateAsync({ ...updateData, id: initialData.id });
       } else {
@@ -354,8 +402,11 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
         </Card>
 
         <Card>
-            <CardContent className="pt-6 space-y-6">
-                 <h3 className="text-lg font-medium">Ubicación</h3>
+            <CardHeader>
+                <CardTitle>Ubicación</CardTitle>
+                <CardDescription>Busca la dirección o arrastra el marcador para definir la ubicación exacta de tu negocio.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">
                         <FormField
@@ -429,19 +480,29 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
                      <div>
                         <FormLabel>Geolocalización</FormLabel>
                         <FormControl>
-                            <GHMapStub onChange={(coords) => {
-                                form.setValue('latitude', coords.lat);
-                                form.setValue('longitude', coords.lng);
-                            }} />
+                             <BusinessMap 
+                                value={{ lat: mapCoords[0], lng: mapCoords[1] }} 
+                                onChange={(coords) => {
+                                    form.setValue('latitude', coords.lat, { shouldValidate: true });
+                                    form.setValue('longitude', coords.lng, { shouldValidate: true });
+                                }}
+                            />
                         </FormControl>
+                        <FormField
+                            control={form.control}
+                            name="latitude"
+                            render={() => <FormMessage />}
+                        />
                      </div>
                 </div>
             </CardContent>
         </Card>
 
         <Card>
-            <CardContent className="pt-6 space-y-6">
-                 <h3 className="text-lg font-medium">Información Adicional (Opcional)</h3>
+            <CardHeader>
+                <CardTitle>Información Adicional (Opcional)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                      <FormField
                         control={form.control}
@@ -532,6 +593,7 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             Cancelar
             </Button>
             <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             {isPending ? "Guardando..." : formAction}
             </Button>
         </div>
