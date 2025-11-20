@@ -85,11 +85,16 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
 
     try {
       const formData = new FormData();
-      const submittedKeys = Object.keys(data);
+      const motoPhotoKeys: (keyof RiderFormValues)[] = ['motoPhotoFront', 'motoPhotoBack', 'motoPhotoLeft', 'motoPhotoRight'];
       
-      submittedKeys.forEach(key => {
+      Object.keys(data).forEach(key => {
         const fieldKey = key as keyof RiderFormValues;
         const value = data[fieldKey];
+
+        // Skip motoPhoto fields that are not new files
+        if (motoPhotoKeys.includes(fieldKey) && !(value instanceof FileList)) {
+            return;
+        }
 
         if (value instanceof FileList && value.length > 0) {
           formData.append(fieldKey, value[0]);
