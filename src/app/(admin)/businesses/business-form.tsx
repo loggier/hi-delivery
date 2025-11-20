@@ -47,7 +47,7 @@ interface BusinessFormProps {
 
 const libraries: ('places')[] = ['places'];
 
-const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps.places.PlaceResult) => void }) => {
+const BusinessMap = () => {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
@@ -75,7 +75,29 @@ const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps
                 const lng = place.geometry.location.lng();
                 setValue('latitude', lat);
                 setValue('longitude', lng);
-                onPlaceSelected(place);
+                
+                let address = '';
+                let neighborhood = '';
+                let city = '';
+                let state = '';
+                let postalCode = '';
+
+                place.address_components?.forEach(component => {
+                    const types = component.types;
+                    if (types.includes('street_number')) address = `${address} ${component.long_name}`;
+                    if (types.includes('route')) address = `${component.long_name}${address ? ' ' + address : ''}`;
+                    if (types.includes('sublocality_level_1') || types.includes('neighborhood')) neighborhood = component.long_name;
+                    if (types.includes('locality')) city = component.long_name;
+                    if (types.includes('administrative_area_level_1')) state = component.short_name;
+                    if (types.includes('postal_code')) postalCode = component.long_name;
+                });
+
+                setValue('address_line', address.trim());
+                setValue('neighborhood', neighborhood);
+                setValue('city', city);
+                setValue('state', state);
+                setValue('zip_code', postalCode);
+
                 mapRef.current?.panTo({ lat, lng });
                 mapRef.current?.setZoom(15);
             }
@@ -143,40 +165,8 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
     }
   }, [selectedType, availableCategories, methods]);
 
-  const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
-    let address = '';
-    let neighborhood = '';
-    let city = '';
-    let state = '';
-    let postalCode = '';
-
-    place.address_components?.forEach(component => {
-        const types = component.types;
-        if (types.includes('street_number')) address = `${address} ${component.long_name}`;
-        if (types.includes('route')) address = `${component.long_name}${address ? ' ' + address : ''}`;
-        if (types.includes('sublocality_level_1') || types.includes('neighborhood')) neighborhood = component.long_name;
-        if (types.includes('locality')) city = component.long_name;
-        if (types.includes('administrative_area_level_1')) state = component.short_name;
-        if (types.includes('postal_code')) postalCode = component.long_name;
-    });
-
-    methods.setValue('address_line', address.trim());
-    methods.setValue('neighborhood', neighborhood);
-    methods.setValue('city', city);
-    methods.setValue('state', state);
-    methods.setValue('zip_code', postalCode);
-  };
-
   const onSubmit = async (data: BusinessFormValues) => {
     const isEditingMode = !!data.id;
-    
-    // For updates, remove password fields if they are empty
-    if (isEditingMode) {
-        if (!data.password) {
-            delete (data as Partial<BusinessFormValues>).password;
-            delete (data as Partial<BusinessFormValues>).passwordConfirmation;
-        }
-    }
     
     const formData = new FormData();
 
@@ -189,6 +179,14 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
             formData.append(key, value);
         }
     };
+    
+    // For updates, remove password fields if they are empty
+    if (isEditingMode) {
+        if (!data.password) {
+            delete (data as Partial<BusinessFormValues>).password;
+            delete (data as Partial<BusinessFormValues>).passwordConfirmation;
+        }
+    }
     
     Object.keys(data).forEach(key => {
         appendFormData(key, data[key as keyof BusinessFormValues]);
@@ -445,7 +443,7 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
                      <div>
                         <FormLabel>Geolocalización</FormLabel>
                         <FormControl>
-                             <BusinessMap onPlaceSelected={handlePlaceSelected} />
+                             <BusinessMap />
                         </FormControl>
                         <FormField control={methods.control} name="latitude" render={() => <FormMessage />} />
                      </div>
@@ -510,7 +508,7 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       id: undefined,
       name: "",
       type: undefined,
@@ -549,7 +547,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   });
 
   useEffect(() => {
-    if (initialData) {
+    if (initialData && zones && zones.length > 0) {
       methods.reset({
         ...initialData,
         zone_id: initialData.zone_id || "",
@@ -558,7 +556,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         notes: initialData.notes ?? "",
       });
     }
-  }, [initialData, methods]);
+  }, [initialData, zones, methods]);
 
 
   return (
