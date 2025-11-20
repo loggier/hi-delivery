@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 const navLinks = [
   { href: "#benefits", label: "Beneficios" },
@@ -17,6 +18,7 @@ const navLinks = [
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -25,6 +27,13 @@ export function Header() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const getLinkHref = (href: string) => {
+    if (pathname === '/site' || pathname === '/') {
+        return href;
+    }
+    return `/site/${href}`;
+  }
 
   return (
     <header
@@ -43,7 +52,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={getLinkHref(link.href)}
                 className="text-sm font-medium text-slate-600 hover:text-primary dark:text-slate-300 dark:hover:text-primary"
               >
                 {link.label}
@@ -75,7 +84,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={getLinkHref(link.href)}
                 className="text-lg font-medium text-slate-600 hover:text-primary dark:text-slate-300"
                 onClick={() => setIsMenuOpen(false)}
               >
