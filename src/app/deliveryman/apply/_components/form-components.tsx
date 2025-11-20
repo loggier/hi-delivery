@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface FormInputProps extends InputProps {
   name: string;
@@ -36,6 +37,32 @@ export const FormInput = ({ name, label, description, ...props }: FormInputProps
     )}
   />
 );
+
+interface FormCheckboxProps {
+  name: string;
+  label: string;
+}
+
+export const FormCheckbox = ({ name, label }: FormCheckboxProps) => (
+    <FormField
+        name={name}
+        render={({ field }) => (
+             <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                    <Checkbox
+                        id={name}
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                    />
+                </FormControl>
+                <FormLabel htmlFor={name} className="font-normal">
+                    {label}
+                </FormLabel>
+            </FormItem>
+        )}
+    />
+);
+
 
 interface FormSelectProps {
   name: string;

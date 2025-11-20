@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { riderApplicationBaseSchema, riderAdminUpdateSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { type Rider, type Zone, type RiderStatus } from "@/types";
-import { FormDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload } from "@/app/deliveryman/apply/_components/form-components";
+import { FormDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload, FormCheckbox } from "@/app/deliveryman/apply/_components/form-components";
 import { vehicleBrands, vehicleYears } from "@/lib/constants";
 import { useWatch } from "react-hook-form";
 
@@ -188,10 +188,10 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
 
              <Card>
                 <CardHeader><CardTitle>Extras</CardTitle></CardHeader>
-                <CardContent className="flex gap-8">
-                     <FormInput type="checkbox" name="hasHelmet" label="Casco"/>
-                     <FormInput type="checkbox" name="hasUniform" label="Uniforme"/>
-                     <FormInput type="checkbox" name="hasBox" label="Caja"/>
+                <CardContent className="space-y-4">
+                    <FormCheckbox name="hasHelmet" label="Cuenta con casco de seguridad" />
+                    <FormCheckbox name="hasUniform" label="Cuenta con uniforme (propio o de Hi! Delivery)" />
+                    <FormCheckbox name="hasBox" label="Cuenta con caja de reparto" />
                 </CardContent>
             </Card>
 
