@@ -19,10 +19,9 @@ import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/auth-store";
 import { signInSchema } from "@/lib/schemas";
 import { useToast } from "@/hooks/use-toast";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import placeholderImages from "@/lib/placeholder-images.json";
+import { User } from "@/types";
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -43,38 +42,27 @@ export default function SignInPage() {
   });
 
   async function onSubmit(data: SignInFormValues) {
-    try {
-      const response = await fetch('/api/auth/sign-in', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Error al iniciar sesión.');
-      }
-      
-      login(result.user);
-      
-      toast({
-        title: "Inicio de Sesión Exitoso",
-        description: `¡Bienvenido de nuevo, ${result.user.name}!`,
-        variant: 'success'
-      });
-      
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error: any) {
-       toast({
-        variant: "destructive",
-        title: "Error de autenticación",
-        description: error.message || "Credenciales inválidas. Por favor, inténtalo de nuevo.",
-      });
-    }
+    // Simulación de inicio de sesión exitoso
+    const mockUser: User = {
+        id: 'user-admin-mock',
+        name: 'Admin',
+        email: data.email,
+        created_at: new Date().toISOString(),
+        role_id: 'role-admin',
+        status: 'ACTIVE',
+        avatar_url: 'https://i.pravatar.cc/150?u=admin-mock'
+    };
+    
+    login(mockUser);
+    
+    toast({
+      title: "Inicio de Sesión Exitoso",
+      description: `¡Bienvenido de nuevo, ${mockUser.name}!`,
+      variant: 'success'
+    });
+    
+    router.push("/dashboard");
+    router.refresh();
   }
 
   if (isLoading) {
@@ -87,13 +75,13 @@ export default function SignInPage() {
 
   return (
     <>
-      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="hidden lg:flex items-center justify-center bg-secondary/10 p-10">
+         <Image src="/logo-hidelivery.png" alt={`Logo ${appName}`} width={250} height={100} />
+      </div>
+       <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-             <div className="mb-4 flex justify-center">
-                <Image src="/logo-hid.png" alt={`Logo ${appName}`} width={64} height={64} />
-            </div>
-            <h1 className="text-3xl font-bold">{appName}</h1>
+            <h1 className="text-3xl font-bold">Iniciar Sesión</h1>
             <p className="text-balance text-muted-foreground">
               Ingresa tus credenciales para acceder al panel
             </p>
@@ -124,7 +112,7 @@ export default function SignInPage() {
                        <div className="flex items-center">
                         <FormLabel>Contraseña</FormLabel>
                         <Link
-                          href="/forgot-password"
+                          href="#"
                           className="ml-auto inline-block text-sm underline"
                         >
                           ¿Olvidaste tu contraseña?
@@ -145,17 +133,6 @@ export default function SignInPage() {
             </form>
           </Form>
         </div>
-      </div>
-      <div className="hidden bg-muted lg:block relative">
-        <Image
-          src={placeholderImages.heroRider.src}
-          alt="Imagen de fondo de un repartidor"
-          data-ai-hint="motorcycle delivery city"
-          fill
-          style={{objectFit:"cover"}}
-          className="brightness-50"
-        />
-         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
       </div>
     </>
   );
