@@ -6,9 +6,8 @@ import React, { useMemo, useEffect } from "react";
 import { useForm, FormProvider, useFormContext, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
 import { Loader2, MapPin } from "lucide-react";
-import { useLoadScript, GoogleMap, Autocomplete as GoogleAutocomplete, Marker } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, Autocomplete as GoogleAutocomplete } from '@react-google-maps/api';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,11 +40,6 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
-
-interface BusinessFormProps {
-  availableCategories: BusinessCategory[];
-  zones: Zone[];
-}
 
 const libraries: ('places')[] = ['places'];
 
@@ -138,13 +132,24 @@ const BusinessMap = () => {
                     zoomControl: true,
                 }}
             >
-                {lat && lng && <Marker position={{ lat, lng }} />}
+                {lat && lng && <MapPin
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -100%)',
+                            color: 'hsl(var(--hid-primary))',
+                            height: '40px',
+                            width: '40px'
+                        }}
+                    />
+                }
             </GoogleMap>
         </div>
     );
 };
 
-function BusinessForm({ availableCategories, zones }: { availableCategories: BusinessCategory[]; zones: Zone[]}) {
+function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCategory[]; zones: Zone[]}) {
   const router = useRouter();
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
@@ -155,6 +160,18 @@ function BusinessForm({ availableCategories, zones }: { availableCategories: Bus
 
   const selectedType = useWatch({ control: methods.control, name: 'type' });
 
+  const availableCategories = useMemo(() => {
+    if (!selectedType || !allCategories) return [];
+    return allCategories.filter(c => c.type === selectedType && c.active);
+  }, [selectedType, allCategories]);
+
+  useEffect(() => {
+    const currentCategoryId = methods.getValues('category_id');
+    if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
+        methods.setValue('category_id', undefined);
+    }
+  }, [selectedType, availableCategories, methods]);
+
   const onSubmit = async (data: BusinessFormValues) => {
     const isEditingMode = !!data.id;
     
@@ -163,7 +180,6 @@ function BusinessForm({ availableCategories, zones }: { availableCategories: Bus
     Object.keys(data).forEach(key => {
         const value = data[key as keyof BusinessFormValues];
         
-        // Exclude password fields if they are empty during an update
         if (isEditingMode && (key === 'password' || key === 'passwordConfirmation')) {
             if (!value) return;
         }
@@ -172,7 +188,7 @@ function BusinessForm({ availableCategories, zones }: { availableCategories: Bus
             formData.append(key, value[0]);
         } else if (typeof value === 'boolean') {
             formData.append(key, String(value));
-        } else if (value && typeof value !== 'object') {
+        } else if (value !== null && value !== undefined && value !== '') {
             formData.append(key, String(value));
         }
     });
@@ -250,7 +266,7 @@ function BusinessForm({ availableCategories, zones }: { availableCategories: Bus
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    {availableCategories.map(cat => (
+                                    {(availableCategories || []).map(cat => (
                                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -511,11 +527,6 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     },
   });
 
-  const availableCategories = useMemo(() => {
-    if (!initialData?.type || !categories) return [];
-    return categories.filter(c => c.type === initialData.type && c.active);
-  }, [initialData?.type, categories]);
-
   useEffect(() => {
     // Only reset the form if all async data is available
     if (initialData && zones && categories) {
@@ -536,9 +547,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
 
   return (
     <FormProvider {...methods}>
-      <BusinessForm allCategories={availableCategories} zones={zones} />
+      <BusinessForm allCategories={categories} zones={zones} />
     </FormProvider>
   )
 }
-
-    
