@@ -224,31 +224,22 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const watchedValue = watch(name);
     const [fileName, setFileName] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const inputRef = React.useRef<HTMLInputElement | null>(null);
     
     useEffect(() => {
-        if (typeof watchedValue === 'string') {
-            setFileName(watchedValue.split('/').pop() || null);
+        if (typeof watchedValue === 'string' && watchedValue) {
+            setFileName(watchedValue.split('/').pop() || watchedValue);
         } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
-            const file = watchedValue[0];
-            setFileName(file.name);
+            setFileName(watchedValue[0].name);
         } else {
             setFileName(null);
         }
     }, [watchedValue]);
 
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(name, e.target.files, { shouldValidate: true });
-    }
-
     const handleRemove = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setValue(name, null, { shouldValidate: true });
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
     }
 
     const handleDragEvents = (e: React.DragEvent<HTMLLabelElement>, isEntering: boolean) => {
@@ -259,14 +250,8 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     
     const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
         handleDragEvents(e, false);
-        const droppedFiles = e.dataTransfer.files;
-        if (droppedFiles && droppedFiles.length > 0) {
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(droppedFiles[0]);
-            setValue(name, dataTransfer.files, { shouldValidate: true });
-            if (inputRef.current) {
-                inputRef.current.files = dataTransfer.files;
-            }
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            setValue(name, e.dataTransfer.files, { shouldValidate: true });
         }
     };
     
@@ -276,7 +261,7 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, onBlur } }) => (
+            render={({ field: { onChange, onBlur, ref } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -298,11 +283,8 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                     className="hidden"
                                     id={name}
                                     accept={accept}
-                                    ref={(e) => {
-                                        ref(e);
-                                        inputRef.current = e;
-                                    }}
-                                    onChange={handleFileChange}
+                                    ref={ref}
+                                    onChange={(e) => onChange(e.target.files)}
                                     onBlur={onBlur}
                                 />
                                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
@@ -337,10 +319,9 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
     const { control, watch, setValue, formState: { errors } } = useFormContext();
     const watchedValue = watch(name);
     const [preview, setPreview] = useState<string | null>(null);
-    const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useEffect(() => {
-        if (typeof watchedValue === 'string') {
+        if (typeof watchedValue === 'string' && watchedValue) {
             setPreview(watchedValue);
         } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
             const file = watchedValue[0];
@@ -359,22 +340,15 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
       e.preventDefault();
       e.stopPropagation();
       setValue(name, null, { shouldValidate: true });
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
     }
     
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(name, e.target.files, { shouldValidate: true });
-    };
-
     const hasError = !!errors[name];
 
     return (
         <FormField
             name={name}
             control={control}
-            render={({ field: { ref, onBlur } }) => (
+            render={({ field: { onChange, onBlur, ref } }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
@@ -392,12 +366,9 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
                                 className="hidden"
                                 id={name}
                                 accept="image/jpeg,image/png"
-                                ref={(e) => {
-                                    ref(e);
-                                    inputRef.current = e;
-                                }}
+                                ref={ref}
                                 onBlur={onBlur}
-                                onChange={handleFileChange}
+                                onChange={(e) => onChange(e.target.files)}
                             />
                             {preview ? (
                                 <>
@@ -434,10 +405,9 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   const watchedValue = watch(name);
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-     if (typeof watchedValue === 'string') {
+     if (typeof watchedValue === 'string' && watchedValue) {
         setPreview(watchedValue);
     } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
         const file = watchedValue[0];
@@ -453,11 +423,6 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
     e.preventDefault();
     e.stopPropagation();
     setValue(name, null, { shouldValidate: true });
-    if (inputRef.current) inputRef.current.value = "";
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(name, e.target.files, { shouldValidate: true });
   };
   
   const handleDragEvents = (e: React.DragEvent<HTMLLabelElement>, isEntering: boolean) => {
@@ -468,14 +433,8 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     handleDragEvents(e, false);
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles && droppedFiles.length > 0) {
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(droppedFiles[0]);
-        setValue(name, dataTransfer.files, { shouldValidate: true });
-        if (inputRef.current) {
-            inputRef.current.files = dataTransfer.files;
-        }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        setValue(name, e.dataTransfer.files, { shouldValidate: true });
     }
   };
 
@@ -485,7 +444,7 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
     <FormField
       name={name}
       control={control}
-      render={({ field: { ref, onBlur } }) => (
+      render={({ field: { onChange, onBlur, ref } }) => (
         <FormItem className="space-y-1">
           <FormLabel className="text-sm">{label}</FormLabel>
           <FormControl>
@@ -506,8 +465,8 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
                 id={name}
                 className="hidden"
                 accept="image/jpeg,image/png"
-                ref={(e) => { ref(e); inputRef.current = e; }}
-                onChange={handleFileChange}
+                ref={ref}
+                onChange={(e) => onChange(e.target.files)}
                 onBlur={onBlur}
               />
               {preview ? (
@@ -553,3 +512,5 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
+
+    
