@@ -162,6 +162,41 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     });
   };
 
+    const useUpdateWithFormData = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation<T, Error, { formData: FormData, id: string }>({
+      mutationFn: async ({ formData, id }) => {
+        const response = await fetch(`/api/${entity}/${id}`, {
+          method: 'POST', // Using POST to handle FormData
+          body: formData,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
+        }
+        return result.business; // The API returns { message, business }
+      },
+      onSuccess: (data) => {
+        queryClient.invalidateQueries({ queryKey: entityKey });
+        queryClient.setQueryData([...entityKey, data.id], data);
+        toast({
+          title: "Éxito",
+          description: `${translatedEntity} actualizado exitosamente.`,
+          variant: 'success',
+        });
+      },
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Error al actualizar",
+          description: error.message,
+        });
+      },
+    });
+  };
+
   // UPDATE
   const useUpdate = () => {
     const queryClient = useQueryClient();
@@ -226,7 +261,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     });
   };
   
-  return { useGetAll, useGetOne, useCreate, useUpdate, useDelete, useCreateWithFormData };
+  return { useGetAll, useGetOne, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
 // Special API for settings as it's a single-row table
@@ -291,7 +326,6 @@ export const api = {
     business_categories: createCRUDApi<BusinessCategory>('business_categories'),
     businesses: {
         ...createCRUDApi<Business>('businesses'),
-        useCreateWithFormData: createCRUDApi<Business>('businesses').useCreateWithFormData,
     },
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
