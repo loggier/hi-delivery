@@ -3,11 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -39,8 +38,9 @@ type VehicleInfoFormValues = z.infer<typeof vehicleInfoSchema>;
 
 export function Step3_VehicleInfo() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const riderId = searchParams.get('id');
   const { toast } = useToast();
-  const { riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
@@ -70,7 +70,8 @@ export function Step3_VehicleInfo() {
   useEffect(() => {
     async function fetchRiderData() {
       if (!riderId) {
-        setIsFetchingData(false);
+        toast({ title: "Error de ID", description: "No se encontró el ID del repartidor. Por favor, vuelve al paso 1.", variant: "destructive" });
+        router.push('/deliveryman/apply');
         return;
       }
       setIsFetchingData(true);
@@ -109,7 +110,7 @@ export function Step3_VehicleInfo() {
       }
     }
     fetchRiderData();
-  }, [riderId, methods, toast]);
+  }, [riderId, methods, toast, router]);
 
   const brand = useWatch({ control: methods.control, name: 'brand' });
 
@@ -149,7 +150,7 @@ export function Step3_VehicleInfo() {
       }
       
       toast({ title: "Información de Vehículo Guardada", variant: "success" });
-      router.push('/deliveryman/apply/policy-info');
+      router.push(`/deliveryman/apply/policy-info?id=${riderId}`);
 
     } catch (error) {
       toast({
@@ -201,11 +202,11 @@ export function Step3_VehicleInfo() {
                 />
                 <div />
 
-                <FormSelect name="brand" label="Marca de la Moto" placeholder="Selecciona la marca" options={vehicleBrands} />
+                <FormSelect name="brand" label="Marca de la Moto" placeholder="Selecciona la marca" options={vehicleBrands.map(b => ({value: b, label: b}))} />
                 {brand === 'Otra' && (
                     <FormInput name="brandOther" label="Especifica la marca" placeholder="Ej. BMW" />
                 )}
-                <FormSelect name="year" label="Año" placeholder="Selecciona el año" options={vehicleYears} />
+                <FormSelect name="year" label="Año" placeholder="Selecciona el año" options={vehicleYears.map(y => ({value: y, label: y}))} />
                 <FormInput name="model" label="Modelo" placeholder="Ej. N-Max" />
                 <FormInput name="color" label="Color" placeholder="Ej. Negro" />
                 <FormInput name="plate" label="Placa" placeholder="Ej. ABC-123-DE" />

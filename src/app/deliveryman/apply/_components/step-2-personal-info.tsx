@@ -3,15 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { FormInput, FormDatePicker, FormSelect, FormFileUpload } from './form-components';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,8 +28,9 @@ type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 
 export function Step2_PersonalInfo() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const riderId = searchParams.get('id');
   const { toast } = useToast();
-  const { user, riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll({ status: 'ACTIVE' });
@@ -53,7 +53,8 @@ export function Step2_PersonalInfo() {
   useEffect(() => {
     async function fetchRiderData() {
       if (!riderId) {
-        setIsFetchingData(false);
+        toast({ title: "Error de ID", description: "No se encontró el ID del repartidor. Por favor, vuelve al paso 1.", variant: "destructive" });
+        router.push('/deliveryman/apply');
         return;
       };
       setIsFetchingData(true);
@@ -88,7 +89,7 @@ export function Step2_PersonalInfo() {
       }
     }
     fetchRiderData();
-  }, [riderId, methods, toast]);
+  }, [riderId, methods, toast, router]);
 
   const onSubmit = async (data: PersonalInfoFormValues) => {
     if (!riderId) {
@@ -122,7 +123,7 @@ export function Step2_PersonalInfo() {
       }
       
       toast({ title: "Información Guardada", variant: "success" });
-      router.push('/deliveryman/apply/vehicle-info');
+      router.push(`/deliveryman/apply/vehicle-info?id=${riderId}`);
 
     } catch (error) {
       toast({

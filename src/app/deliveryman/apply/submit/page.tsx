@@ -1,9 +1,11 @@
 
+"use client";
+import { Suspense } from 'react';
 import { Icons } from "@/components/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Step6_Submit } from "../_components/step-6-submit";
 
-export default function SubmitPage() {
+function SubmitPageContent() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -24,4 +26,12 @@ export default function SubmitPage() {
       </div>
     </main>
   );
+}
+
+export default function SubmitPage() {
+    return (
+        <Suspense fallback={<div>Cargando...</div>}>
+            <SubmitPageContent />
+        </Suspense>
+    )
 }

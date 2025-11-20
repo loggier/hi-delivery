@@ -3,11 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, ShieldCheck, CheckCircle } from 'lucide-react';
@@ -24,12 +23,12 @@ type SubmitFormValues = z.infer<typeof submitSchema>;
 
 export function Step6_Submit() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const riderId = searchParams.get('id');
   const { toast } = useToast();
-  const { riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isFetchingData, setIsFetchingData] = useState(true);
-
+  
   const methods = useForm<SubmitFormValues>({
     resolver: zodResolver(submitSchema),
     mode: 'onChange',
@@ -40,12 +39,9 @@ export function Step6_Submit() {
 
   useEffect(() => {
     if (!riderId) {
-        // This case should ideally not happen if middleware is correct
         toast({ title: "Error de sesión", description: "No se pudo encontrar tu ID. Por favor, inicia sesión de nuevo.", variant: "destructive" });
         router.push('/deliveryman/apply');
     }
-    // No data to fetch for this step, just check riderId
-    setIsFetchingData(false);
   }, [riderId, router, toast]);
 
   const onSubmit = async (data: SubmitFormValues) => {
@@ -102,22 +98,6 @@ export function Step6_Submit() {
     )
   }
 
-  if (isFetchingData) {
-      return (
-          <div className="space-y-8">
-            <Skeleton className="h-16 w-full" />
-            <div className="max-w-xs mx-auto">
-                <Skeleton className="aspect-square w-full" />
-            </div>
-            <Skeleton className="h-36 w-full" />
-            <div className="flex justify-between">
-              <Skeleton className="h-10 w-24" />
-              <Skeleton className="h-10 w-44" />
-          </div>
-        </div>
-      )
-  }
-
   return (
     <FormProvider {...methods}>
        <Form {...methods}>
@@ -145,11 +125,11 @@ export function Step6_Submit() {
                 </ul>
             </div>
              <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isFetchingData}>
+              <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
                 Anterior
               </Button>
-              <Button type="submit" disabled={isSubmitting || isFetchingData}>
-                {(isSubmitting || isFetchingData) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enviar Solicitud
               </Button>
             </div>

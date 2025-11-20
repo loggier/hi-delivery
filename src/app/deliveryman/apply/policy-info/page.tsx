@@ -1,9 +1,11 @@
 
+"use client";
+import { Suspense } from 'react';
 import { Icons } from "@/components/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Step4_PolicyInfo } from "../_components/step-4-policy-info";
 
-export default function PolicyInfoPage() {
+function PolicyInfoPageContent() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -24,4 +26,12 @@ export default function PolicyInfoPage() {
       </div>
     </main>
   );
+}
+
+export default function PolicyInfoPage() {
+    return (
+        <Suspense fallback={<div>Cargando...</div>}>
+            <PolicyInfoPageContent />
+        </Suspense>
+    )
 }

@@ -3,11 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
-import { useAuthStore } from '@/store/auth-store';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -26,8 +25,9 @@ type PolicyInfoFormValues = z.infer<typeof policyInfoSchema>;
 
 export function Step4_PolicyInfo() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const riderId = searchParams.get('id');
   const { toast } = useToast();
-  const { riderId } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
@@ -45,7 +45,8 @@ export function Step4_PolicyInfo() {
   useEffect(() => {
     async function fetchRiderData() {
       if (!riderId) {
-        setIsFetchingData(false);
+        toast({ title: "Error de ID", description: "No se encontró el ID del repartidor. Por favor, vuelve al paso 1.", variant: "destructive" });
+        router.push('/deliveryman/apply');
         return;
       }
       setIsFetchingData(true);
@@ -79,7 +80,7 @@ export function Step4_PolicyInfo() {
       }
     }
     fetchRiderData();
-  }, [riderId, methods, toast]);
+  }, [riderId, methods, toast, router]);
 
   const onSubmit = async (data: PolicyInfoFormValues) => {
     if (!riderId) {
@@ -113,7 +114,7 @@ export function Step4_PolicyInfo() {
       }
       
       toast({ title: "Póliza Guardada", variant: "success" });
-      router.push('/deliveryman/apply/extras');
+      router.push(`/deliveryman/apply/extras?id=${riderId}`);
 
     } catch (error) {
       toast({

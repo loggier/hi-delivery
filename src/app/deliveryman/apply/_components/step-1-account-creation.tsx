@@ -9,7 +9,6 @@ import { riderAccountCreationSchema } from '@/lib/schemas';
 import { FormInput } from './form-components';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/store/auth-store';
 import { Loader2 } from 'lucide-react';
 import { Form } from '@/components/ui/form';
 
@@ -18,7 +17,6 @@ type AccountCreationFormValues = z.infer<typeof riderAccountCreationSchema>;
 export function Step1_AccountCreation() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loginRider } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const methods = useForm<AccountCreationFormValues>({
@@ -36,10 +34,8 @@ export function Step1_AccountCreation() {
   const onSubmit = async (data: AccountCreationFormValues) => {
     setIsSubmitting(true);
     
-    // Como el endpoint de Supabase ya no es mock, podemos enviar los datos directamente
-    // como JSON, ya que este paso no involucra archivos. La API se encargará del resto.
     try {
-      const response = await fetch('/api/riders/route.ts', {
+      const response = await fetch('/api/riders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -51,13 +47,12 @@ export function Step1_AccountCreation() {
         throw new Error(result.message || 'Ocurrió un error al crear la cuenta.');
       }
       
-      loginRider(result.user, result.riderId);
       toast({
         title: "Cuenta Creada Exitosamente",
         description: "Ahora completa el resto de tu información.",
         variant: "success",
       });
-      router.push('/deliveryman/apply/personal-info');
+      router.push(`/deliveryman/apply/personal-info?id=${result.riderId}`);
 
     } catch (error) {
       toast({
