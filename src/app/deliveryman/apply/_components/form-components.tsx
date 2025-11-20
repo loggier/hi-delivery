@@ -221,10 +221,32 @@ interface FormFileUploadProps {
 
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
-    const files: FileList | null = watch(name);
-    const file = files?.[0];
+    const watchedValue = watch(name);
+    const [preview, setPreview] = useState<string | null>(null);
+    const [fileName, setFileName] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
+    
+    useEffect(() => {
+        if (typeof watchedValue === 'string') {
+            setPreview(watchedValue);
+            setFileName(watchedValue.split('/').pop() || null);
+        } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
+            const file = watchedValue[0];
+            setFileName(file.name);
+            if (file.type.startsWith('image/')) {
+              const reader = new FileReader();
+              reader.onloadend = () => setPreview(reader.result as string);
+              reader.readAsDataURL(file);
+            } else {
+              setPreview(null);
+            }
+        } else {
+            setPreview(null);
+            setFileName(null);
+        }
+    }, [watchedValue]);
+
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setValue(name, e.target.files, { shouldValidate: true });
@@ -296,11 +318,11 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                 />
                                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
                                 <span className="text-sm text-center text-slate-500">
-                                    {file ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
+                                    {fileName ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
                                 </span>
-                                {file && <span className="font-medium text-sm text-slate-700 mt-1">{file.name}</span>}
+                                {fileName && <span className="font-medium text-sm text-slate-700 mt-1">{fileName}</span>}
                             </label>
-                            {file && (
+                            {fileName && (
                                 <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
                                     <X className="h-4 w-4"/>
                                 </Button>
@@ -421,21 +443,23 @@ interface SingleImageDropzoneProps {
 
 const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   const { control, watch, setValue, formState: { errors } } = useFormContext();
-  const files: FileList | null = watch(name);
-  const file = files?.[0];
+  const watchedValue = watch(name);
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
+     if (typeof watchedValue === 'string') {
+        setPreview(watchedValue);
+    } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
+        const file = watchedValue[0];
+        const reader = new FileReader();
+        reader.onloadend = () => setPreview(reader.result as string);
+        reader.readAsDataURL(file);
     } else {
       setPreview(null);
     }
-  }, [file]);
+  }, [watchedValue]);
 
   const handleRemove = (e: React.MouseEvent) => {
     e.preventDefault();
