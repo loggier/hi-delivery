@@ -43,12 +43,7 @@ type BusinessFormValues = z.infer<typeof businessSchema>;
 
 const libraries: ('places')[] = ['places'];
 
-const BusinessMap = () => {
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries,
-    });
-    
+const BusinessMap = ({ isLoaded, loadError }: { isLoaded: boolean, loadError?: Error }) => {
     const { control, setValue, watch } = useFormContext();
 
     const lat = watch('latitude');
@@ -155,6 +150,10 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdateWithFormData();
+   const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries,
+    });
   
   const isEditing = !!methods.getValues("id");
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
@@ -409,7 +408,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                             <FormField control={methods.control} name="delivery_time_max" render={({field}) => <FormItem className="flex-1"><FormControl><Input type="number" placeholder="Máx." {...field} /></FormControl><FormMessage /></FormItem>} />
                         </div>
                     </div>
-                     <FormField control={methods.control} name="average_ticket" render={({field}) => <FormItem><FormLabel>Ticket promedio diario (MXN)</FormLabel><FormControl><Input type="number" placeholder="Ej. 150.00" {...field} /></FormControl><FormMessage /></FormItem>} />
+                     <FormField control={methods.control} name="average_ticket" render={({field}) => <FormItem><FormLabel>Ticket promedio (MXN)</FormLabel><FormControl><Input type="number" placeholder="Ej. 150.00" {...field} /></FormControl><FormMessage /></FormItem>} />
                      <FormField control={methods.control} name="weekly_demand" render={({field}) => <FormItem><FormLabel>Demanda semanal</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="nuevo">Nuevo</SelectItem><SelectItem value="0-10">0-10</SelectItem><SelectItem value="11-50">11-50</SelectItem><SelectItem value="51-100">51-100</SelectItem><SelectItem value="101-200">101-200</SelectItem><SelectItem value="201-500">201-500</SelectItem><SelectItem value="mas de 500">Más de 500</SelectItem></SelectContent></Select><FormMessage /></FormItem>} />
                      <FormField control={methods.control} name="has_delivery_service" render={({ field }) => (
                         <FormItem className="flex flex-col rounded-lg border p-3 shadow-sm justify-center">
@@ -447,7 +446,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                      <div>
                         <FormLabel>Geolocalización</FormLabel>
                         <FormControl>
-                             <BusinessMap />
+                             <BusinessMap isLoaded={isLoaded} loadError={loadError} />
                         </FormControl>
                         <FormField control={methods.control} name="latitude" render={() => <FormMessage />} />
                      </div>
@@ -522,6 +521,8 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
                 sanitizedData[key] = undefined;
             } else if (typeof value !== 'boolean' && typeof value !== 'number') {
                 sanitizedData[key] = '';
+            } else {
+                 sanitizedData[key] = value;
             }
         } else {
             sanitizedData[key] = value;
