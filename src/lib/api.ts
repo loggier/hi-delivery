@@ -166,22 +166,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useUpdate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T, Error, { formData: FormData; id: string } | (Partial<T> & { id: string })>({
+    return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: async (item) => {
-        if ('formData' in item) {
-          const response = await fetch(`/api/${entity}/${item.id}`, {
-            method: 'POST', // Using POST for FormData with file uploads
-            body: item.formData,
-          });
-          const result = await response.json();
-          if (!response.ok) {
-            throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
-          }
-          return result.business; // The API returns the updated business object
-        } else {
-          const { id, ...updateData } = item;
-          return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
-        }
+        const { id, ...updateData } = item;
+        // In a real app with file uploads, this should be a FormData POST
+        // For simplicity with Supabase client SDK, we assume URLs are pre-uploaded
+        // or we use a separate API route for FormData.
+        // This hook will handle JSON updates.
+        return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });

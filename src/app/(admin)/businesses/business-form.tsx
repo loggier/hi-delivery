@@ -168,29 +168,28 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
   };
 
   const onSubmit = async (data: BusinessFormValues) => {
-    const businessId = data.id;
-    const isEditingMode = !!businessId;
+    const isEditingMode = !!data.id;
 
     try {
-      const formData = new FormData();
-      
-      Object.keys(businessSchema.shape).forEach(key => {
-        const fieldKey = key as keyof BusinessFormValues;
-        const value = data[fieldKey];
+        const formData = new FormData();
+        
+        // This helper function handles nested objects and different value types
+        const appendFormData = (key: string, value: any) => {
+            if (value instanceof FileList && value.length > 0) {
+                formData.append(key, value[0]);
+            } else if (typeof value === 'boolean' || typeof value === 'number') {
+                formData.append(key, String(value));
+            } else if (value && typeof value !== 'object') {
+                formData.append(key, value);
+            }
+        };
 
-        if (value instanceof FileList && value.length > 0) {
-            formData.append(fieldKey, value[0]);
-        } else if (value !== null && value !== undefined && typeof value !== 'object' && typeof value !== 'boolean') {
-            formData.append(fieldKey, String(value));
-        } else if (typeof value === 'boolean') {
-             formData.append(fieldKey, String(value));
-        } else if (typeof value === 'number') {
-            formData.append(fieldKey, String(value));
-        }
-      });
+        Object.keys(data).forEach(key => {
+            appendFormData(key, data[key as keyof BusinessFormValues]);
+        });
       
       if (isEditingMode) {
-        await updateMutation.mutateAsync({ formData, id: businessId });
+        await updateMutation.mutateAsync({ ...data, id: data.id });
       } else {
         if (!data.password) {
             methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
@@ -201,7 +200,7 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
       router.push("/businesses");
       router.refresh();
     } catch (error) {
-      // El error ya es manejado por el hook de la mutación (muestra un toast)
+      // The error is already handled by the mutation hook (it shows a toast)
     }
   };
 

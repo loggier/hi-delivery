@@ -157,6 +157,7 @@ export const submitBusinessSchema = z.object({
 
 
 export const businessSchema = z.object({
+    id: z.string().optional(),
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
     category_id: z.string({ required_error: "Debes seleccionar una categoría." }),
@@ -197,7 +198,7 @@ export const businessSchema = z.object({
     tax_situation_proof_url: fileSchema("Constancia fiscal opcional.").optional(),
 }).refine(data => {
     // Si se proporciona una contraseña, la confirmación también debe proporcionarse y coincidir.
-    if (data.password) {
+    if (data.password && data.password.length > 0) {
         return data.password === data.passwordConfirmation;
     }
     return true; // Si no hay contraseña, la validación pasa.
@@ -205,7 +206,7 @@ export const businessSchema = z.object({
     message: "Las contraseñas no coinciden.",
     path: ["passwordConfirmation"],
 }).refine(data => {
-    if (data.password) {
+    if (data.password && data.password.length > 0) {
         return passwordRegex.test(data.password);
     }
     return true;
