@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, MapPin } from 'lucide-react';
-import { FormInput } from '@/app/store/apply/_components/form-components';
+import { FormInput } from '@/app/site/apply/_components/form-components';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 

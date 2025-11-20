@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { riderAccountCreationSchema } from '@/lib/schemas';
-import { FormInput } from '@/app/deliveryman/apply/_components/form-components';
+import { FormInput } from '@/app/site/apply/_components/form-components';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
