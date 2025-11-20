@@ -167,7 +167,7 @@ export type Rider = {
   proof_of_address_url?: string;
   license_front_url?: string;
   license_back_url?: string;
-  avatar1x1Url?: string;
+  avatar1x1_url?: string;
 
   // Vehículo
   vehicle_type?: 'Moto';
