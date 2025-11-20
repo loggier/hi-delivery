@@ -295,6 +295,9 @@ export const riderAdminUpdateSchema = riderApplicationBaseSchema
     first_name: z.string().min(2, { message: "El nombre es requerido." }),
     last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
     status: z.enum(['pending_review', 'approved', 'rejected', 'inactive', 'incomplete']),
+    phone_e164: z.string()
+      .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
+      .transform(normalizePhone).optional(),
   });
 
 
