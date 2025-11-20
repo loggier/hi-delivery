@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { riderApplicationBaseSchema, riderAdminUpdateSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { type Rider, type Zone, type RiderStatus } from "@/types";
-import { FormDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload, FormCheckbox } from "@/app/deliveryman/apply/_components/form-components";
+import { FormDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload, FormCheckbox } from "@/app/site/apply/_components/form-components";
 import { vehicleBrands, vehicleYears } from "@/lib/constants";
 import { useWatch } from "react-hook-form";
 
