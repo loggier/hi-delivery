@@ -171,6 +171,12 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
     const isEditingMode = !!data.id;
 
     try {
+      if (isEditingMode) {
+        // Remove password fields for updates, they don't belong to the business table
+        delete data.password;
+        delete data.passwordConfirmation;
+        await updateMutation.mutateAsync(data);
+      } else {
         const formData = new FormData();
         
         // This helper function handles nested objects and different value types
@@ -187,10 +193,7 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
         Object.keys(data).forEach(key => {
             appendFormData(key, data[key as keyof BusinessFormValues]);
         });
-      
-      if (isEditingMode) {
-        await updateMutation.mutateAsync({ ...data, id: data.id });
-      } else {
+
         if (!data.password) {
             methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
             return;
