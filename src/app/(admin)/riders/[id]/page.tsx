@@ -59,14 +59,22 @@ const DocumentLink = ({ label, url, expiryDate }: { label: string, url?: string,
     );
 };
 
-const ProfileImage = ({ url, name }: { url?: string, name: string }) => (
-    <Image 
-        src={url || `https://placehold.co/80x80/E33739/FFFFFF/png?text=${name.charAt(0)}`}
-        alt={`Foto de ${name}`}
-        width={80}
-        height={80}
-        className="rounded-full border"
-    />
+const ProfileImage = ({ url, name }: { url?: string; name: string }) => (
+    <div className={cn(
+        "relative flex-shrink-0 border",
+        url ? "rounded-md" : "rounded-full"
+    )}>
+        <Image 
+            src={url || `https://placehold.co/80x80/E33739/FFFFFF/png?text=${name.charAt(0)}`}
+            alt={`Foto de ${name}`}
+            width={80}
+            height={80}
+            className={cn(
+                "object-cover",
+                url ? "rounded-md" : "rounded-full"
+            )}
+        />
+    </div>
 );
 
 export default function ViewRiderPage() {
