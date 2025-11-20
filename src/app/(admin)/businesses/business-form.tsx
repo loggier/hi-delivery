@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useMemo, useEffect } from "react";
-import { useForm, FormProvider, useFormContext } from "react-hook-form";
+import { useForm, FormProvider, useFormContext, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -144,7 +144,7 @@ const BusinessMap = () => {
     );
 };
 
-function BusinessForm({ availableCategories, zones }: BusinessFormProps) {
+function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategory[]; zones: Zone[]}) {
   const router = useRouter();
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
@@ -153,12 +153,33 @@ function BusinessForm({ availableCategories, zones }: BusinessFormProps) {
   const isEditing = !!methods.getValues("id");
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
 
+  const selectedType = useWatch({ control: methods.control, name: 'type' });
+
+  const availableCategories = useMemo(() => {
+    return allCategories?.filter(c => c.type === selectedType && c.active) || [];
+  }, [selectedType, allCategories]);
+
+  useEffect(() => {
+    const currentCategoryId = methods.getValues('category_id');
+    if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
+        methods.setValue('category_id', '');
+    }
+  }, [selectedType, availableCategories, methods]);
+
+
   const onSubmit = async (data: BusinessFormValues) => {
     const isEditingMode = !!data.id;
     
     const formData = new FormData();
     
-    const appendFormData = (key: string, value: any) => {
+    // For updates, remove password fields if they are empty
+    if (isEditingMode) {
+        delete (data as Partial<BusinessFormValues>).password;
+        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
+    }
+    
+    Object.keys(data).forEach(key => {
+        const value = data[key as keyof BusinessFormValues];
         if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
         } else if (typeof value === 'boolean' || typeof value === 'number') {
@@ -166,17 +187,6 @@ function BusinessForm({ availableCategories, zones }: BusinessFormProps) {
         } else if (value && typeof value !== 'object') {
             formData.append(key, value);
         }
-    };
-    
-    // For updates, remove password fields if they are empty
-    if (isEditingMode) {
-        delete (data as Partial<BusinessFormValues>).password;
-        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
-    }
-
-    Object.keys(data).forEach(key => {
-        const value = data[key as keyof BusinessFormValues];
-        appendFormData(key, value);
     });
 
     try {
@@ -225,7 +235,6 @@ function BusinessForm({ availableCategories, zones }: BusinessFormProps) {
                                 <FormLabel>Tipo</FormLabel>
                                 <Select onValueChange={(value) => {
                                     field.onChange(value);
-                                    methods.setValue('category_id', ''); // Reset category on type change
                                 }} value={field.value} disabled={isPending}>
                                 <FormControl>
                                     <SelectTrigger>
@@ -513,13 +522,6 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     },
   });
 
-  const selectedType = methods.watch('type');
-  
-  const availableCategories = useMemo(() => {
-    const currentType = selectedType || initialData?.type;
-    return categories?.filter(c => c.type === currentType && c.active) || [];
-  }, [selectedType, categories, initialData?.type]);
-
   useEffect(() => {
     if (initialData) {
       methods.reset({
@@ -538,7 +540,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
 
   return (
     <FormProvider {...methods}>
-      <BusinessForm availableCategories={availableCategories} zones={zones} />
+      <BusinessForm allCategories={categories} zones={zones} />
     </FormProvider>
   )
 }
