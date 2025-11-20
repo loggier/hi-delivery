@@ -1,4 +1,4 @@
-import { Icons } from "@/components/icons";
+import { Store } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Step1_AccountCreation } from "./_components/step-1-account-creation";
 
@@ -9,7 +9,7 @@ export default function StoreApplyPage() {
         <Card className="w-full">
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center">
-              <Icons.Logo className="h-12 w-12 text-primary" />
+              <Store className="h-12 w-12 text-primary" />
             </div>
             <CardTitle className="text-3xl font-bold">Paso 1: Registra tu Negocio</CardTitle>
             <CardDescription className="text-lg text-slate-600 dark:text-slate-400">

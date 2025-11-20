@@ -1,7 +1,7 @@
 
 "use client";
 import { Suspense } from 'react';
-import { Icons } from "@/components/icons";
+import { Bike } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Step5_Extras } from "../_components/step-5-extras";
 
@@ -12,7 +12,7 @@ function ExtrasPageContent() {
         <Card className="w-full">
           <CardHeader className="text-center">
              <div className="mb-4 flex justify-center">
-              <Icons.Logo className="h-12 w-12 text-primary" />
+              <Bike className="h-12 w-12 text-primary" />
             </div>
             <CardTitle className="text-3xl font-bold">Paso 5: Equipo Adicional</CardTitle>
             <CardDescription className="text-lg text-slate-600 dark:text-slate-400">
