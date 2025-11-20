@@ -161,7 +161,11 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 
   useEffect(() => {
     const currentCategoryId = methods.getValues('category_id');
-    if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
+    const isCategoryAvailable = availableCategories.some(c => c.id === currentCategoryId);
+    
+    if (currentCategoryId && !isCategoryAvailable) {
+        // This can happen if the business type is changed.
+        // We reset the category to force the user to select a new one.
         methods.setValue('category_id', '');
     }
   }, [selectedType, availableCategories, methods]);
@@ -172,20 +176,20 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
     
     const formData = new FormData();
     
-    // For updates, remove password fields if they are empty
-    if (isEditingMode) {
-        delete (data as Partial<BusinessFormValues>).password;
-        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
-    }
-    
     Object.keys(data).forEach(key => {
         const value = data[key as keyof BusinessFormValues];
+        
+        // Exclude password fields if they are empty during an update
+        if (isEditingMode && (key === 'password' || key === 'passwordConfirmation') && !value) {
+            return;
+        }
+
         if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
-        } else if (typeof value === 'boolean' || typeof value === 'number') {
+        } else if (typeof value === 'boolean') {
             formData.append(key, String(value));
         } else if (value && typeof value !== 'object') {
-            formData.append(key, value);
+            formData.append(key, String(value));
         }
     });
 
@@ -233,9 +237,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Tipo</FormLabel>
-                                <Select onValueChange={(value) => {
-                                    field.onChange(value);
-                                }} value={field.value} disabled={isPending}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                                 <FormControl>
                                     <SelectTrigger>
                                     <SelectValue placeholder="Selecciona un tipo" />
@@ -257,10 +259,10 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Categoría</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isPending || availableCategories.length === 0}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isPending || !selectedType || availableCategories.length === 0}>
                                 <FormControl>
                                     <SelectTrigger>
-                                    <SelectValue placeholder="Selecciona una categoría" />
+                                    <SelectValue placeholder={!selectedType ? "Selecciona un tipo primero" : "Selecciona una categoría"} />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -508,14 +510,17 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: {
-      id: '', name: '', type: '' as any, category_id: '', zone_id: '',
+      id: '', name: '', 
+      type: undefined,
+      category_id: undefined,
+      zone_id: undefined,
       email: '', owner_name: '', phone_whatsapp: '', address_line: '',
       neighborhood: '', city: "Ciudad de México", state: "CDMX", zip_code: '',
       latitude: 19.4326, longitude: -99.1332, tax_id: '', website: '',
       instagram: '', logo_url: undefined, notes: '', status: "ACTIVE",
       password: '', passwordConfirmation: '', delivery_time_min: undefined,
       delivery_time_max: undefined, has_delivery_service: true, average_ticket: undefined,
-      weekly_demand: undefined, business_photo_facade_url: undefined,
+      weekly_demand: 'nuevo', business_photo_facade_url: undefined,
       business_photo_interior_url: undefined, digital_menu_url: undefined,
       owner_ine_front_url: undefined, owner_ine_back_url: undefined,
       tax_situation_proof_url: undefined,
@@ -523,19 +528,15 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   });
 
   useEffect(() => {
-    if (initialData) {
+    if (initialData && categories && zones) {
       methods.reset({
         ...initialData,
-        id: initialData.id,
-        type: initialData.type || ('' as any),
-        category_id: initialData.category_id || '',
-        zone_id: initialData.zone_id || '',
-        password: "",
-        passwordConfirmation: "",
         notes: initialData.notes ?? "",
+        password: "", 
+        passwordConfirmation: "",
       });
     }
-  }, [initialData, methods]);
+  }, [initialData, categories, zones, methods]);
 
 
   return (
