@@ -169,7 +169,7 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
     const currentCategoryId = methods.getValues('category_id');
     const isCurrentCategoryAvailable = availableCategories.some(c => c.id === currentCategoryId);
     
-    if (currentCategoryId && !isCurrentCategoryAvailable) {
+    if (currentCategoryId && !isCurrentCategoryAvailable && availableCategories.length > 0) {
         methods.setValue('category_id', undefined, { shouldDirty: true });
     }
   }, [selectedType, availableCategories, methods]);
@@ -509,39 +509,63 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
 
 
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
-  const methods = useForm<BusinessFormValues>({
-    resolver: zodResolver(businessSchema),
-    defaultValues: initialData ? {
+  const initialDataForForm = useMemo(() => {
+    // For creating a new business
+    if (!initialData) {
+      return {
+        id: undefined, name: '', 
+        type: undefined,
+        category_id: undefined,
+        zone_id: undefined,
+        email: '', owner_name: '', phone_whatsapp: '', address_line: '',
+        neighborhood: '', city: "Ciudad de México", state: "CDMX", zip_code: '',
+        latitude: 19.4326, longitude: -99.1332, tax_id: '', website: '',
+        instagram: '', logo_url: undefined, notes: '', status: "ACTIVE" as const,
+        password: '', passwordConfirmation: '', delivery_time_min: undefined,
+        delivery_time_max: undefined, has_delivery_service: true, average_ticket: undefined,
+        weekly_demand: 'nuevo' as const, business_photo_facade_url: undefined,
+        business_photo_interior_url: undefined, digital_menu_url: undefined,
+        owner_ine_front_url: undefined, owner_ine_back_url: undefined,
+        tax_situation_proof_url: undefined,
+      };
+    }
+
+    // For editing an existing business, clean up null values
+    return {
       ...initialData,
-      type: initialData.type || undefined,
-      category_id: initialData.category_id || undefined,
-      zone_id: initialData.zone_id || undefined,
-      notes: initialData.notes || '',
+      type: initialData.type ?? undefined,
+      category_id: initialData.category_id ?? undefined,
+      zone_id: initialData.zone_id ?? undefined,
+      weekly_demand: initialData.weekly_demand ?? 'nuevo',
+      status: initialData.status ?? 'INACTIVE',
+      notes: initialData.notes ?? '',
+      tax_id: initialData.tax_id ?? '',
+      website: initialData.website ?? '',
+      instagram: initialData.instagram ?? '',
+      address_line: initialData.address_line ?? '',
+      neighborhood: initialData.neighborhood ?? '',
+      city: initialData.city ?? '',
+      state: initialData.state ?? '',
+      zip_code: initialData.zip_code ?? '',
+      latitude: initialData.latitude ?? 19.4326,
+      longitude: initialData.longitude ?? -99.1332,
+      delivery_time_min: initialData.delivery_time_min ?? undefined,
+      delivery_time_max: initialData.delivery_time_max ?? undefined,
+      average_ticket: initialData.average_ticket ?? undefined,
+      has_delivery_service: initialData.has_delivery_service ?? true,
       password: '',
       passwordConfirmation: '',
-    } : {
-      id: undefined, name: '', 
-      type: undefined,
-      category_id: undefined,
-      zone_id: undefined,
-      email: '', owner_name: '', phone_whatsapp: '', address_line: '',
-      neighborhood: '', city: "Ciudad de México", state: "CDMX", zip_code: '',
-      latitude: 19.4326, longitude: -99.1332, tax_id: '', website: '',
-      instagram: '', logo_url: undefined, notes: '', status: "ACTIVE",
-      password: '', passwordConfirmation: '', delivery_time_min: undefined,
-      delivery_time_max: undefined, has_delivery_service: true, average_ticket: undefined,
-      weekly_demand: 'nuevo', business_photo_facade_url: undefined,
-      business_photo_interior_url: undefined, digital_menu_url: undefined,
-      owner_ine_front_url: undefined, owner_ine_back_url: undefined,
-      tax_situation_proof_url: undefined,
-    },
+    };
+  }, [initialData]);
+
+  const methods = useForm<BusinessFormValues>({
+    resolver: zodResolver(businessSchema),
+    defaultValues: initialDataForForm,
   });
 
   return (
     <FormProvider {...methods}>
       <BusinessForm allCategories={categories} zones={zones} />
     </FormProvider>
-  )
+  );
 }
-
-    
