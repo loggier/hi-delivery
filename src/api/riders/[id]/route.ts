@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
-  const dateFields = ['birthDate', 'licenseValidUntil', 'policyValidUntil'];
+  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
 
   try {
     const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
@@ -48,19 +48,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
     }
 
-    let motoPhotos: string[] = existingRiderData.moto_photos || [];
+    let motoPhotos: string[] = Array.isArray(existingRiderData.moto_photos) ? existingRiderData.moto_photos : [];
 
     // Procesar archivos
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
             const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-            const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             if (key.startsWith('motoPhoto')) {
-                 if (!motoPhotos.includes(url)) {
+                const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+                 // Simple logic to add photo, could be improved to replace specific ones
+                if (!motoPhotos.includes(url)) {
                     motoPhotos.push(url);
                 }
             } else {
-                 updateData[dbKey] = url;
+                 updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             }
         }
     }
@@ -69,15 +70,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
         updateData['moto_photos'] = motoPhotos;
     }
 
-    // Procesar otros campos
+    // Procesar otros campos (no archivos)
     for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File)) {
+      if (!(value instanceof File) && !key.startsWith('motoPhoto')) { // Clave de la corrección aquí
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
-        } else if (dateFields.includes(key)) {
-            updateData[dbKey] = new Date(value as string).toISOString();
-        } else if (key !== 'brandOther' && value !== null && value !== undefined && value !== 'null' && value !== 'undefined') {
+        } else if (dateFields.includes(dbKey)) {
+             if (value) {
+                updateData[dbKey] = new Date(value as string).toISOString();
+            }
+        } else if (key !== 'brandOther' && value !== null && value !== 'null' && value !== undefined && value !== 'undefined') {
             updateData[dbKey] = value;
         }
       }
