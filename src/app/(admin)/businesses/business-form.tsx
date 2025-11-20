@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useMemo, useEffect } from "react";
-import { useForm, useWatch, FormProvider, useFormContext } from "react-hook-form";
+import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -43,7 +43,7 @@ import { cn } from "@/lib/utils";
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
 interface BusinessFormProps {
-  categories: BusinessCategory[];
+  availableCategories: BusinessCategory[];
   zones: Zone[];
 }
 
@@ -55,10 +55,10 @@ const BusinessMap = () => {
         libraries,
     });
     
-    const { control, setValue } = useFormContext();
+    const { control, setValue, watch } = useFormContext();
 
-    const lat = useWatch({ control, name: 'latitude' });
-    const lng = useWatch({ control, name: 'longitude' });
+    const lat = watch('latitude');
+    const lng = watch('longitude');
 
     const mapCenter = React.useMemo(() => ({ lat: lat || 19.4326, lng: lng || -99.1332 }), [lat, lng]);
 
@@ -144,7 +144,7 @@ const BusinessMap = () => {
     );
 };
 
-function BusinessForm({ categories, zones }: BusinessFormProps) {
+function BusinessForm({ availableCategories, zones }: BusinessFormProps) {
   const router = useRouter();
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
@@ -152,22 +152,6 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
   
   const isEditing = !!methods.getValues("id");
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
-
-  const selectedType = useWatch({
-    control: methods.control,
-    name: 'type',
-  });
-
-  const availableCategories = React.useMemo(() => {
-    return categories?.filter(c => c.type === selectedType && c.active) || [];
-  }, [selectedType, categories]);
-
-  React.useEffect(() => {
-    const currentCategoryId = methods.getValues('category_id');
-    if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
-        methods.setValue('category_id', '');
-    }
-  }, [selectedType, availableCategories, methods]);
 
   const onSubmit = async (data: BusinessFormValues) => {
     const isEditingMode = !!data.id;
@@ -239,7 +223,10 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Tipo</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
+                                <Select onValueChange={(value) => {
+                                    field.onChange(value);
+                                    methods.setValue('category_id', ''); // Reset category on type change
+                                }} value={field.value} disabled={isPending}>
                                 <FormControl>
                                     <SelectTrigger>
                                     <SelectValue placeholder="Selecciona un tipo" />
@@ -512,49 +499,33 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: {
-      id: '',
-      name: '',
-      type: '' as any,
-      category_id: '',
-      zone_id: '',
-      email: '',
-      owner_name: '',
-      phone_whatsapp: '',
-      address_line: '',
-      neighborhood: '',
-      city: "Ciudad de México",
-      state: "CDMX",
-      zip_code: '',
-      latitude: 19.4326,
-      longitude: -99.1332,
-      tax_id: '',
-      website: '',
-      instagram: '',
-      logo_url: undefined,
-      notes: '',
-      status: "ACTIVE",
-      password: '',
-      passwordConfirmation: '',
-      delivery_time_min: undefined,
-      delivery_time_max: undefined,
-      has_delivery_service: true,
-      average_ticket: undefined,
-      weekly_demand: undefined,
-      business_photo_facade_url: undefined,
-      business_photo_interior_url: undefined,
-      digital_menu_url: undefined,
-      owner_ine_front_url: undefined,
-      owner_ine_back_url: undefined,
+      id: '', name: '', type: '' as any, category_id: '', zone_id: '',
+      email: '', owner_name: '', phone_whatsapp: '', address_line: '',
+      neighborhood: '', city: "Ciudad de México", state: "CDMX", zip_code: '',
+      latitude: 19.4326, longitude: -99.1332, tax_id: '', website: '',
+      instagram: '', logo_url: undefined, notes: '', status: "ACTIVE",
+      password: '', passwordConfirmation: '', delivery_time_min: undefined,
+      delivery_time_max: undefined, has_delivery_service: true, average_ticket: undefined,
+      weekly_demand: undefined, business_photo_facade_url: undefined,
+      business_photo_interior_url: undefined, digital_menu_url: undefined,
+      owner_ine_front_url: undefined, owner_ine_back_url: undefined,
       tax_situation_proof_url: undefined,
     },
   });
 
+  const selectedType = methods.watch('type');
+  
+  const availableCategories = useMemo(() => {
+    const currentType = selectedType || initialData?.type;
+    return categories?.filter(c => c.type === currentType && c.active) || [];
+  }, [selectedType, categories, initialData?.type]);
+
   useEffect(() => {
-    if (initialData && zones.length > 0 && categories.length > 0) {
+    if (initialData) {
       methods.reset({
         ...initialData,
         id: initialData.id,
-        type: initialData.type || '' as any,
+        type: initialData.type || ('' as any),
         category_id: initialData.category_id || '',
         zone_id: initialData.zone_id || '',
         password: "",
@@ -562,14 +533,12 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         notes: initialData.notes ?? "",
       });
     }
-  }, [initialData, zones, categories, methods]);
+  }, [initialData, methods]);
 
 
   return (
     <FormProvider {...methods}>
-      <BusinessForm categories={categories} zones={zones} />
+      <BusinessForm availableCategories={availableCategories} zones={zones} />
     </FormProvider>
   )
 }
-
-    
