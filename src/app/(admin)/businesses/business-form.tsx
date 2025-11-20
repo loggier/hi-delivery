@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useEffect } from "react";
@@ -173,6 +174,12 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
     
     const formData = new FormData();
 
+    // For updates, remove password fields if they are empty
+    if (isEditingMode) {
+        delete (data as Partial<BusinessFormValues>).password;
+        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
+    }
+    
     const appendFormData = (key: string, value: any) => {
         if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
@@ -183,14 +190,9 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
         }
     };
     
-    // For updates, remove password fields if they are empty
-    if (isEditingMode) {
-        delete (data as Partial<BusinessFormValues>).password;
-        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
-    }
-    
     Object.keys(data).forEach(key => {
-        appendFormData(key, data[key as keyof BusinessFormValues]);
+        const value = data[key as keyof BusinessFormValues];
+        appendFormData(key, value);
     });
 
     try {
@@ -512,7 +514,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     defaultValues: {
       id: undefined,
       name: "",
-      type: undefined,
+      type: "" as any,
       category_id: "",
       zone_id: "",
       email: "",
@@ -551,7 +553,9 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     if (initialData && zones && zones.length > 0) {
       methods.reset({
         ...initialData,
-        id: initialData.id, // Ensure id is set for editing
+        id: initialData.id,
+        type: initialData.type || ('' as any),
+        category_id: initialData.category_id || '',
         zone_id: initialData.zone_id || "",
         password: "",
         passwordConfirmation: "",
