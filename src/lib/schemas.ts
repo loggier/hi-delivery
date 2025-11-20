@@ -149,7 +149,6 @@ export const submitBusinessSchema = z.object({
   tax_id: z.string().optional(),
   website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
   instagram: z.string().optional(),
-   // New fields for owner documents
   owner_ine_front_url: imageFileSchema("El frente del INE es requerido.").optional(),
   owner_ine_back_url: imageFileSchema("El reverso del INE es requerido.").optional(),
   tax_situation_proof_url: fileSchema("La constancia de situación fiscal es requerida.").optional(),
@@ -282,7 +281,7 @@ export const riderApplicationBaseSchema = z.object({
     hasBox: z.boolean().default(false),
 
     // Step 6
-    avatar1x1Url: imageFileSchema("La foto de perfil es requerida."),
+    avatar1x1Url: imageFileSchema("La foto de perfil es requerida.").optional(),
 });
 
 export const riderApplicationSchema = riderApplicationBaseSchema.refine(data => data.password === data.passwordConfirmation, {
