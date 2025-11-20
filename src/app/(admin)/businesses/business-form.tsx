@@ -123,7 +123,7 @@ const BusinessMap = () => {
     return (
         <div className="space-y-4">
             <GoogleAutocomplete onLoad={onAutocompleteLoad} onPlaceChanged={onPlaceChanged}>
-                <input type="text" placeholder="Buscar dirección para ubicar en el mapa..." className={cn(
+                 <input type="text" placeholder="Buscar dirección para ubicar en el mapa..." className={cn(
                     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                 )} />
             </GoogleAutocomplete>
@@ -173,12 +173,6 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
     const isEditingMode = !!data.id;
     
     const formData = new FormData();
-
-    // For updates, remove password fields if they are empty
-    if (isEditingMode) {
-        delete (data as Partial<BusinessFormValues>).password;
-        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
-    }
     
     const appendFormData = (key: string, value: any) => {
         if (value instanceof FileList && value.length > 0) {
@@ -190,6 +184,12 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
         }
     };
     
+    // For updates, remove password fields if they are empty
+    if (isEditingMode) {
+        delete (data as Partial<BusinessFormValues>).password;
+        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
+    }
+
     Object.keys(data).forEach(key => {
         const value = data[key as keyof BusinessFormValues];
         appendFormData(key, value);
@@ -550,19 +550,19 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   });
 
   useEffect(() => {
-    if (initialData && zones && zones.length > 0) {
+    if (initialData && zones.length > 0 && categories.length > 0) {
       methods.reset({
         ...initialData,
         id: initialData.id,
-        type: initialData.type || ('' as any),
+        type: initialData.type || '' as any,
         category_id: initialData.category_id || '',
-        zone_id: initialData.zone_id || "",
+        zone_id: initialData.zone_id || '',
         password: "",
         passwordConfirmation: "",
         notes: initialData.notes ?? "",
       });
     }
-  }, [initialData, zones, methods]);
+  }, [initialData, zones, categories, methods]);
 
 
   return (
@@ -571,3 +571,5 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   )
 }
+
+    
