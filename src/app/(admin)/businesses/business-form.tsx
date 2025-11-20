@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { useForm, useWatch, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -179,7 +179,6 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
       } else {
         const formData = new FormData();
         
-        // This helper function handles nested objects and different value types
         const appendFormData = (key: string, value: any) => {
             if (value instanceof FileList && value.length > 0) {
                 formData.append(key, value[0]);
@@ -546,6 +545,46 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
       tax_situation_proof_url: initialData?.tax_situation_proof_url || undefined,
     },
   });
+
+  useEffect(() => {
+    if (initialData) {
+      methods.reset({
+        id: initialData.id,
+        name: initialData.name || "",
+        type: initialData.type,
+        category_id: initialData.category_id || "",
+        zone_id: initialData.zone_id || "",
+        email: initialData.email || "",
+        owner_name: initialData.owner_name || "",
+        phone_whatsapp: initialData.phone_whatsapp || "",
+        address_line: initialData.address_line || "",
+        neighborhood: initialData.neighborhood || "",
+        city: initialData.city || "Ciudad de México",
+        state: initialData.state || "CDMX",
+        zip_code: initialData.zip_code || "",
+        latitude: initialData.latitude || 19.4326,
+        longitude: initialData.longitude || -99.1332,
+        tax_id: initialData.tax_id || "",
+        website: initialData.website || "",
+        instagram: initialData.instagram || "",
+        logo_url: initialData.logo_url || undefined,
+        notes: initialData.notes || "",
+        status: initialData.status || "ACTIVE",
+        delivery_time_min: initialData.delivery_time_min || undefined,
+        delivery_time_max: initialData.delivery_time_max || undefined,
+        has_delivery_service: initialData.has_delivery_service ?? true,
+        average_ticket: initialData.average_ticket || undefined,
+        weekly_demand: initialData.weekly_demand || undefined,
+        business_photo_facade_url: initialData.business_photo_facade_url || undefined,
+        business_photo_interior_url: initialData.business_photo_interior_url || undefined,
+        digital_menu_url: initialData.digital_menu_url || undefined,
+        owner_ine_front_url: initialData.owner_ine_front_url || undefined,
+        owner_ine_back_url: initialData.owner_ine_back_url || undefined,
+        tax_situation_proof_url: initialData.tax_situation_proof_url || undefined,
+      });
+    }
+  }, [initialData, methods]);
+
 
   return (
     <FormProvider {...methods}>
