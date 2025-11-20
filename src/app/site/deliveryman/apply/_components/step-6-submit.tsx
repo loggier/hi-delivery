@@ -92,7 +92,7 @@ export function Step6_Submit() {
                 Hemos recibido tu información correctamente. Revisaremos tu solicitud y nos pondremos en contacto contigo pronto.
             </p>
             <Button asChild className="mt-8">
-                <Link href="/">Volver al inicio</Link>
+                <Link href="/site">Volver al inicio</Link>
             </Button>
         </div>
     )
