@@ -7,40 +7,10 @@ import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
 import type { User } from '@/types';
 
-async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
-    const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
-    
-    const { error: uploadError } = await supabaseAdmin.storage
-        .from("hidelivery")
-        .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-        console.error(`Upload Error for ${fileName}:`, uploadError);
-        throw new Error(`Failed to upload ${fileName}. Details: ${uploadError.message}`);
-    }
-
-    const { data } = supabaseAdmin.storage.from("hidelivery").getPublicUrl(filePath);
-    return data.publicUrl;
-}
-
-export async function POST(request: Request) {
-  const supabaseAdmin = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-        db: { schema: process.env.SUPABASE_SCHEMA! }
-      }
-    );
-
-  const formData = await request.formData();
+async function handleCreateRider(request: Request, supabaseAdmin: any) {
+  const json = await request.json();
   
-  const rawData: Record<string, any> = {};
-  for(const [key, value] of formData.entries()) {
-      rawData[key] = value;
-  }
-
-  const validated = riderAccountCreationSchema.safeParse(rawData);
+  const validated = riderAccountCreationSchema.safeParse(json);
 
   if (!validated.success) {
     console.error("Validation errors:", validated.error.flatten().fieldErrors);
@@ -51,7 +21,10 @@ export async function POST(request: Request) {
   let createdUserId: string | null = null;
   
   try {
-    const riderRoleId = 'delivery-man';
+    const { data: roleData, error: roleError } = await supabaseAdmin.from('roles').select('id').eq('name', 'Repartidor').single();
+    if (roleError || !roleData) throw new Error("No se pudo encontrar el rol 'Repartidor'.");
+
+    const riderRoleId = roleData.id;
     const userId = `user-${faker.string.uuid()}`;
     const hashedPassword = await hashPassword(data.password);
     
@@ -121,4 +94,17 @@ export async function POST(request: Request) {
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
+}
+
+export async function POST(request: Request) {
+  const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+        db: { schema: process.env.SUPABASE_SCHEMA! }
+      }
+    );
+
+    return handleCreateRider(request, supabaseAdmin);
 }

@@ -92,4 +92,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Initialize auth state on load
-useAuthStore.getState().checkAuth();
+if (typeof window !== 'undefined') {
+    useAuthStore.getState().checkAuth();
+}
