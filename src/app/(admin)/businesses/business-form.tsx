@@ -180,7 +180,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
         const value = data[key as keyof BusinessFormValues];
         
         // Exclude password fields if they are empty during an update
-        if (isEditingMode && (key === 'password' || key === 'passwordConfirmation') && !value) {
+        if (isEditingMode && (key === 'password' || key === 'passwordConfirmation')) {
             return;
         }
 
@@ -510,7 +510,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: {
-      id: '', name: '', 
+      id: undefined, name: '', 
       type: undefined,
       category_id: undefined,
       zone_id: undefined,
@@ -528,7 +528,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   });
 
   useEffect(() => {
-    if (initialData && categories && zones) {
+    if (initialData) {
       methods.reset({
         ...initialData,
         notes: initialData.notes ?? "",
@@ -536,7 +536,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         passwordConfirmation: "",
       });
     }
-  }, [initialData, categories, zones, methods]);
+  }, [initialData, methods]);
 
 
   return (
@@ -545,3 +545,5 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   )
 }
+
+    
