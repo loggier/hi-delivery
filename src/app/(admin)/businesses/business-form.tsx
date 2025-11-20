@@ -518,6 +518,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
       methods.reset({
         ...initialData,
         zone_id: initialData.zone_id ?? undefined,
+        notes: initialData.notes ?? '',
         password: '',
         passwordConfirmation: '',
       });
