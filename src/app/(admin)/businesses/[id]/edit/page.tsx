@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { BusinessForm } from "../../business-form";
+import { BusinessFormWrapper } from "../../business-form";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { notFound, useParams } from "next/navigation";
@@ -53,7 +53,7 @@ export default function EditBusinessPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Editar Negocio" />
-      <BusinessForm 
+      <BusinessFormWrapper 
         initialData={business} 
         categories={categories || []}
         zones={zones || []}

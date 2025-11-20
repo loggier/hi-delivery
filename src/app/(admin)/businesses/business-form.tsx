@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useForm, useWatch, FormProvider } from "react-hook-form";
+import { useForm, useWatch, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -119,54 +119,13 @@ const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps
     );
 };
 
-export function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
+function BusinessForm({ isEditing, categories, zones }: { isEditing: boolean, categories: BusinessCategory[], zones: Zone[]}) {
   const router = useRouter();
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdate();
+  const methods = useFormContext<BusinessFormValues>();
 
-  const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
-
-  const methods = useForm<BusinessFormValues>({
-    resolver: zodResolver(businessSchema),
-    defaultValues: {
-      name: initialData?.name || "",
-      type: initialData?.type || undefined,
-      category_id: initialData?.category_id || "",
-      zone_id: initialData?.zone_id || "",
-      email: initialData?.email || "",
-      owner_name: initialData?.owner_name || "",
-      phone_whatsapp: initialData?.phone_whatsapp || "",
-      address_line: initialData?.address_line || "",
-      neighborhood: initialData?.neighborhood || "",
-      city: initialData?.city || "Ciudad de México",
-      state: initialData?.state || "CDMX",
-      zip_code: initialData?.zip_code || "",
-      latitude: initialData?.latitude || 19.4326,
-      longitude: initialData?.longitude || -99.1332,
-      tax_id: initialData?.tax_id || "",
-      website: initialData?.website || "",
-      instagram: initialData?.instagram || "",
-      logo_url: initialData?.logo_url || undefined,
-      notes: initialData?.notes || "",
-      status: initialData?.status || "ACTIVE",
-      password: "",
-      passwordConfirmation: "",
-      
-      // Nuevos campos
-      delivery_time_min: initialData?.delivery_time_min || undefined,
-      delivery_time_max: initialData?.delivery_time_max || undefined,
-      has_delivery_service: initialData?.has_delivery_service ?? true,
-      average_ticket: initialData?.average_ticket || undefined,
-      weekly_demand: initialData?.weekly_demand || undefined,
-      business_photo_facade_url: initialData?.business_photo_facade_url || undefined,
-      business_photo_interior_url: initialData?.business_photo_interior_url || undefined,
-      digital_menu_url: initialData?.digital_menu_url || undefined,
-      owner_ine_front_url: initialData?.owner_ine_front_url || undefined,
-      owner_ine_back_url: initialData?.owner_ine_back_url || undefined,
-      tax_situation_proof_url: initialData?.tax_situation_proof_url || undefined,
-    },
-  });
 
   const selectedType = useWatch({
     control: methods.control,
@@ -226,10 +185,11 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
             formData.append(fieldKey, String(value));
         }
       });
+      
+      const initialDataId = (methods.getValues() as any).id;
 
-
-      if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ formData, id: initialData.id });
+      if (isEditing && initialDataId) {
+        await updateMutation.mutateAsync({ formData, id: initialDataId });
       } else {
         if (!data.password) {
             methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
@@ -247,7 +207,6 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <FormProvider {...methods}>
       <Form {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
@@ -539,6 +498,56 @@ export function BusinessForm({ initialData, categories, zones }: BusinessFormPro
         </div>
       </form>
     </Form>
-    </FormProvider>
   );
+}
+
+
+export function BusinessFormWrapper({ initialData, categories, zones }: BusinessFormProps) {
+  const isEditing = !!initialData;
+  const methods = useForm<BusinessFormValues>({
+    resolver: zodResolver(businessSchema),
+    defaultValues: {
+      id: initialData?.id || undefined,
+      name: initialData?.name || "",
+      type: initialData?.type || undefined,
+      category_id: initialData?.category_id || "",
+      zone_id: initialData?.zone_id || "",
+      email: initialData?.email || "",
+      owner_name: initialData?.owner_name || "",
+      phone_whatsapp: initialData?.phone_whatsapp || "",
+      address_line: initialData?.address_line || "",
+      neighborhood: initialData?.neighborhood || "",
+      city: initialData?.city || "Ciudad de México",
+      state: initialData?.state || "CDMX",
+      zip_code: initialData?.zip_code || "",
+      latitude: initialData?.latitude || 19.4326,
+      longitude: initialData?.longitude || -99.1332,
+      tax_id: initialData?.tax_id || "",
+      website: initialData?.website || "",
+      instagram: initialData?.instagram || "",
+      logo_url: initialData?.logo_url || undefined,
+      notes: initialData?.notes || "",
+      status: initialData?.status || "ACTIVE",
+      password: "",
+      passwordConfirmation: "",
+      
+      delivery_time_min: initialData?.delivery_time_min || undefined,
+      delivery_time_max: initialData?.delivery_time_max || undefined,
+      has_delivery_service: initialData?.has_delivery_service ?? true,
+      average_ticket: initialData?.average_ticket || undefined,
+      weekly_demand: initialData?.weekly_demand || undefined,
+      business_photo_facade_url: initialData?.business_photo_facade_url || undefined,
+      business_photo_interior_url: initialData?.business_photo_interior_url || undefined,
+      digital_menu_url: initialData?.digital_menu_url || undefined,
+      owner_ine_front_url: initialData?.owner_ine_front_url || undefined,
+      owner_ine_back_url: initialData?.owner_ine_back_url || undefined,
+      tax_situation_proof_url: initialData?.tax_situation_proof_url || undefined,
+    },
+  });
+
+  return (
+    <FormProvider {...methods}>
+      <BusinessForm isEditing={isEditing} categories={categories} zones={zones} />
+    </FormProvider>
+  )
 }
