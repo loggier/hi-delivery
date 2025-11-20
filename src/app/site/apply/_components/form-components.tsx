@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -79,7 +79,7 @@ export const FormSelect = ({ name, label, placeholder, options, description, dis
     render={({ field }) => (
       <FormItem>
         <FormLabel>{label}</FormLabel>
-        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={disabled}>
+        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={disabled}>
           <FormControl>
             <SelectTrigger>
               <SelectValue placeholder={placeholder} />
@@ -220,11 +220,14 @@ interface FormFileUploadProps {
 }
 
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
-    const { control, watch, setValue, formState: { errors } } = useFormContext();
+    const { control, watch, setValue, register, formState: { errors } } = useFormContext();
     const watchedValue = watch(name);
     const [fileName, setFileName] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     
+    const { ref: fieldRef, ...fieldProps } = register(name);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+
     useEffect(() => {
         if (typeof watchedValue === 'string' && watchedValue) {
             setFileName(watchedValue.split('/').pop() || watchedValue);
@@ -258,53 +261,49 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
     const hasError = !!errors[name];
 
     return (
-        <FormField
-            name={name}
-            control={control}
-            render={({ field: { onChange, onBlur, ref } }) => (
-                <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <FormControl>
-                        <div className="relative">
-                            <label 
-                                htmlFor={name}
-                                className={cn(
-                                    "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
-                                    isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
-                                    hasError ? "border-destructive" : "border-slate-300"
-                                )}
-                                onDragEnter={(e) => handleDragEvents(e, true)}
-                                onDragOver={(e) => handleDragEvents(e, true)}
-                                onDragLeave={(e) => handleDragEvents(e, false)}
-                                onDrop={handleDrop}
-                            >
-                                <Input
-                                    type="file"
-                                    className="hidden"
-                                    id={name}
-                                    accept={accept}
-                                    ref={ref}
-                                    onChange={(e) => onChange(e.target.files)}
-                                    onBlur={onBlur}
-                                />
-                                <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
-                                <span className="text-sm text-center text-slate-500">
-                                    {fileName ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
-                                </span>
-                                {fileName && <span className="font-medium text-sm text-slate-700 mt-1">{fileName}</span>}
-                            </label>
-                            {fileName && (
-                                <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
-                                    <X className="h-4 w-4"/>
-                                </Button>
-                            )}
-                        </div>
-                    </FormControl>
-                    {description && <FormDescription>{description}</FormDescription>}
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+        <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <FormControl>
+                <div className="relative">
+                    <label 
+                        htmlFor={name}
+                        className={cn(
+                            "border-2 border-dashed rounded-lg p-6 flex flex-col justify-center items-center cursor-pointer transition-colors",
+                            isDragging ? "border-primary bg-primary/10" : "hover:border-primary hover:bg-slate-50",
+                            hasError ? "border-destructive" : "border-slate-300"
+                        )}
+                        onDragEnter={(e) => handleDragEvents(e, true)}
+                        onDragOver={(e) => handleDragEvents(e, true)}
+                        onDragLeave={(e) => handleDragEvents(e, false)}
+                        onDrop={handleDrop}
+                    >
+                        <Input
+                            {...fieldProps}
+                            type="file"
+                            className="hidden"
+                            id={name}
+                            accept={accept}
+                            ref={(e) => {
+                                fieldRef(e);
+                                inputRef.current = e;
+                            }}
+                        />
+                        <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
+                        <span className="text-sm text-center text-slate-500">
+                            {fileName ? "Archivo seleccionado:" : "Haz clic o arrastra un archivo aquí"}
+                        </span>
+                        {fileName && <span className="font-medium text-sm text-slate-700 mt-1">{fileName}</span>}
+                    </label>
+                    {fileName && (
+                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={handleRemove}>
+                            <X className="h-4 w-4"/>
+                        </Button>
+                    )}
+                </div>
+            </FormControl>
+            {description && <FormDescription>{description}</FormDescription>}
+            <FormMessage />
+        </FormItem>
     );
 };
 
@@ -316,11 +315,14 @@ interface FormImageUploadProps {
 }
 
 export const FormImageUpload = ({ name, label, description, aspectRatio = 'square' }: FormImageUploadProps) => {
-    const { control, watch, setValue, formState: { errors } } = useFormContext();
+    const { watch, setValue, register, formState: { errors } } = useFormContext();
     const watchedValue = watch(name);
     const [preview, setPreview] = useState<string | null>(null);
+    
+    const { ref: fieldRef, ...fieldProps } = register(name);
+    const inputRef = useRef<HTMLInputElement | null>(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (typeof watchedValue === 'string' && watchedValue) {
             setPreview(watchedValue);
         } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
@@ -345,52 +347,48 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
     const hasError = !!errors[name];
 
     return (
-        <FormField
-            name={name}
-            control={control}
-            render={({ field: { onChange, onBlur, ref } }) => (
-                <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <FormControl>
-                        <label 
-                            htmlFor={name}
-                            className={cn(
-                                "relative group block w-full cursor-pointer rounded-lg border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden",
-                                aspectRatio === 'square' ? "aspect-square" : "aspect-video",
-                                "hover:border-primary transition-colors",
-                                hasError ? "border-destructive" : "border-slate-300"
-                            )}
-                        >
-                            <Input
-                                type="file"
-                                className="hidden"
-                                id={name}
-                                accept="image/jpeg,image/png"
-                                ref={ref}
-                                onBlur={onBlur}
-                                onChange={(e) => onChange(e.target.files)}
-                            />
-                            {preview ? (
-                                <>
-                                    <Image src={preview} alt="Vista previa" layout="fill" objectFit="cover" />
-                                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={handleRemove}>
-                                        <X className="h-4 w-4"/>
-                                    </Button>
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </>
-                            ) : (
-                                <div className="text-center p-4">
-                                    <UploadCloud className="mx-auto h-8 w-8 text-slate-400 mb-2"/>
-                                    <span className="text-sm text-slate-500">Subir imagen</span>
-                                </div>
-                            )}
-                        </label>
-                    </FormControl>
-                    {description && <FormDescription>{description}</FormDescription>}
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+        <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <FormControl>
+                <label 
+                    htmlFor={name}
+                    className={cn(
+                        "relative group block w-full cursor-pointer rounded-lg border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden",
+                        aspectRatio === 'square' ? "aspect-square" : "aspect-video",
+                        "hover:border-primary transition-colors",
+                        hasError ? "border-destructive" : "border-slate-300"
+                    )}
+                >
+                    <Input
+                        {...fieldProps}
+                        type="file"
+                        className="hidden"
+                        id={name}
+                        accept="image/jpeg,image/png"
+                        ref={(e) => {
+                            fieldRef(e);
+                            inputRef.current = e;
+                        }}
+                    />
+                    {preview ? (
+                        <>
+                            <Image src={preview} alt="Vista previa" layout="fill" objectFit="cover" />
+                            <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={handleRemove}>
+                                <X className="h-4 w-4"/>
+                            </Button>
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </>
+                    ) : (
+                        <div className="text-center p-4">
+                            <UploadCloud className="mx-auto h-8 w-8 text-slate-400 mb-2"/>
+                            <span className="text-sm text-slate-500">Subir imagen</span>
+                        </div>
+                    )}
+                </label>
+            </FormControl>
+            {description && <FormDescription>{description}</FormDescription>}
+            <FormMessage />
+        </FormItem>
     );
 }
 
@@ -401,13 +399,14 @@ interface SingleImageDropzoneProps {
 }
 
 const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
-  const { control, watch, setValue, formState: { errors } } = useFormContext();
+  const { watch, setValue, register, formState: { errors } } = useFormContext();
   const watchedValue = watch(name);
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const { ref: fieldRef, ...fieldProps } = register(name);
 
   useEffect(() => {
-     if (typeof watchedValue === 'string' && watchedValue) {
+     if (typeof watchedValue === 'string') {
         setPreview(watchedValue);
     } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
         const file = watchedValue[0];
@@ -441,54 +440,47 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   const hasError = !!errors[name];
 
   return (
-    <FormField
-      name={name}
-      control={control}
-      render={({ field: { onChange, onBlur, ref } }) => (
-        <FormItem className="space-y-1">
-          <FormLabel className="text-sm">{label}</FormLabel>
-          <FormControl>
-            <label
-              htmlFor={name}
-              className={cn(
-                "relative group block w-full cursor-pointer rounded-lg border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden aspect-video transition-colors",
-                isDragging ? "border-primary bg-primary/10" : "hover:border-primary",
-                hasError ? "border-destructive" : "border-slate-300"
-              )}
-              onDragEnter={(e) => handleDragEvents(e, true)}
-              onDragOver={(e) => handleDragEvents(e, true)}
-              onDragLeave={(e) => handleDragEvents(e, false)}
-              onDrop={handleDrop}
-            >
-              <Input
-                type="file"
-                id={name}
-                className="hidden"
-                accept="image/jpeg,image/png"
-                ref={ref}
-                onChange={(e) => onChange(e.target.files)}
-                onBlur={onBlur}
-              />
-              {preview ? (
-                <>
-                  <Image src={preview} alt={`Vista previa de ${label}`} layout="fill" objectFit="cover" />
-                  <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={handleRemove}>
-                    <X className="h-3 w-3"/>
-                  </Button>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </>
-              ) : (
-                <div className="text-center p-2">
-                  <UploadCloud className="mx-auto h-6 w-6 text-slate-400 mb-1"/>
-                  <span className="text-xs text-slate-500">Subir foto</span>
-                </div>
-              )}
-            </label>
-          </FormControl>
-          <FormMessage className="text-xs"/>
-        </FormItem>
-      )}
-    />
+    <FormItem className="space-y-1">
+      <FormLabel className="text-sm">{label}</FormLabel>
+      <FormControl>
+        <label
+          htmlFor={name}
+          className={cn(
+            "relative group block w-full cursor-pointer rounded-lg border-2 border-dashed flex items-center justify-center bg-slate-50 overflow-hidden aspect-video transition-colors",
+            isDragging ? "border-primary bg-primary/10" : "hover:border-primary",
+            hasError ? "border-destructive" : "border-slate-300"
+          )}
+          onDragEnter={(e) => handleDragEvents(e, true)}
+          onDragOver={(e) => handleDragEvents(e, true)}
+          onDragLeave={(e) => handleDragEvents(e, false)}
+          onDrop={handleDrop}
+        >
+          <Input
+            {...fieldProps}
+            type="file"
+            id={name}
+            className="hidden"
+            accept="image/jpeg,image/png"
+            ref={fieldRef}
+          />
+          {preview ? (
+            <>
+              <Image src={preview} alt={`Vista previa de ${label}`} layout="fill" objectFit="cover" />
+              <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={handleRemove}>
+                <X className="h-3 w-3"/>
+              </Button>
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </>
+          ) : (
+            <div className="text-center p-2">
+              <UploadCloud className="mx-auto h-6 w-6 text-slate-400 mb-1"/>
+              <span className="text-xs text-slate-500">Subir foto</span>
+            </div>
+          )}
+        </label>
+      </FormControl>
+      <FormMessage className="text-xs"/>
+    </FormItem>
   );
 };
 
