@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { placeholderImages } from "@/lib/placeholder-images";
+import placeholderImages from "@/lib/placeholder-images.json";
 
 const requirementsList = [
     "Ser mayor de 18 años",

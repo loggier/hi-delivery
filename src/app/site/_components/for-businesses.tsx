@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { placeholderImages } from "@/lib/placeholder-images";
+import placeholderImages from "@/lib/placeholder-images.json";
 
 export function ForBusinesses() {
   return (

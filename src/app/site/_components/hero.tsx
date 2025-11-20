@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { placeholderImages } from "@/lib/placeholder-images";
+import placeholderImages from "@/lib/placeholder-images.json";
 import { ArrowRight, Store } from "lucide-react";
 
 export function Hero() {
@@ -12,8 +12,8 @@ export function Hero() {
         <Image
           src={placeholderImages.heroRider.src}
           alt={placeholderImages.heroRider.alt}
-          layout="fill"
-          objectFit="cover"
+          fill
+          style={{objectFit:"cover"}}
           className="brightness-50"
           data-ai-hint="motorcycle delivery city"
         />
