@@ -144,7 +144,7 @@ const BusinessMap = () => {
     );
 };
 
-function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategory[]; zones: Zone[]}) {
+function BusinessForm({ availableCategories, zones }: { availableCategories: BusinessCategory[]; zones: Zone[]}) {
   const router = useRouter();
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
@@ -154,22 +154,6 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
 
   const selectedType = useWatch({ control: methods.control, name: 'type' });
-
-  const availableCategories = useMemo(() => {
-    return allCategories?.filter(c => c.type === selectedType && c.active) || [];
-  }, [selectedType, allCategories]);
-
-  useEffect(() => {
-    const currentCategoryId = methods.getValues('category_id');
-    const isCategoryAvailable = availableCategories.some(c => c.id === currentCategoryId);
-    
-    if (currentCategoryId && !isCategoryAvailable) {
-        // This can happen if the business type is changed.
-        // We reset the category to force the user to select a new one.
-        methods.setValue('category_id', '');
-    }
-  }, [selectedType, availableCategories, methods]);
-
 
   const onSubmit = async (data: BusinessFormValues) => {
     const isEditingMode = !!data.id;
@@ -181,7 +165,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
         
         // Exclude password fields if they are empty during an update
         if (isEditingMode && (key === 'password' || key === 'passwordConfirmation')) {
-            return;
+            if (!value) return;
         }
 
         if (value instanceof FileList && value.length > 0) {
@@ -527,21 +511,32 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     },
   });
 
+  const availableCategories = useMemo(() => {
+    if (!initialData?.type || !categories) return [];
+    return categories.filter(c => c.type === initialData.type && c.active);
+  }, [initialData?.type, categories]);
+
   useEffect(() => {
-    if (initialData) {
-      methods.reset({
-        ...initialData,
-        notes: initialData.notes ?? "",
-        password: "", 
-        passwordConfirmation: "",
-      });
+    // Only reset the form if all async data is available
+    if (initialData && zones && categories) {
+        const initialDataForForm = {
+          ...initialData,
+          password: "", 
+          passwordConfirmation: "",
+          // Ensure null values from DB become undefined for select components
+          type: initialData.type || undefined,
+          category_id: initialData.category_id || undefined,
+          zone_id: initialData.zone_id || undefined,
+          notes: initialData.notes || "",
+        };
+      methods.reset(initialDataForForm);
     }
-  }, [initialData, methods]);
+  }, [initialData, zones, categories, methods]);
 
 
   return (
     <FormProvider {...methods}>
-      <BusinessForm allCategories={categories} zones={zones} />
+      <BusinessForm allCategories={availableCategories} zones={zones} />
     </FormProvider>
   )
 }
