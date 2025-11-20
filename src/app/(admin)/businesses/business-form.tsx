@@ -40,7 +40,6 @@ import { Switch } from "@/components/ui/switch";
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
 interface BusinessFormProps {
-  initialData?: Business | null;
   categories: BusinessCategory[];
   zones: Zone[];
 }
@@ -119,13 +118,13 @@ const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps
     );
 };
 
-function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
+function BusinessForm({ categories, zones }: BusinessFormProps) {
   const router = useRouter();
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdate();
   const methods = useFormContext<BusinessFormValues>();
-
-  const isEditing = !!initialData;
+  
+  const isEditing = !!methods.getValues("id");
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
 
   const selectedType = useWatch({
@@ -169,6 +168,9 @@ function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
   };
 
   const onSubmit = async (data: BusinessFormValues) => {
+    const businessId = data.id;
+    const isEditingMode = !!businessId;
+
     try {
       const formData = new FormData();
       
@@ -187,8 +189,8 @@ function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
         }
       });
       
-      if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ formData, id: initialData.id });
+      if (isEditingMode) {
+        await updateMutation.mutateAsync({ formData, id: businessId });
       } else {
         if (!data.password) {
             methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
@@ -501,8 +503,7 @@ function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
 }
 
 
-export function BusinessFormWrapper({ initialData, categories, zones }: BusinessFormProps) {
-  const isEditing = !!initialData;
+export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: {
@@ -546,7 +547,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: Business
 
   return (
     <FormProvider {...methods}>
-      <BusinessForm initialData={initialData} isEditing={isEditing} categories={categories} zones={zones} />
+      <BusinessForm categories={categories} zones={zones} />
     </FormProvider>
   )
 }
