@@ -1,13 +1,15 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
-    const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
+    const key = fileName.replace(/([A-Z])/g, '_$1').toLowerCase();
+    const filePath = `riders/${riderId}/${key}-${Date.now()}.${file.name.split('.').pop()}`;
     
     const { error: uploadError } = await supabaseAdmin.storage
-        .from("hidelivery")
+        .from(process.env.SUPABASE_BUCKET!)
         .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
@@ -15,7 +17,7 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: stri
         throw new Error(`Failed to upload ${fileName}. Details: ${uploadError.message}`);
     }
 
-    const { data } = supabaseAdmin.storage.from("hidelivery").getPublicUrl(filePath);
+    const { data } = supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).getPublicUrl(filePath);
     return data.publicUrl;
 }
 
@@ -38,7 +40,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
-  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
+  const dateFields = ['birthDate', 'licenseValidUntil', 'policyValidUntil'];
 
   try {
     const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
@@ -49,18 +51,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     let motoPhotos: string[] = existingRiderData.moto_photos || [];
-
+    
     // Procesar archivos
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
-            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+            const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             if (key.startsWith('motoPhoto')) {
-                const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
-                if (!motoPhotos.includes(url)) {
+                 if (!motoPhotos.includes(url)) {
                     motoPhotos.push(url);
                 }
             } else {
-                 updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+                 const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+                 updateData[dbKey] = url;
             }
         }
     }
@@ -75,7 +77,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
-        } else if (dateFields.includes(dbKey)) {
+        } else if (dateFields.includes(key)) {
             updateData[dbKey] = new Date(value as string).toISOString();
         } else if (key !== 'brandOther') {
             updateData[dbKey] = value;

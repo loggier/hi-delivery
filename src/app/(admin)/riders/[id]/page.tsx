@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -100,7 +101,7 @@ export default function ViewRiderPage() {
 
         <Card>
             <CardHeader className="flex-row items-start gap-4 space-y-0">
-                <ProfileImage url={rider.avatar_1x1_url} name={fullName} />
+                <ProfileImage url={rider.avatar1x1Url} name={fullName} />
                 <div className="flex-1">
                     <div className="flex flex-wrap justify-between items-start gap-4">
                          <div>

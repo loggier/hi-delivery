@@ -1,3 +1,4 @@
+
 export type Role = {
   id: string;
   name: string;
@@ -166,7 +167,7 @@ export type Rider = {
   proof_of_address_url?: string;
   license_front_url?: string;
   license_back_url?: string;
-  avatar_1x1_url?: string;
+  avatar1x1Url?: string;
 
   // Vehículo
   vehicle_type?: 'Moto';
