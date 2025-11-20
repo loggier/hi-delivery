@@ -6,9 +6,18 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import React from "react";
+import { usePathname } from "next/navigation";
 
 export function Footer() {
   const [email, setEmail] = React.useState("");
+  const pathname = usePathname();
+
+  const getLinkHref = (href: string) => {
+    if (pathname === '/site' || pathname === '/') {
+        return href;
+    }
+    return `/site/${href}`;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,16 +42,16 @@ export function Footer() {
           <div>
             <h3 className="font-semibold text-white">Repartidores</h3>
             <ul className="mt-4 space-y-2 text-sm">
-              <li><Link href="#benefits" className="text-slate-300 hover:text-white">Beneficios</Link></li>
-              <li><Link href="#requirements" className="text-slate-300 hover:text-white">Requisitos</Link></li>
-              <li><Link href="#how-it-works" className="text-slate-300 hover:text-white">Cómo funciona</Link></li>
+              <li><Link href={getLinkHref("#benefits")} className="text-slate-300 hover:text-white">Beneficios</Link></li>
+              <li><Link href={getLinkHref("#requirements")} className="text-slate-300 hover:text-white">Requisitos</Link></li>
+              <li><Link href={getLinkHref("#how-it-works")} className="text-slate-300 hover:text-white">Cómo funciona</Link></li>
               <li><Link href="/site/deliveryman/apply" className="text-slate-300 hover:text-white">Aplicar ahora</Link></li>
             </ul>
           </div>
           <div>
             <h3 className="font-semibold text-white">Negocios</h3>
             <ul className="mt-4 space-y-2 text-sm">
-                <li><Link href="#for-businesses" className="text-slate-300 hover:text-white">Nuestros Servicios</Link></li>
+                <li><Link href={getLinkHref("#for-businesses")} className="text-slate-300 hover:text-white">Nuestros Servicios</Link></li>
                 <li><Link href="/site/store/apply" className="text-slate-300 hover:text-white">Registra tu negocio</Link></li>
             </ul>
           </div>
