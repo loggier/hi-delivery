@@ -1,12 +1,10 @@
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
-    const key = fileName.replace(/([A-Z])/g, '_$1').toLowerCase();
-    const filePath = `riders/${riderId}/${key}-${Date.now()}.${file.name.split('.').pop()}`;
+    const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
     
     const { error: uploadError } = await supabaseAdmin.storage
         .from(process.env.SUPABASE_BUCKET!)
@@ -40,7 +38,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
-  const dateFields = ['birthDate', 'licenseValidUntil', 'policyValidUntil'];
+  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
 
   try {
     const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
@@ -51,17 +49,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     let motoPhotos: string[] = existingRiderData.moto_photos || [];
-    
+
     // Procesar archivos
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && value.size > 0) {
+            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
             const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
             if (key.startsWith('motoPhoto')) {
                  if (!motoPhotos.includes(url)) {
                     motoPhotos.push(url);
                 }
             } else {
-                 const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
                  updateData[dbKey] = url;
             }
         }
@@ -77,9 +75,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
-        } else if (dateFields.includes(key)) {
+        } else if (dateFields.includes(dbKey)) {
             updateData[dbKey] = new Date(value as string).toISOString();
-        } else if (key !== 'brandOther') {
+        } else if (key === 'phone_e164' && typeof value === 'string' && !value.startsWith('+52')) {
+            updateData[dbKey] = `+52${value}`;
+        } else if (key !== 'brandOther' && value !== null && value !== undefined && value !== 'null' && value !== 'undefined') {
             updateData[dbKey] = value;
         }
       }
@@ -90,15 +90,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
     
     if (Object.keys(updateData).length === 0) {
-        return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 400 });
+        return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
     }
 
     updateData.updated_at = new Date().toISOString();
     
-    if (existingRiderData && existingRiderData.status === 'incomplete' && Object.keys(updateData).length > 1) { 
-        updateData.status = 'pending_review';
-    } else if (formData.has('status')) {
-        updateData.status = formData.get('status');
+    // Logic from public apply form: if user submits and status was incomplete, move to pending review
+    const isPublicApplyFinalStep = formData.get('status') === 'pending_review';
+    if (isPublicApplyFinalStep && existingRiderData && existingRiderData.status === 'incomplete') {
+      updateData.status = 'pending_review';
+    } else if (formData.has('status')) { // This allows admin to override status
+      updateData.status = formData.get('status');
     }
 
     const { data, error } = await supabaseAdmin

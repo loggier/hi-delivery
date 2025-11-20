@@ -62,6 +62,7 @@ export const userSchema = z.object({
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;
 
 const normalizePhone = (phone: string) => {
+  if (!phone) return phone;
   const match = phone.match(phoneRegex);
   if (match) {
     return `+52${match[1]}`;
@@ -79,22 +80,25 @@ const ACCEPTED_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, "application/pdf"];
 
 const fileSchema = (message: string) => 
   isClient
-    ? z.instanceof(FileList, { message })
-        .refine((files) => files?.length > 0, message)
-        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-        .refine((files) => ACCEPTED_DOCUMENT_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg, .png y .pdf")
-        .nullable()
+    ? z.union([
+        z.string().url().nullable(),
+        z.instanceof(FileList, { message })
+            .refine((files) => !files || files.length === 0 || files[0].size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
+            .refine((files) => !files || files.length === 0 || ACCEPTED_DOCUMENT_TYPES.includes(files[0].type), "Solo se permiten formatos .jpg, .png y .pdf")
+            .nullable()
+      ])
     : z.any().nullable();
 
 const imageFileSchema = (message: string) =>
   isClient
-    ? z.instanceof(FileList, { message })
-        .refine((files) => files?.length >= 1, message)
-        .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-        .refine((files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Solo se permiten formatos .jpg y .png")
-        .nullable()
-        .optional()
-    : z.any().nullable().optional();
+    ? z.union([
+        z.string().url().nullable(),
+        z.instanceof(FileList, { message })
+            .refine((files) => !files || files.length === 0 || files[0].size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
+            .refine((files) => !files || files.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files[0].type), "Solo se permiten formatos .jpg y .png")
+            .nullable()
+      ])
+    : z.any().nullable();
 
 export const businessAccountCreationSchema = z.object({
   owner_name: z.string().min(2, { message: "Tu nombre completo es requerido." }),
@@ -229,10 +233,10 @@ export const riderAccountCreationSchema = z.object({
 // This is the full schema for client-side validation
 export const riderApplicationBaseSchema = z.object({
     // Step 1
-    firstName: z.string().min(2, { message: "El nombre es requerido." }),
-    lastName: z.string().min(2, { message: "El apellido paterno es requerido." }),
+    first_name: z.string().min(2, { message: "El nombre es requerido." }),
+    last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
-    phoneE164: z.string()
+    phone_e164: z.string()
         .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
         .transform(normalizePhone),
     password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
@@ -284,6 +288,14 @@ export const riderApplicationSchema = riderApplicationBaseSchema.refine(data => 
     message: "Las contraseñas no coinciden.",
     path: ["passwordConfirmation"],
 });
+
+export const riderAdminUpdateSchema = riderApplicationBaseSchema
+  .omit({ password: true, passwordConfirmation: true, first_name: true, last_name: true })
+  .extend({
+    first_name: z.string().min(2, { message: "El nombre es requerido." }),
+    last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
+    status: z.enum(['pending_review', 'approved', 'rejected', 'inactive', 'incomplete']),
+  });
 
 
 export const zoneSchema = z.object({

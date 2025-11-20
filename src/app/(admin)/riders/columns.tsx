@@ -158,6 +158,11 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
                     <Eye className="mr-2 h-4 w-4" /> Ver Detalles
                 </Link>
             </DropdownMenuItem>
+             <DropdownMenuItem asChild>
+                <Link href={`/riders/${rider.id}/edit`}>
+                    <Pencil className="mr-2 h-4 w-4" /> Editar
+                </Link>
+            </DropdownMenuItem>
              {rider.status === "pending_review" && (
                 <>
                     <DropdownMenuItem onClick={() => handleStatusChange('approved')} className="text-green-600 focus:text-green-600">
