@@ -16,17 +16,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/store/auth-store";
 import { signInSchema } from "@/lib/schemas";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import placeholderImages from "@/lib/placeholder-images.json";
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi! Delivery Admin";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -58,7 +58,7 @@ export default function SignInPage() {
         throw new Error(result.message || 'Error al iniciar sesión.');
       }
       
-      login(result.user, result.remember);
+      login(result.user);
       
       toast({
         title: "Inicio de Sesión Exitoso",
@@ -86,78 +86,77 @@ export default function SignInPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        <div className="mb-4 flex justify-center">
-            <Image src="/logo-hidelivery.png" alt={`Logo ${appName}`} width={48} height={48} />
-        </div>
-        <CardTitle className="text-2xl">{appName}</CardTitle>
-        <CardDescription>Ingresa tus credenciales para acceder al panel</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="admin@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contraseña</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center justify-between">
-                <FormField
-                control={form.control}
-                name="remember"
-                render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                        <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                        <FormLabel className="font-normal">
-                        Recordar sesión
-                        </FormLabel>
-                    </div>
-                    </FormItem>
-                )}
-                />
-                 <Link
-                    href="/forgot-password"
-                    className="text-sm font-medium text-primary hover:underline"
-                    >
-                    ¿Olvidaste tu contraseña?
-                </Link>
+    <>
+      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+             <div className="mb-4 flex justify-center">
+                <Image src="/logo-hid.png" alt={`Logo ${appName}`} width={64} height={64} />
             </div>
-
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting && <Loader2 className="animate-spin" />}
-              Continuar
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+            <h1 className="text-3xl font-bold">{appName}</h1>
+            <p className="text-balance text-muted-foreground">
+              Ingresa tus credenciales para acceder al panel
+            </p>
+          </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+              <div className="grid gap-2">
+                 <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="admin@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid gap-2">
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                       <div className="flex items-center">
+                        <FormLabel>Contraseña</FormLabel>
+                        <Link
+                          href="/forgot-password"
+                          className="ml-auto inline-block text-sm underline"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </Link>
+                      </div>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Iniciar Sesión
+              </Button>
+            </form>
+          </Form>
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:block relative">
+        <Image
+          src={placeholderImages.heroRider.src}
+          alt="Imagen de fondo de un repartidor"
+          data-ai-hint="motorcycle delivery city"
+          fill
+          style={{objectFit:"cover"}}
+          className="brightness-50"
+        />
+         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+      </div>
+    </>
   );
 }
