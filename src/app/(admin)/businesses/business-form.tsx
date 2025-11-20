@@ -509,21 +509,49 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
 
 
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
+  const formValues = useMemo(() => {
+    if (!initialData) return undefined;
+
+    // Sanitize initialData: replace null with undefined for selects and '' for inputs
+    const sanitizedData = { ...initialData };
+    (Object.keys(sanitizedData) as Array<keyof Business>).forEach((key) => {
+        if (sanitizedData[key] === null) {
+            if (['category_id', 'zone_id', 'type', 'status', 'weekly_demand'].includes(key)) {
+                (sanitizedData as any)[key] = undefined;
+            } else if (typeof sanitizedData[key] !== 'number' && typeof sanitizedData[key] !== 'boolean') {
+                 (sanitizedData as any)[key] = '';
+            }
+        }
+    });
+    return sanitizedData;
+  }, [initialData]);
+
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
+    values: formValues, // Use 'values' for async data
+    defaultValues: {
+      name: '',
+      type: undefined,
+      category_id: undefined,
+      zone_id: undefined,
+      status: 'ACTIVE',
+      email: '',
+      owner_name: '',
+      phone_whatsapp: '',
+      address_line: '',
+      neighborhood: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      notes: '',
+      website: '',
+      instagram: '',
+      tax_id: '',
+      password: '',
+      passwordConfirmation: '',
+      has_delivery_service: false,
+    },
   });
-
-  useEffect(() => {
-    if (initialData) {
-      methods.reset({
-        ...initialData,
-        zone_id: initialData.zone_id ?? undefined,
-        notes: initialData.notes ?? '',
-        password: '',
-        passwordConfirmation: '',
-      });
-    }
-  }, [initialData, methods]);
 
   return (
     <FormProvider {...methods}>
@@ -531,3 +559,5 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   );
 }
+
+    
