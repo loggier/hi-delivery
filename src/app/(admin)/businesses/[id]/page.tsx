@@ -202,7 +202,7 @@ export default function ViewBusinessPage() {
                     <h3 className="text-lg font-semibold mb-4 border-b pb-2">Detalles Operativos</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                         <DetailItem label="Tiempo de entrega" value={`${business.delivery_time_min || '?'} - ${business.delivery_time_max || '?'} min.`} />
-                        <DetailItem label="Ticket promedio" value={business.average_ticket ? formatCurrency(business.average_ticket) : 'N/A'} />
+                        <DetailItem label="Ticket promedio (MXN)" value={business.average_ticket ? formatCurrency(business.average_ticket) : 'N/A'} />
                         <DetailItem label="Demanda semanal" value={business.weekly_demand} />
                         <DetailItem label="Servicio a domicilio propio">
                            {typeof business.has_delivery_service === 'boolean' ? (
@@ -236,5 +236,3 @@ export default function ViewBusinessPage() {
     </div>
   );
 }
-
-    

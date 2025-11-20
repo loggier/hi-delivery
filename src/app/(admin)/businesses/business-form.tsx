@@ -409,7 +409,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                             <FormField control={methods.control} name="delivery_time_max" render={({field}) => <FormItem className="flex-1"><FormControl><Input type="number" placeholder="Máx." {...field} /></FormControl><FormMessage /></FormItem>} />
                         </div>
                     </div>
-                     <FormField control={methods.control} name="average_ticket" render={({field}) => <FormItem><FormLabel>Ticket promedio diario</FormLabel><FormControl><Input type="number" placeholder="Ej. 150.00" {...field} /></FormControl><FormMessage /></FormItem>} />
+                     <FormField control={methods.control} name="average_ticket" render={({field}) => <FormItem><FormLabel>Ticket promedio diario (MXN)</FormLabel><FormControl><Input type="number" placeholder="Ej. 150.00" {...field} /></FormControl><FormMessage /></FormItem>} />
                      <FormField control={methods.control} name="weekly_demand" render={({field}) => <FormItem><FormLabel>Demanda semanal</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="nuevo">Nuevo</SelectItem><SelectItem value="0-10">0-10</SelectItem><SelectItem value="11-50">11-50</SelectItem><SelectItem value="51-100">51-100</SelectItem><SelectItem value="101-200">101-200</SelectItem><SelectItem value="201-500">201-500</SelectItem><SelectItem value="mas de 500">Más de 500</SelectItem></SelectContent></Select><FormMessage /></FormItem>} />
                      <FormField control={methods.control} name="has_delivery_service" render={({ field }) => (
                         <FormItem className="flex flex-col rounded-lg border p-3 shadow-sm justify-center">
@@ -509,37 +509,37 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 }
 
 
-export function BusinessFormWrapper({ initialData, categories, zones }: { initialData: Business; categories: BusinessCategory[]; zones: Zone[]; }) {
+export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
   
   const formValues = useMemo(() => {
-    // Create a copy to avoid modifying the original query data
-    const sanitizedData = { ...initialData };
-    
-    // Sanitize values: replace null with undefined for selects and '' for inputs
-    (Object.keys(sanitizedData) as Array<keyof Business>).forEach((key) => {
-        if (sanitizedData[key] === null || sanitizedData[key] === undefined) {
-             if (['category_id', 'zone_id', 'type', 'status', 'weekly_demand'].includes(key)) {
-                (sanitizedData as any)[key] = undefined;
-            } else if (typeof sanitizedData[key] !== 'number' && typeof sanitizedData[key] !== 'boolean') {
-                 (sanitizedData as any)[key] = '';
-            }
-        }
-    });
+    if (!initialData) return undefined;
 
+    const sanitizedData: Record<string, any> = {};
+    for (const key in initialData) {
+        const value = initialData[key as keyof Business];
+        if (value === null) {
+            if (['category_id', 'zone_id', 'type', 'status', 'weekly_demand'].includes(key)) {
+                sanitizedData[key] = undefined;
+            } else if (typeof value !== 'boolean' && typeof value !== 'number') {
+                sanitizedData[key] = '';
+            }
+        } else {
+            sanitizedData[key] = value;
+        }
+    }
+    
     // Ensure latitude and longitude have default values if they are missing
     if (!sanitizedData.latitude || !sanitizedData.longitude) {
         sanitizedData.latitude = 19.4326;
         sanitizedData.longitude = -99.1332;
     }
 
-    return sanitizedData;
+    return sanitizedData as BusinessFormValues;
   }, [initialData]);
 
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    // Use defaultValues, which gets evaluated once on form creation.
-    // The parent component now ensures that initialData is present before rendering this wrapper.
-    defaultValues: formValues,
+    values: formValues,
   });
 
   return (
