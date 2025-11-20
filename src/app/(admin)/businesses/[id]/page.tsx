@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, FileText, CheckCircle, XCircle } from "lucide-react";
+import { Pencil, FileText, CheckCircle, XCircle, Building, Map, ShoppingBag } from "lucide-react";
 import { notFound, useParams } from 'next/navigation';
 import React from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
@@ -17,6 +17,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { SubscriptionManager } from "./subscription-manager";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
+import { BusinessType } from "@/types";
 
 const libraries: ('places')[] = ['places'];
 
@@ -49,10 +50,13 @@ const BusinessLocationMap = ({ lat, lng }: { lat?: number, lng?: number }) => {
     );
 };
 
-const DetailItem = ({ label, value, children }: { label: string, value?: string | number, children?: React.ReactNode }) => (
+const DetailItem = ({ label, value, children, icon: Icon }: { label: string, value?: string | number, children?: React.ReactNode, icon?: React.ElementType }) => (
     <div className="space-y-1">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        {children ? children : <p className="text-sm">{value || 'N/A'}</p>}
+        <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
+            {Icon && <Icon className="h-4 w-4" />}
+            {label}
+        </p>
+        {children ? <div className="text-sm">{children}</div> : <p className="text-sm">{value || 'N/A'}</p>}
     </div>
 );
 
@@ -76,8 +80,9 @@ export default function ViewBusinessPage() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: business, isLoading: isLoadingBusiness, isError } = api.businesses.useGetOne(id);
   const { data: categories, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
+  const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll();
   
-  const isLoading = isLoadingBusiness || isLoadingCategories;
+  const isLoading = isLoadingBusiness || isLoadingCategories || isLoadingZones;
 
   if (isLoading) {
     return (
@@ -111,6 +116,13 @@ export default function ViewBusinessPage() {
   const status = business.status;
   const statusText = status === "ACTIVE" ? "Activo" : status === "PENDING_REVIEW" ? "Pendiente" : "Inactivo";
   const category = categories?.find(c => c.id === business.category_id);
+  const zone = zones?.find(z => z.id === business.zone_id);
+
+  const typeTranslations: Record<BusinessType, string> = {
+    restaurant: "Restaurante",
+    store: "Tienda",
+    service: "Servicio",
+  };
 
   return (
     <div className="space-y-4">
@@ -138,7 +150,7 @@ export default function ViewBusinessPage() {
                     <div className="flex justify-between items-start">
                         <div>
                             <CardTitle className="text-2xl">{business.name}</CardTitle>
-                            <CardDescription>{category?.name || "Categoría no definida"}</CardDescription>
+                            <CardDescription>ID: {business.id}</CardDescription>
                         </div>
                         <Badge variant={status === "ACTIVE" ? "success" : status === "PENDING_REVIEW" ? "warning" : "outline"} className={cn(
                             "capitalize text-base",
@@ -151,8 +163,12 @@ export default function ViewBusinessPage() {
             </CardHeader>
             <CardContent className="space-y-8">
                 <section>
-                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Información de Contacto</h3>
+                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Información General y Contacto</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+                        <DetailItem label="Tipo de Negocio" value={typeTranslations[business.type]} icon={Building}/>
+                        <DetailItem label="Categoría" value={category?.name} icon={ShoppingBag} />
+                        <DetailItem label="Zona de Operación" value={zone?.name} icon={Map} />
+                        <Separator className="md:col-span-2 lg:col-span-3"/>
                         <DetailItem label="Contacto" value={business.owner_name} />
                         <DetailItem label="Email" value={business.email} />
                         <DetailItem label="WhatsApp" value={business.phone_whatsapp} />
@@ -220,3 +236,5 @@ export default function ViewBusinessPage() {
     </div>
   );
 }
+
+    
