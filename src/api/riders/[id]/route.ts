@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
-  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
+  const dateFields = ['birthDate', 'licenseValidUntil', 'policyValidUntil'];
 
   try {
     const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
@@ -75,10 +75,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
-        } else if (dateFields.includes(dbKey)) {
+        } else if (dateFields.includes(key)) {
             updateData[dbKey] = new Date(value as string).toISOString();
-        } else if (key === 'phone_e164' && typeof value === 'string' && !value.startsWith('+52')) {
-            updateData[dbKey] = `+52${value}`;
         } else if (key !== 'brandOther' && value !== null && value !== undefined && value !== 'null' && value !== 'undefined') {
             updateData[dbKey] = value;
         }
