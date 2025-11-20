@@ -1,11 +1,22 @@
+
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import React from "react";
 
 export function Footer() {
+  const [email, setEmail] = React.useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Aquí iría la lógica para enviar el email
+    console.log("Email suscrito:", email);
+    setEmail("");
+  };
+
   return (
     <footer className="bg-secondary text-secondary-foreground py-12">
       <div className="container mx-auto px-4">
@@ -38,8 +49,14 @@ export function Footer() {
           <div>
              <h3 className="font-semibold text-white">Mantente Informado</h3>
             <p className="mt-4 text-sm text-slate-300">Suscríbete a nuestro boletín para recibir noticias y ofertas.</p>
-            <form className="mt-4 flex gap-2">
-              <Input type="email" placeholder="tu.email@ejemplo.com" className="bg-slate-800 border-slate-700 text-white" />
+            <form className="mt-4 flex gap-2" onSubmit={handleSubmit}>
+              <Input 
+                type="email" 
+                placeholder="tu.email@ejemplo.com" 
+                className="bg-slate-800 border-slate-700 text-white"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
               <Button type="submit" variant="default">Suscribirse</Button>
             </form>
           </div>
