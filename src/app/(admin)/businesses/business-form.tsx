@@ -35,7 +35,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FormImageUpload, FormFileUpload } from "@/app/deliveryman/apply/_components/form-components";
+import { FormImageUpload, FormFileUpload } from "@/app/site/apply/_components/form-components";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 

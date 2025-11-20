@@ -27,7 +27,7 @@ interface RiderFormProps {
 
 export function RiderForm({ initialData, zones }: RiderFormProps) {
   const router = useRouter();
-  const updateMutation = api.riders.useUpdate();
+  const updateMutation = api.riders.useUpdateWithFormData();
 
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderAdminUpdateSchema),
