@@ -222,27 +222,17 @@ interface FormFileUploadProps {
 export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,image/png,application/pdf" }: FormFileUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
     const watchedValue = watch(name);
-    const [preview, setPreview] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const inputRef = React.useRef<HTMLInputElement | null>(null);
     
     useEffect(() => {
         if (typeof watchedValue === 'string') {
-            setPreview(watchedValue);
             setFileName(watchedValue.split('/').pop() || null);
         } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
             const file = watchedValue[0];
             setFileName(file.name);
-            if (file.type.startsWith('image/')) {
-              const reader = new FileReader();
-              reader.onloadend = () => setPreview(reader.result as string);
-              reader.readAsDataURL(file);
-            } else {
-              setPreview(null);
-            }
         } else {
-            setPreview(null);
             setFileName(null);
         }
     }, [watchedValue]);
@@ -563,5 +553,3 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
-
-    
