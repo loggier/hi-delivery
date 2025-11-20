@@ -304,7 +304,6 @@ export const FormFileUpload = ({ name, label, description, accept = "image/jpeg,
                                     }}
                                     onChange={handleFileChange}
                                     onBlur={onBlur}
-                                    value={undefined}
                                 />
                                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2"/>
                                 <span className="text-sm text-center text-slate-500">
@@ -399,7 +398,6 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
                                 }}
                                 onBlur={onBlur}
                                 onChange={handleFileChange}
-                                value={undefined}
                             />
                             {preview ? (
                                 <>
@@ -470,11 +468,14 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
   
   const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     handleDragEvents(e, false);
-    const dataTransfer = new DataTransfer();
-    if (e.dataTransfer.files?.[0]) {
-      dataTransfer.items.add(e.dataTransfer.files[0]);
-      setValue(name, dataTransfer.files, { shouldValidate: true });
-      if (inputRef.current) inputRef.current.files = dataTransfer.files;
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(droppedFiles[0]);
+        setValue(name, dataTransfer.files, { shouldValidate: true });
+        if (inputRef.current) {
+            inputRef.current.files = dataTransfer.files;
+        }
     }
   };
 
@@ -508,7 +509,6 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
                 ref={(e) => { ref(e); inputRef.current = e; }}
                 onChange={handleFileChange}
                 onBlur={onBlur}
-                value={undefined}
               />
               {preview ? (
                 <>
