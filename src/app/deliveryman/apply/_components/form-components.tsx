@@ -28,7 +28,7 @@ export const FormInput = ({ name, label, description, ...props }: FormInputProps
       <FormItem>
         <FormLabel>{label}</FormLabel>
         <FormControl>
-          <Input {...props} {...field} />
+          <Input {...props} {...field} value={field.value ?? ''} />
         </FormControl>
         {description && <FormDescription>{description}</FormDescription>}
         <FormMessage />
@@ -512,3 +512,5 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
+
+    
