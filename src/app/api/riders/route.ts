@@ -7,117 +7,10 @@ import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
 import type { User } from '@/types';
 
-async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
-    const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
-    
-    const { error: uploadError } = await supabaseAdmin.storage
-        .from(process.env.SUPABASE_BUCKET!)
-        .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-        console.error(`Upload Error for ${fileName}:`, uploadError);
-        throw new Error(`Failed to upload ${fileName}. Details: ${uploadError.message}`);
-    }
-
-    const { data } = supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).getPublicUrl(filePath);
-    return data.publicUrl;
-}
-
-async function handleUpdateRider(request: Request, supabaseAdmin: any, riderId: string) {
-  const formData = await request.formData();
-  const updateData: Record<string, any> = {};
-  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
-
-  try {
-    const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
-    
-    if(fetchError) {
-      console.error('Error fetching existing rider for update:', fetchError);
-      return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
-    }
-
-    let motoPhotos: string[] = existingRiderData.moto_photos || [];
-
-    // Procesar archivos primero
-    for (const [key, value] of formData.entries()) {
-        if (value instanceof File && value.size > 0) {
-            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-            if (key.startsWith('motoPhoto')) {
-                const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
-                // Evitar duplicados si se vuelve a subir
-                if (!motoPhotos.includes(url)) {
-                    motoPhotos.push(url);
-                }
-            } else {
-                 updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
-            }
-        }
-    }
-    
-    if (motoPhotos.length > 0) {
-        updateData['moto_photos'] = motoPhotos;
-    }
-
-    // Procesar otros campos
-    for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File)) {
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
-            updateData[dbKey] = value === 'true';
-        } else if (dateFields.includes(dbKey)) {
-            updateData[dbKey] = new Date(value as string).toISOString();
-        } else if (key !== 'brandOther') {
-            updateData[dbKey] = value;
-        }
-      }
-    }
-    
-    if (formData.get('brand') === 'Otra' && formData.get('brandOther')) {
-        updateData['brand'] = formData.get('brandOther');
-    }
-    
-    if (Object.keys(updateData).length === 0) {
-        return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 400 });
-    }
-
-    updateData.updated_at = new Date().toISOString();
-    
-    if (existingRiderData && existingRiderData.status === 'incomplete' && Object.keys(updateData).length > 1) { 
-        updateData.status = 'pending_review';
-    } else if (formData.has('status')) {
-        updateData.status = formData.get('status');
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('riders')
-      .update(updateData)
-      .eq('id', riderId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating rider profile:', error);
-      return NextResponse.json({ message: error.message || 'Error al actualizar el perfil.', error: error.details }, { status: 500 });
-    }
-
-    return NextResponse.json({ message: 'Perfil actualizado con éxito.', rider: data }, { status: 200 });
-
-  } catch (error) {
-    console.error('Unexpected error in POST rider API (update mode):', error);
-    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
-  }
-}
-
 async function handleCreateRider(request: Request, supabaseAdmin: any) {
-  const formData = await request.formData();
+  const json = await request.json();
   
-  const rawData: Record<string, any> = {};
-  for(const [key, value] of formData.entries()) {
-      rawData[key] = value;
-  }
-
-  const validated = riderAccountCreationSchema.safeParse(rawData);
+  const validated = riderAccountCreationSchema.safeParse(json);
 
   if (!validated.success) {
     console.error("Validation errors:", validated.error.flatten().fieldErrors);
@@ -128,7 +21,10 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
   let createdUserId: string | null = null;
   
   try {
-    const riderRoleId = 'delivery-man';
+    const { data: roleData, error: roleError } = await supabaseAdmin.from('roles').select('id').eq('name', 'Repartidor').single();
+    if (roleError || !roleData) throw new Error("No se pudo encontrar el rol 'Repartidor'.");
+
+    const riderRoleId = roleData.id;
     const userId = `user-${faker.string.uuid()}`;
     const hashedPassword = await hashPassword(data.password);
     
@@ -188,7 +84,7 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
         status: createdUser.status,
     };
 
-    return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", rider: userForSession, riderId: createdRider.id }, { status: 201 });
+    return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", user: userForSession, riderId: createdRider.id }, { status: 201 });
 
   } catch (error) {
     console.error('Unexpected error in rider registration API (create mode):', error);
@@ -201,9 +97,6 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
 }
 
 export async function POST(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const riderId = searchParams.get('id');
-
   const supabaseAdmin = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -213,9 +106,5 @@ export async function POST(request: Request) {
       }
     );
 
-  if (riderId) {
-    return handleUpdateRider(request, supabaseAdmin, riderId);
-  } else {
     return handleCreateRider(request, supabaseAdmin);
-  }
 }
