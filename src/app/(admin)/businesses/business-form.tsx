@@ -53,11 +53,10 @@ const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps
         libraries,
     });
     
-    const methods = useFormContext();
-    const { setValue } = methods;
+    const { control, setValue } = useFormContext();
 
-    const lat = useWatch({ control: methods.control, name: 'latitude' });
-    const lng = useWatch({ control: methods.control, name: 'longitude' });
+    const lat = useWatch({ control, name: 'latitude' });
+    const lng = useWatch({ control, name: 'longitude' });
 
     const mapCenter = React.useMemo(() => ({ lat: lat || 19.4326, lng: lng || -99.1332 }), [lat, lng]);
 
@@ -121,9 +120,9 @@ const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps
 
 function BusinessForm({ categories, zones }: BusinessFormProps) {
   const router = useRouter();
+  const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdateWithFormData();
-  const methods = useFormContext<BusinessFormValues>();
   
   const isEditing = !!methods.getValues("id");
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
@@ -170,6 +169,15 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
 
   const onSubmit = async (data: BusinessFormValues) => {
     const isEditingMode = !!data.id;
+    
+    // For updates, remove password fields if they are empty
+    if (isEditingMode) {
+        if (!data.password) {
+            delete (data as Partial<BusinessFormValues>).password;
+            delete (data as Partial<BusinessFormValues>).passwordConfirmation;
+        }
+    }
+    
     const formData = new FormData();
 
     const appendFormData = (key: string, value: any) => {
@@ -183,10 +191,6 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
     };
     
     Object.keys(data).forEach(key => {
-        // Don't append password fields for updates
-        if (isEditingMode && (key === 'password' || key === 'passwordConfirmation')) {
-            return;
-        }
         appendFormData(key, data[key as keyof BusinessFormValues]);
     });
 
@@ -210,7 +214,6 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-      <Form {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
         <Card>
             <CardContent className="pt-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -500,7 +503,6 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
             </Button>
         </div>
       </form>
-    </Form>
   );
 }
 
@@ -553,6 +555,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         zone_id: initialData.zone_id || "",
         password: "",
         passwordConfirmation: "",
+        notes: initialData.notes ?? "",
       });
     }
   }, [initialData, methods]);
