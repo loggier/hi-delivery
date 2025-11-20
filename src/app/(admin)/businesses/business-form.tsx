@@ -121,35 +121,36 @@ const BusinessMap = () => {
                     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                 )} />
             </GoogleAutocomplete>
-            <GoogleMap
-                mapContainerClassName="h-80 w-full rounded-md"
-                center={mapCenter}
-                zoom={15}
-                onLoad={onMapLoad}
-                onClick={onMapClick}
-                 options={{
-                    disableDefaultUI: true,
-                    zoomControl: true,
-                }}
-            >
-                {lat && lng && <MapPin
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -100%)',
-                            color: 'hsl(var(--hid-primary))',
-                            height: '40px',
-                            width: '40px'
-                        }}
-                    />
-                }
-            </GoogleMap>
+            {lat && lng && (
+                 <GoogleMap
+                    mapContainerClassName="h-80 w-full rounded-md"
+                    center={mapCenter}
+                    zoom={15}
+                    onLoad={onMapLoad}
+                    onClick={onMapClick}
+                    options={{
+                        disableDefaultUI: true,
+                        zoomControl: true,
+                    }}
+                >
+                    <MapPin
+                            style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -100%)',
+                                color: 'hsl(var(--hid-primary))',
+                                height: '40px',
+                                width: '40px'
+                            }}
+                        />
+                </GoogleMap>
+            )}
         </div>
     );
 };
 
-function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCategory[]; zones: Zone[]}) {
+function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategory[]; zones: Zone[]}) {
   const router = useRouter();
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
@@ -508,49 +509,37 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
 }
 
 
-export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
+export function BusinessFormWrapper({ initialData, categories, zones }: { initialData: Business; categories: BusinessCategory[]; zones: Zone[]; }) {
+  
   const formValues = useMemo(() => {
-    if (!initialData) return undefined;
-
-    // Sanitize initialData: replace null with undefined for selects and '' for inputs
+    // Create a copy to avoid modifying the original query data
     const sanitizedData = { ...initialData };
+    
+    // Sanitize values: replace null with undefined for selects and '' for inputs
     (Object.keys(sanitizedData) as Array<keyof Business>).forEach((key) => {
-        if (sanitizedData[key] === null) {
-            if (['category_id', 'zone_id', 'type', 'status', 'weekly_demand'].includes(key)) {
+        if (sanitizedData[key] === null || sanitizedData[key] === undefined) {
+             if (['category_id', 'zone_id', 'type', 'status', 'weekly_demand'].includes(key)) {
                 (sanitizedData as any)[key] = undefined;
             } else if (typeof sanitizedData[key] !== 'number' && typeof sanitizedData[key] !== 'boolean') {
                  (sanitizedData as any)[key] = '';
             }
         }
     });
+
+    // Ensure latitude and longitude have default values if they are missing
+    if (!sanitizedData.latitude || !sanitizedData.longitude) {
+        sanitizedData.latitude = 19.4326;
+        sanitizedData.longitude = -99.1332;
+    }
+
     return sanitizedData;
   }, [initialData]);
 
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    values: formValues, // Use 'values' for async data
-    defaultValues: {
-      name: '',
-      type: undefined,
-      category_id: undefined,
-      zone_id: undefined,
-      status: 'ACTIVE',
-      email: '',
-      owner_name: '',
-      phone_whatsapp: '',
-      address_line: '',
-      neighborhood: '',
-      city: '',
-      state: '',
-      zip_code: '',
-      notes: '',
-      website: '',
-      instagram: '',
-      tax_id: '',
-      password: '',
-      passwordConfirmation: '',
-      has_delivery_service: false,
-    },
+    // Use defaultValues, which gets evaluated once on form creation.
+    // The parent component now ensures that initialData is present before rendering this wrapper.
+    defaultValues: formValues,
   });
 
   return (
@@ -559,5 +548,3 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   );
 }
-
-    

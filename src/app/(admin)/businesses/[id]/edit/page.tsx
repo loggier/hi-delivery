@@ -49,14 +49,19 @@ export default function EditBusinessPage() {
   if(isError) {
     notFound();
   }
+  
+  // Only render the form when all data is available
+  if (!business || !categories || !zones) {
+    return <div>No se pudieron cargar los datos necesarios para editar el negocio.</div>;
+  }
 
   return (
     <div className="space-y-4">
       <PageHeader title="Editar Negocio" />
       <BusinessFormWrapper 
         initialData={business} 
-        categories={categories || []}
-        zones={zones || []}
+        categories={categories}
+        zones={zones}
       />
     </div>
   );
