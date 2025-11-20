@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import { FormInput, FormDatePicker, FormSelect, FormFileUpload } from './form-components';
+import { FormInput, FormDatePicker, FormSelect, FormFileUpload } from '@/app/deliveryman/apply/_components/form-components';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 

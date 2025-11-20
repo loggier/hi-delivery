@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import { FormInput, FormSelect, FormFutureDatePicker, FormFileUpload, FormMultiImageUpload } from './form-components';
+import { FormInput, FormSelect, FormFutureDatePicker, FormFileUpload, FormMultiImageUpload } from '@/app/deliveryman/apply/_components/form-components';
 import { vehicleBrands, vehicleYears } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 

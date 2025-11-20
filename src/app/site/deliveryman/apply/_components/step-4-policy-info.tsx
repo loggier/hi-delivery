@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import { FormInput, FormFutureDatePicker, FormFileUpload } from './form-components';
+import { FormInput, FormFutureDatePicker, FormFileUpload } from '@/app/deliveryman/apply/_components/form-components';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const policyInfoSchema = riderApplicationBaseSchema.pick({

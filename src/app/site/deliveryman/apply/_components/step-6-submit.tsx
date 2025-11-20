@@ -10,7 +10,7 @@ import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Check, ShieldCheck, CheckCircle } from 'lucide-react';
-import { FormImageUpload } from './form-components';
+import { FormImageUpload } from '@/app/deliveryman/apply/_components/form-components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
