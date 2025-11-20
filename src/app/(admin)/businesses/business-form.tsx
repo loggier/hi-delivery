@@ -37,6 +37,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormImageUpload, FormFileUpload } from "@/app/deliveryman/apply/_components/form-components";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
@@ -121,7 +122,9 @@ const BusinessMap = () => {
     return (
         <div className="space-y-4">
             <GoogleAutocomplete onLoad={onAutocompleteLoad} onPlaceChanged={onPlaceChanged}>
-                <Input type="text" placeholder="Buscar dirección para ubicar en el mapa..." className="w-full" />
+                <input type="text" placeholder="Buscar dirección para ubicar en el mapa..." className={cn(
+                    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                )} />
             </GoogleAutocomplete>
             <GoogleMap
                 mapContainerClassName="h-80 w-full rounded-md"
@@ -182,10 +185,8 @@ function BusinessForm({ categories, zones }: BusinessFormProps) {
     
     // For updates, remove password fields if they are empty
     if (isEditingMode) {
-        if (!data.password) {
-            delete (data as Partial<BusinessFormValues>).password;
-            delete (data as Partial<BusinessFormValues>).passwordConfirmation;
-        }
+        delete (data as Partial<BusinessFormValues>).password;
+        delete (data as Partial<BusinessFormValues>).passwordConfirmation;
     }
     
     Object.keys(data).forEach(key => {
@@ -550,6 +551,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     if (initialData && zones && zones.length > 0) {
       methods.reset({
         ...initialData,
+        id: initialData.id, // Ensure id is set for editing
         zone_id: initialData.zone_id || "",
         password: "",
         passwordConfirmation: "",
