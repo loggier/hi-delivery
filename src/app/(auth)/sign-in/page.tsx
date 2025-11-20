@@ -76,7 +76,7 @@ export default function SignInPage() {
   return (
     <>
       <div className="hidden lg:flex items-center justify-center bg-secondary/10 p-10">
-         <Image src="/logo-hidelivery.png" alt={`Logo ${appName}`} width={250} height={100} />
+         <Image src="/logo-hid.png" alt={`Logo ${appName}`} width={250} height={100} />
       </div>
        <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto grid w-[350px] gap-6">
