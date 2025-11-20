@@ -1,0 +1,14 @@
+{
+  "heroRider": {
+    "src": "https://picsum.photos/seed/herorider/1920/1080",
+    "alt": "A delivery rider on a motorcycle in a vibrant city at dusk."
+  },
+  "riderDocuments": {
+    "src": "https://picsum.photos/seed/riderdocs/500/500",
+    "alt": "A collection of documents and motorcycle gear, including a helmet, gloves, and a license."
+  },
+  "businessCollage": {
+    "src": "https://picsum.photos/seed/bizcollage/600/450",
+    "alt": "A collage of images showing a happy restaurant owner, a busy kitchen, and a prepared food package."
+  }
+}
