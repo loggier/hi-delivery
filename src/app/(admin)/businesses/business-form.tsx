@@ -167,8 +167,10 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
 
   useEffect(() => {
     const currentCategoryId = methods.getValues('category_id');
-    if (currentCategoryId && !availableCategories.some(c => c.id === currentCategoryId)) {
-        methods.setValue('category_id', undefined);
+    const isCurrentCategoryAvailable = availableCategories.some(c => c.id === currentCategoryId);
+    
+    if (currentCategoryId && !isCurrentCategoryAvailable) {
+        methods.setValue('category_id', undefined, { shouldDirty: true });
     }
   }, [selectedType, availableCategories, methods]);
 
@@ -266,7 +268,7 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    {(availableCategories || []).map(cat => (
+                                    {availableCategories.map(cat => (
                                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -509,7 +511,15 @@ function BusinessForm({ allCategories, zones }: { allCategories?: BusinessCatego
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
-    defaultValues: {
+    defaultValues: initialData ? {
+      ...initialData,
+      type: initialData.type || undefined,
+      category_id: initialData.category_id || undefined,
+      zone_id: initialData.zone_id || undefined,
+      notes: initialData.notes || '',
+      password: '',
+      passwordConfirmation: '',
+    } : {
       id: undefined, name: '', 
       type: undefined,
       category_id: undefined,
@@ -527,27 +537,11 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     },
   });
 
-  useEffect(() => {
-    // Only reset the form if all async data is available
-    if (initialData && zones && categories) {
-        const initialDataForForm = {
-          ...initialData,
-          password: "", 
-          passwordConfirmation: "",
-          // Ensure null values from DB become undefined for select components
-          type: initialData.type || undefined,
-          category_id: initialData.category_id || undefined,
-          zone_id: initialData.zone_id || undefined,
-          notes: initialData.notes || "",
-        };
-      methods.reset(initialDataForForm);
-    }
-  }, [initialData, zones, categories, methods]);
-
-
   return (
     <FormProvider {...methods}>
       <BusinessForm allCategories={categories} zones={zones} />
     </FormProvider>
   )
 }
+
+    
