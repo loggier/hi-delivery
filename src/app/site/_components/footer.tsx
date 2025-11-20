@@ -22,7 +22,7 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="space-y-4">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/site" className="flex items-center gap-2">
               <Image src="/logo-hid.png" alt="Hi! Delivery Logo" width={32} height={32} />
               <span className="text-xl font-bold">Hi! Delivery</span>
             </Link>
@@ -36,14 +36,14 @@ export function Footer() {
               <li><Link href="#benefits" className="text-slate-300 hover:text-white">Beneficios</Link></li>
               <li><Link href="#requirements" className="text-slate-300 hover:text-white">Requisitos</Link></li>
               <li><Link href="#how-it-works" className="text-slate-300 hover:text-white">Cómo funciona</Link></li>
-              <li><Link href="/deliveryman/apply" className="text-slate-300 hover:text-white">Aplicar ahora</Link></li>
+              <li><Link href="/site/deliveryman/apply" className="text-slate-300 hover:text-white">Aplicar ahora</Link></li>
             </ul>
           </div>
           <div>
             <h3 className="font-semibold text-white">Negocios</h3>
             <ul className="mt-4 space-y-2 text-sm">
                 <li><Link href="#for-businesses" className="text-slate-300 hover:text-white">Nuestros Servicios</Link></li>
-                <li><Link href="/store/apply" className="text-slate-300 hover:text-white">Registra tu negocio</Link></li>
+                <li><Link href="/site/store/apply" className="text-slate-300 hover:text-white">Registra tu negocio</Link></li>
             </ul>
           </div>
           <div>

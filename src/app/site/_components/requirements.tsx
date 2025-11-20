@@ -40,7 +40,7 @@ export function Requirements() {
               ))}
             </ul>
              <Button asChild size="lg" className="mt-8">
-              <Link href="/deliveryman/apply">Comenzar mi Solicitud</Link>
+              <Link href="/site/deliveryman/apply">Comenzar mi Solicitud</Link>
             </Button>
           </div>
           <div className="flex justify-center">

@@ -27,13 +27,13 @@ export function Hero() {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button asChild size="lg" className="w-full sm:w-auto">
-              <Link href="/deliveryman/apply">
+              <Link href="/site/deliveryman/apply">
                 Regístrate como Repartidor
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
-              <Link href="/store/apply">
+              <Link href="/site/store/apply">
                 <Store className="mr-2 h-5 w-5" />
                 Soy un Negocio
               </Link>

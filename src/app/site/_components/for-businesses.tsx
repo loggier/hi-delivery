@@ -26,7 +26,7 @@ export function ForBusinesses() {
               <li className="flex items-center gap-2">✓ Aumenta tu área de cobertura.</li>
             </ul>
             <Button asChild size="lg" className="mt-8">
-              <Link href="/store/apply">Registra tu Negocio</Link>
+              <Link href="/site/store/apply">Registra tu Negocio</Link>
             </Button>
           </div>
           <div className="order-1 md:order-2">

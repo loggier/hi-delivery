@@ -35,7 +35,7 @@ export function Header() {
     >
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/site" className="flex items-center gap-2">
             <Image src="/logo-hid.png" alt="Hi! Delivery Logo" width={28} height={28} />
             <span className="text-lg font-bold">Hi! Delivery</span>
           </Link>
@@ -55,7 +55,7 @@ export function Header() {
                 <Link href="/sign-in">Iniciar Sesión</Link>
             </Button>
             <Button asChild>
-              <Link href="/deliveryman/apply">¡Quiero ser Repartidor!</Link>
+              <Link href="/site/deliveryman/apply">¡Quiero ser Repartidor!</Link>
             </Button>
           </div>
           <Button
@@ -87,7 +87,7 @@ export function Header() {
                     <Link href="/sign-in">Iniciar Sesión</Link>
                 </Button>
                 <Button asChild>
-                    <Link href="/deliveryman/apply">¡Quiero ser Repartidor!</Link>
+                    <Link href="/site/deliveryman/apply">¡Quiero ser Repartidor!</Link>
                 </Button>
             </div>
           </nav>
