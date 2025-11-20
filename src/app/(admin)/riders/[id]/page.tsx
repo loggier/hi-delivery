@@ -6,6 +6,7 @@ import { notFound, useParams } from 'next/navigation';
 import React from 'react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import Image from "next/image";
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -57,6 +58,16 @@ const DocumentLink = ({ label, url, expiryDate }: { label: string, url?: string,
     );
 };
 
+const ProfileImage = ({ url, name }: { url?: string, name: string }) => (
+    <Image 
+        src={url || `https://placehold.co/80x80/E33739/FFFFFF/png?text=${name.charAt(0)}`}
+        alt={`Foto de ${name}`}
+        width={80}
+        height={80}
+        className="rounded-full border"
+    />
+);
+
 export default function ViewRiderPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -79,30 +90,34 @@ export default function ViewRiderPage() {
   }
 
   const statusInfo = statusConfig[rider.status];
+  const fullName = `${rider.first_name} ${rider.last_name}`;
 
   return (
     <div className="space-y-4">
-      <PageHeader title={`${rider.first_name} ${rider.last_name}`}>
+      <PageHeader title={fullName}>
         {/* We won't have an edit page for now, as the public form is too complex */}
       </PageHeader>
 
         <Card>
-            <CardHeader>
-                <div className="flex flex-wrap justify-between items-start gap-4">
-                    <div>
-                        <CardTitle className="text-2xl">{rider.first_name} ${rider.last_name} {rider.mother_last_name}</CardTitle>
-                        <CardDescription>Repartidor Asociado en {zoneName || 'Zona no asignada'}</CardDescription>
+            <CardHeader className="flex-row items-start gap-4 space-y-0">
+                <ProfileImage url={rider.avatar_1x1_url} name={fullName} />
+                <div className="flex-1">
+                    <div className="flex flex-wrap justify-between items-start gap-4">
+                         <div>
+                            <CardTitle className="text-2xl">{fullName} {rider.mother_last_name}</CardTitle>
+                            <CardDescription>Repartidor Asociado en {zoneName || 'Zona no asignada'}</CardDescription>
+                        </div>
+                        <Badge variant={statusInfo.variant} className={cn(
+                            "capitalize text-base",
+                            rider.status === 'approved' && "border-green-600/20 bg-green-50 text-green-700",
+                            rider.status === 'inactive' && "bg-slate-100 text-slate-600",
+                            rider.status === 'rejected' && "border-red-600/10 bg-red-50 text-red-700",
+                            (rider.status === 'pending_review' || rider.status === 'incomplete') && "border-amber-500/20 bg-amber-50 text-amber-700",
+                        )}>
+                            <statusInfo.icon className="mr-2 h-4 w-4" />
+                            {statusInfo.label}
+                        </Badge>
                     </div>
-                    <Badge variant={statusInfo.variant} className={cn(
-                        "capitalize text-base",
-                        rider.status === 'approved' && "border-green-600/20 bg-green-50 text-green-700",
-                        rider.status === 'inactive' && "bg-slate-100 text-slate-600",
-                        rider.status === 'rejected' && "border-red-600/10 bg-red-50 text-red-700",
-                        (rider.status === 'pending_review' || rider.status === 'incomplete') && "border-amber-500/20 bg-amber-50 text-amber-700",
-                    )}>
-                        <statusInfo.icon className="mr-2 h-4 w-4" />
-                        {statusInfo.label}
-                    </Badge>
                 </div>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -122,7 +137,6 @@ export default function ViewRiderPage() {
                 <section>
                     <h3 className="text-lg font-semibold mb-4 border-b pb-2">Documentación</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-6">
-                         <DocumentLink label="Foto de Perfil" url={rider.avatar_1x1_url} />
                          <DocumentLink label="INE (Frente)" url={rider.ine_front_url} />
                          <DocumentLink label="INE (Dorso)" url={rider.ine_back_url} />
                          <DocumentLink label="Comprobante de Domicilio" url={rider.proof_of_address_url} />
@@ -180,5 +194,3 @@ export default function ViewRiderPage() {
     </div>
   );
 }
-
-    
