@@ -119,12 +119,13 @@ const BusinessMap = ({ onPlaceSelected }: { onPlaceSelected: (place: google.maps
     );
 };
 
-function BusinessForm({ isEditing, categories, zones }: { isEditing: boolean, categories: BusinessCategory[], zones: Zone[]}) {
+function BusinessForm({ initialData, categories, zones }: BusinessFormProps) {
   const router = useRouter();
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdate();
   const methods = useFormContext<BusinessFormValues>();
 
+  const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
 
   const selectedType = useWatch({
@@ -186,10 +187,8 @@ function BusinessForm({ isEditing, categories, zones }: { isEditing: boolean, ca
         }
       });
       
-      const initialDataId = (methods.getValues() as any).id;
-
-      if (isEditing && initialDataId) {
-        await updateMutation.mutateAsync({ formData, id: initialDataId });
+      if (isEditing && initialData) {
+        await updateMutation.mutateAsync({ formData, id: initialData.id });
       } else {
         if (!data.password) {
             methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
@@ -547,7 +546,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: Business
 
   return (
     <FormProvider {...methods}>
-      <BusinessForm isEditing={isEditing} categories={categories} zones={zones} />
+      <BusinessForm initialData={initialData} isEditing={isEditing} categories={categories} zones={zones} />
     </FormProvider>
   )
 }
