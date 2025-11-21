@@ -607,6 +607,19 @@ interface ShippingMapModalProps {
 
 export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded }: ShippingMapModalProps) {
     
+    const [isModalReady, setIsModalReady] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            const timer = setTimeout(() => {
+                setIsModalReady(true);
+            }, 150);
+            return () => clearTimeout(timer);
+        } else {
+            setIsModalReady(false);
+        }
+    }, [isOpen]);
+    
     const mapCenter = useMemo(() => {
         if (business?.latitude && business?.longitude) {
             return { lat: business.latitude, lng: business.longitude };
@@ -637,8 +650,8 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                     </DialogDescription>
                 </DialogHeader>
                 <div className="h-[60vh] mt-4">
-                    {!isMapsLoaded && <Skeleton className="h-full w-full rounded-md" />}
-                    {isMapsLoaded && (
+                    {(!isMapsLoaded || !isModalReady) && <Skeleton className="h-full w-full rounded-md" />}
+                    {isMapsLoaded && isModalReady && (
                         <GoogleMap
                             mapContainerClassName="w-full h-full rounded-md"
                             center={mapCenter}
