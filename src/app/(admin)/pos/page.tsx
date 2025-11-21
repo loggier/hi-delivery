@@ -16,7 +16,7 @@ import { type Customer, type Product, type Business, type CustomerAddress } from
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Building, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { AlertTriangle, Building, ChevronDown, ChevronUp, User, Home } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -111,7 +111,7 @@ export default function POSPage() {
                             <div className={cn("flex justify-between items-center p-4 cursor-pointer rounded-t-lg", isBusinessOpen && "border-b")}>
                                 <div className="flex items-center gap-3">
                                     <Building className="h-6 w-6" />
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col text-left">
                                         <h3 className="font-semibold text-xl">
                                             {selectedBusiness ? `Paso 1: Negocio Seleccionado` : `Paso 1: Seleccionar Negocio`}
                                         </h3>
@@ -155,11 +155,21 @@ export default function POSPage() {
                             )}>
                                 <div className="flex items-center gap-3">
                                     <User className="h-6 w-6" />
-                                    <div className="flex flex-col">
+                                    <div className="flex flex-col text-left">
                                          <h3 className="font-semibold text-xl">
                                             {selectedCustomer ? `Paso 2: Cliente y Dirección` : `Paso 2: Buscar Cliente`}
                                         </h3>
-                                        {selectedCustomer && <span className="text-primary font-medium">{selectedCustomer.first_name} {selectedCustomer.last_name}</span>}
+                                        {selectedCustomer && (
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 text-sm">
+                                                <span className="text-primary font-medium">{selectedCustomer.first_name} {selectedCustomer.last_name}</span>
+                                                {selectedAddress && (
+                                                    <div className="flex items-center gap-1 text-muted-foreground">
+                                                        <Home className="h-3 w-3 sm:block hidden"/>
+                                                        <span className="truncate max-w-[200px] sm:max-w-xs">{selectedAddress.address}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <Button variant="ghost" size="icon" disabled={!selectedBusiness}>
