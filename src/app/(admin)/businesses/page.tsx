@@ -25,7 +25,7 @@ export default function BusinessesPage() {
   const [debouncedName] = useDebounce(filters.name, 500);
 
   const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ 
-    name: debouncedName,
+    name_search: debouncedName,
     status: filters.status,
     type: filters.type,
     category_id: filters.category_id,

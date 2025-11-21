@@ -58,21 +58,22 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         let query = supabase.from(entity).select('*', { count: 'exact' });
 
         for (const [key, value] of Object.entries(params)) {
-            if (value !== undefined && value !== '') {
-                if (key === 'name_search') {
+          if (value !== undefined && value !== '') {
+            if (key === 'name_search') {
+                if (entity === 'riders') {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
-                    continue;
+                } else {
+                     query = query.ilike('name', `%${value}%`);
                 }
-                if (key === 'name') {
-                    query = query.ilike('name', `%${value}%`);
-                    continue;
-                }
-                 if (key === 'active' && typeof value === 'string') {
-                    query = query.eq('active', value === 'true');
-                    continue;
-                }
-                query = query.eq(key, value);
+                continue;
             }
+            if (key === 'active' && typeof value === 'string') {
+              query = query.eq('active', value === 'true');
+              continue;
+            }
+            // Generic filter for other keys
+            query = query.eq(key, value);
+          }
         }
         
         if (!params['plan_id'] && entity !== 'customer_addresses') {
