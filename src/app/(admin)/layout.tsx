@@ -62,6 +62,14 @@ export default function AdminLayout({
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    if (pathname === '/pos') {
+      setSidebarCollapsed(true);
+    } else {
+      setSidebarCollapsed(false);
+    }
+  }, [pathname]);
+
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 
   const SidebarContent = ({ isMobile = false }) => (

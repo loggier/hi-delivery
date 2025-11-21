@@ -221,9 +221,9 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
     
     return (
         <Card className="overflow-hidden flex flex-col">
-            <div className="aspect-video relative">
+            <div className="aspect-square relative">
                 <Image 
-                    src={product.image_url || 'https://placehold.co/300x200'} 
+                    src={product.image_url || 'https://placehold.co/300x300'} 
                     alt={product.name}
                     fill
                     className="object-cover"
@@ -238,7 +238,7 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
                         <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
                     </div>
-                    <Button size="sm" onClick={handleAdd} className="w-full">
+                     <Button size="sm" onClick={handleAdd} className="w-full">
                         Agregar
                     </Button>
                 </div>
