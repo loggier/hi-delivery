@@ -32,13 +32,13 @@ export default function POSPage() {
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
     
     const [isBusinessOpen, setIsBusinessOpen] = React.useState(true);
-    const [isCustomerOpen, setIsCustomerOpen] = React.useState(true);
+    const [isCustomerOpen, setIsCustomerOpen] = React.useState(false);
     const [isAddressModalOpen, setIsAddressModalOpen] = React.useState(false);
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
 
-    const { isLoaded, loadError } = useLoadScript({
+    const { isLoaded } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
@@ -213,7 +213,10 @@ export default function POSPage() {
 
                 {/* Step 3: Product Grid */}
                 <Card>
-                    <CardContent className="p-4">
+                    <CardHeader>
+                        <CardTitle className="text-xl">3. Seleccionar Productos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
                        <ProductGrid 
                             products={products || []} 
                             onAddToCart={addProductToOrder}
@@ -237,7 +240,7 @@ export default function POSPage() {
             </div>
 
             {/* Modals */}
-            {selectedCustomer && isLoaded && (
+            {selectedCustomer && (
                 <AddressFormModal
                     isOpen={isAddressModalOpen}
                     onClose={() => setIsAddressModalOpen(false)}
@@ -262,3 +265,5 @@ export default function POSPage() {
         </div>
     );
 }
+
+    

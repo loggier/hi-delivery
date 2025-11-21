@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer } from 'lucide-react';
-import { Customer, Product, Business, Order, CustomerAddress, Plan } from '@/types';
+import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -428,40 +428,46 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
 
 type OrderItem = Product & { quantity: number };
 
-interface OrderCartProps {
-    items: OrderItem[];
-    onUpdateQuantity: (productId: string, quantity: number) => void;
-    customer: Customer | null;
-    business: Business | null;
-    address: CustomerAddress | null;
-    isMapsLoaded: boolean;
+interface ShippingInfo {
+    distance: number;
+    duration: string;
+    cost: number;
 }
 
-export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded }: OrderCartProps) {
-    const [shippingInfo, setShippingInfo] = useState<{ distance: number, duration: string } | null>(null);
-    const [isCalculating, setIsCalculating] = useState(false);
+const useShippingCalculation = (business: Business | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
+    const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { data: plan } = api.plans.useGetOne(business?.plan_id || '');
-    const { data: settings } = api.settings.useGet();
+    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '');
 
     useEffect(() => {
-        if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude) {
-            setIsCalculating(true);
+        if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude && plan) {
+            setIsLoading(true);
             setError(null);
+            
             const directionsService = new window.google.maps.DirectionsService();
             directionsService.route({
                 origin: { lat: business.latitude, lng: business.longitude },
                 destination: { lat: address.latitude, lng: address.longitude },
                 travelMode: window.google.maps.TravelMode.DRIVING,
             }, (result, status) => {
-                setIsCalculating(false);
+                setIsLoading(false);
                 if (status === window.google.maps.DirectionsStatus.OK && result) {
                     const route = result.routes[0].legs[0];
                     if (route.distance && route.duration) {
+                        const distanceInKm = route.distance.value / 1000;
+                        
+                        let cost = plan.rider_fee;
+                        if (distanceInKm > plan.min_distance) {
+                            const extraKm = distanceInKm - plan.min_distance;
+                            cost += extraKm * plan.fee_per_km;
+                        }
+
                         setShippingInfo({
-                            distance: route.distance.value / 1000, // distance in km
+                            distance: distanceInKm,
                             duration: route.duration.text,
+                            cost: Math.max(cost, plan.min_shipping_fee)
                         });
                     }
                 } else {
@@ -473,26 +479,29 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
             setShippingInfo(null);
             setError(null);
         }
-    }, [business, address, isMapsLoaded]);
+    }, [business, address, isMapsLoaded, plan]);
 
+    return { shippingInfo, isLoading: isLoading || isLoadingPlan, error };
+}
+
+
+interface OrderCartProps {
+    items: OrderItem[];
+    onUpdateQuantity: (productId: string, quantity: number) => void;
+    customer: Customer | null;
+    business: Business | null;
+    address: CustomerAddress | null;
+    isMapsLoaded: boolean;
+}
+
+export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded }: OrderCartProps) {
+    const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(business, address, isMapsLoaded);
 
     const subtotal = useMemo(() => {
         return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
     }, [items]);
     
-    const shippingCost = useMemo(() => {
-        if (!shippingInfo || !plan || !settings) return 0;
-        
-        let cost = plan.rider_fee;
-        if (shippingInfo.distance > plan.min_distance) {
-            const extraKm = shippingInfo.distance - plan.min_distance;
-            cost += extraKm * plan.fee_per_km;
-        }
-
-        return Math.max(cost, plan.min_shipping_fee);
-    }, [shippingInfo, plan, settings]);
-
-    const total = subtotal + shippingCost;
+    const total = subtotal + (shippingInfo?.cost || 0);
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
@@ -535,10 +544,10 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                     <h4 className="font-semibold text-base">Costo de Envío</h4>
                     {business && customer && address ? (
                         <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
-                             {isCalculating ? (
+                             {isLoadingShipping ? (
                                  <div className="flex items-center text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Calculando...</div>
-                             ) : error ? (
-                                 <div className="flex items-center text-destructive"><AlertCircle className="mr-2 h-4 w-4"/>{error}</div>
+                             ) : shippingError ? (
+                                 <div className="flex items-center text-destructive"><AlertCircle className="mr-2 h-4 w-4"/>{shippingError}</div>
                              ) : shippingInfo ? (
                                 <>
                                     <div className="flex justify-between items-center">
@@ -551,7 +560,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                                     </div>
                                     <div className="flex justify-between items-center mt-2 pt-2 border-t">
                                         <span className="font-semibold">Costo de envío</span>
-                                        <span className="font-bold text-primary">{formatCurrency(shippingCost)}</span>
+                                        <span className="font-bold text-primary">{formatCurrency(shippingInfo.cost)}</span>
                                     </div>
                                 </>
                              ) : null}
@@ -570,7 +579,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                     </div>
                     <div className="flex justify-between">
                         <span>Envío</span>
-                        <span>{formatCurrency(shippingCost)}</span>
+                        <span>{formatCurrency(shippingInfo?.cost || 0)}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between text-2xl font-bold text-primary">
@@ -597,18 +606,26 @@ interface ShippingMapModalProps {
 }
 
 export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded }: ShippingMapModalProps) {
-    const mapCenter = useMemo(() => {
-        if (business?.latitude && business?.longitude) return { lat: business.latitude, lng: business.longitude };
-        return { lat: 19.4326, lng: -99.1332 }; // Mexico City
-    }, [business]);
     
+    const mapCenter = useMemo(() => {
+        if (business?.latitude && business?.longitude) {
+            return { lat: business.latitude, lng: business.longitude };
+        }
+        if (address?.latitude && address?.longitude) {
+            return { lat: address.latitude, lng: address.longitude };
+        }
+        return { lat: 19.4326, lng: -99.1332 }; // Default fallback
+    }, [business, address]);
+
     const mapBounds = useMemo(() => {
-        if (!business?.latitude || !address?.latitude || !isMapsLoaded || typeof window === 'undefined') return undefined;
+        if (!isMapsLoaded || !business?.latitude || !address?.latitude || typeof window === 'undefined') return undefined;
+        
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend({ lat: business.latitude, lng: business.longitude });
         bounds.extend({ lat: address.latitude, lng: address.longitude });
         return bounds;
     }, [business, address, isMapsLoaded]);
+
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -620,12 +637,14 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                     </DialogDescription>
                 </DialogHeader>
                 <div className="h-[60vh] mt-4">
-                    {!isMapsLoaded && <div className="h-full w-full bg-muted animate-pulse rounded-md" />}
+                    {!isMapsLoaded && <Skeleton className="h-full w-full rounded-md" />}
                     {isMapsLoaded && (
                         <GoogleMap
                             mapContainerClassName="w-full h-full rounded-md"
                             center={mapCenter}
-                            onLoad={map => mapBounds && map.fitBounds(mapBounds)}
+                            onLoad={map => {
+                                if (mapBounds) map.fitBounds(mapBounds);
+                            }}
                             options={{
                                 disableDefaultUI: true,
                                 zoomControl: true,
@@ -650,3 +669,5 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
+
+    
