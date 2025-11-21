@@ -69,7 +69,6 @@ export const getColumns = (businesses: Business[], categories: Category[]): Colu
                     className="rounded-sm object-cover"
                 />
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{name}</span>
                   {description && (
                     <TooltipProvider>
                       <Tooltip>
@@ -82,6 +81,7 @@ export const getColumns = (businesses: Business[], categories: Category[]): Colu
                       </Tooltip>
                     </TooltipProvider>
                   )}
+                  <span className="font-medium">{name}</span>
                 </div>
             </div>
         )
