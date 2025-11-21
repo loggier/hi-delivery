@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form } from '@/components/ui/form';
+import { Form, FormField, FormMessage } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
@@ -151,7 +151,7 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
 
     const onSubmit = async (data: NewCustomerValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data);
+            const newCustomer = await createCustomerMutation.mutateAsync(data as any);
             toast({
                 title: "Cliente Creado",
                 description: `${newCustomer.firstName} ha sido guardado exitosamente.`,
@@ -488,3 +488,5 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
         </Dialog>
     )
 }
+
+    
