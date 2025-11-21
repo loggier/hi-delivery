@@ -96,6 +96,8 @@ const imageFileSchema = (message: string) =>
         z.instanceof(File, { message }).nullable(),
         z.instanceof(FileList).transform(val => val.length > 0 ? val.item(0) : null).nullable()
       ])
+      .refine(file => !file || file.size <= MAX_FILE_SIZE, `El tamaño máximo de imagen es 5MB.`)
+      .refine(file => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), "Solo se permiten formatos .jpg, .png y .webp")
     : z.any().nullable();
 
 export const businessAccountCreationSchema = z.object({
@@ -325,5 +327,3 @@ export const productSchema = z.object({
   categoryId: z.string({ required_error: "Debe seleccionar una categoría."}),
   imageUrl: imageFileSchema("La imagen del producto es opcional.").optional(),
 });
-
-    

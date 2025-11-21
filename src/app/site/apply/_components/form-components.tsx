@@ -567,5 +567,3 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
-
-    

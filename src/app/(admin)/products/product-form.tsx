@@ -216,5 +216,3 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
     </Card>
   );
 }
-
-    
