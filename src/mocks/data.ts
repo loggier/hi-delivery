@@ -257,7 +257,7 @@ export const products: Product[] = [
     business_id: businesses.find(b => b.name === 'Sushi Go')?.id || 'biz-3',
     category_id: 'prod-cat-4',
     image_url: `https://picsum.photos/seed/sushi/400/300`,
-    created_at: new Date('203-08-03T12:00:00Z').toISOString(),
+    created_at: new Date('2023-08-03T12:00:00Z').toISOString(),
   },
   {
     id: 'prod-4',
