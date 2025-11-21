@@ -16,12 +16,14 @@ import { type Customer, type Product, type Business, type CustomerAddress } from
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Building, ChevronDown, ChevronUp, User, Home } from 'lucide-react';
+import { Building, ChevronDown, ChevronUp, User, Home } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLoadScript } from '@react-google-maps/api';
 
 type OrderItem = Product & { quantity: number };
+const libraries: ('places')[] = ['places'];
 
 export default function POSPage() {
     const [selectedBusiness, setSelectedBusiness] = React.useState<Business | null>(null);
@@ -35,6 +37,11 @@ export default function POSPage() {
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
+
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries,
+    });
 
     const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id });
@@ -225,11 +232,12 @@ export default function POSPage() {
                     customer={selectedCustomer}
                     business={selectedBusiness}
                     address={selectedAddress}
+                    isMapsLoaded={isLoaded}
                 />
             </div>
 
             {/* Modals */}
-            {selectedCustomer && (
+            {selectedCustomer && isLoaded && (
                 <AddressFormModal
                     isOpen={isAddressModalOpen}
                     onClose={() => setIsAddressModalOpen(false)}

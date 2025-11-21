@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -434,16 +434,54 @@ interface OrderCartProps {
     customer: Customer | null;
     business: Business | null;
     address: CustomerAddress | null;
+    isMapsLoaded: boolean;
 }
 
-export function OrderCart({ items, onUpdateQuantity, customer, business, address }: OrderCartProps) {
+export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded }: OrderCartProps) {
+    const [shippingInfo, setShippingInfo] = useState<{ distance: string, duration: string } | null>(null);
+    const [isCalculating, setIsCalculating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    
+    useEffect(() => {
+        if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude) {
+            setIsCalculating(true);
+            setError(null);
+            const directionsService = new window.google.maps.DirectionsService();
+            directionsService.route({
+                origin: { lat: business.latitude, lng: business.longitude },
+                destination: { lat: address.latitude, lng: address.longitude },
+                travelMode: window.google.maps.TravelMode.DRIVING,
+            }, (result, status) => {
+                setIsCalculating(false);
+                if (status === window.google.maps.DirectionsStatus.OK && result) {
+                    const route = result.routes[0].legs[0];
+                    if (route.distance && route.duration) {
+                        setShippingInfo({
+                            distance: route.distance.text,
+                            duration: route.duration.text,
+                        });
+                    }
+                } else {
+                    setError("No se pudo calcular la ruta. Verifica las direcciones.");
+                    setShippingInfo(null);
+                }
+            });
+        } else {
+            setShippingInfo(null);
+            setError(null);
+        }
+    }, [business, address, isMapsLoaded]);
+
+
     const subtotal = useMemo(() => {
         return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
     }, [items]);
+    
     const shippingCost = useMemo(() => {
-        // Mock calculation
-        return customer && business && address ? 45.00 : 0;
-    }, [customer, business, address]);
+        // Mock calculation for now
+        return shippingInfo ? 45.00 : 0;
+    }, [shippingInfo]);
+
     const total = subtotal + shippingCost;
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -487,14 +525,26 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                     <h4 className="font-semibold text-base">Costo de Envío</h4>
                     {business && customer && address ? (
                         <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
-                            <div className="flex justify-between items-center">
-                                <span>Distancia (simulada)</span>
-                                <span className="font-semibold">5.2 km</span>
-                            </div>
-                            <div className="flex justify-between items-center mt-1">
-                                <span className="font-semibold">Costo de envío</span>
-                                <span className="font-bold text-primary">{formatCurrency(shippingCost)}</span>
-                            </div>
+                             {isCalculating ? (
+                                 <div className="flex items-center text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Calculando...</div>
+                             ) : error ? (
+                                 <div className="flex items-center text-destructive"><AlertCircle className="mr-2 h-4 w-4"/>{error}</div>
+                             ) : shippingInfo ? (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1"><Map className="h-4 w-4"/>Distancia</div>
+                                        <span className="font-semibold">{shippingInfo.distance}</span>
+                                    </div>
+                                     <div className="flex justify-between items-center mt-1">
+                                        <div className="flex items-center gap-1"><Timer className="h-4 w-4"/>Tiempo estimado</div>
+                                        <span className="font-semibold">{shippingInfo.duration}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                                        <span className="font-semibold">Costo de envío (simulado)</span>
+                                        <span className="font-bold text-primary">{formatCurrency(shippingCost)}</span>
+                                    </div>
+                                </>
+                             ) : null}
                         </div>
                     ) : (
                         <div className="text-muted-foreground text-sm">
