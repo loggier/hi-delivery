@@ -1,34 +1,23 @@
-
--- Create the new table for customer addresses
-CREATE TABLE grupohubs.customer_addresses (
-  id character varying(255) NOT NULL,
-  customer_id character varying(255) NOT NULL,
-  address text NOT NULL,
-  neighborhood character varying(255) NULL,
-  city character varying(255) NULL,
-  state character varying(255) NULL,
-  zip_code character varying(20) NULL,
-  latitude double precision NOT NULL,
-  longitude double precision NOT NULL,
-  is_primary boolean NOT NULL DEFAULT false,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT customer_addresses_pkey PRIMARY KEY (id),
-  CONSTRAINT fk_customer
-      FOREIGN KEY(customer_id) 
-	  REFERENCES grupohubs.customers(id)
-	  ON DELETE CASCADE
+-- Create the new table for customer addresses if it doesn't exist
+CREATE TABLE IF NOT EXISTS grupohubs.customer_addresses (
+    id VARCHAR(255) PRIMARY KEY,
+    customer_id VARCHAR(255) NOT NULL REFERENCES grupohubs.customers(id) ON DELETE CASCADE,
+    address TEXT NOT NULL,
+    neighborhood VARCHAR(255),
+    city VARCHAR(255),
+    state VARCHAR(255),
+    zip_code VARCHAR(20),
+    latitude NUMERIC(10, 7) NOT NULL,
+    longitude NUMERIC(10, 7) NOT NULL,
+    is_primary BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Optional: Add an index for faster lookups by customer_id
-CREATE INDEX IF NOT EXISTS idx_customer_addresses_customer_id
-ON grupohubs.customer_addresses USING btree
-(customer_id ASC NULLS LAST)
-TABLESPACE pg_default;
+-- Add index for faster lookups by customer
+CREATE INDEX IF NOT EXISTS idx_customer_addresses_customer_id ON grupohubs.customer_addresses(customer_id);
 
-
--- Alter the existing customers table to remove address fields
-ALTER TABLE grupohubs.customers
-DROP COLUMN IF EXISTS main_address,
-DROP COLUMN IF EXISTS additional_address_1,
-DROP COLUMN IF EXISTS additional_address_2;
+-- Remove old address columns from customers table if they exist
+ALTER TABLE grupohubs.customers DROP COLUMN IF EXISTS main_address;
+ALTER TABLE grupohubs.customers DROP COLUMN IF EXISTS additional_address_1;
+ALTER TABLE grupohubs.customers DROP COLUMN IF EXISTS additional_address_2;
