@@ -40,6 +40,7 @@ export async function POST(request: Request) {
   // Zod can't parse FormData directly, so we help it
   const validated = productSchema.safeParse({
     name: rawData.name,
+    description: rawData.description,
     sku: rawData.sku,
     price: rawData.price ? Number(rawData.price) : undefined,
     status: rawData.status,
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     const newProductForDb = {
       id: productId,
       name: data.name,
+      description: data.description,
       sku: data.sku,
       price: data.price,
       status: data.status,

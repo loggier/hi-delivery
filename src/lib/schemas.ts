@@ -320,6 +320,7 @@ export const planSchema = z.object({
 
 export const productSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  description: z.string().max(500, "La descripción no puede exceder los 500 caracteres.").optional(),
   sku: z.string().optional(),
   price: z.coerce.number().min(0, { message: "El precio debe ser positivo." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),

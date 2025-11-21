@@ -1,4 +1,5 @@
 
+
 export type Role = {
   id: string;
   name: string;
@@ -206,6 +207,7 @@ export type Category = {
 export type Product = {
   id: string;
   name: string;
+  description?: string;
   sku?: string;
   price: number;
   imageUrl?: string;

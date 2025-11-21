@@ -68,10 +68,21 @@ export async function POST(request: Request, { params }: { params: { id: string 
       console.error("Validation errors on update:", parsed.error.flatten().fieldErrors);
       return NextResponse.json({ message: "Datos de producto inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
+    
+    const dataToUpdate = parsed.data;
+    const dbData: Record<string, any> = {};
+
+    for (const key in dataToUpdate) {
+        if (Object.prototype.hasOwnProperty.call(dataToUpdate, key)) {
+            const dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            dbData[dbKey] = (dataToUpdate as any)[key];
+        }
+    }
+
 
     const { data, error } = await supabaseAdmin
       .from('products')
-      .update(parsed.data)
+      .update(dbData)
       .eq('id', productId)
       .select()
       .single();

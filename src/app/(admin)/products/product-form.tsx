@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 
 import { type Product, type Business, type Category } from "@/types";
 import { productSchema } from "@/lib/schemas";
@@ -52,6 +53,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
     resolver: zodResolver(productSchema),
     defaultValues: initialData || {
       name: "",
+      description: "",
       sku: "",
       price: 0,
       status: "ACTIVE",
@@ -67,7 +69,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
       Object.entries(data).forEach(([key, value]) => {
           if (key === 'imageUrl' && value instanceof File) {
               formData.append('image_url', value);
-          } else if (key !== 'imageUrl' && value !== null && value !== undefined) {
+          } else if (key !== 'imageUrl' && value !== null && value !== undefined && value !== '') {
               formData.append(key, String(value));
           }
       });
@@ -101,6 +103,19 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                         <FormLabel>Nombre del Producto</FormLabel>
                         <FormControl>
                         <Input placeholder="ej., Pizza Hawaiana Grande" {...field} disabled={isPending}/>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Descripción</FormLabel>
+                        <FormControl>
+                        <Textarea placeholder="Describe tu producto..." {...field} disabled={isPending} className="resize-none"/>
                         </FormControl>
                         <FormMessage />
                     </FormItem>
