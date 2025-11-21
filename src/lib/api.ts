@@ -100,14 +100,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         let itemToInsert: any = { ...newItemDTO };
 
         if (entity === 'customers') {
-            const { firstName, lastName, phone, mainAddress, email } = newItemDTO as any;
+            const { firstName, lastName, phone, address, email } = newItemDTO as any;
             itemToInsert = {
                 first_name: firstName,
                 last_name: lastName,
                 phone: phone,
-                main_address: mainAddress,
                 email: email,
             };
+             // We will handle address creation separately after customer is created
         }
         
         const itemWithId = {

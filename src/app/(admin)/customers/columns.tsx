@@ -32,13 +32,6 @@ export const columns: ColumnDef<Customer>[] = [
     header: "Teléfono",
   },
   {
-    accessorKey: "main_address",
-    header: "Dirección Principal",
-    cell: ({ row }) => (
-        <span className="truncate block max-w-xs">{row.original.main_address}</span>
-    )
-  },
-  {
     accessorKey: "order_count",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Pedidos" />

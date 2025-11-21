@@ -132,9 +132,8 @@ export default function ViewCustomerPage() {
                     <CardTitle>Direcciones</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <DetailItem icon={Home} label="Dirección Principal" value={customer.main_address} />
-                    {customer.additional_address_1 && <DetailItem icon={MapPin} label="Dirección Adicional 1" value={customer.additional_address_1} />}
-                    {customer.additional_address_2 && <DetailItem icon={MapPin} label="Dirección Adicional 2" value={customer.additional_address_2} />}
+                    {/* Address display logic will need to be updated to fetch from the new table */}
+                    <p className="text-sm text-muted-foreground">Funcionalidad de direcciones guardadas pendiente de implementación.</p>
                 </CardContent>
             </Card>
         </div>

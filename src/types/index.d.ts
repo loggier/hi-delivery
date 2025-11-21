@@ -1,5 +1,6 @@
 
 
+
 export type Role = {
   id: string;
   name: string;
@@ -46,15 +47,27 @@ export type User = {
   created_at: string;
 };
 
+export type CustomerAddress = {
+  id: string;
+  customer_id: string;
+  address: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  latitude: number;
+  longitude: number;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export type Customer = {
   id: string;
   first_name: string;
   last_name: string;
   phone: string;
   email?: string;
-  main_address: string;
-  additional_address_1?: string;
-  additional_address_2?: string;
   order_count: number;
   total_spent: number;
   created_at: string;

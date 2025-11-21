@@ -349,21 +349,14 @@ for (let i = 0; i < 25; i++) {
     const createdAt = faker.date.past({ years: 2 });
     const customer: Customer = {
         id: `cust-${faker.string.uuid()}`,
-        firstName: faker.person.firstName(),
-        lastName: faker.person.lastName(),
+        first_name: faker.person.firstName(),
+        last_name: faker.person.lastName(),
         phone: faker.phone.number(),
         email: faker.internet.email(),
-        mainAddress: faker.location.streetAddress(true),
-        coordinates: {
-            lat: faker.location.latitude({ min: 19.3, max: 19.5 }),
-            lng: faker.location.longitude({ min: -99.2, max: -99.0 }),
-        },
-        additionalAddress1: faker.datatype.boolean(0.3) ? faker.location.streetAddress(true) : undefined,
-        additionalAddress2: faker.datatype.boolean(0.1) ? faker.location.streetAddress(true) : undefined,
-        orderCount: 0,
-        totalSpent: 0,
-        createdAt: createdAt.toISOString(),
-        updatedAt: faker.date.recent({ days: 60, refDate: now }).toISOString(),
+        order_count: 0,
+        total_spent: 0,
+        created_at: createdAt.toISOString(),
+        updated_at: faker.date.recent({ days: 60, refDate: now }).toISOString(),
     };
     customers.push(customer);
 }
@@ -384,15 +377,15 @@ customers.forEach(customer => {
             productCount: faker.number.int({ min: 1, max: 8 }),
             total,
             status: faker.helpers.arrayElement(['DELIVERED', 'CANCELLED', 'PENDING']),
-            createdAt: faker.date.between({ from: customer.createdAt, to: now }).toISOString(),
+            created_at: faker.date.between({ from: customer.created_at, to: now }).toISOString(),
         };
         orders.push(order);
         if (order.status === 'DELIVERED') {
             totalSpent += total;
         }
     }
-    customer.orderCount = numOrders;
-    customer.totalSpent = totalSpent;
+    customer.order_count = numOrders;
+    customer.total_spent = totalSpent;
 });
 
 export { customers, orders };

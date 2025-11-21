@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2 } from 'lucide-react';
-import { Customer, Product, Business, Order } from '@/types';
+import { Customer, Product, Business, Order, CustomerAddress } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
@@ -43,10 +43,7 @@ export function CustomerDisplay({ customer, onClear, onShowMap }: CustomerDispla
                     <Phone className="h-4 w-4" />
                     <span>{customer.phone}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Home className="h-4 w-4" />
-                    <span>{customer.main_address}</span>
-                </div>
+                {/* Remove main_address display since it's deprecated */}
             </div>
             <div className="flex items-center gap-1">
                  <Button variant="outline" size="sm" onClick={onShowMap}>
@@ -151,21 +148,28 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
 
     const onSubmit = async (data: NewCustomerValues) => {
         try {
-            const newCustomerInSnakeCase = await createCustomerMutation.mutateAsync(data as any);
-            const newCustomerInCamelCase = { // convert to camelCase for the frontend state
-              ...newCustomerInSnakeCase,
+            const newCustomerInSnakeCase = await createCustomerMutation.mutateAsync({
+                ...data,
+            } as any);
+
+            const newCustomer: Customer = {
+              id: newCustomerInSnakeCase.id,
               first_name: newCustomerInSnakeCase.first_name,
               last_name: newCustomerInSnakeCase.last_name,
-              main_address: newCustomerInSnakeCase.main_address,
+              phone: newCustomerInSnakeCase.phone,
+              email: newCustomerInSnakeCase.email,
               created_at: newCustomerInSnakeCase.created_at,
               updated_at: newCustomerInSnakeCase.updated_at,
+              order_count: 0,
+              total_spent: 0,
             }
+
             toast({
                 title: "Cliente Creado",
                 description: `${data.firstName} ha sido guardado exitosamente.`,
                 variant: 'success'
             });
-            onSave(newCustomerInCamelCase as Customer);
+            onSave(newCustomer);
             methods.reset();
             onClose();
         } catch (error) {
@@ -186,15 +190,16 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
                                 <FormInput name="firstName" label="Nombre" placeholder="Juan" />
                                 <FormInput name="lastName" label="Apellido" placeholder="Pérez" />
                                 <FormInput name="phone" label="Teléfono" placeholder="5512345678" type="tel" />
+                                <FormInput name="email" label="Email (Opcional)" placeholder="juan.perez@email.com" type="email" />
                             </div>
                             <div>
                                 <h3 className="text-lg font-medium mb-2">Dirección</h3>
                                 <LocationMap
                                     onLocationSelect={({ address, lat, lng }) => {
-                                        methods.setValue('mainAddress', address, { shouldValidate: true });
+                                        methods.setValue('address', address, { shouldValidate: true });
                                     }}
                                 />
-                                <FormInput name="mainAddress" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
+                                <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
                             </div>
                             <div className="flex justify-end gap-2">
                                 <Button type="button" variant="ghost" onClick={onClose} disabled={createCustomerMutation.isPending}>Cancelar</Button>
@@ -240,7 +245,7 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 <h4 className="font-semibold truncate text-base flex-grow">{product.name}</h4>
                 <div className="mt-2 space-y-3">
                     <p className="text-lg font-bold text-muted-foreground">{formatCurrency(product.price)}</p>
-                     <div className="space-y-2">
+                    <div className="space-y-2">
                         <div className="flex items-center justify-center gap-2">
                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
                             <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
