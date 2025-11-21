@@ -290,7 +290,7 @@ export const riderApplicationSchema = riderApplicationBaseSchema.refine(data => 
 });
 
 export const riderAdminUpdateSchema = riderApplicationBaseSchema
-  .omit({ password: true, passwordConfirmation: true, first_name: true, last_name: true })
+  .omit({ password: true, passwordConfirmation: true, first_name: true, last_name: true, phone_e164: true })
   .extend({
     first_name: z.string().min(2, { message: "El nombre es requerido." }),
     last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
@@ -316,4 +316,14 @@ export const planSchema = z.object({
     min_shipping_fee: z.coerce.number().min(0, { message: "La cuota mínima de envío debe ser un valor positivo." }),
     min_distance: z.coerce.number().min(0, { message: "La distancia mínima debe ser un valor positivo." }),
     details: z.string().max(280, { message: "Los detalles no pueden exceder los 280 caracteres." }).optional(),
+});
+
+export const productSchema = z.object({
+  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  sku: z.string().optional(),
+  price: z.coerce.number().min(0, { message: "El precio debe ser positivo." }),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+  businessId: z.string({ required_error: "Debe seleccionar un negocio."}),
+  categoryId: z.string({ required_error: "Debe seleccionar una categoría."}),
+  imageUrl: imageFileSchema("La imagen del producto es opcional.").optional(),
 });
