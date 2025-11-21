@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
     CustomerSearch, 
     AddressFormModal,
@@ -17,7 +16,10 @@ import { type Customer, type Product, type Business, type CustomerAddress } from
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Building, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type OrderItem = Product & { quantity: number };
 
@@ -27,6 +29,8 @@ export default function POSPage() {
     const [selectedAddress, setSelectedAddress] = React.useState<CustomerAddress | null>(null);
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
     
+    const [isBusinessOpen, setIsBusinessOpen] = React.useState(true);
+    const [isCustomerOpen, setIsCustomerOpen] = React.useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = React.useState(false);
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
@@ -44,6 +48,8 @@ export default function POSPage() {
             setSelectedCustomer(null);
             setSelectedAddress(null);
             setOrderItems([]);
+            setIsBusinessOpen(false); // Collapse on selection
+            setIsCustomerOpen(true);
         }
     };
 
@@ -90,68 +96,102 @@ export default function POSPage() {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start text-base">
-            {/* Customer & Product Selection Column */}
+            {/* Main Content Column */}
             <div className="col-span-1 lg:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl">1. Seleccionar Negocio</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingBusinesses ? (
-                            <Skeleton className="h-12 w-full" />
-                        ) : (
-                            <Select onValueChange={handleSelectBusiness} value={selectedBusiness?.id}>
-                                <SelectTrigger className="h-12 text-base">
-                                    <SelectValue placeholder="Elige un negocio para empezar a vender..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {businesses?.map(b => (
-                                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </CardContent>
-                </Card>
                 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl">2. Cliente y Dirección</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {!selectedBusiness ? (
-                             <div className="h-24 flex items-center justify-center text-muted-foreground bg-slate-50 rounded-md">
-                                <AlertTriangle className="h-5 w-5 mr-2"/>
-                                Primero selecciona un negocio.
-                             </div>
-                        ) : selectedCustomer ? (
-                            <CustomerDisplay 
-                                customer={selectedCustomer} 
-                                addresses={customerAddresses || []}
-                                selectedAddress={selectedAddress}
-                                onSelectAddress={setSelectedAddress}
-                                onClearCustomer={() => handleSelectCustomer(null)}
-                                onShowMap={() => setIsMapModalOpen(true)}
-                                onAddAddress={() => handleOpenAddressModal(null)}
-                                onEditAddress={(addr) => handleOpenAddressModal(addr)}
-                                isLoadingAddresses={isLoadingAddresses}
-                            />
-                        ) : (
-                            <CustomerSearch
-                                customers={customers || []}
-                                onSelectCustomer={handleSelectCustomer}
-                                onAddNewCustomer={() => setIsCustomerModalOpen(true)}
-                                disabled={isLoadingCustomers || !selectedBusiness}
-                            />
-                        )}
-                    </CardContent>
+                {/* Step 1: Business Selection (Collapsible) */}
+                 <Card>
+                    <Collapsible open={isBusinessOpen} onOpenChange={setIsBusinessOpen}>
+                        <CollapsibleTrigger asChild>
+                            <div className={cn("flex justify-between items-center p-4 cursor-pointer rounded-t-lg", isBusinessOpen && "border-b")}>
+                                <div className="flex items-center gap-3">
+                                    <Building className="h-6 w-6" />
+                                    <div className="flex flex-col">
+                                        <h3 className="font-semibold text-xl">
+                                            {selectedBusiness ? `Paso 1: Negocio Seleccionado` : `Paso 1: Seleccionar Negocio`}
+                                        </h3>
+                                        {selectedBusiness && <span className="text-primary font-medium">{selectedBusiness.name}</span>}
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon">
+                                    {isBusinessOpen ? <ChevronUp /> : <ChevronDown />}
+                                </Button>
+                            </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                             <CardContent className="pt-4">
+                                {isLoadingBusinesses ? (
+                                    <Skeleton className="h-12 w-full" />
+                                ) : (
+                                    <Select onValueChange={handleSelectBusiness} value={selectedBusiness?.id}>
+                                        <SelectTrigger className="h-12 text-base">
+                                            <SelectValue placeholder="Elige un negocio para empezar a vender..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {businesses?.map(b => (
+                                                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Collapsible>
                 </Card>
 
+                {/* Step 2: Customer Selection (Collapsible) */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl">3. Productos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                    <Collapsible open={isCustomerOpen} onOpenChange={setIsCustomerOpen} disabled={!selectedBusiness}>
+                         <CollapsibleTrigger asChild disabled={!selectedBusiness}>
+                           <div className={cn(
+                                "flex justify-between items-center p-4 cursor-pointer rounded-t-lg", 
+                                isCustomerOpen && "border-b",
+                                !selectedBusiness && "opacity-50 cursor-not-allowed"
+                            )}>
+                                <div className="flex items-center gap-3">
+                                    <User className="h-6 w-6" />
+                                    <div className="flex flex-col">
+                                         <h3 className="font-semibold text-xl">
+                                            {selectedCustomer ? `Paso 2: Cliente y Dirección` : `Paso 2: Buscar Cliente`}
+                                        </h3>
+                                        {selectedCustomer && <span className="text-primary font-medium">{selectedCustomer.first_name} {selectedCustomer.last_name}</span>}
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" disabled={!selectedBusiness}>
+                                     {isCustomerOpen ? <ChevronUp /> : <ChevronDown />}
+                                </Button>
+                            </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                           <CardContent className="pt-4">
+                                {selectedCustomer ? (
+                                    <CustomerDisplay 
+                                        customer={selectedCustomer} 
+                                        addresses={customerAddresses || []}
+                                        selectedAddress={selectedAddress}
+                                        onSelectAddress={setSelectedAddress}
+                                        onClearCustomer={() => handleSelectCustomer(null)}
+                                        onShowMap={() => setIsMapModalOpen(true)}
+                                        onAddAddress={() => handleOpenAddressModal(null)}
+                                        onEditAddress={(addr) => handleOpenAddressModal(addr)}
+                                        isLoadingAddresses={isLoadingAddresses}
+                                    />
+                                ) : (
+                                    <CustomerSearch
+                                        customers={customers || []}
+                                        onSelectCustomer={handleSelectCustomer}
+                                        onAddNewCustomer={() => setIsCustomerModalOpen(true)}
+                                        disabled={isLoadingCustomers || !selectedBusiness}
+                                    />
+                                )}
+                           </CardContent>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </Card>
+
+                {/* Step 3: Product Grid */}
+                <Card>
+                    <CardContent className="p-4">
                        <ProductGrid 
                             products={products || []} 
                             onAddToCart={addProductToOrder}
@@ -173,6 +213,7 @@ export default function POSPage() {
                 />
             </div>
 
+            {/* Modals */}
             {selectedCustomer && (
                 <AddressFormModal
                     isOpen={isAddressModalOpen}
