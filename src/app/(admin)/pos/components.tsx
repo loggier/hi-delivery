@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map } from 'lucide-react';
 import { Customer, Product, Business, Order } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,17 +15,55 @@ import { Form } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
+import { Card, CardContent } from '@/components/ui/card';
+import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { productCategories } from '@/mocks/data';
+
+const libraries: ('places')[] = ['places'];
 
 // --- Customer Search & Display ---
+
+interface CustomerDisplayProps {
+    customer: Customer;
+    onClear: () => void;
+    onShowMap: () => void;
+}
+
+export function CustomerDisplay({ customer, onClear, onShowMap }: CustomerDisplayProps) {
+    return (
+        <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start text-lg">
+            <div className="space-y-1">
+                <p className="font-semibold text-lg">{customer.firstName} {customer.lastName}</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span>{customer.phone}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Home className="h-4 w-4" />
+                    <span>{customer.mainAddress}</span>
+                </div>
+            </div>
+            <div className="flex items-center gap-1">
+                 <Button variant="outline" size="sm" onClick={onShowMap}>
+                    <Map className="h-4 w-4 mr-2" />
+                    Ver Mapa
+                </Button>
+                <Button variant="ghost" size="icon" onClick={onClear}>
+                    <X className="h-5 w-5" />
+                </Button>
+            </div>
+        </div>
+    );
+}
 
 interface CustomerSearchProps {
     customers: Customer[];
     onSelectCustomer: (customer: Customer) => void;
-    selectedCustomer: Customer | null;
     onAddNewCustomer: () => void;
 }
 
-export function CustomerSearch({ customers, onSelectCustomer, selectedCustomer, onAddNewCustomer }: CustomerSearchProps) {
+export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer }: CustomerSearchProps) {
     const [query, setQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
 
@@ -41,21 +79,6 @@ export function CustomerSearch({ customers, onSelectCustomer, selectedCustomer, 
         setQuery('');
         onSelectCustomer(customer);
     };
-
-    if (selectedCustomer) {
-        return (
-            <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center text-lg">
-                <div className="space-y-1">
-                    <p className="font-semibold">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
-                    <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
-                    <p className="text-sm text-muted-foreground">{selectedCustomer.mainAddress}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => onSelectCustomer(null!)}>
-                    <X className="h-5 w-5" />
-                </Button>
-            </div>
-        );
-    }
 
     return (
         <div className="relative">
@@ -109,8 +132,8 @@ const newCustomerSchema = z.object({
     lastName: z.string().min(2, "El apellido es requerido."),
     phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),
     address: z.string().min(5, "La dirección es requerida."),
-    lat: z.number().optional(),
-    lng: z.number().optional(),
+    lat: z.number({ required_error: "La ubicación en el mapa es requerida." }),
+    lng: z.number({ required_error: "La ubicación en el mapa es requerida." }),
 });
 type NewCustomerValues = z.infer<typeof newCustomerSchema>;
 
@@ -132,6 +155,7 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
             lastName: data.lastName,
             phone: data.phone,
             mainAddress: data.address,
+            coordinates: { lat: data.lat, lng: data.lng },
             orderCount: 0,
             totalSpent: 0,
             createdAt: new Date().toISOString(),
@@ -139,6 +163,7 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
         };
         onSave(newCustomer);
         methods.reset();
+        onClose();
     };
 
     return (
@@ -159,9 +184,9 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
                                 <h3 className="text-lg font-medium mb-2">Dirección</h3>
                                 <LocationMap
                                     onLocationSelect={({ address, lat, lng }) => {
-                                        methods.setValue('address', address);
-                                        methods.setValue('lat', lat);
-                                        methods.setValue('lng', lng);
+                                        methods.setValue('address', address, { shouldValidate: true });
+                                        methods.setValue('lat', lat, { shouldValidate: true });
+                                        methods.setValue('lng', lng, { shouldValidate: true });
                                     }}
                                 />
                                 <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
@@ -178,161 +203,260 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
     );
 }
 
-// --- Product Search ---
+// --- Product Grid & Cards ---
 
-interface ProductSearchProps {
-    products: Product[];
-    onSelectProduct: (product: Product) => void;
+interface ProductCardProps {
+    product: Product;
+    onAddToCart: (product: Product) => void;
 }
 
-export function ProductSearch({ products, onSelectProduct }: ProductSearchProps) {
-    const [query, setQuery] = useState('');
+function ProductCard({ product, onAddToCart }: ProductCardProps) {
+    return (
+        <Card className="overflow-hidden">
+            <div className="aspect-video relative">
+                <Image 
+                    src={product.image_url || 'https://placehold.co/300x200'} 
+                    alt={product.name}
+                    fill
+                    className="object-cover"
+                />
+            </div>
+            <CardContent className="p-4">
+                <h4 className="font-semibold truncate text-base">{product.name}</h4>
+                <div className="flex justify-between items-center mt-2">
+                    <p className="text-lg font-bold text-muted-foreground">{formatCurrency(product.price)}</p>
+                    <Button size="sm" onClick={() => onAddToCart(product)}>
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        Agregar
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+interface ProductGridProps {
+    products: Product[];
+    onAddToCart: (product: Product) => void;
+}
+
+export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
 
     const filteredProducts = useMemo(() => {
-        if (!query) return [];
-        return products.filter(p =>
-            p.name.toLowerCase().includes(query.toLowerCase()) ||
-            p.sku?.toLowerCase().includes(query.toLowerCase())
-        );
-    }, [query, products]);
+        return products.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory;
+            return matchesSearch && matchesCategory;
+        });
+    }, [products, searchTerm, selectedCategory]);
 
     return (
         <div className="space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                    type="text"
-                    placeholder="Buscar producto por nombre o SKU..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="w-full pl-10 h-12 text-base"
-                />
-            </div>
-            {query && (
-                <div className="border rounded-lg max-h-60 overflow-y-auto">
-                    {filteredProducts.map(p => (
-                        <div key={p.id} className="flex items-center gap-4 p-3 hover:bg-accent cursor-pointer" onClick={() => onSelectProduct(p)}>
-                            <Image src={p.image_url || 'https://placehold.co/64x64'} alt={p.name} width={64} height={64} className="rounded-md object-cover" />
-                            <div className="flex-1">
-                                <p className="font-semibold">{p.name}</p>
-                                <p className="text-sm text-muted-foreground">{p.sku}</p>
-                            </div>
-                            <p className="font-semibold">{formatCurrency(p.price)}</p>
-                        </div>
-                    ))}
+            <div className="flex gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar producto..."
+                        className="pl-10 h-11 text-base"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
                 </div>
-            )}
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-[200px] h-11 text-base">
+                        <SelectValue placeholder="Categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas las categorías</SelectItem>
+                        {productCategories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredProducts.map(p => (
+                    <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
+                ))}
+            </div>
         </div>
     );
 }
 
-// --- Order Items ---
+// --- Order Cart & Summary ---
 
 type OrderItem = Product & { quantity: number };
 
-interface OrderItemsProps {
+interface OrderCartProps {
     items: OrderItem[];
     onUpdateQuantity: (productId: string, quantity: number) => void;
+    customer: Customer | null;
+    business: Business | null;
 }
 
-export function OrderItems({ items, onUpdateQuantity }: OrderItemsProps) {
-    if (items.length === 0) {
-        return (
-            <div className="mt-6 text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
-                <p>Aún no has agregado productos al pedido.</p>
-            </div>
-        );
-    }
+export function OrderCart({ items, onUpdateQuantity, customer, business }: OrderCartProps) {
+    const subtotal = useMemo(() => {
+        return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    }, [items]);
+    const shippingCost = useMemo(() => {
+        // Mock calculation
+        return customer && business ? 45.00 : 0;
+    }, [customer, business]);
+    const total = subtotal + shippingCost;
+    const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+
     return (
-        <div className="mt-6 space-y-4">
-            {items.map(item => (
-                <div key={item.id} className="flex items-center gap-4 p-3 border rounded-lg">
-                    <Image src={item.image_url || 'https://placehold.co/48x48'} alt={item.name} width={48} height={48} className="rounded-md object-cover" />
-                    <div className="flex-1">
-                        <p className="font-semibold">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+        <Card className="lg:sticky top-6">
+            <DialogHeader className="p-6">
+                <DialogTitle className="text-xl">3. Resumen del Pedido</DialogTitle>
+            </DialogHeader>
+            <CardContent className="space-y-6">
+                {items.length === 0 ? (
+                     <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                        <p>Aún no has agregado productos al pedido.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 0)}
-                            className="h-9 w-20 text-center"
-                            min="0"
-                        />
-                        <Button variant="ghost" size="icon" onClick={() => onUpdateQuantity(item.id, 0)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                ) : (
+                    <div className="max-h-64 overflow-y-auto pr-2 space-y-4">
+                        {items.map(item => (
+                            <div key={item.id} className="flex items-center gap-3">
+                                <Image src={item.image_url || 'https://placehold.co/48x48'} alt={item.name} width={48} height={48} className="rounded-md object-cover" />
+                                <div className="flex-1">
+                                    <p className="font-semibold text-sm truncate">{item.name}</p>
+                                    <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Input
+                                        type="number"
+                                        value={item.quantity}
+                                        onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 0)}
+                                        className="h-8 w-16 text-center"
+                                        min="0"
+                                    />
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onUpdateQuantity(item.id, 0)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <div className="space-y-4">
+                    <Separator />
+                    <h4 className="font-semibold text-base">Costo de Envío</h4>
+                    {business && customer ? (
+                        <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
+                            <div className="flex justify-between items-center">
+                                <span>Distancia (simulada)</span>
+                                <span className="font-semibold">5.2 km</span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1">
+                                <span className="font-semibold">Costo de envío</span>
+                                <span className="font-bold text-primary">{formatCurrency(shippingCost)}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-muted-foreground text-sm">
+                            Selecciona un negocio y un cliente para calcular el costo de envío.
+                        </div>
+                    )}
+                </div>
+                 <div className="space-y-2 text-lg">
+                    <Separator />
+                    <div className="flex justify-between">
+                        <span>Subtotal ({totalItems} productos)</span>
+                        <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Envío</span>
+                        <span>{formatCurrency(shippingCost)}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between text-2xl font-bold text-primary">
+                        <span>Total</span>
+                        <span>{formatCurrency(total)}</span>
                     </div>
                 </div>
-            ))}
-        </div>
-    );
+                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer}>
+                    Crear Pedido
+                </Button>
+            </CardContent>
+        </Card>
+    )
 }
 
-// --- Shipping & Summary ---
+// -- Shipping Map Modal ---
 
-interface ShippingCostProps {
+interface ShippingMapModalProps {
+    isOpen: boolean;
+    onClose: () => void;
     business: Business | null;
     customer: Customer | null;
 }
 
-export function ShippingCost({ business, customer }: ShippingCostProps) {
-    // Mock calculation
-    const shippingCost = business && customer ? 45.00 : 0;
+export function ShippingMapModal({ isOpen, onClose, business, customer }: ShippingMapModalProps) {
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries
+    });
+    
+    const mapCenter = useMemo(() => {
+        if (business?.coordinates) return business.coordinates;
+        if (customer?.coordinates) return customer.coordinates;
+        return { lat: 19.4326, lng: -99.1332 }; // Mexico City
+    }, [business, customer]);
+    
+    const mapBounds = useMemo(() => {
+        if (!business?.coordinates || !customer?.coordinates || !isLoaded) return undefined;
+        const bounds = new window.google.maps.LatLngBounds();
+        bounds.extend(business.coordinates);
+        bounds.extend(customer.coordinates);
+        return bounds;
+    }, [business, customer, isLoaded]);
 
     return (
-        <div className="space-y-4">
-            <h4 className="font-semibold text-lg">Costo de Envío</h4>
-            {business && customer ? (
-                <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                    <div className="flex justify-between items-center text-base">
-                        <span>Distancia (simulada)</span>
-                        <span className="font-semibold">5.2 km</span>
-                    </div>
-                    <div className="flex justify-between items-center text-lg mt-2">
-                        <span className="font-semibold">Costo de envío</span>
-                        <span className="font-bold text-primary">{formatCurrency(shippingCost)}</span>
-                    </div>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-4xl">
+                 <DialogHeader>
+                    <DialogTitle className="text-2xl">Visualización de Ruta</DialogTitle>
+                    <DialogDescription>
+                        Ubicación del negocio y destino del cliente.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="h-[60vh] mt-4">
+                    {loadError && <div className="text-destructive">Error al cargar el mapa.</div>}
+                    {!isLoaded && <div className="h-full w-full bg-muted animate-pulse rounded-md" />}
+                    {isLoaded && (
+                        <GoogleMap
+                            mapContainerClassName="w-full h-full rounded-md"
+                            center={mapCenter}
+                            onLoad={map => mapBounds && map.fitBounds(mapBounds)}
+                            options={{
+                                disableDefaultUI: true,
+                                zoomControl: true,
+                            }}
+                        >
+                            {business?.coordinates && (
+                                <MarkerF position={business.coordinates} label="N" title={business.name}/>
+                            )}
+                            {customer?.coordinates && (
+                                <MarkerF position={customer.coordinates} label="C" title={customer.mainAddress}/>
+                            )}
+                            {business?.coordinates && customer?.coordinates && (
+                                <PolylineF 
+                                    path={[business.coordinates, customer.coordinates]}
+                                    options={{
+                                        strokeColor: "#E33739",
+                                        strokeOpacity: 0.8,
+                                        strokeWeight: 2,
+                                    }}
+                                />
+                            )}
+                        </GoogleMap>
+                    )}
                 </div>
-            ) : (
-                <div className="text-muted-foreground text-sm">
-                    Selecciona un negocio y un cliente para calcular el costo de envío.
-                </div>
-            )}
-        </div>
-    );
-}
-
-interface OrderSummaryProps {
-    subtotal: number;
-    shippingCost: number;
-    itemsCount: number;
-}
-
-export function OrderSummary({ subtotal, shippingCost, itemsCount }: OrderSummaryProps) {
-    const total = subtotal + shippingCost;
-    return (
-        <div className="space-y-4">
-            <Separator />
-            <div className="space-y-2 text-lg">
-                <div className="flex justify-between">
-                    <span>Subtotal ({itemsCount} productos)</span>
-                    <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Envío</span>
-                    <span>{formatCurrency(shippingCost)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between text-2xl font-bold text-primary">
-                    <span>Total</span>
-                    <span>{formatCurrency(total)}</span>
-                </div>
-            </div>
-            <Button size="lg" className="w-full text-lg h-12" disabled={itemsCount === 0}>
-                Crear Pedido
-            </Button>
-        </div>
-    );
+            </DialogContent>
+        </Dialog>
+    )
 }

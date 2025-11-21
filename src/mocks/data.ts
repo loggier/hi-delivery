@@ -10,39 +10,39 @@ export let plans: Plan[] = [
         name: 'Básico',
         price: 299,
         validity: 'mensual',
-        riderFee: 35,
-        feePerKm: 8,
-        minShippingFee: 40,
-        minDistance: 3,
+        rider_fee: 35,
+        fee_per_km: 8,
+        min_shipping_fee: 40,
+        min_distance: 3,
         details: 'Ideal para negocios que están comenzando.',
-        createdAt: new Date('2023-01-10T10:00:00Z').toISOString(),
-        updatedAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        created_at: new Date('2023-01-10T10:00:00Z').toISOString(),
+        updated_at: new Date('2023-01-10T10:00:00Z').toISOString(),
     },
     {
         id: 'plan-plus',
         name: 'Plus',
         price: 599,
         validity: 'mensual',
-        riderFee: 30,
-        feePerKm: 7,
-        minShippingFee: 35,
-        minDistance: 5,
+        rider_fee: 30,
+        fee_per_km: 7,
+        min_shipping_fee: 35,
+        min_distance: 5,
         details: 'Más envíos, mejores tarifas. El más popular.',
-        createdAt: new Date('2023-01-10T10:00:00Z').toISOString(),
-        updatedAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        created_at: new Date('2023-01-10T10:00:00Z').toISOString(),
+        updated_at: new Date('2023-01-10T10:00:00Z').toISOString(),
     },
     {
         id: 'plan-premium',
         name: 'Premium Anual',
         price: 8999,
         validity: 'anual',
-        riderFee: 25,
-        feePerKm: 6,
-        minShippingFee: 30,
-        minDistance: 7,
+        rider_fee: 25,
+        fee_per_km: 6,
+        min_shipping_fee: 30,
+        min_distance: 7,
         details: 'Acceso total y las mejores tarifas para negocios de alto volumen. Ahorra con el pago anual.',
-        createdAt: new Date('2023-01-10T10:00:00Z').toISOString(),
-        updatedAt: new Date('2023-01-10T10:00:00Z').toISOString(),
+        created_at: new Date('2023-01-10T10:00:00Z').toISOString(),
+        updated_at: new Date('2023-01-10T10:00:00Z').toISOString(),
     },
 ]
 
@@ -199,6 +199,10 @@ function createBusiness(partial?: Partial<Business>): Business {
     zip_code: faker.location.zipCode(),
     latitude: faker.location.latitude(),
     longitude: faker.location.longitude(),
+    coordinates: {
+        lat: faker.location.latitude({ min: 19.3, max: 19.5 }),
+        lng: faker.location.longitude({ min: -99.2, max: -99.0 }),
+    },
     status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE', 'PENDING_REVIEW']),
     tax_id: faker.string.alphanumeric(13).toUpperCase(),
     website: faker.internet.url(),
@@ -229,10 +233,10 @@ export const products: Product[] = [
     name: 'Taco al Pastor',
     price: 20.5,
     status: 'ACTIVE',
-    businessId: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
-    categoryId: 'prod-cat-1',
-    imageUrl: `https://picsum.photos/seed/taco/400/300`,
-    createdAt: new Date('2023-08-01T10:00:00Z').toISOString(),
+    business_id: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
+    category_id: 'prod-cat-1',
+    image_url: `https://picsum.photos/seed/taco/400/300`,
+    created_at: new Date('2023-08-01T10:00:00Z').toISOString(),
   },
   {
     id: 'prod-2',
@@ -240,20 +244,20 @@ export const products: Product[] = [
     sku: 'PZ-MAR-01',
     price: 180.0,
     status: 'ACTIVE',
-    businessId: businesses.find(b => b.name === 'Pizza Nostra')?.id || 'biz-2',
-    categoryId: 'prod-cat-2',
-    imageUrl: `https://picsum.photos/seed/pizza/400/300`,
-    createdAt: new Date('2023-08-02T11:00:00Z').toISOString(),
+    business_id: businesses.find(b => b.name === 'Pizza Nostra')?.id || 'biz-2',
+    category_id: 'prod-cat-2',
+    image_url: `https://picsum.photos/seed/pizza/400/300`,
+    created_at: new Date('2023-08-02T11:00:00Z').toISOString(),
   },
   {
     id: 'prod-3',
     name: 'Set de Nigiri',
     price: 250.0,
     status: 'INACTIVE',
-    businessId: businesses.find(b => b.name === 'Sushi Go')?.id || 'biz-3',
-    categoryId: 'prod-cat-4',
-    imageUrl: `https://picsum.photos/seed/sushi/400/300`,
-    createdAt: new Date('2023-08-03T12:00:00Z').toISOString(),
+    business_id: businesses.find(b => b.name === 'Sushi Go')?.id || 'biz-3',
+    category_id: 'prod-cat-4',
+    image_url: `https://picsum.photos/seed/sushi/400/300`,
+    created_at: new Date('203-08-03T12:00:00Z').toISOString(),
   },
   {
     id: 'prod-4',
@@ -261,10 +265,10 @@ export const products: Product[] = [
     sku: 'GR-SUA-02',
     price: 45.0,
     status: 'ACTIVE',
-    businessId: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
-    categoryId: 'prod-cat-1',
-    imageUrl: `https://picsum.photos/seed/gringa/400/300`,
-    createdAt: new Date('2023-08-04T13:00:00Z').toISOString(),
+    business_id: businesses.find(b => b.name === 'Tacos El Tío')?.id || 'biz-1',
+    category_id: 'prod-cat-1',
+    image_url: `https://picsum.photos/seed/gringa/400/300`,
+    created_at: new Date('2023-08-04T13:00:00Z').toISOString(),
   },
 ];
 
@@ -277,59 +281,25 @@ function createRider(partial?: Partial<Rider>): Rider {
 
   return {
     id: `rider-${faker.string.uuid()}`,
-    firstName,
-    lastName,
-    motherLastName: faker.person.lastName(),
+    user_id: `user-${faker.string.uuid()}`,
+    first_name: firstName,
+    last_name: lastName,
     email: faker.internet.email({ firstName, lastName }),
-    birthDate: faker.date.birthdate({ min: 18, max: 60, mode: 'age' }).toISOString(),
-    riderType: 'Asociado',
-    zone: faker.helpers.arrayElement(['Monterrey', 'Culiacan', 'Mazatlan']),
-    identityType: 'INE',
-    address: faker.location.streetAddress(true),
-    ineFrontUrl: '/mock-docs/ine-front.png',
-    ineBackUrl: '/mock-docs/ine-back.png',
-    proofOfAddressUrl: '/mock-docs/proof-of-address.pdf',
-    licenseFrontUrl: '/mock-docs/license-front.png',
-    licenseBackUrl: '/mock-docs/license-back.png',
-    vehicleType: 'Moto',
-    ownership: faker.helpers.arrayElement(['propia', 'rentada', 'prestada']),
-    brand: faker.helpers.arrayElement<VehicleBrand>(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki']),
-    year: faker.number.int({ min: 2010, max: new Date().getFullYear() }),
-    model: faker.vehicle.model(),
-    color: faker.vehicle.color(),
-    plate: faker.vehicle.vrm(),
-    licenseValidUntil: faker.date.future({ years: 2, refDate: now }).toISOString(),
-    motoPhotos: [
-        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`,
-        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`,
-        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`,
-        `https://picsum.photos/seed/${faker.string.uuid()}/400/300`
-    ],
-    circulationCardFrontUrl: '/mock-docs/circulation-front.png',
-    circulationCardBackUrl: '/mock-docs/circulation-back.png',
-    insurer: faker.company.name(),
-    policyNumber: faker.string.alphanumeric(10).toUpperCase(),
-    policyValidUntil: faker.date.future({ years: 1, refDate: now }).toISOString(),
-    policyFirstPageUrl: '/mock-docs/policy.pdf',
-    hasHelmet: faker.datatype.boolean(),
-    hasUniform: faker.datatype.boolean(),
-    hasBox: faker.datatype.boolean(),
-    phoneE164: `+52${faker.string.numeric(10)}`,
-    passwordHashMock: faker.internet.password(), // In reality, this would be a hash
-    avatar1x1Url: faker.image.avatar(),
-    status: faker.helpers.arrayElement<RiderStatus>(['pending_review', 'approved', 'rejected', 'inactive']),
-    createdAt: createdAt.toISOString(),
-    updatedAt: faker.date.recent({ days: 90, refDate: now }).toISOString(),
+    phone_e164: `+52${faker.string.numeric(10)}`,
+    status: 'approved',
+    password_hash: faker.internet.password(),
+    created_at: createdAt.toISOString(),
+    updated_at: faker.date.recent({ days: 90, refDate: now }).toISOString(),
     ...partial,
   };
 }
 
 export let riders: Rider[] = [
-    createRider({ status: 'approved', zone: 'Monterrey' }),
-    createRider({ status: 'pending_review', zone: 'Culiacan' }),
-    createRider({ status: 'rejected', zone: 'Mazatlan' }),
-    createRider({ status: 'inactive', zone: 'Monterrey' }),
-    createRider({ status: 'approved', zone: 'Culiacan' }),
+    createRider({ status: 'approved', zone_id: 'zone-1' }),
+    createRider({ status: 'pending_review', zone_id: 'zone-2' }),
+    createRider({ status: 'rejected', zone_id: 'zone-3' }),
+    createRider({ status: 'inactive', zone_id: 'zone-1' }),
+    createRider({ status: 'approved', zone_id: 'zone-2' }),
 ];
 
 // --- ZONES ---
@@ -340,8 +310,8 @@ export let zones: Zone[] = [
         businessCount: 3,
         riderCount: 2,
         status: 'ACTIVE',
-        createdAt: new Date('2023-01-15T09:00:00Z').toISOString(),
-        updatedAt: new Date('2023-10-01T11:00:00Z').toISOString(),
+        created_at: new Date('2023-01-15T09:00:00Z').toISOString(),
+        updated_at: new Date('2023-10-01T11:00:00Z').toISOString(),
     },
     {
         id: 'zone-2',
@@ -349,8 +319,8 @@ export let zones: Zone[] = [
         businessCount: 1,
         riderCount: 2,
         status: 'ACTIVE',
-        createdAt: new Date('2023-02-20T10:00:00Z').toISOString(),
-        updatedAt: new Date('2023-11-05T14:30:00Z').toISOString(),
+        created_at: new Date('2023-02-20T10:00:00Z').toISOString(),
+        updated_at: new Date('2023-11-05T14:30:00Z').toISOString(),
     },
     {
         id: 'zone-3',
@@ -358,24 +328,17 @@ export let zones: Zone[] = [
         businessCount: 1,
         riderCount: 1,
         status: 'INACTIVE',
-        createdAt: new Date('2023-03-01T16:00:00Z').toISOString(),
-        updatedAt: new Date('2023-09-15T18:00:00Z').toISOString(),
+        created_at: new Date('2023-03-01T16:00:00Z').toISOString(),
+        updated_at: new Date('2023-09-15T18:00:00Z').toISOString(),
     }
 ];
 
-// Update rider zones to match new zones
-riders.forEach(r => {
-    if (r.zone === 'Monterrey') r.zone = 'Monterrey Centro';
-    if (r.zone === 'Culiacan') r.zone = 'Culiacán Tres Ríos';
-    if (r.zone === 'Mazatlan') r.zone = 'Mazatlán Zona Dorada';
-});
-
-// Associate businesses with new zones for counts
-businesses[0].city = 'Monterrey Centro';
-businesses[1].city = 'Monterrey Centro';
-businesses[2].city = 'Monterrey Centro';
-businesses[3].city = 'Culiacán Tres Ríos';
-businesses[4].city = 'Mazatlán Zona Dorada';
+// Link entities for dashboard
+businesses[0].zone_id = 'zone-1';
+businesses[1].zone_id = 'zone-1';
+businesses[2].zone_id = 'zone-1';
+businesses[3].zone_id = 'zone-2';
+businesses[4].zone_id = 'zone-3';
 
 
 // --- CUSTOMERS & ORDERS ---
@@ -391,6 +354,10 @@ for (let i = 0; i < 25; i++) {
         phone: faker.phone.number(),
         email: faker.internet.email(),
         mainAddress: faker.location.streetAddress(true),
+        coordinates: {
+            lat: faker.location.latitude({ min: 19.3, max: 19.5 }),
+            lng: faker.location.longitude({ min: -99.2, max: -99.0 }),
+        },
         additionalAddress1: faker.datatype.boolean(0.3) ? faker.location.streetAddress(true) : undefined,
         additionalAddress2: faker.datatype.boolean(0.1) ? faker.location.streetAddress(true) : undefined,
         orderCount: 0,

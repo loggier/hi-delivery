@@ -55,6 +55,7 @@ export type Customer = {
   mainAddress: string;
   additionalAddress1?: string;
   additionalAddress2?: string;
+  coordinates?: { lat: number; lng: number };
   orderCount: number;
   totalSpent: number;
   createdAt: string;
@@ -102,6 +103,7 @@ export type Business = {
   zip_code: string;
   latitude?: number;
   longitude?: number;
+  coordinates?: { lat: number; lng: number };
   tax_id?: string;
   website?: string;
   instagram?: string;
