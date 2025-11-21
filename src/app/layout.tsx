@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Mulish } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const mulish = Mulish({ subsets: ["latin"], variable: "--font-mulish" });
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
 
@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${mulish.variable} font-sans antialiased`}>
         <Providers>
           {children}
           <Toaster />
