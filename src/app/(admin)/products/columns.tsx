@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Info } from "lucide-react";
 import Image from "next/image";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { type Product, type Business, type Category } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -52,7 +58,7 @@ export const getColumns = (businesses: Business[], categories: Category[]): Colu
       <DataTableColumnHeader column={column} title="Producto" />
     ),
     cell: ({ row }) => {
-        const { name, image_url } = row.original;
+        const { name, image_url, description } = row.original;
         return (
             <div className="flex items-center gap-3">
                 <Image 
@@ -62,7 +68,21 @@ export const getColumns = (businesses: Business[], categories: Category[]): Colu
                     height={40}
                     className="rounded-sm object-cover"
                 />
-                <span className="font-medium">{name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{name}</span>
+                  {description && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-4 w-4 text-slate-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">{description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
             </div>
         )
     }
