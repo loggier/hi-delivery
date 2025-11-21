@@ -45,7 +45,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
     
     for (const [key, value] of formData.entries()) {
-      if (key !== 'image_url') {
+      if (key !== 'imageUrl') {
         if (key === 'price') {
              updateData[key] = parseFloat(value as string);
         } else if (value !== null && value !== undefined && value !== '') {

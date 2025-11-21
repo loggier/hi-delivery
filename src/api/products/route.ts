@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     status: rawData.status,
     businessId: rawData.businessId,
     categoryId: rawData.categoryId,
-    imageUrl: rawData.image_url,
+    imageUrl: rawData.imageUrl,
   });
 
   if (!validated.success) {
