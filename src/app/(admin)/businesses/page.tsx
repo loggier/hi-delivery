@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 import React from 'react';
+import { useDebounce } from 'use-debounce';
 
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
@@ -10,11 +11,25 @@ import { PageHeader } from "@/components/page-header";
 import { api } from "@/lib/api";
 import { getColumns } from "./columns";
 import { DataTableToolbar } from "./data-table-toolbar";
-import { useBusinessFilters } from "./use-business-filters";
+import { type Filters } from "./data-table-toolbar";
+
 
 export default function BusinessesPage() {
-  const { filters, setFilters, debouncedSearch, search, setSearch } = useBusinessFilters();
-  const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ ...filters, name: debouncedSearch });
+    const [filters, setFilters] = React.useState<Filters>({
+        name: '',
+        status: '',
+        type: '',
+        category_id: '',
+    });
+
+  const [debouncedName] = useDebounce(filters.name, 500);
+
+  const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ 
+    name: debouncedName,
+    status: filters.status,
+    type: filters.type,
+    category_id: filters.category_id,
+  });
   const { data: categoriesData, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
 
   const columns = React.useMemo(() => getColumns(categoriesData || []), [categoriesData]);
@@ -36,8 +51,6 @@ export default function BusinessesPage() {
         isLoading={isLoading}
         toolbar={
             <DataTableToolbar
-                search={search}
-                setSearch={setSearch}
                 filters={filters}
                 setFilters={setFilters}
              />

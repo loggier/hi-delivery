@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type Table } from "@tanstack/react-table";
 import { type Business } from "@/types";
-import { type Filters, useBusinessFilters } from "./use-business-filters";
 import {
   Select,
   SelectContent,
@@ -25,22 +24,25 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 
+export type Filters = {
+    name: string;
+    status: string;
+    type: string;
+    category_id: string;
+}
+
 interface DataTableToolbarProps {
   table?: Table<Business>; // Make table optional
-  search: string;
-  setSearch: (value: string) => void;
-  filters: Omit<Filters, 'name'>;
+  filters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
 }
 
 export function DataTableToolbar({
   table,
-  search,
-  setSearch,
   filters,
   setFilters
 }: DataTableToolbarProps) {
-  const isFiltered = Object.values(filters).some(v => v !== '') || search !== '';
+  const isFiltered = Object.values(filters).some(v => v !== '');
   const { data: businessCategoriesData } = api.business_categories.useGetAll();
 
   const handleResetFilters = () => {
@@ -57,8 +59,8 @@ export function DataTableToolbar({
         <div className="flex flex-1 items-center space-x-2">
             <Input
                 placeholder="Filtrar por nombre..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                value={filters.name}
+                onChange={(event) => setFilters(prev => ({ ...prev, name: event.target.value }))}
                 className="h-8 w-[150px] lg:w-[250px]"
             />
             
