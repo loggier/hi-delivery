@@ -216,6 +216,7 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
     const handleAdd = () => {
         onAddToCart(product, quantity);
+        setQuantity(1); // Reset quantity after adding
     }
     
     return (
@@ -232,16 +233,14 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 <h4 className="font-semibold truncate text-base flex-grow">{product.name}</h4>
                 <div className="mt-2 space-y-3">
                     <p className="text-lg font-bold text-muted-foreground">{formatCurrency(product.price)}</p>
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1">
-                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
-                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
-                        </div>
-                        <Button size="sm" onClick={handleAdd} className="flex-1">
-                            Agregar
-                        </Button>
+                    <div className="flex items-center justify-center gap-2">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
+                        <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
                     </div>
+                    <Button size="sm" onClick={handleAdd} className="w-full">
+                        Agregar
+                    </Button>
                 </div>
             </CardContent>
         </Card>
