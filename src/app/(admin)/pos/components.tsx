@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus } from 'lucide-react';
 import { Customer, Product, Business, Order } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -208,12 +208,18 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
 
 interface ProductCardProps {
     product: Product;
-    onAddToCart: (product: Product) => void;
+    onAddToCart: (product: Product, quantity: number) => void;
 }
 
 function ProductCard({ product, onAddToCart }: ProductCardProps) {
+    const [quantity, setQuantity] = useState(1);
+
+    const handleAdd = () => {
+        onAddToCart(product, quantity);
+    }
+    
     return (
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden flex flex-col">
             <div className="aspect-video relative">
                 <Image 
                     src={product.image_url || 'https://placehold.co/300x200'} 
@@ -222,23 +228,30 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
                     className="object-cover"
                 />
             </div>
-            <CardContent className="p-4">
-                <h4 className="font-semibold truncate text-base">{product.name}</h4>
-                <div className="flex justify-between items-center mt-2">
+            <CardContent className="p-3 flex flex-col flex-grow">
+                <h4 className="font-semibold truncate text-base flex-grow">{product.name}</h4>
+                <div className="mt-2 space-y-3">
                     <p className="text-lg font-bold text-muted-foreground">{formatCurrency(product.price)}</p>
-                    <Button size="sm" onClick={() => onAddToCart(product)}>
-                        <PlusCircle className="h-4 w-4 mr-2" />
-                        Agregar
-                    </Button>
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
+                        </div>
+                        <Button size="sm" onClick={handleAdd} className="flex-1">
+                            Agregar
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
     );
 }
 
+
 interface ProductGridProps {
     products: Product[];
-    onAddToCart: (product: Product) => void;
+    onAddToCart: (product: Product, quantity: number) => void;
 }
 
 export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
@@ -277,7 +290,7 @@ export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
                     </SelectContent>
                 </Select>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {filteredProducts.map(p => (
                     <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
                 ))}
