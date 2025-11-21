@@ -65,8 +65,8 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
     try {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
-          if (key === 'imageUrl' && value instanceof FileList && value.length > 0) {
-              formData.append('image_url', value[0]);
+          if (key === 'imageUrl' && value instanceof File) {
+              formData.append('image_url', value);
           } else if (key !== 'imageUrl' && value !== null && value !== undefined) {
               formData.append(key, String(value));
           }
@@ -216,3 +216,5 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
     </Card>
   );
 }
+
+    

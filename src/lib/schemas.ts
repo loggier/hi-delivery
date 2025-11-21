@@ -93,10 +93,8 @@ const imageFileSchema = (message: string) =>
   isClient
     ? z.union([
         z.string().url().nullable(),
-        z.instanceof(FileList, { message })
-            .refine((files) => !files || files.length === 0 || files[0].size <= MAX_FILE_SIZE, `El tamaño máximo es 5MB.`)
-            .refine((files) => !files || files.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files[0].type), "Solo se permiten formatos .jpg y .png")
-            .nullable()
+        z.instanceof(File, { message }).nullable(),
+        z.instanceof(FileList).transform(val => val.length > 0 ? val.item(0) : null).nullable()
       ])
     : z.any().nullable();
 
@@ -290,7 +288,7 @@ export const riderApplicationSchema = riderApplicationBaseSchema.refine(data => 
 });
 
 export const riderAdminUpdateSchema = riderApplicationBaseSchema
-  .omit({ password: true, passwordConfirmation: true, first_name: true, last_name: true, phone_e164: true })
+  .omit({ password: true, passwordConfirmation: true, first_name: true, last_name: true })
   .extend({
     first_name: z.string().min(2, { message: "El nombre es requerido." }),
     last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
@@ -327,3 +325,5 @@ export const productSchema = z.object({
   categoryId: z.string({ required_error: "Debe seleccionar una categoría."}),
   imageUrl: imageFileSchema("La imagen del producto es opcional.").optional(),
 });
+
+    
