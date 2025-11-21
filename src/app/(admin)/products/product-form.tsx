@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from "react";
@@ -72,22 +73,22 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
   const onSubmit = async (data: ProductFormValues) => {
     try {
       const formData = new FormData();
-      const validatedData = form.getValues();
+      const currentValues = form.getValues();
 
       // Handle file separately
-      if (validatedData.image_url instanceof File) {
-          formData.append('image_url', validatedData.image_url);
-      } else if (isEditing && initialData?.image_url && typeof validatedData.image_url === 'string') {
-        // If not changed, we don't need to append it. If removed, the value will be null.
-      } else if (validatedData.image_url === null && isEditing) {
-        formData.append('image_url', ''); // Send empty string to signify removal
+      const imageUrlValue = currentValues.image_url;
+      if (imageUrlValue instanceof File) {
+          formData.append('image_url', imageUrlValue);
+      } else if (isEditing && !imageUrlValue) {
+        // If image was removed on edit, send empty string to signal removal
+        formData.append('image_url', '');
       }
       
       // Append all other fields from the schema
       Object.keys(productSchema.shape).forEach(key => {
         const fieldKey = key as keyof ProductFormValues;
         if (fieldKey !== 'image_url') {
-            const value = validatedData[fieldKey];
+            const value = currentValues[fieldKey];
             if (value !== null && value !== undefined) {
                 formData.append(fieldKey, String(value));
             }

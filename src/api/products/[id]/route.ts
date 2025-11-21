@@ -40,11 +40,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const imageFile = formData.get('image_url') as File | null;
-    if (imageFile && imageFile.size > 0) {
+    if (imageFile instanceof File && imageFile.size > 0) {
         updateData['image_url'] = await uploadFileAndGetUrl(supabaseAdmin, imageFile, productId);
-    } else if (!formData.has('image_url')) {
-        // If the image_url field is not in the form data at all, it means it was removed.
-        // We set it to null to delete it from the DB.
+    } else if (formData.get('image_url') === '') {
+        // If image_url is an empty string, it means we want to remove the image.
         updateData['image_url'] = null;
     }
     
