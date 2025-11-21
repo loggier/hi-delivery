@@ -42,13 +42,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const imageFile = formData.get('image_url') as File | null;
     if (imageFile && imageFile.size > 0) {
         updateData['image_url'] = await uploadFileAndGetUrl(supabaseAdmin, imageFile, productId);
+    } else if (!formData.has('image_url')) {
+        // If the image_url field is not in the form data at all, it means it was removed.
+        // We set it to null to delete it from the DB.
+        updateData['image_url'] = null;
     }
     
     for (const [key, value] of formData.entries()) {
       if (key !== 'image_url') {
         if (key === 'price') {
              updateData[key] = parseFloat(value as string);
-        } else if (value !== null && value !== undefined && value !== '') {
+        } else if (value !== null && value !== undefined) {
+             // Allow empty strings to be saved (e.g., clearing a description)
             updateData[key] = value;
         }
       }

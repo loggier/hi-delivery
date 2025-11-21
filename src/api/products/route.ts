@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   
   try {
     const productId = `prod-${faker.string.uuid()}`;
-    let imageUrl: string | undefined = undefined;
+    let imageUrl: string | null = null;
 
     if (data.image_url instanceof File && data.image_url.size > 0) {
         imageUrl = await uploadFileAndGetUrl(supabaseAdmin, data.image_url, productId);
