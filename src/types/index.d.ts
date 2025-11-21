@@ -58,8 +58,8 @@ export type Customer = {
   coordinates?: { lat: number; lng: number };
   orderCount: number;
   totalSpent: number;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Order = {
@@ -70,7 +70,7 @@ export type Order = {
   productCount: number;
   total: number;
   status: 'DELIVERED' | 'CANCELLED' | 'PENDING';
-  createdAt: string;
+  created_at: string;
 };
 
 export type BusinessType = "restaurant" | "store" | "service";

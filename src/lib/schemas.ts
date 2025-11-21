@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export const signInSchema = z.object({
@@ -327,4 +328,15 @@ export const productSchema = z.object({
   business_id: z.string({ required_error: "Debe seleccionar un negocio."}),
   category_id: z.string({ required_error: "Debe seleccionar una categoría."}),
   image_url: imageFileSchema("La imagen del producto es opcional.").optional(),
+});
+
+export const newCustomerSchema = z.object({
+  firstName: z.string().min(2, "El nombre es requerido."),
+  lastName: z.string().min(2, "El apellido es requerido."),
+  phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),
+  mainAddress: z.string().min(5, "La dirección es requerida."),
+  coordinates: z.object({
+    lat: z.number({ required_error: "La ubicación en el mapa es requerida." }),
+    lng: z.number({ required_error: "La ubicación en el mapa es requerida." }),
+  })
 });

@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
     CustomerSearch, 
     CustomerFormModal,
@@ -12,17 +12,34 @@ import {
     ShippingMapModal
 } from './components';
 import { type Customer, type Product, type Business } from '@/types';
-import { customers, products, businesses } from '@/mocks/data';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { api } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Building, AlertTriangle } from 'lucide-react';
 
 type OrderItem = Product & { quantity: number };
 
 export default function POSPage() {
+    const [selectedBusiness, setSelectedBusiness] = React.useState<Business | null>(null);
     const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
-    const [selectedBusiness] = React.useState<Business | null>(businesses[0]);
     
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
+
+    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
+    const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id });
+    const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
+    
+    const handleSelectBusiness = (businessId: string) => {
+        const business = businesses?.find(b => b.id === businessId);
+        if (business) {
+            setSelectedBusiness(business);
+            // Reset customer and cart when business changes
+            setSelectedCustomer(null);
+            setOrderItems([]);
+        }
+    };
     
     const addProductToOrder = (product: Product, quantity: number) => {
         setOrderItems((prevItems) => {
@@ -48,7 +65,8 @@ export default function POSPage() {
     };
 
     const handleCreateCustomer = (newCustomer: Customer) => {
-        // In a real app, you'd also save this to the DB. For now, just select it.
+        // The mutation automatically invalidates the query, but we can manually add it
+        // to the list for immediate UI update if needed. For now, let's just select it.
         setSelectedCustomer(newCustomer);
         setIsCustomerModalOpen(false);
     };
@@ -60,10 +78,37 @@ export default function POSPage() {
             <div className="col-span-1 lg:col-span-2 space-y-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-xl">1. Cliente</CardTitle>
+                        <CardTitle className="text-xl">1. Seleccionar Negocio</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {selectedCustomer ? (
+                        {isLoadingBusinesses ? (
+                            <Skeleton className="h-12 w-full" />
+                        ) : (
+                            <Select onValueChange={handleSelectBusiness} value={selectedBusiness?.id}>
+                                <SelectTrigger className="h-12 text-base">
+                                    <SelectValue placeholder="Elige un negocio para empezar a vender..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {businesses?.map(b => (
+                                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </CardContent>
+                </Card>
+                
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-xl">2. Cliente</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {!selectedBusiness ? (
+                             <div className="h-24 flex items-center justify-center text-muted-foreground bg-slate-50 rounded-md">
+                                <AlertTriangle className="h-5 w-5 mr-2"/>
+                                Primero selecciona un negocio.
+                             </div>
+                        ) : selectedCustomer ? (
                             <CustomerDisplay 
                                 customer={selectedCustomer} 
                                 onClear={() => setSelectedCustomer(null)}
@@ -71,9 +116,10 @@ export default function POSPage() {
                             />
                         ) : (
                             <CustomerSearch
-                                customers={customers}
+                                customers={customers || []}
                                 onSelectCustomer={setSelectedCustomer}
                                 onAddNewCustomer={() => setIsCustomerModalOpen(true)}
+                                disabled={isLoadingCustomers || !selectedBusiness}
                             />
                         )}
                     </CardContent>
@@ -81,10 +127,15 @@ export default function POSPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-xl">2. Productos</CardTitle>
+                        <CardTitle className="text-xl">3. Productos</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ProductGrid products={products} onAddToCart={addProductToOrder} />
+                       <ProductGrid 
+                            products={products || []} 
+                            onAddToCart={addProductToOrder}
+                            isLoading={isLoadingProducts}
+                            disabled={!selectedBusiness}
+                        />
                     </CardContent>
                 </Card>
             </div>
@@ -114,4 +165,3 @@ export default function POSPage() {
         </div>
     );
 }
-

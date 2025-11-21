@@ -19,7 +19,10 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { productCategories } from '@/mocks/data';
+import { api } from '@/lib/api';
+import { newCustomerSchema } from '@/lib/schemas';
+import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const libraries: ('places')[] = ['places'];
 
@@ -62,9 +65,10 @@ interface CustomerSearchProps {
     customers: Customer[];
     onSelectCustomer: (customer: Customer) => void;
     onAddNewCustomer: () => void;
+    disabled?: boolean;
 }
 
-export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer }: CustomerSearchProps) {
+export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, disabled = false }: CustomerSearchProps) {
     const [query, setQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
 
@@ -93,9 +97,10 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer }
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                     className="w-full pl-10 h-12 text-base"
+                    disabled={disabled}
                 />
             </div>
-            {isFocused && (
+            {isFocused && !disabled && (
                 <div className="absolute top-full mt-2 w-full bg-card border rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
                     {filteredCustomers.length > 0 ? (
                         filteredCustomers.map(c => (
@@ -128,14 +133,6 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer }
 
 // --- Customer Creation Modal ---
 
-const newCustomerSchema = z.object({
-    firstName: z.string().min(2, "El nombre es requerido."),
-    lastName: z.string().min(2, "El apellido es requerido."),
-    phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),
-    address: z.string().min(5, "La dirección es requerida."),
-    lat: z.number({ required_error: "La ubicación en el mapa es requerida." }),
-    lng: z.number({ required_error: "La ubicación en el mapa es requerida." }),
-});
 type NewCustomerValues = z.infer<typeof newCustomerSchema>;
 
 interface CustomerFormModalProps {
@@ -148,23 +145,24 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
     const methods = useForm<NewCustomerValues>({
         resolver: zodResolver(newCustomerSchema),
     });
+    
+    const createCustomerMutation = api.customers.useCreate();
+    const { toast } = useToast();
 
-    const onSubmit = (data: NewCustomerValues) => {
-        const newCustomer: Customer = {
-            id: `cust_${Date.now()}`,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            phone: data.phone,
-            mainAddress: data.address,
-            coordinates: { lat: data.lat, lng: data.lng },
-            orderCount: 0,
-            totalSpent: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        };
-        onSave(newCustomer);
-        methods.reset();
-        onClose();
+    const onSubmit = async (data: NewCustomerValues) => {
+        try {
+            const newCustomer = await createCustomerMutation.mutateAsync(data);
+            toast({
+                title: "Cliente Creado",
+                description: `${newCustomer.firstName} ha sido guardado exitosamente.`,
+                variant: 'success'
+            });
+            onSave(newCustomer as Customer);
+            methods.reset();
+            onClose();
+        } catch (error) {
+            // Error is handled by useMutation hook
+        }
     };
 
     return (
@@ -185,16 +183,20 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
                                 <h3 className="text-lg font-medium mb-2">Dirección</h3>
                                 <LocationMap
                                     onLocationSelect={({ address, lat, lng }) => {
-                                        methods.setValue('address', address, { shouldValidate: true });
-                                        methods.setValue('lat', lat, { shouldValidate: true });
-                                        methods.setValue('lng', lng, { shouldValidate: true });
+                                        methods.setValue('mainAddress', address, { shouldValidate: true });
+                                        methods.setValue('coordinates.lat', lat, { shouldValidate: true });
+                                        methods.setValue('coordinates.lng', lng, { shouldValidate: true });
                                     }}
                                 />
-                                <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
+                                <FormInput name="mainAddress" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
+                                <FormField name="coordinates.lat" render={() => <FormMessage />} />
                             </div>
                             <div className="flex justify-end gap-2">
-                                <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                                <Button type="submit">Guardar Cliente</Button>
+                                <Button type="button" variant="ghost" onClick={onClose} disabled={createCustomerMutation.isPending}>Cancelar</Button>
+                                <Button type="submit" disabled={createCustomerMutation.isPending}>
+                                    {createCustomerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    Guardar Cliente
+                                </Button>
                             </div>
                         </form>
                     </Form>
@@ -233,14 +235,16 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 <h4 className="font-semibold truncate text-base flex-grow">{product.name}</h4>
                 <div className="mt-2 space-y-3">
                     <p className="text-lg font-bold text-muted-foreground">{formatCurrency(product.price)}</p>
-                    <div className="flex items-center justify-center gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
-                        <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
+                     <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-2">
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
+                        </div>
+                        <Button size="sm" onClick={handleAdd} className="w-full">
+                            Agregar
+                        </Button>
                     </div>
-                     <Button size="sm" onClick={handleAdd} className="w-full">
-                        Agregar
-                    </Button>
                 </div>
             </CardContent>
         </Card>
@@ -251,14 +255,18 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
 interface ProductGridProps {
     products: Product[];
     onAddToCart: (product: Product, quantity: number) => void;
+    isLoading: boolean;
+    disabled?: boolean;
 }
 
-export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
+export function ProductGrid({ products, onAddToCart, isLoading, disabled = false }: ProductGridProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
+    
+    const { data: categories } = api.product_categories.useGetAll();
 
     const filteredProducts = useMemo(() => {
-        return products.filter(p => {
+        return (products || []).filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory;
             return matchesSearch && matchesCategory;
@@ -275,25 +283,32 @@ export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
                         className="pl-10 h-11 text-base"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
+                        disabled={disabled}
                     />
                 </div>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={disabled}>
                     <SelectTrigger className="w-[200px] h-11 text-base">
                         <SelectValue placeholder="Categoría" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todas las categorías</SelectItem>
-                        {productCategories.map(cat => (
+                        {categories?.map(cat => (
                             <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredProducts.map(p => (
-                    <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
-                ))}
-            </div>
+            {isLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                     {Array.from({length: 5}).map((_, i) => <Card key={i} className="h-64"><CardContent className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></CardContent></Card>)}
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {filteredProducts.map(p => (
+                        <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -391,7 +406,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business }: Order
                         <span>{formatCurrency(total)}</span>
                     </div>
                 </div>
-                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer}>
+                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business}>
                     Crear Pedido
                 </Button>
             </CardContent>
@@ -415,15 +430,15 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
     });
     
     const mapCenter = useMemo(() => {
-        if (business?.coordinates) return business.coordinates;
-        if (customer?.coordinates) return customer.coordinates;
+        if (business?.latitude && business?.longitude) return { lat: business.latitude, lng: business.longitude };
+        if (customer?.coordinates?.lat) return customer.coordinates;
         return { lat: 19.4326, lng: -99.1332 }; // Mexico City
     }, [business, customer]);
     
     const mapBounds = useMemo(() => {
-        if (!business?.coordinates || !customer?.coordinates || !isLoaded) return undefined;
+        if (!business?.latitude || !business?.longitude || !customer?.coordinates?.lat || !isLoaded) return undefined;
         const bounds = new window.google.maps.LatLngBounds();
-        bounds.extend(business.coordinates);
+        bounds.extend({ lat: business.latitude, lng: business.longitude });
         bounds.extend(customer.coordinates);
         return bounds;
     }, [business, customer, isLoaded]);
@@ -450,15 +465,15 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
                                 zoomControl: true,
                             }}
                         >
-                            {business?.coordinates && (
-                                <MarkerF position={business.coordinates} label="N" title={business.name}/>
+                            {business?.latitude && business?.longitude && (
+                                <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
                             )}
                             {customer?.coordinates && (
                                 <MarkerF position={customer.coordinates} label="C" title={customer.mainAddress}/>
                             )}
-                            {business?.coordinates && customer?.coordinates && (
+                            {business?.latitude && business?.longitude && customer?.coordinates && (
                                 <PolylineF 
-                                    path={[business.coordinates, customer.coordinates]}
+                                    path={[{ lat: business.latitude, lng: business.longitude }, customer.coordinates]}
                                     options={{
                                         strokeColor: "#E33739",
                                         strokeOpacity: 0.8,

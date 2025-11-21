@@ -48,7 +48,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const supabase = createClient();
 
   // GET all
-  const useGetAll = (params: Record<string, string | boolean> = {}) => {
+  const useGetAll = (params: Record<string, string | boolean | undefined> = {}) => {
     const queryKey = [entity, params];
     
     return useQuery<T[]>({
@@ -57,7 +57,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         let query = supabase.from(entity).select('*', { count: 'exact' });
 
         Object.entries(params).forEach(([key, value]) => {
-            if(value) {
+            if(value !== undefined && value !== '') {
                 if(key === 'name_search') {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
                 } else if (key === 'name') {
@@ -75,7 +75,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         }
         
         return handleSupabaseQuery(query.returns<T[]>());
-      }
+      },
+      enabled: !Object.keys(params).some(key => key.endsWith('_id') && !params[key]) // Disable if a required ID is missing
     });
   }
 
@@ -89,7 +90,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   }
 
   // CREATE
-  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at" | "user_id">>() => {
+  const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
