@@ -257,6 +257,7 @@ export default function POSPage() {
                 onClose={() => setIsMapModalOpen(false)}
                 business={selectedBusiness}
                 address={selectedAddress}
+                isMapsLoaded={isLoaded}
             />
         </div>
     );

@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer } from 'lucide-react';
-import { Customer, Product, Business, Order, CustomerAddress } from '@/types';
+import { Customer, Product, Business, Order, CustomerAddress, Plan } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -438,10 +438,13 @@ interface OrderCartProps {
 }
 
 export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded }: OrderCartProps) {
-    const [shippingInfo, setShippingInfo] = useState<{ distance: string, duration: string } | null>(null);
+    const [shippingInfo, setShippingInfo] = useState<{ distance: number, duration: string } | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+
+    const { data: plan } = api.plans.useGetOne(business?.plan_id || '');
+    const { data: settings } = api.settings.useGet();
+
     useEffect(() => {
         if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude) {
             setIsCalculating(true);
@@ -457,7 +460,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                     const route = result.routes[0].legs[0];
                     if (route.distance && route.duration) {
                         setShippingInfo({
-                            distance: route.distance.text,
+                            distance: route.distance.value / 1000, // distance in km
                             duration: route.duration.text,
                         });
                     }
@@ -478,9 +481,16 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
     }, [items]);
     
     const shippingCost = useMemo(() => {
-        // Mock calculation for now
-        return shippingInfo ? 45.00 : 0;
-    }, [shippingInfo]);
+        if (!shippingInfo || !plan || !settings) return 0;
+        
+        let cost = plan.rider_fee;
+        if (shippingInfo.distance > plan.min_distance) {
+            const extraKm = shippingInfo.distance - plan.min_distance;
+            cost += extraKm * plan.fee_per_km;
+        }
+
+        return Math.max(cost, plan.min_shipping_fee);
+    }, [shippingInfo, plan, settings]);
 
     const total = subtotal + shippingCost;
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
@@ -533,14 +543,14 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                                 <>
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-1"><Map className="h-4 w-4"/>Distancia</div>
-                                        <span className="font-semibold">{shippingInfo.distance}</span>
+                                        <span className="font-semibold">{shippingInfo.distance.toFixed(2)} km</span>
                                     </div>
                                      <div className="flex justify-between items-center mt-1">
                                         <div className="flex items-center gap-1"><Timer className="h-4 w-4"/>Tiempo estimado</div>
                                         <span className="font-semibold">{shippingInfo.duration}</span>
                                     </div>
                                     <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                                        <span className="font-semibold">Costo de envío (simulado)</span>
+                                        <span className="font-semibold">Costo de envío</span>
                                         <span className="font-bold text-primary">{formatCurrency(shippingCost)}</span>
                                     </div>
                                 </>
@@ -583,26 +593,22 @@ interface ShippingMapModalProps {
     onClose: () => void;
     business: Business | null;
     address: CustomerAddress | null;
+    isMapsLoaded: boolean;
 }
 
-export function ShippingMapModal({ isOpen, onClose, business, address }: ShippingMapModalProps) {
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries
-    });
-    
+export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded }: ShippingMapModalProps) {
     const mapCenter = useMemo(() => {
         if (business?.latitude && business?.longitude) return { lat: business.latitude, lng: business.longitude };
         return { lat: 19.4326, lng: -99.1332 }; // Mexico City
     }, [business]);
     
     const mapBounds = useMemo(() => {
-        if (!business?.latitude || !address?.latitude || !isLoaded) return undefined;
+        if (!business?.latitude || !address?.latitude || !isMapsLoaded || typeof window === 'undefined') return undefined;
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend({ lat: business.latitude, lng: business.longitude });
         bounds.extend({ lat: address.latitude, lng: address.longitude });
         return bounds;
-    }, [business, address, isLoaded]);
+    }, [business, address, isMapsLoaded]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -614,9 +620,8 @@ export function ShippingMapModal({ isOpen, onClose, business, address }: Shippin
                     </DialogDescription>
                 </DialogHeader>
                 <div className="h-[60vh] mt-4">
-                    {loadError && <div className="text-destructive">Error al cargar el mapa.</div>}
-                    {!isLoaded && <div className="h-full w-full bg-muted animate-pulse rounded-md" />}
-                    {isLoaded && (
+                    {!isMapsLoaded && <div className="h-full w-full bg-muted animate-pulse rounded-md" />}
+                    {isMapsLoaded && (
                         <GoogleMap
                             mapContainerClassName="w-full h-full rounded-md"
                             center={mapCenter}
