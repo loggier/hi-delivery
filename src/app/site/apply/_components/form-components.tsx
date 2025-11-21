@@ -353,10 +353,10 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
 
     React.useEffect(() => {
         let file: File | null = null;
-        if (watchedValue instanceof File) {
-            file = watchedValue;
-        } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
+        if (watchedValue instanceof FileList && watchedValue.length > 0) {
             file = watchedValue[0];
+        } else if (watchedValue instanceof File) {
+            file = watchedValue;
         }
 
         if (typeof watchedValue === 'string') {
@@ -574,5 +574,3 @@ export const FormMultiImageUpload = ({ label, description }: FormMultiImageUploa
         </fieldset>
     );
 };
-
-    
