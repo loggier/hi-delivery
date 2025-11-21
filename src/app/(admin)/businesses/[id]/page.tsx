@@ -140,7 +140,7 @@ export default function ViewBusinessPage() {
         <Card>
             <CardHeader className="flex-row items-start gap-4 space-y-0">
                 <Image 
-                    src={business.logo_url || 'https://placehold.co/80x80/E33739/FFFFFF/png?text=HID'}
+                    src={business.logo_url ? business.logo_url : 'https://placehold.co/80x80/E33739/FFFFFF/png?text=HID'}
                     alt={`Logo de ${business.name}`}
                     width={80}
                     height={80}
