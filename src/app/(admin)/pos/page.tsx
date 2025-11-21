@@ -10,7 +10,8 @@ import {
     CustomerDisplay,
     ProductGrid,
     OrderCart,
-    ShippingMapModal
+    ShippingMapModal,
+    CustomerFormModal
 } from './components';
 import { type Customer, type Product, type Business, type CustomerAddress } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -27,6 +28,7 @@ export default function POSPage() {
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
     
     const [isAddressModalOpen, setIsAddressModalOpen] = React.useState(false);
+    const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
 
@@ -79,6 +81,11 @@ export default function POSPage() {
     const handleOpenAddressModal = (address: CustomerAddress | null = null) => {
         setEditingAddress(address);
         setIsAddressModalOpen(true);
+    }
+    
+    const handleCustomerCreated = (newCustomer: Customer) => {
+        setSelectedCustomer(newCustomer);
+        setIsCustomerModalOpen(false);
     }
 
     return (
@@ -133,6 +140,7 @@ export default function POSPage() {
                             <CustomerSearch
                                 customers={customers || []}
                                 onSelectCustomer={handleSelectCustomer}
+                                onAddNewCustomer={() => setIsCustomerModalOpen(true)}
                                 disabled={isLoadingCustomers || !selectedBusiness}
                             />
                         )}
@@ -173,6 +181,12 @@ export default function POSPage() {
                     addressToEdit={editingAddress}
                 />
             )}
+            
+             <CustomerFormModal
+                isOpen={isCustomerModalOpen}
+                onClose={() => setIsCustomerModalOpen(false)}
+                onCustomerCreated={handleCustomerCreated}
+             />
 
             <ShippingMapModal 
                 isOpen={isMapModalOpen}

@@ -112,15 +112,14 @@ export function CustomerDisplay({
 interface CustomerSearchProps {
     customers: Customer[];
     onSelectCustomer: (customer: Customer | null) => void;
+    onAddNewCustomer: () => void;
     disabled?: boolean;
 }
 
-export function CustomerSearch({ customers, onSelectCustomer, disabled = false }: CustomerSearchProps) {
+export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, disabled = false }: CustomerSearchProps) {
     const [query, setQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     
-    const { data: newCustomer, mutate: createCustomer } = api.customers.useCreate();
-
     const filteredCustomers = useMemo(() => {
         if (!query) return [];
         return customers.filter(c =>
@@ -136,23 +135,107 @@ export function CustomerSearch({ customers, onSelectCustomer, disabled = false }
 
     return (
         <div className="relative">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                    type="text"
-                    placeholder="Buscar cliente por nombre o teléfono..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-                    className="w-full pl-10 h-12 text-base"
-                    disabled={disabled}
-                />
+            <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        type="text"
+                        placeholder="Buscar cliente por nombre o teléfono..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+                        className="w-full pl-10 h-12 text-base"
+                        disabled={disabled}
+                    />
+                </div>
+                 <Button variant="outline" onClick={onAddNewCustomer}>
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Nuevo Cliente
+                </Button>
             </div>
+             {isFocused && query && (
+                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map(c => (
+                            <div key={c.id} onMouseDown={() => handleSelect(c)} className="p-3 hover:bg-slate-100 cursor-pointer">
+                                <p className="font-semibold">{c.first_name} {c.last_name}</p>
+                                <p className="text-sm text-muted-foreground">{c.phone}</p>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="p-3 text-sm text-muted-foreground">No se encontraron clientes.</p>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
+// --- Customer Creation Modal ---
+
+type NewCustomerFormValues = z.infer<typeof newCustomerSchema>;
+
+interface CustomerFormModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onCustomerCreated: (customer: Customer) => void;
+}
+
+export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: CustomerFormModalProps) {
+    const createCustomerMutation = api.customers.useCreate();
+    
+    const methods = useForm<NewCustomerFormValues>({
+        resolver: zodResolver(newCustomerSchema),
+        defaultValues: {
+            first_name: '',
+            last_name: '',
+            phone: '',
+            email: ''
+        },
+    });
+
+    const onSubmit = async (data: NewCustomerFormValues) => {
+        try {
+            const newCustomer = await createCustomerMutation.mutateAsync(data);
+            if(newCustomer) {
+                methods.reset();
+                onCustomerCreated(newCustomer);
+            }
+        } catch(e) {
+            // error is handled by mutation hook
+        }
+    };
+    
+    const isSubmitting = createCustomerMutation.isPending;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { methods.reset(); onClose(); } }}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-2xl">Nuevo Cliente</DialogTitle>
+                </DialogHeader>
+                <FormProvider {...methods}>
+                    <Form {...methods}>
+                        <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                             <FormInput name="first_name" label="Nombre(s)" placeholder="Juan"/>
+                             <FormInput name="last_name" label="Apellido(s)" placeholder="Pérez" />
+                             <FormInput name="phone" label="Teléfono" type="tel" placeholder="5512345678" />
+                             <FormInput name="email" label="Email (Opcional)" type="email" placeholder="juan.perez@email.com"/>
+                             <div className="flex justify-end gap-2 pt-4">
+                                <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    Crear Cliente
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
+                </FormProvider>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 // --- Customer Address Creation/Edit Modal ---
 
