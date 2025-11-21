@@ -57,19 +57,23 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       queryFn: async () => {
         let query = supabase.from(entity).select('*', { count: 'exact' });
 
-        Object.entries(params).forEach(([key, value]) => {
+        for (const [key, value] of Object.entries(params)) {
             if (value !== undefined && value !== '') {
                 if (key === 'name_search') {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
-                } else if (key === 'name') {
-                    query = query.ilike('name', `%${value}%`);
-                } else if (key === 'active' && typeof value === 'string') {
-                    query = query.eq('active', value === 'true');
-                } else if (typeof value === 'string' || typeof value === 'boolean') {
-                    query = query.eq(key, value);
+                    continue;
                 }
+                if (key === 'name') {
+                    query = query.ilike('name', `%${value}%`);
+                    continue;
+                }
+                 if (key === 'active' && typeof value === 'string') {
+                    query = query.eq('active', value === 'true');
+                    continue;
+                }
+                query = query.eq(key, value);
             }
-        });
+        }
         
         if (!params['plan_id'] && entity !== 'customer_addresses') {
             query = query.order('created_at', { ascending: false });
@@ -195,7 +199,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         if (!response.ok) {
           throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
         }
-        return result.business || result.product || result; // API can return nested data
+        return result.business || result.product || result.rider || result; // API can return nested data
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
