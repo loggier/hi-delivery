@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -15,7 +16,7 @@ import { Form } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { productCategories } from '@/mocks/data';
@@ -309,9 +310,9 @@ export function OrderCart({ items, onUpdateQuantity, customer, business }: Order
 
     return (
         <Card className="lg:sticky top-6">
-            <DialogHeader className="p-6">
-                <DialogTitle className="text-xl">3. Resumen del Pedido</DialogTitle>
-            </DialogHeader>
+            <CardHeader>
+                <CardTitle className="text-xl">3. Resumen del Pedido</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-6">
                 {items.length === 0 ? (
                      <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
