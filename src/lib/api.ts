@@ -58,16 +58,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         let query = supabase.from(entity).select('*', { count: 'exact' });
 
         Object.entries(params).forEach(([key, value]) => {
-            if(value !== undefined && value !== '') {
-                if(key === 'name_search') {
+            if (value !== undefined && value !== '') {
+                if (key === 'name_search') {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
                 } else if (key === 'name') {
                     query = query.ilike('name', `%${value}%`);
                 } else if (key === 'active' && typeof value === 'string') {
                     query = query.eq('active', value === 'true');
-                } else if (typeof value === 'string' && value !== '') { // Asegurarse de que no sea una cadena vacía
-                    query = query.eq(key, value);
-                } else if (typeof value === 'boolean') {
+                } else if (typeof value === 'string' || typeof value === 'boolean') {
                     query = query.eq(key, value);
                 }
             }
