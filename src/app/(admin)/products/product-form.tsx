@@ -35,15 +35,8 @@ import { Loader2 } from "lucide-react";
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
-// Extend the ProductType to include the snake_case fields from Supabase
-type ProductWithApiFields = ProductType & {
-    business_id: string;
-    category_id: string;
-    image_url?: string;
-}
-
 interface ProductFormProps {
-  initialData?: ProductWithApiFields | null;
+  initialData?: ProductType | null;
   businesses: Business[];
   categories: Category[];
 }
@@ -58,24 +51,20 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: isEditing && initialData ? {
-      name: initialData.name || '',
+    defaultValues: initialData ? {
+      ...initialData,
       description: initialData.description || '',
       sku: initialData.sku || '',
-      price: initialData.price || 0,
-      status: initialData.status || 'ACTIVE',
-      businessId: initialData.business_id, // Map from snake_case
-      categoryId: initialData.category_id, // Map from snake_case
-      imageUrl: initialData.image_url || null, // Map from snake_case
+      image_url: initialData.image_url || null,
     } : {
       name: "",
       description: "",
       sku: "",
       price: 0,
       status: "ACTIVE",
-      businessId: "",
-      categoryId: "",
-      imageUrl: null,
+      business_id: "",
+      category_id: "",
+      image_url: null,
     },
   });
 
@@ -84,10 +73,9 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
       const formData = new FormData();
       // Use Object.entries on the validated data
       Object.entries(data).forEach(([key, value]) => {
-          if (key === 'imageUrl' && value instanceof File) {
-              // The API expects 'image_url' for the file
+          if (key === 'image_url' && value instanceof File) {
               formData.append('image_url', value);
-          } else if (key !== 'imageUrl' && value !== null && value !== undefined && value !== '') {
+          } else if (key !== 'image_url' && value !== null && value !== undefined && value !== '') {
               formData.append(key, String(value));
           }
       });
@@ -170,7 +158,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                     <FormField
                         control={form.control}
-                        name="businessId"
+                        name="business_id"
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Negocio</FormLabel>
@@ -190,7 +178,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                     />
                      <FormField
                         control={form.control}
-                        name="categoryId"
+                        name="category_id"
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Categoría</FormLabel>
@@ -230,7 +218,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                 />
               </div>
               <div className="md:col-span-1">
-                <FormImageUpload name="imageUrl" label="Imagen del Producto" aspectRatio="square" />
+                <FormImageUpload name="image_url" label="Imagen del Producto" aspectRatio="square" />
               </div>
             </div>
 

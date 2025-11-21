@@ -52,11 +52,11 @@ export const getColumns = (businesses: Business[], categories: Category[]): Colu
       <DataTableColumnHeader column={column} title="Producto" />
     ),
     cell: ({ row }) => {
-        const { name, imageUrl } = row.original;
+        const { name, image_url } = row.original;
         return (
             <div className="flex items-center gap-3">
                 <Image 
-                    src={imageUrl || 'https://placehold.co/40x40/EFEFEF/333333/png?text=P'}
+                    src={image_url || 'https://placehold.co/40x40/EFEFEF/333333/png?text=P'}
                     alt={`Imagen de ${name}`}
                     width={40}
                     height={40}
@@ -68,18 +68,18 @@ export const getColumns = (businesses: Business[], categories: Category[]): Colu
     }
   },
   {
-    accessorKey: "businessId",
+    accessorKey: "business_id",
     header: "Negocio",
     cell: ({ row }) => {
-        const business = businesses.find(b => b.id === row.original.businessId);
+        const business = businesses.find(b => b.id === row.original.business_id);
         return business ? business.name : 'N/A';
     }
   },
     {
-    accessorKey: "categoryId",
+    accessorKey: "category_id",
     header: "Categoría",
     cell: ({ row }) => {
-        const category = categories.find(c => c.id === row.original.categoryId);
+        const category = categories.find(c => c.id === row.original.category_id);
         return category ? category.name : 'N/A';
     }
   },

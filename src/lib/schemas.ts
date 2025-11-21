@@ -324,7 +324,7 @@ export const productSchema = z.object({
   sku: z.string().optional(),
   price: z.coerce.number().min(0, { message: "El precio debe ser positivo." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
-  businessId: z.string({ required_error: "Debe seleccionar un negocio."}),
-  categoryId: z.string({ required_error: "Debe seleccionar una categoría."}),
-  imageUrl: imageFileSchema("La imagen del producto es opcional.").optional(),
+  business_id: z.string({ required_error: "Debe seleccionar un negocio."}),
+  category_id: z.string({ required_error: "Debe seleccionar una categoría."}),
+  image_url: imageFileSchema("La imagen del producto es opcional.").optional(),
 });

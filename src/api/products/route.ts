@@ -44,9 +44,9 @@ export async function POST(request: Request) {
     sku: rawData.sku,
     price: rawData.price ? Number(rawData.price) : undefined,
     status: rawData.status,
-    businessId: rawData.businessId,
-    categoryId: rawData.categoryId,
-    imageUrl: rawData.imageUrl,
+    business_id: rawData.business_id,
+    category_id: rawData.category_id,
+    image_url: rawData.image_url,
   });
 
   if (!validated.success) {
@@ -60,8 +60,8 @@ export async function POST(request: Request) {
     const productId = `prod-${faker.string.uuid()}`;
     let imageUrl: string | undefined = undefined;
 
-    if (data.imageUrl instanceof File && data.imageUrl.size > 0) {
-        imageUrl = await uploadFileAndGetUrl(supabaseAdmin, data.imageUrl, productId);
+    if (data.image_url instanceof File && data.image_url.size > 0) {
+        imageUrl = await uploadFileAndGetUrl(supabaseAdmin, data.image_url, productId);
     }
 
     const newProductForDb = {
@@ -71,8 +71,8 @@ export async function POST(request: Request) {
       sku: data.sku,
       price: data.price,
       status: data.status,
-      business_id: data.businessId,
-      category_id: data.categoryId,
+      business_id: data.business_id,
+      category_id: data.category_id,
       image_url: imageUrl,
       created_at: new Date().toISOString(),
     };

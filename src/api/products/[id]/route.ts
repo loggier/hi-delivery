@@ -41,11 +41,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     const imageFile = formData.get('image_url') as File | null;
     if (imageFile && imageFile.size > 0) {
-        updateData['imageUrl'] = await uploadFileAndGetUrl(supabaseAdmin, imageFile, productId);
+        updateData['image_url'] = await uploadFileAndGetUrl(supabaseAdmin, imageFile, productId);
     }
     
     for (const [key, value] of formData.entries()) {
-      if (key !== 'image_url' && key !== 'imageUrl') {
+      if (key !== 'image_url') {
         if (key === 'price') {
              updateData[key] = parseFloat(value as string);
         } else if (value !== null && value !== undefined && value !== '') {
@@ -62,8 +62,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const parsed = productSchema.partial().safeParse({
         ...updateData,
         price: updateData.price ? Number(updateData.price) : undefined, // Ensure price is a number for Zod
-        // If image was already a URL, it will be in updateData, otherwise it's handled by image_url from formData
-        imageUrl: updateData.imageUrl,
+        image_url: updateData.image_url,
     });
 
     if (!parsed.success) {
@@ -72,27 +71,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
     
     const dataToUpdate = parsed.data;
-    const dbData: Record<string, any> = {};
-
-    for (const key in dataToUpdate) {
-        if (Object.prototype.hasOwnProperty.call(dataToUpdate, key)) {
-            // Map camelCase from schema to snake_case for DB
-            if (key === 'businessId') {
-                dbData['business_id'] = (dataToUpdate as any)[key];
-            } else if (key === 'categoryId') {
-                dbData['category_id'] = (dataToUpdate as any)[key];
-            } else if (key === 'imageUrl') {
-                // Only update image_url if a new one was uploaded
-                if(updateData.imageUrl) dbData['image_url'] = updateData.imageUrl;
-            } else {
-                dbData[key] = (dataToUpdate as any)[key];
-            }
-        }
-    }
 
     const { data, error } = await supabaseAdmin
       .from('products')
-      .update(dbData)
+      .update(dataToUpdate)
       .eq('id', productId)
       .select()
       .single();
