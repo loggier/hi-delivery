@@ -60,6 +60,11 @@ export default function POSPage() {
             setOrderItems([]);
         }
     }
+
+    const handleSelectAddress = (address: CustomerAddress) => {
+        setSelectedAddress(address);
+        setIsCustomerOpen(false); // Collapse on selection
+    }
     
     const addProductToOrder = (product: Product, quantity: number) => {
         setOrderItems((prevItems) => {
@@ -169,7 +174,7 @@ export default function POSPage() {
                                         customer={selectedCustomer} 
                                         addresses={customerAddresses || []}
                                         selectedAddress={selectedAddress}
-                                        onSelectAddress={setSelectedAddress}
+                                        onSelectAddress={handleSelectAddress}
                                         onClearCustomer={() => handleSelectCustomer(null)}
                                         onShowMap={() => setIsMapModalOpen(true)}
                                         onAddAddress={() => handleOpenAddressModal(null)}
