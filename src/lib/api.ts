@@ -84,7 +84,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   // GET one
   const useGetOne = (id: string) => {
     return useQuery<T>({
-        queryKey: [...entityKey, id],
+        queryKey: [entity, id],
         queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
         enabled: !!id,
     });
