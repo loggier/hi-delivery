@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -79,11 +78,11 @@ export function CustomerDisplay({
                 ) : (
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                         {addresses.map(addr => (
-                            <button
+                            <div
                                 key={addr.id}
                                 onClick={() => onSelectAddress(addr)}
                                 className={cn(
-                                    "w-full text-left p-3 border rounded-lg flex justify-between items-center transition-colors",
+                                    "w-full text-left p-3 border rounded-lg flex justify-between items-center transition-colors cursor-pointer",
                                     selectedAddress?.id === addr.id
                                         ? "bg-primary/10 border-primary"
                                         : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
@@ -96,7 +95,7 @@ export function CustomerDisplay({
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                            </button>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -197,10 +196,10 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
 
     const onSubmit = async (data: NewCustomerFormValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data);
+            const newCustomer = await createCustomerMutation.mutateAsync(data as any);
             if(newCustomer) {
                 methods.reset();
-                onCustomerCreated(newCustomer);
+                onCustomerCreated(newCustomer as Customer);
             }
         } catch(e) {
             // error is handled by mutation hook
@@ -269,7 +268,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
             if (addressToEdit) {
                 await updateAddressMutation.mutateAsync({ ...data, id: addressToEdit.id });
             } else {
-                await createAddressMutation.mutateAsync({ ...data, customer_id: customerId });
+                await createAddressMutation.mutateAsync({ ...data, customer_id: customerId } as any);
             }
             onClose();
         } catch (error) {
@@ -295,7 +294,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
                                         methods.setValue('latitude', lat, { shouldValidate: true });
                                         methods.setValue('longitude', lng, { shouldValidate: true });
                                         if (city) methods.setValue('city', city);
-                                        if (state) methods.setValue('state', state);
+                                        if (state) methods.setValue('state);
                                         if (zip_code) methods.setValue('zip_code', zip_code);
                                         if (neighborhood) methods.setValue('neighborhood', neighborhood);
                                     }}
