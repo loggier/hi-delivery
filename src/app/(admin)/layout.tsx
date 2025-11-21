@@ -18,6 +18,7 @@ import {
   List,
   Contact,
   Shield,
+  ShoppingCart,
 } from "lucide-react";
 
 import {
@@ -35,6 +36,7 @@ import { Breadcrumb } from '@/components/breadcrumb';
 
 const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
+    { href: "/pos", icon: ShoppingCart, label: "Punto de Venta" },
     { href: "/businesses", icon: Building2, label: "Negocios" },
     { href: "/riders", icon: Bike, label: "Repartidores" },
     { href: "/customers", icon: Contact, label: "Clientes" },
