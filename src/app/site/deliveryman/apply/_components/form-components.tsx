@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useFormContext } from "react-hook-form";
@@ -351,10 +352,16 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
     const inputRef = React.useRef<HTMLInputElement | null>(null);
 
     React.useEffect(() => {
+        let file: File | null = null;
+        if (watchedValue instanceof File) {
+            file = watchedValue;
+        } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
+            file = watchedValue[0];
+        }
+
         if (typeof watchedValue === 'string') {
             setPreview(watchedValue);
-        } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
-            const file = watchedValue[0];
+        } else if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreview(reader.result as string);
@@ -376,7 +383,11 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
     }
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(name, e.target.files, { shouldValidate: true });
+      if (e.target.files && e.target.files.length > 0) {
+        setValue(name, e.target.files, { shouldValidate: true });
+      } else {
+        setValue(name, null, { shouldValidate: true });
+      }
     };
 
     const hasError = !!errors[name];
