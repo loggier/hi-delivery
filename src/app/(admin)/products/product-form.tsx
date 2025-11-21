@@ -30,6 +30,7 @@ import { type Product, type Business, type Category } from "@/types";
 import { productSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { FormImageUpload } from "@/app/site/apply/_components/form-components";
+import { Loader2 } from "lucide-react";
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
@@ -41,8 +42,8 @@ interface ProductFormProps {
 
 export function ProductForm({ initialData, businesses, categories }: ProductFormProps) {
   const router = useRouter();
-  const createMutation = api.products.useCreate();
-  const updateMutation = api.products.useUpdate();
+  const createMutation = api.products.useCreateWithFormData();
+  const updateMutation = api.products.useUpdateWithFormData();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear producto";
@@ -61,18 +62,25 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
   });
 
   const onSubmit = async (data: ProductFormValues) => {
-    // Here you would handle file uploads if imageUrl is a FileList
-    // For this mock, we assume it's just a URL string for now.
     try {
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+          if (key === 'imageUrl' && value instanceof FileList && value.length > 0) {
+              formData.append('image_url', value[0]);
+          } else if (key !== 'imageUrl' && value !== null && value !== undefined) {
+              formData.append(key, String(value));
+          }
+      });
+      
       if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ ...data, id: initialData.id });
+        await updateMutation.mutateAsync({ formData, id: initialData.id });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(formData);
       }
       router.push("/products");
       router.refresh();
     } catch (error) {
-      console.error("No se pudo guardar el producto", error);
+      // Errors are handled by the mutation hooks
     }
   };
 
@@ -198,6 +206,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                 Cancelar
               </Button>
               <Button type="submit" disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                 {isPending ? "Guardando..." : formAction}
               </Button>
             </div>

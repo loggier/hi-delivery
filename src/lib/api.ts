@@ -176,7 +176,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         if (!response.ok) {
           throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
         }
-        return result.business; // The API returns { message, business }
+        return result.business || result.product || result; // API can return nested data
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -204,10 +204,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: async (item) => {
         const { id, ...updateData } = item;
-        // In a real app with file uploads, this should be a FormData POST
-        // For simplicity with Supabase client SDK, we assume URLs are pre-uploaded
-        // or we use a separate API route for FormData.
-        // This hook will handle JSON updates.
         return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
       onSuccess: (data) => {
@@ -324,9 +320,7 @@ function createSettingsApi() {
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
     business_categories: createCRUDApi<BusinessCategory>('business_categories'),
-    businesses: {
-        ...createCRUDApi<Business>('businesses'),
-    },
+    businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
     users: createCRUDApi<User>('users'),
