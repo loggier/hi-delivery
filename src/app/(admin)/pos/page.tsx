@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
     CustomerSearch, 
     CustomerFormModal,
@@ -15,7 +16,7 @@ import { type Customer, type Product, type Business } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 type OrderItem = Product & { quantity: number };
 

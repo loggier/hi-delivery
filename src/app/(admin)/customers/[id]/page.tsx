@@ -33,7 +33,7 @@ const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
     const getOrderBusiness = (order: Order) => businesses.find(b => b.id === order.businessId)?.name || 'N/A';
     const getOrderRider = (order: Order) => {
         const rider = riders.find(r => r.id === order.riderId);
-        return rider ? `${rider.firstName} ${rider.lastName}` : 'N/A';
+        return rider ? `${rider.first_name} ${rider.last_name}` : 'N/A';
     }
 
     if (isLoading) {
@@ -74,7 +74,7 @@ const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
                                 {order.id.split('-')[0]}...
                             </Badge>
                         </TableCell>
-                        <TableCell>{format(new Date(order.createdAt), 'd MMM, yyyy', { locale: es })}</TableCell>
+                        <TableCell>{format(new Date(order.created_at), 'd MMM, yyyy', { locale: es })}</TableCell>
                         <TableCell className="font-medium">{getOrderBusiness(order)}</TableCell>
                         <TableCell>{getOrderRider(order)}</TableCell>
                         <TableCell className="text-center">{order.productCount}</TableCell>
@@ -114,7 +114,7 @@ export default function ViewCustomerPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={`${customer.firstName} ${customer.lastName}`} />
+      <PageHeader title={`${customer.first_name} ${customer.last_name}`} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
@@ -132,9 +132,9 @@ export default function ViewCustomerPage() {
                     <CardTitle>Direcciones</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <DetailItem icon={Home} label="Dirección Principal" value={customer.mainAddress} />
-                    {customer.additionalAddress1 && <DetailItem icon={MapPin} label="Dirección Adicional 1" value={customer.additionalAddress1} />}
-                    {customer.additionalAddress2 && <DetailItem icon={MapPin} label="Dirección Adicional 2" value={customer.additionalAddress2} />}
+                    <DetailItem icon={Home} label="Dirección Principal" value={customer.main_address} />
+                    {customer.additional_address_1 && <DetailItem icon={MapPin} label="Dirección Adicional 1" value={customer.additional_address_1} />}
+                    {customer.additional_address_2 && <DetailItem icon={MapPin} label="Dirección Adicional 2" value={customer.additional_address_2} />}
                 </CardContent>
             </Card>
         </div>
@@ -144,7 +144,7 @@ export default function ViewCustomerPage() {
                 <CardHeader>
                     <CardTitle>Historial de Pedidos</CardTitle>
                     <CardDescription>
-                        Un total de {customer.orderCount} pedidos con un gasto de {formatCurrency(customer.totalSpent)}.
+                        Un total de {customer.order_count} pedidos con un gasto de {formatCurrency(customer.total_spent)}.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

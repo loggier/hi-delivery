@@ -96,11 +96,25 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
     return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
+        
+        let itemToInsert: any = { ...newItemDTO };
+
+        if (entity === 'customers') {
+            const { firstName, lastName, phone, mainAddress, email } = newItemDTO as any;
+            itemToInsert = {
+                first_name: firstName,
+                last_name: lastName,
+                phone: phone,
+                main_address: mainAddress,
+                email: email,
+            };
+        }
+        
         const itemWithId = {
             id: `${entity.slice(0,4)}-${faker.string.uuid()}`,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            ...newItemDTO
+            ...itemToInsert
         }
         return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
       },

@@ -48,16 +48,15 @@ export type User = {
 
 export type Customer = {
   id: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   email?: string;
-  mainAddress: string;
-  additionalAddress1?: string;
-  additionalAddress2?: string;
-  coordinates?: { lat: number; lng: number };
-  orderCount: number;
-  totalSpent: number;
+  main_address: string;
+  additional_address_1?: string;
+  additional_address_2?: string;
+  order_count: number;
+  total_spent: number;
   created_at: string;
   updated_at: string;
 };

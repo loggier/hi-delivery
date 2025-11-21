@@ -18,12 +18,12 @@ import { formatCurrency } from "@/lib/utils";
 
 export const columns: ColumnDef<Customer>[] = [
   {
-    accessorKey: "firstName",
+    accessorKey: "first_name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Nombre" />
     ),
     cell: ({ row }) => {
-      const name = `${row.original.firstName} ${row.original.lastName}`;
+      const name = `${row.original.first_name} ${row.original.last_name}`;
       return <div className="font-medium">{name}</div>;
     },
   },
@@ -32,30 +32,30 @@ export const columns: ColumnDef<Customer>[] = [
     header: "Teléfono",
   },
   {
-    accessorKey: "mainAddress",
+    accessorKey: "main_address",
     header: "Dirección Principal",
     cell: ({ row }) => (
-        <span className="truncate block max-w-xs">{row.original.mainAddress}</span>
+        <span className="truncate block max-w-xs">{row.original.main_address}</span>
     )
   },
   {
-    accessorKey: "orderCount",
+    accessorKey: "order_count",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Pedidos" />
     ),
     cell: ({ row }) => (
-      <div className="text-center">{row.original.orderCount}</div>
+      <div className="text-center">{row.original.order_count}</div>
     ),
   },
   {
-    accessorKey: "totalSpent",
+    accessorKey: "total_spent",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Gasto Total" />
     ),
     cell: ({ row }) => {
       return (
         <div className="text-right font-medium">
-          {formatCurrency(row.original.totalSpent)}
+          {formatCurrency(row.original.total_spent)}
         </div>
       );
     },

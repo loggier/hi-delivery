@@ -10,7 +10,7 @@ import { FormLabel } from '@/components/ui/form';
 const libraries: ('places')[] = ['places'];
 
 interface LocationMapProps {
-    onLocationSelect: (location: { address: string, lat: number, lng: number }) => void;
+    onLocationSelect: (location: { address: string }) => void;
 }
 
 export function LocationMap({ onLocationSelect }: LocationMapProps) {
@@ -35,7 +35,7 @@ export function LocationMap({ onLocationSelect }: LocationMapProps) {
                 const lat = place.geometry.location.lat();
                 const lng = place.geometry.location.lng();
                 setLocation({ lat, lng });
-                onLocationSelect({ address: place.formatted_address || '', lat, lng });
+                onLocationSelect({ address: place.formatted_address || '' });
             }
         }
     };
@@ -46,7 +46,7 @@ export function LocationMap({ onLocationSelect }: LocationMapProps) {
             const lng = e.latLng.lng();
             setLocation({ lat, lng });
             // You might need a geocoding service here to get address from lat/lng
-            onLocationSelect({ address: `Coords: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
+             onLocationSelect({ address: `Coords: ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
         }
     };
 

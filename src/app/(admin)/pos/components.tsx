@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2 } from 'lucide-react';
 import { Customer, Product, Business, Order } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,6 @@ import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { newCustomerSchema } from '@/lib/schemas';
-import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const libraries: ('places')[] = ['places'];
@@ -38,14 +38,14 @@ export function CustomerDisplay({ customer, onClear, onShowMap }: CustomerDispla
     return (
         <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start text-lg">
             <div className="space-y-1">
-                <p className="font-semibold text-lg">{customer.firstName} {customer.lastName}</p>
+                <p className="font-semibold text-lg">{customer.first_name} {customer.last_name}</p>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4" />
                     <span>{customer.phone}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Home className="h-4 w-4" />
-                    <span>{customer.mainAddress}</span>
+                    <span>{customer.main_address}</span>
                 </div>
             </div>
             <div className="flex items-center gap-1">
@@ -75,7 +75,7 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, 
     const filteredCustomers = useMemo(() => {
         if (!query) return [];
         return customers.filter(c =>
-            `${c.firstName} ${c.lastName}`.toLowerCase().includes(query.toLowerCase()) ||
+            `${c.first_name} ${c.last_name}`.toLowerCase().includes(query.toLowerCase()) ||
             c.phone.includes(query)
         );
     }, [query, customers]);
@@ -109,7 +109,7 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, 
                                 className="p-3 hover:bg-accent cursor-pointer"
                                 onClick={() => handleSelect(c)}
                             >
-                                <p className="font-semibold">{c.firstName} {c.lastName}</p>
+                                <p className="font-semibold">{c.first_name} {c.last_name}</p>
                                 <p className="text-sm text-muted-foreground">{c.phone}</p>
                             </div>
                         ))
@@ -151,13 +151,21 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
 
     const onSubmit = async (data: NewCustomerValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data as any);
+            const newCustomerInSnakeCase = await createCustomerMutation.mutateAsync(data as any);
+            const newCustomerInCamelCase = { // convert to camelCase for the frontend state
+              ...newCustomerInSnakeCase,
+              first_name: newCustomerInSnakeCase.first_name,
+              last_name: newCustomerInSnakeCase.last_name,
+              main_address: newCustomerInSnakeCase.main_address,
+              created_at: newCustomerInSnakeCase.created_at,
+              updated_at: newCustomerInSnakeCase.updated_at,
+            }
             toast({
                 title: "Cliente Creado",
-                description: `${newCustomer.firstName} ha sido guardado exitosamente.`,
+                description: `${data.firstName} ha sido guardado exitosamente.`,
                 variant: 'success'
             });
-            onSave(newCustomer as Customer);
+            onSave(newCustomerInCamelCase as Customer);
             methods.reset();
             onClose();
         } catch (error) {
@@ -184,12 +192,9 @@ export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModal
                                 <LocationMap
                                     onLocationSelect={({ address, lat, lng }) => {
                                         methods.setValue('mainAddress', address, { shouldValidate: true });
-                                        methods.setValue('coordinates.lat', lat, { shouldValidate: true });
-                                        methods.setValue('coordinates.lng', lng, { shouldValidate: true });
                                     }}
                                 />
                                 <FormInput name="mainAddress" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
-                                <FormField name="coordinates.lat" render={() => <FormMessage />} />
                             </div>
                             <div className="flex justify-end gap-2">
                                 <Button type="button" variant="ghost" onClick={onClose} disabled={createCustomerMutation.isPending}>Cancelar</Button>
@@ -431,17 +436,17 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
     
     const mapCenter = useMemo(() => {
         if (business?.latitude && business?.longitude) return { lat: business.latitude, lng: business.longitude };
-        if (customer?.coordinates?.lat) return customer.coordinates;
         return { lat: 19.4326, lng: -99.1332 }; // Mexico City
-    }, [business, customer]);
+    }, [business]);
     
     const mapBounds = useMemo(() => {
-        if (!business?.latitude || !business?.longitude || !customer?.coordinates?.lat || !isLoaded) return undefined;
+        if (!business?.latitude || !business?.longitude || !isLoaded) return undefined;
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend({ lat: business.latitude, lng: business.longitude });
-        bounds.extend(customer.coordinates);
+        // The customer object no longer has coordinates, so we can't extend the bounds to it.
+        // We'll just focus on the business for now.
         return bounds;
-    }, [business, customer, isLoaded]);
+    }, [business, isLoaded]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -468,19 +473,7 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
                             {business?.latitude && business?.longitude && (
                                 <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
                             )}
-                            {customer?.coordinates && (
-                                <MarkerF position={customer.coordinates} label="C" title={customer.mainAddress}/>
-                            )}
-                            {business?.latitude && business?.longitude && customer?.coordinates && (
-                                <PolylineF 
-                                    path={[{ lat: business.latitude, lng: business.longitude }, customer.coordinates]}
-                                    options={{
-                                        strokeColor: "#E33739",
-                                        strokeOpacity: 0.8,
-                                        strokeWeight: 2,
-                                    }}
-                                />
-                            )}
+                            {/* Customer marker and polyline are removed since coordinates are not available */}
                         </GoogleMap>
                     )}
                 </div>
@@ -488,5 +481,3 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
         </Dialog>
     )
 }
-
-    

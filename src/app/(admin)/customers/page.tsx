@@ -13,7 +13,7 @@ export default function CustomersPage() {
   const [search, setSearch] = React.useState('');
   const [debouncedSearch] = useDebounce(search, 500);
 
-  const { data, isLoading } = api.customers.useGetAll({ search: debouncedSearch });
+  const { data, isLoading } = api.customers.useGetAll({ name_search: debouncedSearch });
   
   return (
     <div className="space-y-4">
