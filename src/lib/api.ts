@@ -65,7 +65,9 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                     query = query.ilike('name', `%${value}%`);
                 } else if (key === 'active' && typeof value === 'string') {
                     query = query.eq('active', value === 'true');
-                } else if (typeof value === 'string') {
+                } else if (typeof value === 'string' && value !== '') { // Asegurarse de que no sea una cadena vacía
+                    query = query.eq(key, value);
+                } else if (typeof value === 'boolean') {
                     query = query.eq(key, value);
                 }
             }
