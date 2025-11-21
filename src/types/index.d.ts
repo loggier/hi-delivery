@@ -210,11 +210,11 @@ export type Product = {
   description?: string;
   sku?: string;
   price: number;
-  imageUrl?: string;
+  image_url?: string;
   status: "ACTIVE" | "INACTIVE";
-  businessId: string;
-  categoryId: string;
-  createdAt: string;
+  business_id: string;
+  category_id: string;
+  created_at: string;
 };
 
 export type Zone = {

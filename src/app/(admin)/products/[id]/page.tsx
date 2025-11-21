@@ -35,7 +35,7 @@ export default function EditProductPage() {
     <div className="space-y-4">
       <PageHeader title="Editar Producto" />
       <ProductForm 
-        initialData={product}
+        initialData={product as any}
         businesses={businesses || []}
         categories={categories || []}
        />

@@ -27,7 +27,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
-import { type Product, type Business, type Category } from "@/types";
+import { type Product as ProductType, type Business, type Category } from "@/types";
 import { productSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { FormImageUpload } from "@/app/site/apply/_components/form-components";
@@ -35,8 +35,15 @@ import { Loader2 } from "lucide-react";
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
+// Extend the ProductType to include the snake_case fields from Supabase
+type ProductWithApiFields = ProductType & {
+    business_id: string;
+    category_id: string;
+    image_url?: string;
+}
+
 interface ProductFormProps {
-  initialData?: Product | null;
+  initialData?: ProductWithApiFields | null;
   businesses: Business[];
   categories: Category[];
 }
@@ -57,9 +64,9 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
       sku: initialData.sku || '',
       price: initialData.price || 0,
       status: initialData.status || 'ACTIVE',
-      businessId: initialData.businessId,
-      categoryId: initialData.categoryId,
-      imageUrl: initialData.imageUrl || null,
+      businessId: initialData.business_id, // Map from snake_case
+      categoryId: initialData.category_id, // Map from snake_case
+      imageUrl: initialData.image_url || null, // Map from snake_case
     } : {
       name: "",
       description: "",
@@ -68,15 +75,17 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
       status: "ACTIVE",
       businessId: "",
       categoryId: "",
-      imageUrl: undefined,
+      imageUrl: null,
     },
   });
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
       const formData = new FormData();
+      // Use Object.entries on the validated data
       Object.entries(data).forEach(([key, value]) => {
           if (key === 'imageUrl' && value instanceof File) {
+              // The API expects 'image_url' for the file
               formData.append('image_url', value);
           } else if (key !== 'imageUrl' && value !== null && value !== undefined && value !== '') {
               formData.append(key, String(value));
@@ -117,7 +126,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                     </FormItem>
                     )}
                 />
-                <FormField
+                 <FormField
                     control={form.control}
                     name="description"
                     render={({ field }) => (
