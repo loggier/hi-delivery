@@ -335,6 +335,18 @@ export const newCustomerSchema = z.object({
   firstName: z.string().min(2, "El nombre es requerido."),
   lastName: z.string().min(2, "El apellido es requerido."),
   phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),
-  address: z.string().min(5, "La dirección es requerida."),
   email: z.string().email("El email no es válido.").optional().or(z.literal('')),
+});
+
+export const customerAddressSchema = z.object({
+  id: z.string().optional(),
+  customer_id: z.string(),
+  address: z.string().min(5, "La dirección completa es requerida."),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip_code: z.string().optional(),
+  latitude: z.number({ required_error: "La latitud es requerida." }),
+  longitude: z.number({ required_error: "La longitud es requerida." }),
+  is_primary: z.boolean().default(false),
 });

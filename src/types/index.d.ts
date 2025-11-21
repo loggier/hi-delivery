@@ -115,7 +115,6 @@ export type Business = {
   zip_code: string;
   latitude?: number;
   longitude?: number;
-  coordinates?: { lat: number; lng: number };
   tax_id?: string;
   website?: string;
   instagram?: string;

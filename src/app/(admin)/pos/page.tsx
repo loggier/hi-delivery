@@ -6,13 +6,13 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
     CustomerSearch, 
-    CustomerFormModal,
+    AddressFormModal,
     CustomerDisplay,
     ProductGrid,
     OrderCart,
     ShippingMapModal
 } from './components';
-import { type Customer, type Product, type Business } from '@/types';
+import { type Customer, type Product, type Business, type CustomerAddress } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,24 +23,35 @@ type OrderItem = Product & { quantity: number };
 export default function POSPage() {
     const [selectedBusiness, setSelectedBusiness] = React.useState<Business | null>(null);
     const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
+    const [selectedAddress, setSelectedAddress] = React.useState<CustomerAddress | null>(null);
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
     
-    const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
+    const [isAddressModalOpen, setIsAddressModalOpen] = React.useState(false);
+    const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
 
     const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
+    const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
     const handleSelectBusiness = (businessId: string) => {
         const business = businesses?.find(b => b.id === businessId);
         if (business) {
             setSelectedBusiness(business);
-            // Reset customer and cart when business changes
             setSelectedCustomer(null);
+            setSelectedAddress(null);
             setOrderItems([]);
         }
     };
+
+    const handleSelectCustomer = (customer: Customer | null) => {
+        setSelectedCustomer(customer);
+        setSelectedAddress(null);
+        if (!customer) {
+            setOrderItems([]);
+        }
+    }
     
     const addProductToOrder = (product: Product, quantity: number) => {
         setOrderItems((prevItems) => {
@@ -65,13 +76,10 @@ export default function POSPage() {
         });
     };
 
-    const handleCreateCustomer = (newCustomer: Customer) => {
-        // The mutation automatically invalidates the query, but we can manually add it
-        // to the list for immediate UI update if needed. For now, let's just select it.
-        setSelectedCustomer(newCustomer);
-        setIsCustomerModalOpen(false);
-    };
-
+    const handleOpenAddressModal = (address: CustomerAddress | null = null) => {
+        setEditingAddress(address);
+        setIsAddressModalOpen(true);
+    }
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start text-base">
@@ -101,7 +109,7 @@ export default function POSPage() {
                 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-xl">2. Cliente</CardTitle>
+                        <CardTitle className="text-xl">2. Cliente y Dirección</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {!selectedBusiness ? (
@@ -112,14 +120,19 @@ export default function POSPage() {
                         ) : selectedCustomer ? (
                             <CustomerDisplay 
                                 customer={selectedCustomer} 
-                                onClear={() => setSelectedCustomer(null)}
+                                addresses={customerAddresses || []}
+                                selectedAddress={selectedAddress}
+                                onSelectAddress={setSelectedAddress}
+                                onClearCustomer={() => handleSelectCustomer(null)}
                                 onShowMap={() => setIsMapModalOpen(true)}
+                                onAddAddress={() => handleOpenAddressModal(null)}
+                                onEditAddress={(addr) => handleOpenAddressModal(addr)}
+                                isLoadingAddresses={isLoadingAddresses}
                             />
                         ) : (
                             <CustomerSearch
                                 customers={customers || []}
-                                onSelectCustomer={setSelectedCustomer}
-                                onAddNewCustomer={() => setIsCustomerModalOpen(true)}
+                                onSelectCustomer={handleSelectCustomer}
                                 disabled={isLoadingCustomers || !selectedBusiness}
                             />
                         )}
@@ -148,20 +161,24 @@ export default function POSPage() {
                     onUpdateQuantity={updateQuantity}
                     customer={selectedCustomer}
                     business={selectedBusiness}
+                    address={selectedAddress}
                 />
             </div>
 
-            <CustomerFormModal
-                isOpen={isCustomerModalOpen}
-                onClose={() => setIsCustomerModalOpen(false)}
-                onSave={handleCreateCustomer}
-            />
+            {selectedCustomer && (
+                <AddressFormModal
+                    isOpen={isAddressModalOpen}
+                    onClose={() => setIsAddressModalOpen(false)}
+                    customerId={selectedCustomer.id}
+                    addressToEdit={editingAddress}
+                />
+            )}
 
             <ShippingMapModal 
                 isOpen={isMapModalOpen}
                 onClose={() => setIsMapModalOpen(false)}
                 business={selectedBusiness}
-                customer={selectedCustomer}
+                address={selectedAddress}
             />
         </div>
     );

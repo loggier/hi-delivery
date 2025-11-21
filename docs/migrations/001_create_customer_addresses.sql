@@ -1,31 +1,34 @@
--- Crear la nueva tabla para almacenar las direcciones de los clientes
+
+-- Create the new table for customer addresses
 CREATE TABLE grupohubs.customer_addresses (
-  id character varying(255) not null,
-  customer_id character varying(255) not null,
-  address text not null,
-  neighborhood character varying(255) null,
-  city character varying(255) null,
-  state character varying(255) null,
-  zip_code character varying(10) null,
-  latitude numeric(10, 7) not null,
-  longitude numeric(10, 7) not null,
-  is_primary boolean not null default false,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now(),
-  constraint customer_addresses_pkey primary key (id),
-  constraint fk_customer foreign key (customer_id) references grupohubs.customers (id) on delete cascade
+  id character varying(255) NOT NULL,
+  customer_id character varying(255) NOT NULL,
+  address text NOT NULL,
+  neighborhood character varying(255) NULL,
+  city character varying(255) NULL,
+  state character varying(255) NULL,
+  zip_code character varying(20) NULL,
+  latitude double precision NOT NULL,
+  longitude double precision NOT NULL,
+  is_primary boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT customer_addresses_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_customer
+      FOREIGN KEY(customer_id) 
+	  REFERENCES grupohubs.customers(id)
+	  ON DELETE CASCADE
 );
 
--- Crear índices para mejorar el rendimiento de las búsquedas
-CREATE INDEX IF NOT EXISTS idx_customer_addresses_customer_id ON grupohubs.customer_addresses USING btree (customer_id);
+-- Optional: Add an index for faster lookups by customer_id
+CREATE INDEX IF NOT EXISTS idx_customer_addresses_customer_id
+ON grupohubs.customer_addresses USING btree
+(customer_id ASC NULLS LAST)
+TABLESPACE pg_default;
 
--- Opcional: Eliminar las columnas de dirección antiguas de la tabla de clientes.
--- Haz una copia de seguridad de tus datos antes de ejecutar estas líneas si tienes información importante.
+
+-- Alter the existing customers table to remove address fields
 ALTER TABLE grupohubs.customers
 DROP COLUMN IF EXISTS main_address,
 DROP COLUMN IF EXISTS additional_address_1,
 DROP COLUMN IF EXISTS additional_address_2;
-
--- Opcional: Añadir una columna a customers para referenciar la dirección principal, si se prefiere ese modelo
--- ALTER TABLE grupohubs.customers ADD COLUMN primary_address_id character varying(255) null;
--- ALTER TABLE grupohubs.customers ADD CONSTRAINT fk_primary_address FOREIGN KEY (primary_address_id) REFERENCES grupohubs.customer_addresses(id) ON DELETE SET NULL;

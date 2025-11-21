@@ -3,17 +3,17 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2 } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormField, FormMessage } from '@/components/ui/form';
+import { Form, FormField, FormMessage, FormControl } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
@@ -21,8 +21,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
-import { newCustomerSchema } from '@/lib/schemas';
+import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const libraries: ('places')[] = ['places'];
 
@@ -30,44 +31,95 @@ const libraries: ('places')[] = ['places'];
 
 interface CustomerDisplayProps {
     customer: Customer;
-    onClear: () => void;
+    addresses: CustomerAddress[];
+    selectedAddress: CustomerAddress | null;
+    onSelectAddress: (address: CustomerAddress) => void;
+    onClearCustomer: () => void;
     onShowMap: () => void;
+    onAddAddress: () => void;
+    onEditAddress: (address: CustomerAddress) => void;
+    isLoadingAddresses: boolean;
 }
 
-export function CustomerDisplay({ customer, onClear, onShowMap }: CustomerDisplayProps) {
+export function CustomerDisplay({
+    customer, addresses, selectedAddress, onSelectAddress, onClearCustomer, onShowMap, onAddAddress, onEditAddress, isLoadingAddresses
+}: CustomerDisplayProps) {
     return (
-        <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start text-lg">
-            <div className="space-y-1">
-                <p className="font-semibold text-lg">{customer.first_name} {customer.last_name}</p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span>{customer.phone}</span>
+        <div className="space-y-4">
+            <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start text-base">
+                <div className="space-y-1">
+                    <p className="font-semibold text-lg">{customer.first_name} {customer.last_name}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>{customer.phone}</span>
+                    </div>
                 </div>
-                {/* Remove main_address display since it's deprecated */}
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={onClearCustomer}>
+                        <X className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
-            <div className="flex items-center gap-1">
-                 <Button variant="outline" size="sm" onClick={onShowMap}>
-                    <Map className="h-4 w-4 mr-2" />
-                    Ver Mapa
-                </Button>
-                <Button variant="ghost" size="icon" onClick={onClear}>
-                    <X className="h-5 w-5" />
-                </Button>
+
+            <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <h4 className="font-medium text-base">Direcciones Guardadas</h4>
+                    <Button variant="outline" size="sm" onClick={onAddAddress}>
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        Añadir Dirección
+                    </Button>
+                </div>
+
+                {isLoadingAddresses ? (
+                    <Skeleton className="h-20 w-full" />
+                ) : addresses.length === 0 ? (
+                    <div className="text-center text-sm text-muted-foreground border-2 border-dashed rounded-lg p-4">
+                        Este cliente no tiene direcciones guardadas.
+                    </div>
+                ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        {addresses.map(addr => (
+                            <button
+                                key={addr.id}
+                                onClick={() => onSelectAddress(addr)}
+                                className={cn(
+                                    "w-full text-left p-3 border rounded-lg flex justify-between items-center transition-colors",
+                                    selectedAddress?.id === addr.id
+                                        ? "bg-primary/10 border-primary"
+                                        : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                )}
+                            >
+                                <div className="flex items-center gap-3">
+                                    {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0"/>}
+                                    <p className="text-sm">{addr.address}</p>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
+             <Button variant="outline" size="sm" onClick={onShowMap} disabled={!selectedAddress}>
+                <Map className="h-4 w-4 mr-2" />
+                Ver Ruta en Mapa
+            </Button>
         </div>
     );
 }
 
 interface CustomerSearchProps {
     customers: Customer[];
-    onSelectCustomer: (customer: Customer) => void;
-    onAddNewCustomer: () => void;
+    onSelectCustomer: (customer: Customer | null) => void;
     disabled?: boolean;
 }
 
-export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, disabled = false }: CustomerSearchProps) {
+export function CustomerSearch({ customers, onSelectCustomer, disabled = false }: CustomerSearchProps) {
     const [query, setQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
+    
+    const { data: newCustomer, mutate: createCustomer } = api.customers.useCreate();
 
     const filteredCustomers = useMemo(() => {
         if (!query) return [];
@@ -97,115 +149,82 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, 
                     disabled={disabled}
                 />
             </div>
-            {isFocused && !disabled && (
-                <div className="absolute top-full mt-2 w-full bg-card border rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-                    {filteredCustomers.length > 0 ? (
-                        filteredCustomers.map(c => (
-                            <div
-                                key={c.id}
-                                className="p-3 hover:bg-accent cursor-pointer"
-                                onClick={() => handleSelect(c)}
-                            >
-                                <p className="font-semibold">{c.first_name} {c.last_name}</p>
-                                <p className="text-sm text-muted-foreground">{c.phone}</p>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="p-4 text-center text-muted-foreground">
-                            No se encontraron clientes.
-                        </div>
-                    )}
-                    <div className="p-2 border-t">
-                        <Button variant="ghost" className="w-full justify-start gap-2" onClick={onAddNewCustomer}>
-                            <PlusCircle className="h-5 w-5" />
-                            Crear Nuevo Cliente
-                        </Button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
 
 
-// --- Customer Creation Modal ---
+// --- Customer Address Creation/Edit Modal ---
 
-type NewCustomerValues = z.infer<typeof newCustomerSchema>;
+type AddressFormValues = z.infer<typeof customerAddressSchema>;
 
-interface CustomerFormModalProps {
+interface AddressFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (customer: Customer) => void;
+    customerId: string;
+    addressToEdit: CustomerAddress | null;
 }
 
-export function CustomerFormModal({ isOpen, onClose, onSave }: CustomerFormModalProps) {
-    const methods = useForm<NewCustomerValues>({
-        resolver: zodResolver(newCustomerSchema),
+export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }: AddressFormModalProps) {
+    const methods = useForm<AddressFormValues>({
+        resolver: zodResolver(customerAddressSchema),
     });
     
-    const createCustomerMutation = api.customers.useCreate();
-    const { toast } = useToast();
+    const createAddressMutation = api.customer_addresses.useCreate();
+    const updateAddressMutation = api.customer_addresses.useUpdate();
 
-    const onSubmit = async (data: NewCustomerValues) => {
+    useEffect(() => {
+        if (addressToEdit) {
+            methods.reset(addressToEdit);
+        } else {
+            methods.reset({ customer_id: customerId, address: '', latitude: 19.4326, longitude: -99.1332 });
+        }
+    }, [addressToEdit, customerId, methods]);
+
+    const onSubmit = async (data: AddressFormValues) => {
         try {
-            const newCustomerInSnakeCase = await createCustomerMutation.mutateAsync({
-                ...data,
-            } as any);
-
-            const newCustomer: Customer = {
-              id: newCustomerInSnakeCase.id,
-              first_name: newCustomerInSnakeCase.first_name,
-              last_name: newCustomerInSnakeCase.last_name,
-              phone: newCustomerInSnakeCase.phone,
-              email: newCustomerInSnakeCase.email,
-              created_at: newCustomerInSnakeCase.created_at,
-              updated_at: newCustomerInSnakeCase.updated_at,
-              order_count: 0,
-              total_spent: 0,
+            if (addressToEdit) {
+                await updateAddressMutation.mutateAsync({ ...data, id: addressToEdit.id });
+            } else {
+                await createAddressMutation.mutateAsync({ ...data, customer_id: customerId });
             }
-
-            toast({
-                title: "Cliente Creado",
-                description: `${data.firstName} ha sido guardado exitosamente.`,
-                variant: 'success'
-            });
-            onSave(newCustomer);
-            methods.reset();
             onClose();
         } catch (error) {
             // Error is handled by useMutation hook
         }
     };
+    
+    const isSubmitting = createAddressMutation.isPending || updateAddressMutation.isPending;
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[800px]">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl">Crear Nuevo Cliente</DialogTitle>
+                    <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
                 </DialogHeader>
                 <FormProvider {...methods}>
                     <Form {...methods}>
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6 pt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormInput name="firstName" label="Nombre" placeholder="Juan" />
-                                <FormInput name="lastName" label="Apellido" placeholder="Pérez" />
-                                <FormInput name="phone" label="Teléfono" placeholder="5512345678" type="tel" />
-                                <FormInput name="email" label="Email (Opcional)" placeholder="juan.perez@email.com" type="email" />
-                            </div>
                             <div>
-                                <h3 className="text-lg font-medium mb-2">Dirección</h3>
                                 <LocationMap
-                                    onLocationSelect={({ address, lat, lng }) => {
+                                    onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood }) => {
                                         methods.setValue('address', address, { shouldValidate: true });
+                                        methods.setValue('latitude', lat, { shouldValidate: true });
+                                        methods.setValue('longitude', lng, { shouldValidate: true });
+                                        if (city) methods.setValue('city', city);
+                                        if (state) methods.setValue('state', state);
+                                        if (zip_code) methods.setValue('zip_code', zip_code);
+                                        if (neighborhood) methods.setValue('neighborhood', neighborhood);
                                     }}
                                 />
+                                <FormField control={methods.control} name="latitude" render={({field}) => <FormMessage/>} />
                                 <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
                             </div>
                             <div className="flex justify-end gap-2">
-                                <Button type="button" variant="ghost" onClick={onClose} disabled={createCustomerMutation.isPending}>Cancelar</Button>
-                                <Button type="submit" disabled={createCustomerMutation.isPending}>
-                                    {createCustomerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                    Guardar Cliente
+                                <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    Guardar Dirección
                                 </Button>
                             </div>
                         </form>
@@ -246,7 +265,7 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 <div className="mt-2 space-y-3">
                     <p className="text-lg font-bold text-muted-foreground">{formatCurrency(product.price)}</p>
                     <div className="space-y-2">
-                        <div className="flex items-center justify-center gap-2">
+                         <div className="flex items-center justify-center gap-2">
                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => Math.max(1, q-1))}><Minus className="h-4 w-4"/></Button>
                             <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="h-8 w-12 text-center" min="1"/>
                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQuantity(q => q+1)}><PlusCircle className="h-4 w-4"/></Button>
@@ -332,23 +351,24 @@ interface OrderCartProps {
     onUpdateQuantity: (productId: string, quantity: number) => void;
     customer: Customer | null;
     business: Business | null;
+    address: CustomerAddress | null;
 }
 
-export function OrderCart({ items, onUpdateQuantity, customer, business }: OrderCartProps) {
+export function OrderCart({ items, onUpdateQuantity, customer, business, address }: OrderCartProps) {
     const subtotal = useMemo(() => {
         return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
     }, [items]);
     const shippingCost = useMemo(() => {
         // Mock calculation
-        return customer && business ? 45.00 : 0;
-    }, [customer, business]);
+        return customer && business && address ? 45.00 : 0;
+    }, [customer, business, address]);
     const total = subtotal + shippingCost;
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
         <Card className="lg:sticky top-6">
             <CardHeader>
-                <CardTitle className="text-xl">3. Resumen del Pedido</CardTitle>
+                <CardTitle className="text-xl">4. Resumen del Pedido</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
                 {items.length === 0 ? (
@@ -383,7 +403,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business }: Order
                 <div className="space-y-4">
                     <Separator />
                     <h4 className="font-semibold text-base">Costo de Envío</h4>
-                    {business && customer ? (
+                    {business && customer && address ? (
                         <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
                             <div className="flex justify-between items-center">
                                 <span>Distancia (simulada)</span>
@@ -396,7 +416,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business }: Order
                         </div>
                     ) : (
                         <div className="text-muted-foreground text-sm">
-                            Selecciona un negocio y un cliente para calcular el costo de envío.
+                            Selecciona un negocio, un cliente y una dirección para calcular el envío.
                         </div>
                     )}
                 </div>
@@ -416,7 +436,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business }: Order
                         <span>{formatCurrency(total)}</span>
                     </div>
                 </div>
-                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business}>
+                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address}>
                     Crear Pedido
                 </Button>
             </CardContent>
@@ -430,10 +450,10 @@ interface ShippingMapModalProps {
     isOpen: boolean;
     onClose: () => void;
     business: Business | null;
-    customer: Customer | null;
+    address: CustomerAddress | null;
 }
 
-export function ShippingMapModal({ isOpen, onClose, business, customer }: ShippingMapModalProps) {
+export function ShippingMapModal({ isOpen, onClose, business, address }: ShippingMapModalProps) {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries
@@ -445,13 +465,12 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
     }, [business]);
     
     const mapBounds = useMemo(() => {
-        if (!business?.latitude || !business?.longitude || !isLoaded) return undefined;
+        if (!business?.latitude || !address?.latitude || !isLoaded) return undefined;
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend({ lat: business.latitude, lng: business.longitude });
-        // The customer object no longer has coordinates, so we can't extend the bounds to it.
-        // We'll just focus on the business for now.
+        bounds.extend({ lat: address.latitude, lng: address.longitude });
         return bounds;
-    }, [business, isLoaded]);
+    }, [business, address, isLoaded]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -478,7 +497,15 @@ export function ShippingMapModal({ isOpen, onClose, business, customer }: Shippi
                             {business?.latitude && business?.longitude && (
                                 <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
                             )}
-                            {/* Customer marker and polyline are removed since coordinates are not available */}
+                             {address?.latitude && address?.longitude && (
+                                <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
+                            )}
+                            {business?.latitude && address?.latitude && (
+                                <PolylineF
+                                    path={[{ lat: business.latitude, lng: business.longitude }, { lat: address.latitude, lng: address.longitude }]}
+                                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
+                                />
+                            )}
                         </GoogleMap>
                     )}
                 </div>

@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress } from "@/types";
 import { createClient } from "./supabase/client";
 import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
@@ -34,6 +34,7 @@ const entityTranslations: { [key: string]: string } = {
     "users": "Usuario",
     "zones": "Zona",
     "customers": "Cliente",
+    "customer_addresses": "Dirección de Cliente",
     "roles": "Rol",
     "plans": "Plan",
     "payments": "Pago",
@@ -70,13 +71,13 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             }
         });
         
-        if (!params['plan_id']) { // Do not sort by created_at if we are filtering by plan
+        if (!params['plan_id'] && entity !== 'customer_addresses') {
             query = query.order('created_at', { ascending: false });
         }
         
         return handleSupabaseQuery(query.returns<T[]>());
       },
-      enabled: !Object.keys(params).some(key => key.endsWith('_id') && !params[key]) // Disable if a required ID is missing
+      enabled: !Object.keys(params).some(key => key.endsWith('_id') && !params[key])
     });
   }
 
@@ -100,14 +101,13 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         let itemToInsert: any = { ...newItemDTO };
 
         if (entity === 'customers') {
-            const { firstName, lastName, phone, address, email } = newItemDTO as any;
+            const { firstName, lastName, phone, email } = newItemDTO as any;
             itemToInsert = {
                 first_name: firstName,
                 last_name: lastName,
                 phone: phone,
                 email: email,
             };
-             // We will handle address creation separately after customer is created
         }
         
         const itemWithId = {
@@ -118,8 +118,12 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         }
         return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
       },
-      onSuccess: () => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
+        if (entity === 'customer_addresses') {
+            const customerId = (data as any).customer_id;
+            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: customerId }] });
+        }
         if (entity === 'businesses') {
             queryClient.invalidateQueries({ queryKey: ['users'] });
         }
@@ -224,6 +228,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         queryClient.setQueryData([...entityKey, data.id], data);
+         if (entity === 'customer_addresses') {
+            const customerId = (data as any).customer_id;
+            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: customerId }] });
+        }
         toast({
           title: "Éxito",
           description: `${translatedEntity} actualizado exitosamente.`,
@@ -341,6 +349,7 @@ export const api = {
     users: createCRUDApi<User>('users'),
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
+    customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
     orders: createCRUDApi<Order>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
