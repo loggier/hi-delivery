@@ -51,7 +51,16 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: initialData || {
+    defaultValues: isEditing && initialData ? {
+      name: initialData.name || '',
+      description: initialData.description || '',
+      sku: initialData.sku || '',
+      price: initialData.price || 0,
+      status: initialData.status || 'ACTIVE',
+      businessId: initialData.businessId,
+      categoryId: initialData.categoryId,
+      imageUrl: initialData.imageUrl || null,
+    } : {
       name: "",
       description: "",
       sku: "",
@@ -156,7 +165,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Negocio</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                             <FormControl>
                                 <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un negocio" />
@@ -176,7 +185,7 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Categoría</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
                             <FormControl>
                                 <SelectTrigger>
                                 <SelectValue placeholder="Selecciona una categoría" />
