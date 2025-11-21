@@ -517,13 +517,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     for (const key in initialData) {
         const value = initialData[key as keyof Business];
         if (value === null) {
-            if (['category_id', 'zone_id', 'type', 'status', 'weekly_demand'].includes(key)) {
-                sanitizedData[key] = undefined;
-            } else if (typeof value !== 'boolean' && typeof value !== 'number') {
-                sanitizedData[key] = '';
-            } else {
-                 sanitizedData[key] = value;
-            }
+            sanitizedData[key] = null;
         } else {
             sanitizedData[key] = value;
         }

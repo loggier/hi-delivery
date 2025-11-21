@@ -66,7 +66,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         }
         else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
             updateData[key] = `+52${value}`;
-        } else if (value !== null && value !== undefined && value !== '') {
+        } else if (value !== undefined) { // Allow null and empty strings to be processed
             updateData[key] = value;
         }
       }
