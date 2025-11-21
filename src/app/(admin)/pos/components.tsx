@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormField, FormMessage, FormControl } from '@/components/ui/form';
+import { Form, FormField, FormMessage } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
@@ -294,12 +294,12 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
                                         methods.setValue('latitude', lat, { shouldValidate: true });
                                         methods.setValue('longitude', lng, { shouldValidate: true });
                                         if (city) methods.setValue('city', city);
-                                        if (state) methods.setValue('state);
+                                        if (state) methods.setValue('state', state);
                                         if (zip_code) methods.setValue('zip_code', zip_code);
                                         if (neighborhood) methods.setValue('neighborhood', neighborhood);
                                     }}
                                 />
-                                <FormField control={methods.control} name="latitude" render={({field}) => <FormMessage/>} />
+                                <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
                                 <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
                             </div>
                             <div className="flex justify-end gap-2">
