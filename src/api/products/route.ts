@@ -37,7 +37,8 @@ export async function POST(request: Request) {
       rawData[key] = value;
   }
   
-  const dataToValidate = {
+  // 1. Validate text fields first, excluding the image
+  const validatedFields = productSchema.omit({ image_url: true }).safeParse({
     name: rawData.name,
     description: rawData.description,
     sku: rawData.sku,
@@ -45,26 +46,27 @@ export async function POST(request: Request) {
     status: rawData.status,
     business_id: rawData.business_id,
     category_id: rawData.category_id,
-    image_url: rawData.image_url,
-  };
+  });
 
-  const validated = productSchema.safeParse(dataToValidate);
-
-  if (!validated.success) {
-    console.error("Validation errors:", validated.error.flatten().fieldErrors);
-    return NextResponse.json({ message: "Datos de producto inválidos.", errors: validated.error.flatten().fieldErrors }, { status: 400 });
+  if (!validatedFields.success) {
+    console.error("Validation errors:", validatedFields.error.flatten().fieldErrors);
+    return NextResponse.json({ message: "Datos de producto inválidos.", errors: validatedFields.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  const data = validated.data;
+  const data = validatedFields.data;
   
   try {
     const productId = `prod-${faker.string.uuid()}`;
     let imageUrl: string | null = null;
+    
+    const imageFile = rawData.image_url as File | null;
 
-    if (data.image_url instanceof File && data.image_url.size > 0) {
-        imageUrl = await uploadFileAndGetUrl(supabaseAdmin, data.image_url, productId);
+    // 2. Upload image if it exists
+    if (imageFile instanceof File && imageFile.size > 0) {
+        imageUrl = await uploadFileAndGetUrl(supabaseAdmin, imageFile, productId);
     }
 
+    // 3. Prepare data for insertion
     const newProductForDb = {
       id: productId,
       name: data.name,
@@ -74,10 +76,10 @@ export async function POST(request: Request) {
       status: data.status,
       business_id: data.business_id,
       category_id: data.category_id,
-      image_url: imageUrl,
-      created_at: new Date().toISOString(),
+      image_url: imageUrl, // Use the uploaded URL or null
     };
 
+    // 4. Insert into database
     const { data: createdProduct, error: insertError } = await supabaseAdmin
       .from('products')
       .insert(newProductForDb)
