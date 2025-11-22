@@ -1,139 +1,103 @@
 
-# Prompt para la Creación de Aplicación de Repartidor en Flutter
+# Prompt para la Creación de Aplicación de Repartidor en Flutter (Enfoque UI Primero)
 
 ## 1. Visión General del Proyecto
 
-**Objetivo:** Crear una aplicación móvil completa y robusta para repartidores utilizando Flutter. La aplicación debe ser moderna, intuitiva y eficiente, permitiendo a los repartidores gestionar todo el ciclo de entrega de pedidos, monitorear sus ganancias y gestionar su disponibilidad. La aplicación se conectará a un backend existente de Supabase.
+**Objetivo:** Crear el **prototipo visual y de navegación** de una aplicación móvil para repartidores utilizando Flutter. El objetivo principal es construir todas las pantallas, componentes de UI y flujos de navegación con **datos completamente maquetados (mockeados)**. La aplicación debe ser moderna, intuitiva y estéticamente superior a competidores como Rappi y Uber Eats, para validar la experiencia de usuario (UX) antes de conectar cualquier lógica de backend o de hardware.
 
-**Inspiración de Diseño:** El diseño debe ser profesional, limpio y superior a las aplicaciones de delivery líderes como Rappi, DiDi Food y Uber Eats. Se debe priorizar una excelente experiencia de usuario (UX) con flujos de trabajo claros y una navegación intuitiva.
+**Fase Actual:** **Fase 1 - Diseño y Navegación.** No se debe implementar ninguna conexión a base de datos (Supabase), ni funcionalidades que dependan de hardware real como la geolocalización en segundo plano.
 
 ---
 
-## 2. Stack Tecnológico Principal
+## 2. Stack Tecnológico (Fase 1)
 
 *   **Framework:** Flutter (última versión estable).
 *   **Lenguaje:** Dart.
-*   **Base de Datos y Backend:** Supabase.
-    *   **Autenticación:** Supabase Auth (inicio de sesión con email/contraseña).
-    *   **Base de datos en tiempo real:** Supabase Realtime para la recepción de nuevos pedidos.
-    *   **Base de datos:** Supabase (PostgreSQL) para almacenar datos de perfiles, pedidos, etc.
-    *   **Storage:** Supabase Storage para subir pruebas de entrega (fotos).
-*   **Gestión de Estado:** Riverpod.
-*   **Geolocalización:** `geolocator` para obtener la ubicación y `flutter_background_geolocation` (o similar) para el seguimiento en segundo plano.
-*   **Mapas:** Google Maps (`google_maps_flutter`).
-*   **Notificaciones Push:** Firebase Cloud Messaging (FCM) integrado con Supabase Edge Functions para enviar notificaciones de nuevos pedidos.
+*   **Gestión de Estado:** Riverpod (para gestionar el estado de la UI, como el estado "Activo"/"Inactivo").
+*   **Datos:** **100% Maquetados.** Crear clases/modelos en Dart para simular Pedidos, Perfil de Repartidor, Historial de Ganancias, etc. No se conectará a ninguna base de datos externa.
+*   **Mapas:** Google Maps (`google_maps_flutter`). Se utilizará para mostrar **ubicaciones estáticas y rutas predefinidas** (maquetadas), no la ubicación real del dispositivo.
+*   **Navegación:** Utilizar un sistema de enrutamiento robusto (como GoRouter o el Navigator 2.0 de Flutter) para gestionar el flujo entre pantallas.
+*   **Backend y Geolocalización:** **Pospuestos para Fase 2.** No implementar `supabase_flutter`, `geolocator`, `flutter_background_geolocation` ni notificaciones push (FCM) en esta etapa.
 
 ---
 
-## 3. Estructura de la Base de Datos (Supabase)
+## 3. Estructura de Datos Maquetados (Modelos en Dart)
 
-La aplicación debe interactuar con las siguientes tablas existentes:
+Crear los siguientes modelos de datos en Dart. Estos serán poblados con datos falsos (hardcodeados) para simular la funcionalidad de la aplicación.
 
-*   `riders`: Perfil del repartidor.
-*   `orders`: Información de los pedidos. El repartidor actualizará el `status` de esta tabla.
-*   `businesses`: Para obtener información del negocio (dirección de recogida).
-*   `customers`: Para obtener información del cliente (dirección de entrega).
+*   `Rider`:
+    *   `id`, `firstName`, `lastName`, `email`, `phone`, `avatarUrl`, `vehicleInfo` (ej. "Moto Italika 2022"), `averageRating`.
+*   `Order`:
+    *   `id`, `status` (ej. 'pending_acceptance', 'accepted', 'at_store', 'picked_up', 'on_the_way', 'delivered'), `pickupAddress`, `deliveryAddress`, `pickupBusinessName`, `customerName`, `estimatedEarnings`, `itemsDescription`.
+*   `EarningStats`:
+    *   `daily`, `weekly`, `monthly` (cada uno con `totalEarnings`, `totalOrders`, `averagePerOrder`).
+    *   `recentTransactions` (una lista de objetos con `orderId` y `amount`).
 
 ---
 
-## 4. desglose de Funcionalidades por Pantalla
+## 4. Desglose de Funcionalidades por Pantalla (UI y Navegación)
 
 ### **Pantalla 1: Autenticación (Login)**
 
 *   **Diseño:** Minimalista y profesional.
 *   **Campos:** Email y Contraseña.
-*   **Funcionalidad:**
-    *   Validación de campos.
-    *   Inicio de sesión contra Supabase Auth.
-    *   Gestión de errores (credenciales incorrectas, sin conexión, etc.).
-    *   Enlace a "Olvidé mi contraseña".
-    *   Persistencia de la sesión para que el repartidor no tenga que iniciar sesión cada vez.
+*   **Funcionalidad (Maquetada):**
+    *   Validar que los campos no estén vacíos.
+    *   Al presionar "Iniciar Sesión", **simular una carga de 2 segundos** y luego navegar a la Pantalla Principal (Home). No realizar ninguna llamada de red.
+    *   Mostrar un Snackbar o Toast para errores de validación simples (ej. "Email inválido").
 
 ### **Pantalla 2: Pantalla Principal / Home (Con Mapa)**
 
 Esta es la pantalla central de la aplicación.
 
-*   **Componente Principal:** Un mapa de Google Maps que ocupa la mayor parte de la pantalla, centrado en la ubicación actual del repartidor.
+*   **Componente Principal:** Un mapa de Google Maps que ocupa la mayor parte de la pantalla, mostrando una **ubicación fija** (ej. centro de una ciudad) con un marcador que simula la posición del repartidor.
 *   **Barra de Estado Superior:**
     *   Un `Switch` o `Toggle` prominente para cambiar el estado entre **"Activo"** e **"Inactivo"**.
-        *   **Activo:** El repartidor es visible para recibir pedidos. Se inicia el seguimiento de geolocalización en segundo plano. La UI debe reflejar claramente este estado (ej. color verde, texto visible).
-        *   **Inactivo:** El repartidor no recibe pedidos. El seguimiento en segundo plano se detiene. La UI cambia para reflejar el estado (ej. color gris).
-    *   Un ícono que lleva al perfil del usuario.
+        *   **Activo:** La UI debe reflejar este estado (ej. color verde, texto visible). El panel inferior muestra "Esperando nuevos pedidos...".
+        *   **Inactivo:** La UI cambia para reflejar el estado (ej. color gris). El panel inferior puede ocultarse o mostrar "Estás desconectado".
+    *   Un ícono de perfil que navega a la Pantalla de Perfil.
 *   **Panel Inferior (Overlay):**
-    *   Cuando no hay pedido activo, muestra un mensaje como "Esperando nuevos pedidos...".
-    *   Cuando llega un **nuevo pedido**:
-        *   Debe aparecer una tarjeta modal con una notificación sonora clara.
-        *   La tarjeta mostrará:
-            *   Dirección del negocio (recogida).
-            *   Distancia estimada al negocio.
-            *   Ganancia estimada por la entrega.
-        *   Dos botones claros: **"Rechazar"** y **"Aceptar"**.
-        *   Un temporizador visible que indica el tiempo restante para aceptar el pedido.
+    *   **Estado "Esperando Pedido":** Mensaje "Esperando nuevos pedidos...".
+    *   **Simulación de Nuevo Pedido:** Tras 5 segundos de estar "Activo", debe aparecer una tarjeta modal con una notificación sonora (usar un asset local).
+        *   La tarjeta mostrará datos maquetados: Dirección del negocio, distancia estimada y ganancia estimada.
+        *   Botones: **"Rechazar"** (cierra el modal y vuelve a "Esperando...") y **"Aceptar"** (navega al flujo de pedido activo).
+        *   Un temporizador visual (ej. de 30 segundos).
 
-### **Pantalla 3: Flujo de Pedido Activo**
+### **Pantalla 3: Flujo de Pedido Activo (Navegación por Pasos)**
 
-Una vez que un pedido es aceptado, el panel inferior de la pantalla principal se transforma para guiar al repartidor.
+Una vez aceptado un pedido, el panel inferior de la pantalla principal guía al repartidor.
 
 *   **Paso 1: En Camino al Negocio**
-    *   **Título:** "Dirígete a [Nombre del Negocio]".
-    *   **Información:** Dirección completa del negocio.
-    *   **Acción:** Un botón grande **"Llegué al Negocio"**.
-    *   El mapa debe mostrar la ruta optimizada desde la ubicación del repartidor hasta el negocio.
+    *   **UI:** Muestra la dirección maquetada del negocio. El mapa muestra una **ruta predefinida (Polyline estática)** desde la ubicación fija del repartidor hasta el negocio.
+    *   **Acción:** Botón **"Llegué al Negocio"**. Al presionarlo, se actualiza el estado del pedido (en el state management local) y se muestra el siguiente paso.
 
 *   **Paso 2: Recoger Pedido**
-    *   **Título:** "Confirma la Recolección".
-    *   **Información:** Detalles del pedido (ej. ID de pedido, qué recoger).
-    *   **Acción:** Un botón grande **"Pedido Recogido"**.
-    *   Al presionar, el estado del pedido en Supabase se actualiza a `picked_up`.
+    *   **UI:** Muestra detalles maquetados del pedido.
+    *   **Acción:** Botón **"Pedido Recogido"**. Al presionarlo, se actualiza el estado y se muestra el siguiente paso.
 
 *   **Paso 3: En Camino al Cliente**
-    *   **Título:** "Entrega a [Nombre del Cliente]".
-    *   **Información:** Dirección completa del cliente.
-    *   **Acción:** Un botón grande **"Llegué a la Entrega"**.
-    *   El mapa debe actualizarse para mostrar la ruta optimizada desde el negocio hasta la dirección del cliente.
+    *   **UI:** Muestra la dirección maquetada del cliente. El mapa actualiza la Polyline para mostrar la ruta desde el negocio hasta el cliente.
+    *   **Acción:** Botón **"Llegué a la Entrega"**.
 
 *   **Paso 4: Entregar y Dejar Evidencia**
-    *   **Título:** "Confirma la Entrega".
-    *   **Funcionalidad:**
-        *   Un botón para **"Tomar Foto de Evidencia"**. Esto abrirá la cámara del dispositivo.
-        *   Una vez tomada, la foto se muestra en miniatura.
-        *   La foto debe subirse a Supabase Storage en una carpeta específica (ej. `delivery-proofs/[order_id]`).
-    *   **Acción:** Un botón grande **"Marcar como Entregado"**.
-        *   Este botón solo se habilita después de tomar la foto de evidencia.
-        *   Al presionar, se actualiza el estado del pedido a `delivered` en Supabase y se guarda la URL de la foto de evidencia.
-    *   Tras la entrega, mostrar una pantalla de confirmación y volver al estado "Esperando nuevos pedidos".
+    *   **UI:** Muestra un botón para **"Tomar Foto de Evidencia"**. Al presionarlo, **simular la acción mostrando una imagen de muestra (asset local)**, sin abrir la cámara real.
+    *   **Acción:** Botón **"Marcar como Entregado"** (se habilita después de "tomar" la foto). Al presionarlo, se muestra una pantalla de confirmación y la app regresa al estado "Esperando nuevos pedidos" en la Home.
 
 ### **Pantalla 4: Dashboard de Ganancias**
 
-Accesible desde un Tab en la navegación inferior.
+Accesible desde una Tab en la navegación inferior (junto a Home y Perfil).
 
-*   **Diseño:** Visual, con gráficos y tarjetas claras.
+*   **Diseño:** Visual, con gráficos y tarjetas claras, usando **datos maquetados**.
 *   **Componentes:**
-    *   Un selector de período: **Día, Semana, Mes**.
-    *   Una tarjeta principal que muestra la **Ganancia Total** para el período seleccionado.
-    *   Tarjetas secundarias mostrando:
-        *   **Total de Pedidos** completados en el período.
-        *   **Ganancia Promedio** por pedido.
-    *   Un gráfico de barras sencillo que muestre las ganancias por día (en la vista semanal y mensual).
-    *   Un listado de las últimas transacciones o pedidos completados, mostrando la ganancia de cada uno.
+    *   Selector de período: **Día, Semana, Mes**. Al cambiar, los datos que se muestran deben actualizarse (cambiando entre diferentes sets de datos maquetados).
+    *   Tarjeta principal con **Ganancia Total** del período.
+    *   Tarjetas secundarias: **Total de Pedidos** y **Ganancia Promedio**.
+    *   Gráfico de barras (usando `fl_chart` o similar) mostrando ganancias por día.
+    *   Listado de las últimas transacciones maquetadas.
 
 ### **Pantalla 5: Perfil del Repartidor**
 
 *   **Diseño:** Limpio y profesional.
-*   **Información mostrada (solo lectura):**
-    *   Foto de perfil.
-    *   Nombre completo.
-    *   Email.
-    *   Teléfono.
-    *   Calificación promedio (si existe en el esquema).
-    *   Información del vehículo (marca, modelo, placa).
+*   **Información (solo lectura):** Mostrar datos maquetados del `Rider` (foto de perfil, nombre, email, etc.).
 *   **Acciones:**
-    *   Un botón para **"Cerrar Sesión"**.
-
----
-
-## 5. Funcionalidades Clave Adicionales
-
-*   **Geolocalización en Segundo Plano:** Es crucial. Cuando el repartidor está "Activo", la aplicación debe enviar sus coordenadas a Supabase (ej. a una tabla `rider_locations`) periódicamente, incluso si la app está en segundo plano o el teléfono está bloqueado. Esto es vital para la asignación de pedidos.
-*   **Notificaciones Push:** Configurar FCM para que una función de Supabase envíe una notificación push al dispositivo del repartidor cuando se le asigne un nuevo pedido. La notificación debe hacer sonar la alerta de nuevo pedido en la app.
-*   **Manejo de Errores y Conectividad:** La app debe manejar de forma elegante la pérdida de conexión a internet, mostrando mensajes claros al usuario y reintentando las operaciones cuando la conexión se restablezca.
+    *   Un botón para **"Cerrar Sesión"** que navega de vuelta a la Pantalla de Login.
