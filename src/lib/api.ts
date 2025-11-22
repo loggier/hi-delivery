@@ -61,7 +61,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             if (key === 'name_search') {
                 if (entity === 'riders') {
                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%`);
-                } else {
+                } else if (entity === 'customers') {
+                     query = query.or(`first_name.ilike.%${value}%,last_name.ilike.%${value}%,email.ilike.%${value}%,phone.ilike.%${value}%`);
+                }
+                else {
                      query = query.ilike('name', `%${value}%`);
                 }
                 continue;
@@ -75,7 +78,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
           }
         }
         
-        if (!params['plan_id'] && entity !== 'customer_addresses') {
+        if (!params['plan_id']) {
             query = query.order('created_at', { ascending: false });
         }
         
@@ -107,20 +110,32 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         if (entity === 'customers') {
             const { firstName, lastName, phone, email } = newItemDTO as any;
             itemToInsert = {
+                id: `cust-${faker.string.uuid()}`,
                 first_name: firstName,
                 last_name: lastName,
                 phone: phone,
                 email: email,
+                 created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             };
+        } else if (entity === 'customer_addresses') {
+             itemToInsert = {
+                id: `addr-${faker.string.uuid()}`,
+                ...itemToInsert,
+                 created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+             }
+        }
+        else {
+            itemToInsert = {
+                id: `${entity.slice(0,4)}-${faker.string.uuid()}`,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                ...itemToInsert
+            }
         }
         
-        const itemWithId = {
-            id: `${entity.slice(0,4)}-${faker.string.uuid()}`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            ...itemToInsert
-        }
-        return handleSupabaseQuery(supabase.from(entity).insert(itemWithId).select().single());
+        return handleSupabaseQuery(supabase.from(entity).insert(itemToInsert).select().single());
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
@@ -151,9 +166,8 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T, Error, FormData>({
+    return useMutation<T & { businessId?: string }, Error, FormData>({
       mutationFn: async (formData) => {
-        // This is a client-side hook, so we call our own API route.
         const response = await fetch(`/api/${entity}`, {
             method: 'POST',
             body: formData,
@@ -166,7 +180,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       },
       onSuccess: (result: any) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
-        if (result.user) { // If a user was created alongside (e.g. business owner)
+        if (result.user) {
             queryClient.invalidateQueries({queryKey: ['users']});
         }
         toast({
@@ -192,14 +206,14 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, { formData: FormData, id: string }>({
       mutationFn: async ({ formData, id }) => {
         const response = await fetch(`/api/${entity}/${id}`, {
-          method: 'POST', // Using POST to handle FormData
+          method: 'POST',
           body: formData,
         });
         const result = await response.json();
         if (!response.ok) {
           throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
         }
-        return result.business || result.product || result.rider || result; // API can return nested data
+        return result.business || result.product || result.rider || result;
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
