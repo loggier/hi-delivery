@@ -80,8 +80,8 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
         const value = currentValues[fieldKey];
 
         if (fieldKey === 'image_url') {
-            if (value instanceof File) {
-                formData.append(fieldKey, value);
+            if (value instanceof FileList && value.length > 0) {
+                formData.append(fieldKey, value[0]);
             } else if (isEditing && !value) {
                 formData.append(fieldKey, '');
             }

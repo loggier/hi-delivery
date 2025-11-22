@@ -39,6 +39,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const updateData: Record<string, any> = {};
 
   try {
+    // 1. Process image upload first
     const imageFile = formData.get('image_url') as File | null;
     if (imageFile instanceof File && imageFile.size > 0) {
         updateData['image_url'] = await uploadFileAndGetUrl(supabaseAdmin, imageFile, productId);
@@ -47,8 +48,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
         updateData['image_url'] = null;
     }
     
+    // 2. Process other text fields
     for (const [key, value] of formData.entries()) {
-      if (key !== 'image_url') {
+      if (key !== 'image_url') { // Skip image as it's already processed
         if (key === 'price') {
              updateData[key] = parseFloat(value as string);
         } else if (value !== null && value !== undefined) {
@@ -62,11 +64,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
     }
 
-    // Validate with Zod before saving
-    const parsed = productSchema.partial().safeParse({
+    // 3. Validate with Zod before saving
+    // Omit image_url from validation if it wasn't part of the update
+    const schemaToUse = updateData.hasOwnProperty('image_url')
+        ? productSchema.partial()
+        : productSchema.partial().omit({ image_url: true });
+
+    const parsed = schemaToUse.safeParse({
         ...updateData,
-        price: updateData.price ? Number(updateData.price) : undefined, // Ensure price is a number for Zod
-        image_url: updateData.image_url,
+        price: updateData.price ? Number(updateData.price) : undefined,
     });
 
     if (!parsed.success) {
@@ -76,6 +82,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     
     const dataToUpdate = parsed.data;
 
+    // 4. Update the database
     const { data, error } = await supabaseAdmin
       .from('products')
       .update(dataToUpdate)
