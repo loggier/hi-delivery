@@ -75,23 +75,18 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
       const formData = new FormData();
       const currentValues = form.getValues();
 
-      // Handle file separately
-      const imageUrlValue = currentValues.image_url;
-      if (imageUrlValue instanceof File) {
-          formData.append('image_url', imageUrlValue);
-      } else if (isEditing && !imageUrlValue) {
-        // If image was removed on edit, send empty string to signal removal
-        formData.append('image_url', '');
-      }
-      
-      // Append all other fields from the schema
-      Object.keys(productSchema.shape).forEach(key => {
+      Object.keys(currentValues).forEach(key => {
         const fieldKey = key as keyof ProductFormValues;
-        if (fieldKey !== 'image_url') {
-            const value = currentValues[fieldKey];
-            if (value !== null && value !== undefined) {
-                formData.append(fieldKey, String(value));
+        const value = currentValues[fieldKey];
+
+        if (fieldKey === 'image_url') {
+            if (value instanceof File) {
+                formData.append(fieldKey, value);
+            } else if (isEditing && !value) {
+                formData.append(fieldKey, '');
             }
+        } else if (value !== null && value !== undefined) {
+            formData.append(fieldKey, String(value));
         }
       });
       
