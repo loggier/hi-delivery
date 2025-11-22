@@ -76,9 +76,9 @@ export type Customer = {
 
 export type Order = {
   id: string;
-  customerId: string;
-  businessId: string;
-  riderId: string;
+  customer_id: string;
+  business_id: string;
+  rider_id: string;
   productCount: number;
   total: number;
   status: 'DELIVERED' | 'CANCELLED' | 'PENDING';
@@ -277,3 +277,5 @@ export type SystemSettings = {
     created_at: string;
     updated_at: string;
 }
+
+    

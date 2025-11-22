@@ -1,3 +1,4 @@
+
 "use client";
 
 import { notFound, useParams } from 'next/navigation';
@@ -30,9 +31,9 @@ const DetailItem = ({ icon: Icon, label, value }: { icon: React.ElementType, lab
 const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
     const { data: orders, isLoading } = useCustomerOrders(customerId);
 
-    const getOrderBusiness = (order: Order) => businesses.find(b => b.id === order.businessId)?.name || 'N/A';
+    const getOrderBusiness = (order: Order) => businesses.find(b => b.id === order.business_id)?.name || 'N/A';
     const getOrderRider = (order: Order) => {
-        const rider = riders.find(r => r.id === order.riderId);
+        const rider = riders.find(r => r.id === order.rider_id);
         return rider ? `${rider.first_name} ${rider.last_name}` : 'N/A';
     }
 
@@ -155,3 +156,5 @@ export default function ViewCustomerPage() {
     </div>
   );
 }
+
+    
