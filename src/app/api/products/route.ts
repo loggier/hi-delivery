@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -37,16 +38,18 @@ export async function POST(request: Request) {
       rawData[key] = value;
   }
   
-  // Zod can't parse FormData directly, so we help it
-  const validated = productSchema.safeParse({
+  const dataToValidate = {
     name: rawData.name,
+    description: rawData.description,
     sku: rawData.sku,
     price: rawData.price ? Number(rawData.price) : undefined,
     status: rawData.status,
-    businessId: rawData.businessId,
-    categoryId: rawData.categoryId,
-    imageUrl: rawData.image_url,
-  });
+    business_id: rawData.business_id,
+    category_id: rawData.category_id,
+    image_url: rawData.image_url,
+  };
+
+  const validated = productSchema.safeParse(dataToValidate);
 
   if (!validated.success) {
     console.error("Validation errors:", validated.error.flatten().fieldErrors);
@@ -57,20 +60,21 @@ export async function POST(request: Request) {
   
   try {
     const productId = `prod-${faker.string.uuid()}`;
-    let imageUrl: string | undefined = undefined;
+    let imageUrl: string | null = null;
 
-    if (data.imageUrl instanceof File && data.imageUrl.size > 0) {
-        imageUrl = await uploadFileAndGetUrl(supabaseAdmin, data.imageUrl, productId);
+    if (data.image_url instanceof File && data.image_url.size > 0) {
+        imageUrl = await uploadFileAndGetUrl(supabaseAdmin, data.image_url, productId);
     }
 
     const newProductForDb = {
       id: productId,
       name: data.name,
+      description: data.description,
       sku: data.sku,
       price: data.price,
       status: data.status,
-      business_id: data.businessId,
-      category_id: data.categoryId,
+      business_id: data.business_id,
+      category_id: data.category_id,
       image_url: imageUrl,
       created_at: new Date().toISOString(),
     };
