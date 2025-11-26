@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import placeholderImages from "@/lib/placeholder-images.json";
 
 export function ForBusinesses() {
   return (
@@ -31,12 +30,11 @@ export function ForBusinesses() {
           </div>
           <div className="order-1 md:order-2">
              <Image
-              src={placeholderImages.businessCollage.src}
-              alt={placeholderImages.businessCollage.alt}
+              src="/potencia.png"
+              alt="Negocio potenciando sus entregas con Hi! Delivery"
               width={600}
               height={450}
               className="rounded-lg shadow-xl"
-              data-ai-hint="happy business owner restaurant"
             />
           </div>
         </div>
