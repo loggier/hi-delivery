@@ -23,6 +23,8 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   plans: 'Planes',
   subscriptions: 'Suscripciones',
   new: 'Nuevo',
+  pos: 'Punto de Venta',
+  shipping: 'Envíos',
 };
 
 
