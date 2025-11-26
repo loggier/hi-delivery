@@ -93,7 +93,7 @@ interface PackageDetailsProps {
 export function PackageDetails({ value, onValueChange }: PackageDetailsProps) {
     return (
         <div className="space-y-2">
-            <FormLabel htmlFor="package-description">Descripción del Paquete</FormLabel>
+            <label htmlFor="package-description" className="text-sm font-medium leading-none">Descripción del Paquete</label>
             <Textarea 
                 id="package-description"
                 placeholder="Ej. Documentos importantes, una caja de zapatos, llaves, etc."
