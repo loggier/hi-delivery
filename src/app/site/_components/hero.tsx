@@ -3,19 +3,18 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import placeholderImages from "@/lib/placeholder-images.json";
 import { ArrowRight, Store } from "lucide-react";
 
 export function Hero() {
   return (
     <section className="relative h-[80vh] min-h-[500px] w-full">
         <Image
-          src={placeholderImages.heroRider.src}
-          alt={placeholderImages.heroRider.alt}
-          fill
-          style={{objectFit:"cover"}}
+          src="/banner-site-hid.png"
+          alt="Repartidor de Hi! Delivery en la ciudad"
+          layout="fill"
+          objectFit="cover"
           className="brightness-50"
-          data-ai-hint="motorcycle delivery city"
+          priority
         />
       <div className="relative z-10 flex h-full items-center justify-center">
         <div className="container mx-auto px-4 text-center text-white">
