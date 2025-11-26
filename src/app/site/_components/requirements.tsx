@@ -45,12 +45,11 @@ export function Requirements() {
           </div>
           <div className="flex justify-center">
             <Image
-              src={placeholderImages.riderDocuments.src}
-              alt={placeholderImages.riderDocuments.alt}
+              src="/empieza.png"
+              alt="Repartidor de Hi! Delivery listo para empezar"
               width={500}
               height={500}
               className="rounded-lg shadow-xl object-cover"
-              data-ai-hint="motorcycle gear documents"
             />
           </div>
         </div>
