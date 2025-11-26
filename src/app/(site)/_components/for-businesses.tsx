@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
-import { placeholderImages } from "@/lib/placeholder-images";
 
 export function ForBusinesses() {
   return (
@@ -26,17 +25,16 @@ export function ForBusinesses() {
               <li className="flex items-center gap-2">✓ Aumenta tu área de cobertura.</li>
             </ul>
             <Button asChild size="lg" className="mt-8">
-              <Link href="/store/apply">Registra tu Negocio</Link>
+              <Link href="/site/store/apply">Registra tu Negocio</Link>
             </Button>
           </div>
           <div className="order-1 md:order-2">
              <Image
-              src={placeholderImages.businessCollage.src}
-              alt={placeholderImages.businessCollage.alt}
+              src="/potencia.png"
+              alt="Negocio potenciando sus entregas con Hi! Delivery"
               width={600}
               height={450}
               className="rounded-lg shadow-xl"
-              data-ai-hint="happy business owner restaurant"
             />
           </div>
         </div>
