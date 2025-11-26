@@ -45,7 +45,7 @@ export function LocationSelector({ isLoaded, onLocationSelect, title }: Location
     const onPlaceChanged = () => {
         if (autocompleteRef.current) {
             const place = autocompleteRef.current.getPlace();
-            if (place.geometry?.location) {
+            if (place && place.geometry?.location) {
                 const newLocation: LocationPoint = {
                     address: place.formatted_address || '',
                     lat: place.geometry.location.lat(),
@@ -360,9 +360,9 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
                                         methods.setValue('latitude', lat, { shouldValidate: true });
                                         methods.setValue('longitude', lng, { shouldValidate: true });
                                         if (city) methods.setValue('city', city);
-                                        if (state) methods.setValue('state', state);
-                                        if (zip_code) methods.setValue('zip_code', zip_code);
-                                        if (neighborhood) methods.setValue('neighborhood', neighborhood);
+                                        if (state) methods.setValue('state');
+                                        if (zip_code) methods.setValue('zip_code');
+                                        if (neighborhood) methods.setValue('neighborhood');
                                     }}
                                 />
                                 <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
@@ -719,6 +719,8 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
         </Card>
     )
 }
+
+    
 
     
 
