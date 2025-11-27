@@ -1,93 +1,104 @@
--- Utilizar el esquema grupohubs
-SET search_path TO grupohubs;
-
--- Eliminar tablas y tipos si existen, en orden inverso de dependencia
+-- Drop existing types and tables if they exist to avoid conflicts
 DROP TABLE IF EXISTS grupohubs.order_events CASCADE;
 DROP TABLE IF EXISTS grupohubs.order_items CASCADE;
 DROP TABLE IF EXISTS grupohubs.orders CASCADE;
-DROP TYPE IF EXISTS grupohubs.order_status CASCADE;
-DROP TYPE IF EXISTS grupohubs.order_event_type CASCADE;
+DROP TYPE IF EXISTS grupohubs.order_status;
+DROP TYPE IF EXISTS grupohubs.order_event_type;
 
--- Crear tipo ENUM para el estado del pedido
+-- Create ENUM types for statuses and events
 CREATE TYPE grupohubs.order_status AS ENUM (
-  'pending_acceptance', -- Esperando que un repartidor acepte
-  'accepted',           -- Repartidor aceptó y va al negocio
-  'at_store',           -- Repartidor llegó al negocio
-  'picked_up',          -- Repartidor recogió y va al cliente
-  'on_the_way',         -- Repartidor llegó a la ubicación del cliente
-  'delivered',          -- Repartidor entregó (y subió evidencia)
-  'completed',          -- Pedido finalizado/archivado
-  'cancelled'           -- Pedido cancelado
+  'unassigned',
+  'pending_acceptance',
+  'accepted',
+  'at_store',
+  'cooking',
+  'picked_up',
+  'on_the_way',
+  'delivered',
+  'completed',
+  'cancelled',
+  'refunded',
+  'failed'
 );
 
--- Crear tipo ENUM para los eventos del pedido
 CREATE TYPE grupohubs.order_event_type AS ENUM (
+  'created',
   'accepted_by_rider',
   'arrived_at_store',
   'picked_up',
   'arrived_at_destination',
-  'delivered_with_proof'
+  'delivered_with_photo',
+  'completed',
+  'cancelled_by_user',
+  'cancelled_by_business',
+  'cancelled_by_admin'
 );
 
--- Crear tabla de pedidos (orders)
-CREATE TABLE IF NOT EXISTS grupohubs.orders (
+-- Main orders table
+CREATE TABLE grupohubs.orders (
     id character varying(255) PRIMARY KEY,
-    status grupohubs.order_status NOT NULL DEFAULT 'pending_acceptance',
-    
-    -- Participantes
-    customer_id uuid REFERENCES grupohubs.customers(id),
+    status grupohubs.order_status NOT NULL DEFAULT 'unassigned',
+    customer_id character varying(255) REFERENCES grupohubs.customers(id),
     business_id character varying(255) REFERENCES grupohubs.businesses(id),
     rider_id character varying(255) REFERENCES grupohubs.riders(id),
-
-    -- Detalles del Cliente y Negocio (desnormalizados para la app del repartidor)
-    customer_name text NOT NULL,
-    customer_phone text,
-    business_name text NOT NULL,
     
-    -- Direcciones (en formato JSON para flexibilidad)
-    pickup_address jsonb NOT NULL,
-    delivery_address jsonb NOT NULL,
+    -- Customer and destination details
+    customer_name character varying(255) NOT NULL,
+    customer_phone character varying(50),
+    delivery_address_text text NOT NULL,
+    delivery_address_lat double precision NOT NULL,
+    delivery_address_lng double precision NOT NULL,
 
-    -- Descripción y Totales
-    items_description text, -- Para envíos simples
-    distance_km numeric(10, 2), -- Distancia en kilómetros
-    order_subtotal numeric(10, 2) NOT NULL DEFAULT 0,
-    delivery_fee numeric(10, 2) NOT NULL DEFAULT 0,
-    order_total numeric(10, 2) NOT NULL DEFAULT 0,
-    estimated_earnings numeric(10, 2), -- Ganancia para el repartidor
+    -- Business and pickup details
+    pickup_business_name character varying(255),
+    pickup_address_text text,
+    pickup_address_lat double precision,
+    pickup_address_lng double precision,
+
+    -- Financials
+    subtotal numeric(10, 2) NOT NULL DEFAULT 0.00,
+    delivery_fee numeric(10, 2) NOT NULL DEFAULT 0.00,
+    service_fee numeric(10, 2) NOT NULL DEFAULT 0.00,
+    total numeric(10, 2) NOT NULL DEFAULT 0.00,
+    estimated_earnings numeric(10, 2), -- For the rider
+
+    -- Other details
+    items_description text,
+    distance_km numeric(8, 2), -- in kilometers
     
-    -- Timestamps
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Crear tabla de ítems del pedido (order_items)
-CREATE TABLE IF NOT EXISTS grupohubs.order_items (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Table for items within an order
+CREATE TABLE grupohubs.order_items (
+    id bigserial PRIMARY KEY,
     order_id character varying(255) NOT NULL REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
     product_id character varying(255) REFERENCES grupohubs.products(id),
-    product_name text NOT NULL,
+    product_name character varying(255) NOT NULL,
     quantity integer NOT NULL,
     price numeric(10, 2) NOT NULL,
-    
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Crear tabla de eventos del pedido (order_events)
-CREATE TABLE IF NOT EXISTS grupohubs.order_events (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Table to track the history of an order's lifecycle
+CREATE TABLE grupohubs.order_events (
+    id bigserial PRIMARY KEY,
     order_id character varying(255) NOT NULL REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
-    rider_id character varying(255) NOT NULL REFERENCES grupohubs.riders(id),
     event_type grupohubs.order_event_type NOT NULL,
-    event_time timestamp with time zone DEFAULT now(),
-    coordinates point, -- Para registrar la ubicación en cada evento
-    notes text, -- Notas adicionales (ej. URL de la foto de evidencia)
-    
-    created_at timestamp with time zone DEFAULT now()
+    actor_id character varying(255), -- User, Rider, or Business ID
+    actor_type character varying(50), -- e.g., 'rider', 'admin'
+    notes text,
+    photo_url character varying(255), -- For evidence of delivery
+    location_lat double precision,
+    location_lng double precision,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Índices para mejorar el rendimiento de las consultas
-CREATE INDEX IF NOT EXISTS idx_orders_status ON grupohubs.orders(status);
-CREATE INDEX IF NOT EXISTS idx_orders_rider_id ON grupohubs.orders(rider_id);
-CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON grupohubs.order_items(order_id);
-CREATE INDEX IF NOT EXISTS idx_order_events_order_id ON grupohubs.order_events(order_id);
+-- Add indexes for frequently queried columns
+CREATE INDEX ON grupohubs.orders (customer_id);
+CREATE INDEX ON grupohubs.orders (business_id);
+CREATE INDEX ON grupohubs.orders (rider_id);
+CREATE INDEX ON grupohubs.orders (status);
+CREATE INDEX ON grupohubs.order_items (order_id);
+CREATE INDEX ON grupohubs.order_events (order_id);
