@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef, useTransition } from 'react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { createOrderAction } from './actions';
 
 const libraries: ('places')[] = ['places'];
 
@@ -484,7 +485,7 @@ const useShippingCalculation = (business: Business | null, address: CustomerAddr
 
 
 interface OrderCartProps {
-    items: OrderItemType[];
+    items: OrderItem[];
     onUpdateQuantity: (productId: string, quantity: number) => void;
     customer: Customer | null;
     business: Business | null;
@@ -494,8 +495,9 @@ interface OrderCartProps {
 }
 
 export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded, onOrderCreated }: OrderCartProps) {
+    const { toast } = useToast();
+    const [isPending, startTransition] = useTransition();
     const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(business, address, isMapsLoaded);
-    const createOrderMutation = api.orders.useCreate();
 
     const subtotal = useMemo(() => {
         return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -504,7 +506,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
     const total = subtotal + (shippingInfo?.cost || 0);
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
-    const handleCreateOrder = async () => {
+    const handleCreateOrder = () => {
         if (!business || !customer || !address || !shippingInfo) return;
 
         const orderData: OrderPayload = {
@@ -527,14 +529,26 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
             distance: shippingInfo.distance,
         };
 
-        await createOrderMutation.mutateAsync(orderData as any, {
-            onSuccess: () => {
+        startTransition(async () => {
+            const result = await createOrderAction(orderData);
+            if (result.success) {
+                toast({
+                    title: "Pedido Creado",
+                    description: `El pedido para ${customer.first_name} ha sido creado exitosamente.`,
+                    variant: "success",
+                });
                 onOrderCreated();
+            } else {
+                toast({
+                    title: "Error al crear pedido",
+                    description: result.error,
+                    variant: "destructive",
+                });
             }
         });
     }
 
-    const isSubmitting = createOrderMutation.isPending;
+    const isSubmitting = isPending;
 
     return (
         <Card className="lg:sticky top-6">

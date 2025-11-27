@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -109,54 +108,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
         const supabase = createClient();
-        if (entity === 'orders') {
-            const payload = newItemDTO as unknown as OrderPayload;
-            const orderId = `ord-${faker.string.uuid()}`;
-
-            const orderToInsert = {
-                id: orderId,
-                business_id: payload.business_id,
-                customer_id: payload.customer_id,
-                pickup_address: payload.pickup_address,
-                delivery_address: payload.delivery_address,
-                customer_name: payload.customer_name,
-                customer_phone: payload.customer_phone,
-                items_description: payload.items.map(i => `${i.quantity}x ${i.product_id}`).join(', '), // Simple description
-                subtotal: payload.subtotal,
-                delivery_fee: payload.delivery_fee,
-                order_total: payload.order_total,
-                distance: payload.distance,
-                status: 'pending_acceptance' as const,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            };
-
-            const { data: createdOrder, error: orderError } = await supabase
-                .from('orders')
-                .insert(orderToInsert)
-                .select()
-                .single();
-
-            if (orderError) throw new Error(orderError.message);
-            
-            const orderItemsToInsert = payload.items.map(item => ({
-                order_id: orderId,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                price: item.price,
-            }));
-
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
-            if (itemsError) throw new Error(itemsError.message);
-
-            const { error: eventError } = await supabase.from('order_events').insert({
-                order_id: orderId,
-                event_type: 'pending'
-            });
-            if (eventError) throw new Error(eventError.message);
-
-            return createdOrder as any;
-        }
         
         let itemToInsert: any = { ...newItemDTO };
 
