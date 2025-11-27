@@ -1,104 +1,98 @@
--- Drop existing types and tables if they exist to avoid conflicts
+-- Eliminar tablas y tipos si existen (en orden inverso de dependencia)
 DROP TABLE IF EXISTS grupohubs.order_events CASCADE;
 DROP TABLE IF EXISTS grupohubs.order_items CASCADE;
 DROP TABLE IF EXISTS grupohubs.orders CASCADE;
 DROP TYPE IF EXISTS grupohubs.order_status;
 DROP TYPE IF EXISTS grupohubs.order_event_type;
 
--- Create ENUM types for statuses and events
+-- Crear ENUM para los estados de la orden
 CREATE TYPE grupohubs.order_status AS ENUM (
-  'unassigned',
   'pending_acceptance',
   'accepted',
   'at_store',
-  'cooking',
   'picked_up',
   'on_the_way',
   'delivered',
   'completed',
   'cancelled',
-  'refunded',
-  'failed'
+  'pending'
 );
 
+-- Crear ENUM para los tipos de evento de la orden
 CREATE TYPE grupohubs.order_event_type AS ENUM (
-  'created',
-  'accepted_by_rider',
+  'pending',
+  'accepted',
   'arrived_at_store',
   'picked_up',
   'arrived_at_destination',
-  'delivered_with_photo',
+  'delivered',
   'completed',
-  'cancelled_by_user',
-  'cancelled_by_business',
-  'cancelled_by_admin'
+  'cancelled'
 );
 
--- Main orders table
+
+-- Tabla principal de pedidos
 CREATE TABLE grupohubs.orders (
     id character varying(255) PRIMARY KEY,
-    status grupohubs.order_status NOT NULL DEFAULT 'unassigned',
-    customer_id character varying(255) REFERENCES grupohubs.customers(id),
-    business_id character varying(255) REFERENCES grupohubs.businesses(id),
-    rider_id character varying(255) REFERENCES grupohubs.riders(id),
+    customer_id character varying(255) REFERENCES grupohubs.customers(id) ON DELETE SET NULL,
+    business_id character varying(255) REFERENCES grupohubs.businesses(id) ON DELETE CASCADE NOT NULL,
+    rider_id character varying(255) REFERENCES grupohubs.riders(id) ON DELETE SET NULL,
     
-    -- Customer and destination details
+    status grupohubs.order_status NOT NULL DEFAULT 'pending',
+    
+    pickup_address jsonb NOT NULL,
+    delivery_address jsonb NOT NULL,
+    
     customer_name character varying(255) NOT NULL,
-    customer_phone character varying(50),
-    delivery_address_text text NOT NULL,
-    delivery_address_lat double precision NOT NULL,
-    delivery_address_lng double precision NOT NULL,
-
-    -- Business and pickup details
-    pickup_business_name character varying(255),
-    pickup_address_text text,
-    pickup_address_lat double precision,
-    pickup_address_lng double precision,
-
-    -- Financials
-    subtotal numeric(10, 2) NOT NULL DEFAULT 0.00,
-    delivery_fee numeric(10, 2) NOT NULL DEFAULT 0.00,
-    service_fee numeric(10, 2) NOT NULL DEFAULT 0.00,
-    total numeric(10, 2) NOT NULL DEFAULT 0.00,
-    estimated_earnings numeric(10, 2), -- For the rider
-
-    -- Other details
-    items_description text,
-    distance_km numeric(8, 2), -- in kilometers
+    customer_phone character varying(255) NOT NULL,
     
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
+    items_description text,
+    
+    subtotal numeric(10, 2) NOT NULL DEFAULT 0,
+    delivery_fee numeric(10, 2) NOT NULL DEFAULT 0,
+    order_total numeric(10, 2) NOT NULL DEFAULT 0,
+    
+    distance numeric(10, 2), -- en KM
 
--- Table for items within an order
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE grupohubs.orders IS 'Tabla principal de pedidos';
+
+-- Tabla de ítems del pedido
 CREATE TABLE grupohubs.order_items (
     id bigserial PRIMARY KEY,
-    order_id character varying(255) NOT NULL REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
-    product_id character varying(255) REFERENCES grupohubs.products(id),
-    product_name character varying(255) NOT NULL,
+    order_id character varying(255) REFERENCES grupohubs.orders(id) ON DELETE CASCADE NOT NULL,
+    product_id character varying(255) REFERENCES grupohubs.products(id) ON DELETE SET NULL,
     quantity integer NOT NULL,
     price numeric(10, 2) NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
+    
+    created_at timestamptz NOT NULL DEFAULT now(),
 
--- Table to track the history of an order's lifecycle
+    -- Para evitar duplicados del mismo producto en la misma orden
+    UNIQUE(order_id, product_id)
+);
+COMMENT ON TABLE grupohubs.order_items IS 'Ítems individuales de cada pedido';
+
+
+-- Tabla de eventos/historial del pedido
 CREATE TABLE grupohubs.order_events (
     id bigserial PRIMARY KEY,
-    order_id character varying(255) NOT NULL REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
+    order_id character varying(255) REFERENCES grupohubs.orders(id) ON DELETE CASCADE NOT NULL,
     event_type grupohubs.order_event_type NOT NULL,
-    actor_id character varying(255), -- User, Rider, or Business ID
-    actor_type character varying(50), -- e.g., 'rider', 'admin'
+    event_timestamp timestamptz NOT NULL DEFAULT now(),
     notes text,
-    photo_url character varying(255), -- For evidence of delivery
-    location_lat double precision,
-    location_lng double precision,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+    photo_url character varying(2048),
+    location jsonb -- para guardar lat/lng del repartidor en el momento del evento
 );
+COMMENT ON TABLE grupohubs.order_events IS 'Registra cada paso y cambio de estado en el ciclo de vida de un pedido';
 
--- Add indexes for frequently queried columns
-CREATE INDEX ON grupohubs.orders (customer_id);
-CREATE INDEX ON grupohubs.orders (business_id);
-CREATE INDEX ON grupohubs.orders (rider_id);
-CREATE INDEX ON grupohubs.orders (status);
-CREATE INDEX ON grupohubs.order_items (order_id);
-CREATE INDEX ON grupohubs.order_events (order_id);
+-- Habilitar Row Level Security
+ALTER TABLE grupohubs.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE grupohubs.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE grupohubs.order_events ENABLE ROW LEVEL SECURITY;
+
+-- Políticas de RLS ( permisivas para empezar, se deben ajustar para producción )
+CREATE POLICY "Allow all for authenticated users" ON grupohubs.orders FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow all for authenticated users" ON grupohubs.order_items FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow all for authenticated users" ON grupohubs.order_events FOR ALL TO authenticated USING (true);
