@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer } from 'lucide-react';
-import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings } from '@/types';
+import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -426,8 +426,6 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
 
 // --- Order Cart & Summary ---
 
-type OrderItem = Product & { quantity: number };
-
 interface ShippingInfo {
     distance: number;
     duration: string;
@@ -486,16 +484,18 @@ const useShippingCalculation = (business: Business | null, address: CustomerAddr
 
 
 interface OrderCartProps {
-    items: OrderItem[];
+    items: OrderItemType[];
     onUpdateQuantity: (productId: string, quantity: number) => void;
     customer: Customer | null;
     business: Business | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
+    onOrderCreated: () => void;
 }
 
-export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded }: OrderCartProps) {
+export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded, onOrderCreated }: OrderCartProps) {
     const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(business, address, isMapsLoaded);
+    const createOrderMutation = api.orders.useCreate();
 
     const subtotal = useMemo(() => {
         return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -503,6 +503,38 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
     
     const total = subtotal + (shippingInfo?.cost || 0);
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+
+    const handleCreateOrder = async () => {
+        if (!business || !customer || !address || !shippingInfo) return;
+
+        const orderData: OrderPayload = {
+            business_id: business.id,
+            customer_id: customer.id,
+            items: items.map(item => ({ product_id: item.id, quantity: item.quantity, price: item.price })),
+            pickup_address: {
+                text: business.address_line,
+                coordinates: { lat: business.latitude || 0, lng: business.longitude || 0 }
+            },
+            delivery_address: {
+                text: address.address,
+                coordinates: { lat: address.latitude, lng: address.longitude }
+            },
+            customer_name: `${customer.first_name} ${customer.last_name}`,
+            customer_phone: customer.phone,
+            subtotal: subtotal,
+            delivery_fee: shippingInfo.cost,
+            order_total: total,
+            distance: shippingInfo.distance,
+        };
+
+        await createOrderMutation.mutateAsync(orderData as any, {
+            onSuccess: () => {
+                onOrderCreated();
+            }
+        });
+    }
+
+    const isSubmitting = createOrderMutation.isPending;
 
     return (
         <Card className="lg:sticky top-6">
@@ -587,7 +619,8 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                         <span>{formatCurrency(total)}</span>
                     </div>
                 </div>
-                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address}>
+                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address || isSubmitting} onClick={handleCreateOrder}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                     Crear Pedido
                 </Button>
             </CardContent>
@@ -682,5 +715,3 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
-
-    

@@ -12,7 +12,7 @@ import {
     ShippingMapModal,
     CustomerFormModal
 } from './components';
-import { type Customer, type Product, type Business, type CustomerAddress } from '@/types';
+import { type Customer, type Product, type Business, type CustomerAddress, OrderItem } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,7 +22,6 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
 
-type OrderItem = Product & { quantity: number };
 const libraries: ('places')[] = ['places'];
 
 export default function POSPage() {
@@ -47,6 +46,15 @@ export default function POSPage() {
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
+    
+    const resetOrder = () => {
+        setSelectedBusiness(null);
+        setSelectedCustomer(null);
+        setSelectedAddress(null);
+        setOrderItems([]);
+        setIsBusinessOpen(true);
+        setIsCustomerOpen(false);
+    }
     
     const handleSelectBusiness = (businessId: string) => {
         const business = businesses?.find(b => b.id === businessId);
@@ -236,6 +244,7 @@ export default function POSPage() {
                     business={selectedBusiness}
                     address={selectedAddress}
                     isMapsLoaded={isLoaded}
+                    onOrderCreated={resetOrder}
                 />
             </div>
 
@@ -265,5 +274,3 @@ export default function POSPage() {
         </div>
     );
 }
-
-    

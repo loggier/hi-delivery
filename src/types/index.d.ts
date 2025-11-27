@@ -1,5 +1,24 @@
 
 
+export type OrderItem = {
+  product_id: string;
+  quantity: number;
+  price: number;
+};
+
+export type OrderPayload = {
+  business_id: string;
+  customer_id: string;
+  pickup_address: Address;
+  delivery_address: Address;
+  customer_name: string;
+  customer_phone: string;
+  subtotal: number;
+  delivery_fee: number;
+  order_total: number;
+  distance: number;
+  items: OrderItem[];
+};
 
 
 export type Role = {
@@ -278,5 +297,3 @@ export type SystemSettings = {
     created_at: string;
     updated_at: string;
 }
-
-    

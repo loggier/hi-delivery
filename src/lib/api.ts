@@ -3,7 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload, OrderItem } from "@/types";
 import { createClient } from "./supabase/client";
 import { PostgrestError } from "@supabase/supabase-js";
 import { faker } from "@faker-js/faker";
@@ -38,6 +38,7 @@ const entityTranslations: { [key: string]: string } = {
     "plans": "Plan",
     "payments": "Pago",
     "settings": "Configuración",
+    "orders": "Pedido",
 }
 
 // --- Generic CRUD Hooks ---
@@ -104,6 +105,55 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
     return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
+        
+        if (entity === 'orders') {
+            const payload = newItemDTO as unknown as OrderPayload;
+            const orderId = `ord-${faker.string.uuid()}`;
+
+            const orderToInsert = {
+                id: orderId,
+                business_id: payload.business_id,
+                customer_id: payload.customer_id,
+                pickup_address: payload.pickup_address,
+                delivery_address: payload.delivery_address,
+                customer_name: payload.customer_name,
+                customer_phone: payload.customer_phone,
+                items_description: payload.items.map(i => `${i.quantity}x ${i.product_id}`).join(', '), // Simple description
+                subtotal: payload.subtotal,
+                delivery_fee: payload.delivery_fee,
+                order_total: payload.order_total,
+                distance: payload.distance,
+                status: 'pending_acceptance' as const,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+
+            const { data: createdOrder, error: orderError } = await supabase
+                .from('orders')
+                .insert(orderToInsert)
+                .select()
+                .single();
+
+            if (orderError) throw orderError;
+            
+            const orderItemsToInsert = payload.items.map(item => ({
+                order_id: orderId,
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+            }));
+
+            const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+            if (itemsError) throw itemsError;
+
+            const { error: eventError } = await supabase.from('order_events').insert({
+                order_id: orderId,
+                event_type: 'pending'
+            });
+            if (eventError) throw eventError;
+
+            return createdOrder as any;
+        }
         
         let itemToInsert: any = { ...newItemDTO };
 
@@ -493,5 +543,3 @@ export const useManageSubscription = () => {
         }
     });
 };
-
-    
