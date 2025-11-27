@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -134,7 +135,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                 .select()
                 .single();
 
-            if (orderError) throw orderError;
+            if (orderError) throw new Error(orderError.message);
             
             const orderItemsToInsert = payload.items.map(item => ({
                 order_id: orderId,
@@ -144,13 +145,13 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             }));
 
             const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
-            if (itemsError) throw itemsError;
+            if (itemsError) throw new Error(itemsError.message);
 
             const { error: eventError } = await supabase.from('order_events').insert({
                 order_id: orderId,
                 event_type: 'pending'
             });
-            if (eventError) throw eventError;
+            if (eventError) throw new Error(eventError.message);
 
             return createdOrder as any;
         }
@@ -482,10 +483,10 @@ export const useManageSubscription = () => {
     return useMutation<void, Error, { businessId: string; planId: string; amount: number }>({
         mutationFn: async ({ businessId, planId, amount }) => {
             const { data: plan, error: planError } = await supabase.from('plans').select('*').eq('id', planId).single();
-            if (planError || !plan) throw new Error(planError.message || "Plan no encontrado.");
+            if (planError || !plan) throw new Error(planError?.message || "Plan no encontrado.");
 
             const { data: business, error: businessError } = await supabase.from('businesses').select('*').eq('id', businessId).single();
-            if (businessError || !business) throw new Error(businessError.message || "Negocio no encontrado.");
+            if (businessError || !business) throw new Error(businessError?.message || "Negocio no encontrado.");
 
             const now = new Date();
             const periodStart = (business.current_period_ends_at && new Date(business.current_period_ends_at) > now)
