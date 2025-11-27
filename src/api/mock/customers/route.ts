@@ -1,9 +1,18 @@
 import { customers } from "@/mocks/data";
 import { type Customer } from "@/types";
-import { errorResponse, jsonResponse, simulateLatency } from "../../helpers";
+import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
 import { NextRequest } from "next/server";
-import { newCustomerSchema } from "@/lib/schemas";
 import { faker } from "@faker-js/faker";
+import { z } from "zod";
+
+// Define a local schema to avoid importing client-side code (`schemas.ts`) into the server environment.
+const newCustomerSchema = z.object({
+  firstName: z.string().min(2, "El nombre es requerido."),
+  lastName: z.string().min(2, "El apellido es requerido."),
+  phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),
+  email: z.string().email("El email no es válido.").optional().or(z.literal('')),
+});
+
 
 let mockCustomers = [...customers];
 
