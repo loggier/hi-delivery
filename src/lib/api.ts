@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -113,11 +114,11 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         let itemToInsert: any = { ...newItemDTO };
 
         if (entity === 'customers') {
-            const { firstName, lastName, phone, email } = newItemDTO as any;
+            const { first_name, last_name, phone, email } = newItemDTO as any;
             itemToInsert = {
                 id: `cust-${faker.string.uuid()}`,
-                first_name: firstName,
-                last_name: lastName,
+                first_name: first_name,
+                last_name: last_name,
                 phone: phone,
                 email: email,
                  created_at: new Date().toISOString(),
@@ -134,7 +135,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             const payload = newItemDTO as unknown as OrderPayload;
             const orderId = `ord-${faker.string.uuid()}`;
             
-            const { error: orderError } = await supabase.from('orders').insert({
+            const { data: newOrder, error: orderError } = await supabase.from('orders').insert({
                 id: orderId,
                 business_id: payload.business_id,
                 customer_id: payload.customer_id,
@@ -148,7 +149,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
                 order_total: payload.order_total,
                 distance: payload.distance,
                 status: 'pending_acceptance' as const,
-            }).single();
+            }).select().single();
 
             if (orderError) throw new Error(orderError.message);
             
@@ -168,8 +169,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
             });
             if (eventError) throw new Error(eventError.message);
 
-            // This mutation is special, it doesn't return the full object in the same way.
-            return { id: orderId } as T;
+            return newOrder as T;
         }
         else {
             itemToInsert = {

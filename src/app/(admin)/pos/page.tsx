@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -112,6 +113,8 @@ export default function POSPage() {
     const handleCustomerCreated = (newCustomer: Customer) => {
         setSelectedCustomer(newCustomer);
         setIsCustomerModalOpen(false);
+        // Automatically open the address modal for the new customer
+        setIsAddressModalOpen(true);
     }
 
     return (
@@ -249,14 +252,12 @@ export default function POSPage() {
             </div>
 
             {/* Modals */}
-            {selectedCustomer && (
-                <AddressFormModal
-                    isOpen={isAddressModalOpen}
-                    onClose={() => setIsAddressModalOpen(false)}
-                    customerId={selectedCustomer.id}
-                    addressToEdit={editingAddress}
-                />
-            )}
+            <AddressFormModal
+                isOpen={isAddressModalOpen}
+                onClose={() => setIsAddressModalOpen(false)}
+                customerId={selectedCustomer?.id}
+                addressToEdit={editingAddress}
+            />
             
              <CustomerFormModal
                 isOpen={isCustomerModalOpen}

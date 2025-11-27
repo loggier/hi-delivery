@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, useTransition } from 'react';
@@ -243,7 +244,7 @@ type AddressFormValues = z.infer<typeof customerAddressSchema>;
 interface AddressFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    customerId: string;
+    customerId?: string;
     addressToEdit: CustomerAddress | null;
 }
 
@@ -257,18 +258,23 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
 
     useEffect(() => {
         if (addressToEdit) {
-            methods.reset(addressToEdit);
+            methods.reset({ ...addressToEdit, customer_id: addressToEdit.customer_id });
         } else {
             methods.reset({ customer_id: customerId, address: '', latitude: 19.4326, longitude: -99.1332 });
         }
     }, [addressToEdit, customerId, methods]);
 
     const onSubmit = async (data: AddressFormValues) => {
+        if (!data.customer_id) {
+            console.error("Customer ID is missing");
+            return;
+        }
+
         try {
             if (addressToEdit) {
                 await updateAddressMutation.mutateAsync({ ...data, id: addressToEdit.id });
             } else {
-                await createAddressMutation.mutateAsync({ ...data, customer_id: customerId } as any);
+                await createAddressMutation.mutateAsync(data);
             }
             onClose();
         } catch (error) {
