@@ -1,6 +1,6 @@
 import { customers } from "@/mocks/data";
 import { type Customer } from "@/types";
-import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
+import { errorResponse, jsonResponse, simulateLatency } from "../../helpers";
 import { NextRequest } from "next/server";
 import { newCustomerSchema } from "@/lib/schemas";
 import { faker } from "@faker-js/faker";
