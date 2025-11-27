@@ -1,60 +1,63 @@
--- Eliminar tablas en orden inverso para manejar dependencias
-DROP TABLE IF EXISTS grupohubs.order_events;
-DROP TABLE IF EXISTS grupohubs.order_items;
-DROP TABLE IF EXISTS grupohubs.orders;
-DROP TABLE IF EXISTS grupohubs.customers;
-DROP TABLE IF EXISTS grupohubs.customer_addresses;
+-- Limpieza inicial para desarrollo. El CASCADE es crucial para eliminar objetos dependientes.
+DROP TABLE IF EXISTS grupohubs.order_events CASCADE;
+DROP TABLE IF EXISTS grupohubs.order_items CASCADE;
+DROP TABLE IF EXISTS grupohubs.orders CASCADE;
+DROP TABLE IF EXISTS grupohubs.customers CASCADE;
+DROP TABLE IF EXISTS grupohubs.customer_addresses CASCADE;
 
--- Eliminar ENUMs personalizados. Usamos CASCADE para eliminar dependencias en columnas.
 DROP TYPE IF EXISTS grupohubs.order_status CASCADE;
 DROP TYPE IF EXISTS grupohubs.order_event_type CASCADE;
-DROP TYPE IF EXISTS grupohubs.address CASCADE;
 
--- Crear tipos ENUM para estados y eventos de pedidos
+
+-- Creación de Tipos (ENUMs) para garantizar la integridad de los datos.
 CREATE TYPE grupohubs.order_status AS ENUM (
   'pending_acceptance', -- Esperando que un repartidor acepte
   'accepted',           -- Repartidor aceptó y va al negocio
   'at_store',           -- Repartidor llegó al negocio
-  'picked_up',          -- Repartidor recogió y va al cliente
-  'on_the_way',         -- Repartidor llegó con el cliente (o está muy cerca)
-  'delivered',          -- Pedido entregado (con o sin foto)
-  'completed',          -- Pedido finalizado/archivado
-  'cancelled'           -- Pedido cancelado
+  'cooking',            -- El negocio está preparando el pedido (opcional)
+  'ready_for_pickup',   -- Pedido listo para ser recogido
+  'picked_up',          -- Repartidor recogió el pedido y va al cliente
+  'on_the_way',         -- Repartidor en camino a la entrega
+  'arrived_at_destination', -- Repartidor llegó al destino del cliente
+  'delivered',          -- Pedido entregado (pendiente de confirmación final)
+  'completed',          -- Pedido finalizado y pagado
+  'cancelled',          -- Pedido cancelado
+  'refunded',           -- Pedido reembolsado
+  'failed'              -- Pago fallido u otro error grave
 );
 
 CREATE TYPE grupohubs.order_event_type AS ENUM (
-  'pending',            -- Pedido creado
-  'accepted',           -- Repartidor aceptó
-  'at_store',           -- Repartidor en negocio
-  'picked_up',          -- Repartidor recogió
-  'on_the_way',         -- Repartidor en destino
-  'delivered',          -- Entregado
-  'cancelled'           -- Cancelado
+  'pending',
+  'accepted',
+  'arrived_at_store',
+  'picked_up',
+  'arrived_at_destination',
+  'delivered',
+  'cancelled',
+  'driver_assigned',
+  'other'
 );
 
--- Crear tipo personalizado para direcciones
-CREATE TYPE grupohubs.address AS (
-  text TEXT,
-  coordinates JSONB
-);
 
--- Crear tabla de clientes
-CREATE TABLE grupohubs.customers (
-    id character varying(255) PRIMARY KEY,
+-- Tabla de Clientes
+CREATE TABLE IF NOT EXISTS grupohubs.customers (
+    id character varying(255) PRIMARY KEY NOT NULL,
     first_name character varying(255) NOT NULL,
     last_name character varying(255) NOT NULL,
-    phone character varying(20) NOT NULL,
-    email character varying(255),
+    phone character varying(20) NOT NULL UNIQUE,
+    email character varying(255) UNIQUE,
     order_count integer DEFAULT 0,
     total_spent numeric(10, 2) DEFAULT 0,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
--- Crear tabla de direcciones de clientes
-CREATE TABLE grupohubs.customer_addresses (
-    id character varying(255) PRIMARY KEY,
-    customer_id character varying(255) REFERENCES grupohubs.customers(id) ON DELETE CASCADE,
+COMMENT ON TABLE grupohubs.customers IS 'Tabla para almacenar información de los clientes finales.';
+
+-- Tabla de Direcciones de Clientes
+CREATE TABLE IF NOT EXISTS grupohubs.customer_addresses (
+    id character varying(255) PRIMARY KEY NOT NULL,
+    customer_id character varying(255) NOT NULL,
     address text NOT NULL,
     neighborhood character varying(255),
     city character varying(255),
@@ -63,86 +66,122 @@ CREATE TABLE grupohubs.customer_addresses (
     latitude double precision NOT NULL,
     longitude double precision NOT NULL,
     is_primary boolean DEFAULT false,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES grupohubs.customers(id) ON DELETE CASCADE
 );
 
--- Crear tabla principal de pedidos (orders)
-CREATE TABLE grupohubs.orders (
-    id character varying(255) PRIMARY KEY,
-    business_id character varying(255) REFERENCES grupohubs.businesses(id),
-    customer_id character varying(255) REFERENCES grupohubs.customers(id),
-    rider_id character varying(255) REFERENCES grupohubs.riders(id),
-    status grupohubs.order_status NOT NULL DEFAULT 'pending_acceptance',
+COMMENT ON TABLE grupohubs.customer_addresses IS 'Almacena múltiples direcciones por cliente.';
+
+
+-- Tabla Principal de Pedidos
+CREATE TABLE IF NOT EXISTS grupohubs.orders (
+    id character varying(255) PRIMARY KEY NOT NULL,
+    business_id character varying(255) NOT NULL,
+    customer_id character varying(255) NOT NULL,
+    rider_id character varying(255),
+    status grupohubs.order_status DEFAULT 'pending_acceptance',
     
-    pickup_address grupohubs.address NOT NULL,
-    delivery_address grupohubs.address NOT NULL,
+    -- Direcciones en formato JSON para flexibilidad
+    pickup_address jsonb NOT NULL,
+    delivery_address jsonb NOT NULL,
     
-    pickup_business_name character varying(255) NOT NULL,
     customer_name character varying(255) NOT NULL,
-    customer_phone character varying(255) NOT NULL,
+    customer_phone character varying(50) NOT NULL,
     
     items_description text,
     
-    subtotal numeric(10, 2) NOT NULL DEFAULT 0,
-    delivery_fee numeric(10, 2) NOT NULL DEFAULT 0,
-    order_total numeric(10, 2) NOT NULL DEFAULT 0,
-    estimated_earnings numeric(10, 2),
-    distance double precision, -- en km
+    -- Campos Financieros
+    subtotal numeric(10, 2) NOT NULL,
+    delivery_fee numeric(10, 2) NOT NULL,
+    order_total numeric(10, 2) NOT NULL,
+    estimated_earnings numeric(10, 2), -- Ganancia estimada para el repartidor
     
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    distance numeric(8, 2), -- Distancia en KM
+
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+
+    -- Llaves Foráneas
+    CONSTRAINT fk_business FOREIGN KEY(business_id) REFERENCES grupohubs.businesses(id),
+    CONSTRAINT fk_customer FOREIGN KEY(customer_id) REFERENCES grupohubs.customers(id),
+    CONSTRAINT fk_rider FOREIGN KEY(rider_id) REFERENCES grupohubs.riders(id)
 );
 
--- Crear tabla de ítems de pedido (order_items)
-CREATE TABLE grupohubs.order_items (
+COMMENT ON TABLE grupohubs.orders IS 'Tabla central que contiene todos los pedidos del sistema.';
+
+-- Tabla de Ítems del Pedido
+CREATE TABLE IF NOT EXISTS grupohubs.order_items (
     id bigserial PRIMARY KEY,
-    order_id character varying(255) REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
-    product_id character varying(255) REFERENCES grupohubs.products(id),
+    order_id character varying(255) NOT NULL,
+    product_id character varying(255), -- Nulable para pedidos que no son de catálogo
     quantity integer NOT NULL,
     price numeric(10, 2) NOT NULL,
-    -- Opcional: podrías guardar una copia del nombre del producto aquí
-    product_name character varying(255)
+    item_description text, -- Por si el producto no existe en nuestro catálogo
+
+    CONSTRAINT fk_order FOREIGN KEY(order_id) REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_product FOREIGN KEY(product_id) REFERENCES grupohubs.products(id) ON DELETE SET NULL
 );
 
--- Crear tabla de eventos de pedido (order_events)
-CREATE TABLE grupohubs.order_events (
+COMMENT ON TABLE grupohubs.order_items IS 'Detalle de los productos o ítems de cada pedido.';
+
+-- Tabla de Eventos del Pedido (Historial)
+CREATE TABLE IF NOT EXISTS grupohubs.order_events (
     id bigserial PRIMARY KEY,
-    order_id character varying(255) REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
-    rider_id character varying(255) REFERENCES grupohubs.riders(id),
+    order_id character varying(255) NOT NULL,
+    rider_id character varying(255),
     event_type grupohubs.order_event_type NOT NULL,
     event_time timestamp with time zone DEFAULT now(),
-    coordinates JSONB, -- Para guardar lat/lng en el momento del evento
-    photo_url character varying(255), -- Para la foto de evidencia
-    notes text
+    notes text,
+    photo_url character varying(2048),
+    location jsonb, -- Para guardar {lat, lng} del evento
+
+    CONSTRAINT fk_order_event FOREIGN KEY(order_id) REFERENCES grupohubs.orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rider_event FOREIGN KEY(rider_id) REFERENCES grupohubs.riders(id)
 );
 
--- --- COMENTARIOS Y POLÍTICAS DE SEGURIDAD (RLS) ---
+COMMENT ON TABLE grupohubs.order_events IS 'Registra el historial de eventos de un pedido, como "aceptado", "recogido", "entregado".';
 
--- Comentarios para claridad
-COMMENT ON TABLE grupohubs.orders IS 'Tabla principal de pedidos';
-COMMENT ON TABLE grupohubs.order_items IS 'Ítems específicos de cada pedido';
-COMMENT ON TABLE grupohubs.order_events IS 'Historial de eventos y cambios de estado de un pedido';
 
--- Habilitar Row Level Security (RLS) en las tablas
+-- Políticas de Seguridad a Nivel de Fila (RLS)
+
+-- Orders
 ALTER TABLE grupohubs.orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for orders" ON grupohubs.orders;
+CREATE POLICY "Public access for orders" ON grupohubs.orders
+    FOR ALL
+    TO public
+    USING (true);
+
+-- Order Items
 ALTER TABLE grupohubs.order_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for order items" ON grupohubs.order_items;
+CREATE POLICY "Public access for order items" ON grupohubs.order_items
+    FOR ALL
+    TO public
+    USING (true);
+
+-- Order Events
 ALTER TABLE grupohubs.order_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for order events" ON grupohubs.order_events;
+CREATE POLICY "Public access for order events" ON grupohubs.order_events
+    FOR ALL
+    TO public
+    USING (true);
+
+-- Customers
 ALTER TABLE grupohubs.customers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for customers" ON grupohubs.customers;
+CREATE POLICY "Public access for customers" ON grupohubs.customers
+    FOR ALL
+    TO public
+    USING (true);
+    
+-- Customer Addresses
 ALTER TABLE grupohubs.customer_addresses ENABLE ROW LEVEL SECURITY;
-
--- Políticas para permitir acceso público de lectura (SELECT) y escritura (INSERT)
--- Esto es necesario para que la anon key pueda interactuar con las tablas.
--- En un entorno de producción, estas reglas serían mucho más restrictivas.
-
-CREATE POLICY "Allow public insert access on orders" ON grupohubs.orders FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Allow public read access on orders" ON grupohubs.orders FOR SELECT TO public USING (true);
-
-CREATE POLICY "Allow public insert access on order_items" ON grupohubs.order_items FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Allow public read access on order_items" ON grupohubs.order_items FOR SELECT TO public USING (true);
-
-CREATE POLICY "Allow public insert access on order_events" ON grupohubs.order_events FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Allow public read access on order_events" ON grupohubs.order_events FOR SELECT TO public USING (true);
-
-CREATE POLICY "Allow public access on customers" ON grupohubs.customers FOR ALL TO public USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public access on customer_addresses" ON grupohubs.customer_addresses FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public access for customer addresses" ON grupohubs.customer_addresses;
+CREATE POLICY "Public access for customer addresses" ON grupohubs.customer_addresses
+    FOR ALL
+    TO public
+    USING (true);
+    
