@@ -47,8 +47,6 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const entityKey = [entity];
   const translatedEntity = entityTranslations[entity] || entity;
   
-  const supabase = createClient();
-
   // GET all
   const useGetAll = (params: Record<string, string | boolean | undefined> = {}) => {
     const queryKey = [entity, params];
@@ -56,6 +54,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useQuery<T[]>({
       queryKey: queryKey,
       queryFn: async () => {
+        const supabase = createClient();
         let query = supabase.from(entity).select('*', { count: 'exact' });
 
         for (const [key, value] of Object.entries(params)) {
@@ -94,7 +93,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useGetOne = (id: string) => {
     return useQuery<T>({
         queryKey: [entity, id],
-        queryFn: () => handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single()),
+        queryFn: async () => {
+            const supabase = createClient();
+            return handleSupabaseQuery(supabase.from(entity).select('*').eq('id', id).single())
+        },
         enabled: !!id,
     });
   }
@@ -106,7 +108,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
 
     return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
-        
+        const supabase = createClient();
         if (entity === 'orders') {
             const payload = newItemDTO as unknown as OrderPayload;
             const orderId = `ord-${faker.string.uuid()}`;
@@ -291,6 +293,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const { toast } = useToast();
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: async (item) => {
+        const supabase = createClient();
         const { id, ...updateData } = item;
         return handleSupabaseQuery(supabase.from(entity).update({ ...updateData, updated_at: new Date().toISOString() }).eq('id', id).select().single());
       },
@@ -357,13 +360,13 @@ function createSettingsApi() {
     const entity = 'system_settings';
     const entityKey = [entity];
     const translatedEntity = entityTranslations['settings'];
-    const supabase = createClient();
     const SETTINGS_ID = 1; // The single row ID
 
     const useGet = () => {
         return useQuery<SystemSettings>({
             queryKey: entityKey,
             queryFn: async () => {
+                const supabase = createClient();
                 return handleSupabaseQuery(
                     supabase.from(entity).select('*').eq('id', SETTINGS_ID).single()
                 );
@@ -376,6 +379,7 @@ function createSettingsApi() {
         const { toast } = useToast();
         return useMutation<SystemSettings, Error, Partial<SystemSettings>>({
             mutationFn: (settings) => {
+                const supabase = createClient();
                 return handleSupabaseQuery(
                     supabase
                         .from(entity)
@@ -428,10 +432,12 @@ export const api = {
 
 // Custom hooks for nested resources
 export const useCustomerOrders = (customerId: string) => {
-    const supabase = createClient();
     return useQuery<Order[]>({
         queryKey: ['customers', customerId, 'orders'],
-        queryFn: () => handleSupabaseQuery(supabase.from('orders').select('*').eq('customer_id', customerId)),
+        queryFn: async () => {
+            const supabase = createClient();
+            return handleSupabaseQuery(supabase.from('orders').select('*').eq('customer_id', customerId))
+        },
         enabled: !!customerId,
     });
 };
@@ -478,10 +484,10 @@ export const useDashboardStats = () => useQuery<{
 export const useManageSubscription = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    const supabase = createClient();
 
     return useMutation<void, Error, { businessId: string; planId: string; amount: number }>({
         mutationFn: async ({ businessId, planId, amount }) => {
+            const supabase = createClient();
             const { data: plan, error: planError } = await supabase.from('plans').select('*').eq('id', planId).single();
             if (planError || !plan) throw new Error(planError?.message || "Plan no encontrado.");
 
