@@ -4,21 +4,21 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload, OrderItem } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload } from "@/types";
 import { faker } from "@faker-js/faker";
 import { PostgrestError } from "@supabase/supabase-js";
 import { add } from "date-fns";
 
 const entityTranslations: { [key: string]: string } = {
-    "product_categories": "Categoría de Producto",
-    "business_categories": "Categoría de Negocio",
+    "product-categories": "Categoría de Producto",
+    "business-categories": "Categoría de Negocio",
     "businesses": "Negocio",
     "products": "Producto",
     "riders": "Repartidor",
     "users": "Usuario",
     "zones": "Zona",
     "customers": "Cliente",
-    "customer_addresses": "Dirección de Cliente",
+    "customer-addresses": "Dirección de Cliente",
     "roles": "Rol",
     "plans": "Plan",
     "payments": "Pago",
@@ -100,10 +100,10 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         return response.json();
       },
       onSuccess: (data) => {
-        queryClient.invalidateQueries({ queryKey: entityKey });
+        queryClient.invalidateQueries({ queryKey: [entity] });
         if (entity === 'customer_addresses') {
             const customerId = (data as any).customer_id;
-            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: customerId }] });
+            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: customerId }] });
         }
         if (entity === 'businesses' || entity === 'riders') {
             queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -219,7 +219,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         queryClient.setQueryData([...entityKey, data.id], data);
          if (entity === 'customer_addresses') {
             const customerId = (data as any).customer_id;
-            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: customerId }] });
+            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: customerId }] });
         }
         toast({
           title: "Éxito",
@@ -330,15 +330,15 @@ function createSettingsApi() {
 
 // --- Specific API Hooks ---
 export const api = {
-    product_categories: createCRUDApi<Category>('product-categories'),
-    business_categories: createCRUDApi<BusinessCategory>('business-categories'),
+    "product_categories": createCRUDApi<Category>('product-categories'),
+    "business_categories": createCRUDApi<BusinessCategory>('business-categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
     users: createCRUDApi<User>('users'),
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
-    customer_addresses: createCRUDApi<CustomerAddress>('customer-addresses'),
+    "customer-addresses": createCRUDApi<CustomerAddress>('customer-addresses'),
     orders: createCRUDApi<Order>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),

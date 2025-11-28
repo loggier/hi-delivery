@@ -1,23 +1,37 @@
 
 
-export type OrderItem = {
-  product_id: string;
+export type OrderItem = Product & {
   quantity: number;
-  price: number;
 };
 
 export type OrderPayload = {
   business_id: string;
   customer_id: string;
-  pickup_address: Address;
-  delivery_address: Address;
+  pickup_address: {
+    text: string;
+    coordinates: {
+      lat: number;
+      lng: number;
+    }
+  };
+  delivery_address: {
+    text: string;
+    coordinates: {
+      lat: number;
+      lng: number;
+    }
+  };
   customer_name: string;
   customer_phone: string;
   subtotal: number;
   delivery_fee: number;
   order_total: number;
   distance: number;
-  items: OrderItem[];
+  items: {
+    product_id: string;
+    quantity: number;
+    price: number;
+  }[];
 };
 
 
