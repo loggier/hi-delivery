@@ -1,6 +1,6 @@
 import { businessCategories } from "@/mocks/data";
 import { type BusinessCategory } from "@/types";
-import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
+import { errorResponse, jsonResponse, simulateLatency } from "../../helpers";
 import { faker } from "@faker-js/faker";
 import { z } from "zod";
 import { NextRequest } from "next/server";

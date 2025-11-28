@@ -1,6 +1,6 @@
 import { productCategories } from "@/mocks/data";
 import { type Category } from "@/types";
-import { errorResponse, jsonResponse, simulateLatency } from "../helpers";
+import { errorResponse, jsonResponse, simulateLatency } from "../../helpers";
 import { faker } from "@faker-js/faker";
 import { z } from "zod";
 
