@@ -386,7 +386,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     
-    const { data: categories } = api.product_categories.useGetAll();
+    const { data: categories } = api["product-categories"].useGetAll();
 
     const filteredProducts = useMemo(() => {
         return (products || []).filter(p => {
@@ -729,4 +729,3 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
-
