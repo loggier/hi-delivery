@@ -174,7 +174,13 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, 
 
 // --- Customer Creation Modal ---
 
-type NewCustomerFormValues = z.infer<typeof newCustomerSchema>;
+const newCustomerFormSchema = z.object({
+  firstName: z.string().min(2, { message: "El nombre es requerido." }),
+  lastName: z.string().min(2, { message: "El apellido es requerido." }),
+  phone: z.string().min(10, { message: "El teléfono debe tener al menos 10 dígitos." }),
+  email: z.string().email({ message: "El email no es válido." }).optional().or(z.literal('')),
+});
+type NewCustomerFormValues = z.infer<typeof newCustomerFormSchema>;
 
 interface CustomerFormModalProps {
     isOpen: boolean;
@@ -186,10 +192,10 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const createCustomerMutation = api.customers.useCreate();
     
     const methods = useForm<NewCustomerFormValues>({
-        resolver: zodResolver(newCustomerSchema),
+        resolver: zodResolver(newCustomerFormSchema),
         defaultValues: {
-            first_name: '',
-            last_name: '',
+            firstName: '',
+            lastName: '',
             phone: '',
             email: ''
         },
@@ -197,10 +203,10 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
 
     const onSubmit = async (data: NewCustomerFormValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data as any);
+            const newCustomer = await createCustomerMutation.mutateAsync(data);
             if(newCustomer) {
                 methods.reset();
-                onCustomerCreated(newCustomer as Customer);
+                onCustomerCreated(newCustomer);
             }
         } catch(e) {
             // error is handled by mutation hook
@@ -218,8 +224,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
                 <FormProvider {...methods}>
                     <Form {...methods}>
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                             <FormInput name="first_name" label="Nombre(s)" placeholder="Juan"/>
-                             <FormInput name="last_name" label="Apellido(s)" placeholder="Pérez" />
+                             <FormInput name="firstName" label="Nombre(s)" placeholder="Juan"/>
+                             <FormInput name="lastName" label="Apellido(s)" placeholder="Pérez" />
                              <FormInput name="phone" label="Teléfono" type="tel" placeholder="5512345678" />
                              <FormInput name="email" label="Email (Opcional)" type="email" placeholder="juan.perez@email.com"/>
                              <div className="flex justify-end gap-2 pt-4">
@@ -253,13 +259,13 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
         resolver: zodResolver(customerAddressSchema),
     });
     
-    const createAddressMutation = api.customer_addresses.useCreate();
-    const updateAddressMutation = api.customer_addresses.useUpdate();
+    const createAddressMutation = api["customer-addresses"].useCreate();
+    const updateAddressMutation = api["customer-addresses"].useUpdate();
 
     useEffect(() => {
         if (addressToEdit) {
             methods.reset({ ...addressToEdit, customer_id: addressToEdit.customer_id });
-        } else {
+        } else if (customerId) {
             methods.reset({ customer_id: customerId, address: '', latitude: 19.4326, longitude: -99.1332 });
         }
     }, [addressToEdit, customerId, methods]);
@@ -380,7 +386,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     
-    const { data: categories } = api.product_categories.useGetAll();
+    const { data: categories } = api["product-categories"].useGetAll();
 
     const filteredProducts = useMemo(() => {
         return (products || []).filter(p => {

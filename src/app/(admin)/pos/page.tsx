@@ -46,7 +46,7 @@ export default function POSPage() {
     const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
-    const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
+    const { data: customerAddresses, isLoading: isLoadingAddresses } = api["customer-addresses"].useGetAll({ customer_id: selectedCustomer?.id });
     
     const resetOrder = () => {
         setSelectedBusiness(null);
@@ -252,12 +252,14 @@ export default function POSPage() {
             </div>
 
             {/* Modals */}
-            <AddressFormModal
-                isOpen={isAddressModalOpen}
-                onClose={() => setIsAddressModalOpen(false)}
-                customerId={selectedCustomer?.id}
-                addressToEdit={editingAddress}
-            />
+             {selectedCustomer && (
+                <AddressFormModal
+                    isOpen={isAddressModalOpen}
+                    onClose={() => setIsAddressModalOpen(false)}
+                    customerId={selectedCustomer.id}
+                    addressToEdit={editingAddress}
+                />
+            )}
             
              <CustomerFormModal
                 isOpen={isCustomerModalOpen}
