@@ -203,10 +203,10 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
 
     const onSubmit = async (data: NewCustomerFormValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data);
+            const newCustomer = await createCustomerMutation.mutateAsync(data as any);
             if(newCustomer) {
                 methods.reset();
-                onCustomerCreated(newCustomer);
+                onCustomerCreated(newCustomer as Customer);
             }
         } catch(e) {
             // error is handled by mutation hook
@@ -280,7 +280,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
             if (addressToEdit) {
                 await updateAddressMutation.mutateAsync({ ...data, id: addressToEdit.id });
             } else {
-                await createAddressMutation.mutateAsync(data);
+                await createAddressMutation.mutateAsync(data as any);
             }
             onClose();
         } catch (error) {
@@ -386,7 +386,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     
-    const { data: categories } = api["product-categories"].useGetAll();
+    const { data: categories } = api.product_categories.useGetAll();
 
     const filteredProducts = useMemo(() => {
         return (products || []).filter(p => {
@@ -541,7 +541,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
         };
 
         try {
-            await createOrderMutation.mutateAsync(orderData);
+            await createOrderMutation.mutateAsync(orderData as any);
             onOrderCreated();
         } catch (e) {
             // Error is handled by the mutation hook
@@ -729,3 +729,4 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
+
