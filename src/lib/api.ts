@@ -101,7 +101,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
       },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: [entity] });
-        if (entity === 'customer_addresses') {
+        if (entity === 'customer-addresses') {
             const customerId = (data as any).customer_id;
             queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: customerId }] });
         }
@@ -330,8 +330,8 @@ function createSettingsApi() {
 
 // --- Specific API Hooks ---
 export const api = {
-    "product_categories": createCRUDApi<Category>('product-categories'),
-    "business_categories": createCRUDApi<BusinessCategory>('business-categories'),
+    "product-categories": createCRUDApi<Category>('product-categories'),
+    "business-categories": createCRUDApi<BusinessCategory>('business-categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
