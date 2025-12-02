@@ -123,7 +123,7 @@ interface CustomerSearchProps {
 
 export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, disabled = false }: CustomerSearchProps) {
     const [query, setQuery] = useState('');
-    const [isFocused, setIsFocused = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
     
     const filteredCustomers = useMemo(() => {
         if (!query) return [];
@@ -742,7 +742,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const { toast } = useToast();
     const createOrderMutation = api.orders.useCreate();
     const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
-    const [shouldPrint, setShouldPrint = useState(true);
+    const [shouldPrint, setShouldPrint] = useState(true);
     const ticketRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
@@ -937,5 +937,7 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
+
+    
 
     
