@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -48,7 +49,7 @@ export default function POSPage() {
     const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
-    const { data: customerAddresses, isLoading: isLoadingAddresses } = api["customer-addresses"].useGetAll({ customer_id: selectedCustomer?.id });
+    const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
     const resetOrder = () => {
         setSelectedBusiness(null);
@@ -304,3 +305,5 @@ export default function POSPage() {
         </div>
     );
 }
+
+    

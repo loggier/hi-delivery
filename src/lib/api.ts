@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +8,7 @@ import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
     "products": "Producto",
-    "product-categories": "Categoría de Producto",
+    "product_categories": "Categoría de Producto",
     "business-categories": "Categoría de Negocio",
     "businesses": "Negocio",
     "riders": "Repartidor",
@@ -256,7 +255,7 @@ function createSettingsApi() {
 
 // --- API Hooks ---
 export const api = {
-    "product-categories": createCRUDApi<Category>('product-categories'),
+    product_categories: createCRUDApi<Category>('product_categories'),
     "business-categories": createCRUDApi<BusinessCategory>('business-categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
@@ -264,7 +263,7 @@ export const api = {
     users: createCRUDApi<User>('users'),
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
-    "customer-addresses": createCRUDApi<CustomerAddress>('customer_addresses'),
+    customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
     orders: createCRUDApi<Order>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
@@ -380,3 +379,5 @@ export const useManageSubscription = () => {
         }
     });
 };
+
+    

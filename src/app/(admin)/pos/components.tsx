@@ -123,7 +123,7 @@ interface CustomerSearchProps {
 
 export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, disabled = false }: CustomerSearchProps) {
     const [query, setQuery] = useState('');
-    const [isFocused, setIsFocused] = useState(false);
+    const [isFocused, setIsFocused = useState(false);
     
     const filteredCustomers = useMemo(() => {
         if (!query) return [];
@@ -193,8 +193,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const methods = useForm<NewCustomerFormValues>({
         resolver: zodResolver(newCustomerSchema),
         defaultValues: {
-            first_name: '',
-            last_name: '',
+            firstName: '',
+            lastName: '',
             phone: '',
             email: ''
         },
@@ -223,8 +223,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
                 <FormProvider {...methods}>
                     <Form {...methods}>
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                             <FormInput name="first_name" label="Nombre(s)" placeholder="Juan"/>
-                             <FormInput name="last_name" label="Apellido(s)" placeholder="Pérez" />
+                             <FormInput name="firstName" label="Nombre(s)" placeholder="Juan"/>
+                             <FormInput name="lastName" label="Apellido(s)" placeholder="Pérez" />
                              <FormInput name="phone" label="Teléfono" type="tel" placeholder="5512345678" />
                              <FormInput name="email" label="Email (Opcional)" type="email" placeholder="juan.perez@email.com"/>
                              <div className="flex justify-end gap-2 pt-4">
@@ -258,8 +258,8 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
         resolver: zodResolver(customerAddressSchema),
     });
     
-    const createAddressMutation = api["customer_addresses"].useCreate();
-    const updateAddressMutation = api["customer_addresses"].useUpdate();
+    const createAddressMutation = api.customer_addresses.useCreate();
+    const updateAddressMutation = api.customer_addresses.useUpdate();
 
     useEffect(() => {
         if (addressToEdit) {
@@ -385,7 +385,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     
-    const { data: categories } = api["product-categories"].useGetAll();
+    const { data: categories } = api.product_categories.useGetAll();
 
     const filteredProducts = useMemo(() => {
         return (products || []).filter(p => {
@@ -742,7 +742,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const { toast } = useToast();
     const createOrderMutation = api.orders.useCreate();
     const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
-    const [shouldPrint, setShouldPrint] = useState(true);
+    const [shouldPrint, setShouldPrint = useState(true);
     const ticketRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
@@ -937,3 +937,5 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
+
+    
