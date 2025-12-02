@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormField, FormMessage, FormLabel } from '@/components/ui/form';
+import { Form, FormField, FormMessage, FormLabel, FormControl } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
@@ -385,7 +386,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     
-    const { data: categories } = api.product_categories.useGetAll();
+    const { data: categories } = api["product-categories"].useGetAll();
 
     const filteredProducts = useMemo(() => {
         return (products || []).filter(p => {
@@ -767,7 +768,13 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         const orderData: OrderPayload = {
             business_id: order.business.id,
             customer_id: order.customer.id,
-            items: order.items.map(item => ({ product_id: item.id, quantity: item.quantity, price: item.price, item_description: item.item_description })),
+            status: 'pending_acceptance',
+            items: order.items.map(item => ({
+                product_id: item.id,
+                quantity: item.quantity,
+                price: item.price,
+                item_description: item.item_description
+            })),
             items_description: order.note,
             pickup_address: {
                 text: order.business.address_line,

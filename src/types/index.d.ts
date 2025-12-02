@@ -1,6 +1,7 @@
 
 
 
+
 export type OrderItem = Product & {
   quantity: number;
   item_description: string;
@@ -9,6 +10,7 @@ export type OrderItem = Product & {
 export type OrderPayload = {
   business_id: string;
   customer_id: string;
+  status: 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded' | 'failed';
   pickup_address: {
     text: string;
     coordinates: {
