@@ -1,19 +1,16 @@
 
-
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload } from "@/types";
-import { faker } from "@faker-js/faker";
-import { PostgrestError } from "@supabase/supabase-js";
-import { add } from "date-fns";
+import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
+    "products": "Producto",
     "product-categories": "Categoría de Producto",
     "business-categories": "Categoría de Negocio",
     "businesses": "Negocio",
-    "products": "Producto",
     "riders": "Repartidor",
     "users": "Usuario",
     "zones": "Zona",
@@ -22,49 +19,40 @@ const entityTranslations: { [key: string]: string } = {
     "roles": "Rol",
     "plans": "Plan",
     "payments": "Pago",
-    "settings": "Configuración",
+    "system_settings": "Configuración",
     "orders": "Pedido",
 }
 
-// --- Generic Fetcher ---
-async function handleApiQuery<T>(query: Promise<Response>): Promise<T> {
-    const response = await query;
-    if (!response.ok) {
-        let errorMsg = `Error: ${response.status} ${response.statusText}`;
-        try {
-            const errorBody = await response.json();
-            errorMsg = errorBody.message || errorMsg;
-        } catch (e) {
-            // Ignore if body is not JSON
-        }
-        throw new Error(errorMsg);
-    }
-    return response.json();
-}
-
-// --- Generic CRUD Hooks ---
-function createCRUDApi<T extends { id: string }>(entity: string) {
+// --- Generic CRUD Hooks for Supabase ---
+function createCRUDApi<T extends { id: string }>(
+  entity: keyof typeof entityTranslations,
+  select: string = '*'
+) {
   const entityKey = [entity];
   const translatedEntity = entityTranslations[entity] || entity;
-  
-  // GET all
-  const useGetAll = (params: Record<string, string | boolean | undefined> = {}) => {
-    const queryKey = [entity, params];
-    
-    const queryString = new URLSearchParams(
-      Object.entries(params).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)])
-    ).toString();
+  const supabase = createClient();
 
-    const url = `/api/mock/${entity}${queryString ? `?${queryString}` : ''}`;
-    
+  // GET all
+  const useGetAll = (filters: Record<string, any> = {}) => {
     return useQuery<T[]>({
-      queryKey: queryKey,
+      queryKey: [entity, filters],
       queryFn: async () => {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Failed to fetch ${entity}`);
-        return res.json();
+        let query = supabase.from(entity).select(select);
+        for (const key in filters) {
+            if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+                if (key.includes('search')) {
+                    const searchKey = key.split('_search')[0];
+                    query = query.ilike(searchKey, `%${filters[key]}%`);
+                } else {
+                    query = query.eq(key, filters[key]);
+                }
+            }
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data as T[];
       },
-      enabled: !Object.keys(params).some(key => key.endsWith('_id') && !params[key])
+      enabled: !Object.keys(filters).some(key => key.endsWith('_id') && !filters[key])
     });
   }
 
@@ -73,9 +61,9 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useQuery<T>({
         queryKey: [entity, id],
         queryFn: async () => {
-            const res = await fetch(`/api/mock/${entity}/${id}`);
-            if (!res.ok) throw new Error(`Failed to fetch ${entity} with id ${id}`);
-            return res.json();
+            const { data, error } = await supabase.from(entity).select(select).eq('id', id).single();
+            if (error) throw error;
+            return data as T;
         },
         enabled: !!id,
     });
@@ -86,27 +74,16 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    return useMutation<T & { businessId?: string; user?: User }, Error, T_DTO>({
+    return useMutation<T, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
-        const response = await fetch(`/api/mock/${entity}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newItemDTO),
-        });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al crear.');
-        }
-        return response.json();
+        const { data, error } = await supabase.from(entity).insert(newItemDTO as any).select().single();
+        if (error) throw error;
+        return data as T;
       },
-      onSuccess: (data) => {
-        queryClient.invalidateQueries({ queryKey: [entity] });
-        if (entity === 'customer-addresses') {
-            const customerId = (data as any).customer_id;
-            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: customerId }] });
-        }
-        if (entity === 'businesses' || entity === 'riders') {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
+      onSuccess: (data: any) => {
+        queryClient.invalidateQueries({ queryKey: entityKey });
+        if (data.customer_id) {
+            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: data.customer_id }] });
         }
         toast({
           title: "Éxito",
@@ -128,23 +105,19 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   const useCreateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T & { businessId?: string }, Error, FormData>({
+    return useMutation<T & { businessId?: string; user?: User }, Error, FormData>({
       mutationFn: async (formData) => {
         const response = await fetch(`/api/${entity}`, {
             method: 'POST',
             body: formData,
         });
         const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || `Error al crear ${translatedEntity}`);
-        }
+        if (!response.ok) throw new Error(result.message || `Error al crear ${translatedEntity}`);
         return result;
       },
       onSuccess: (result: any) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
-        if (result.user) {
-            queryClient.invalidateQueries({queryKey: ['users']});
-        }
+        if (result.user) queryClient.invalidateQueries({queryKey: ['users']});
         toast({
           title: "Éxito",
           description: `${translatedEntity} creado exitosamente.`,
@@ -152,29 +125,23 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         });
       },
       onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message,
-        });
+        toast({ variant: "destructive", title: "Error", description: error.message });
       },
     });
   };
 
-    const useUpdateWithFormData = () => {
+  const useUpdateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
     return useMutation<T, Error, { formData: FormData, id: string }>({
       mutationFn: async ({ formData, id }) => {
         const response = await fetch(`/api/${entity}/${id}`, {
-          method: 'POST', // Using POST for FormData with method override if needed, but often simple POST to resource ID is used for updates.
+          method: 'POST',
           body: formData,
         });
         const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
-        }
+        if (!response.ok) throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
         return result.business || result.product || result.rider || result;
       },
       onSuccess: (data) => {
@@ -187,11 +154,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         });
       },
       onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Error al actualizar",
-          description: error.message,
-        });
+        toast({ variant: "destructive", title: "Error al actualizar", description: error.message });
       },
     });
   };
@@ -203,23 +166,15 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     return useMutation<T, Error, Partial<T> & { id: string }>({
       mutationFn: async (item) => {
         const { id, ...updateData } = item;
-        const response = await fetch(`/api/mock/${entity}/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData),
-        });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al actualizar.');
-        }
-        return response.json();
+        const { data, error } = await supabase.from(entity).update(updateData).eq('id', id).select().single();
+        if (error) throw error;
+        return data as T;
       },
-      onSuccess: (data) => {
+      onSuccess: (data: any) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         queryClient.setQueryData([...entityKey, data.id], data);
-         if (entity === 'customer_addresses') {
-            const customerId = (data as any).customer_id;
-            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: customerId }] });
+        if (data.customer_id) {
+            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: data.customer_id }] });
         }
         toast({
           title: "Éxito",
@@ -228,11 +183,7 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
         });
       },
       onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message,
-        });
+        toast({ variant: "destructive", title: "Error", description: error.message });
       },
     });
   };
@@ -243,30 +194,18 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
     const { toast } = useToast();
     return useMutation<void, Error, string>({
         mutationFn: async (id) => {
-            const response = await fetch(`/api/mock/${entity}/${id}`, {
-                method: 'DELETE',
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Error al eliminar.');
-            }
+            const { error } = await supabase.from(entity).delete().eq('id', id);
+            if (error) throw error;
         },
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
-            if (entity === 'businesses' || entity === 'riders') {
-                queryClient.invalidateQueries({ queryKey: ['users'] });
-            }
             toast({
                 title: "Éxito",
                 description: `${translatedEntity} eliminado exitosamente.`,
             });
         },
         onError: (error) => {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: error.message,
-            });
+            toast({ variant: "destructive", title: "Error", description: error.message });
         },
     });
   };
@@ -274,21 +213,17 @@ function createCRUDApi<T extends { id: string }>(entity: string) {
   return { useGetAll, useGetOne, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
-// Special API for settings as it's a single-row table
 function createSettingsApi() {
     const entity = 'system_settings';
-    const entityKey = [entity];
-    const translatedEntity = entityTranslations['settings'];
+    const supabase = createClient();
 
     const useGet = () => {
         return useQuery<SystemSettings>({
-            queryKey: entityKey,
+            queryKey: [entity],
             queryFn: async () => {
-                // This is a mock, so we can't rely on a single ID. We'll fetch all and take the first.
-                const res = await fetch(`/api/mock/${entity}`);
-                 if (!res.ok) throw new Error(`Failed to fetch ${entity}`);
-                const data = await res.json();
-                return data[0];
+                const { data, error } = await supabase.from(entity).select('*').limit(1).single();
+                if (error) throw error;
+                return data;
             },
         });
     };
@@ -297,38 +232,28 @@ function createSettingsApi() {
         const queryClient = useQueryClient();
         const { toast } = useToast();
         return useMutation<SystemSettings, Error, Partial<SystemSettings>>({
-            mutationFn: (settings) => {
-                // In mock API, we'll PATCH the first settings object.
-                 return handleApiQuery(fetch(`/api/mock/${entity}/1`, {
-                    method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(settings)
-                }));
+            mutationFn: async (settings) => {
+                const { data: existing, error: fetchError } = await supabase.from(entity).select('id').limit(1).single();
+                if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+                
+                const { data, error } = await supabase.from(entity).update(settings).eq('id', existing.id).select().single();
+                if (error) throw error;
+                return data;
             },
             onSuccess: (data) => {
-                queryClient.invalidateQueries({ queryKey: entityKey });
-                queryClient.setQueryData(entityKey, data);
-                toast({
-                    title: "Éxito",
-                    description: `${translatedEntity} actualizada exitosamente.`,
-                    variant: 'success'
-                });
+                queryClient.setQueryData([entity], data);
+                toast({ title: "Éxito", description: `Configuración actualizada.`, variant: 'success' });
             },
             onError: (error) => {
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: error.message,
-                });
+                toast({ variant: "destructive", title: "Error", description: error.message });
             },
         });
     };
-
     return { useGet, useUpdate };
 }
 
 
-// --- Specific API Hooks ---
+// --- API Hooks ---
 export const api = {
     "product-categories": createCRUDApi<Category>('product-categories'),
     "business-categories": createCRUDApi<BusinessCategory>('business-categories'),
@@ -343,22 +268,8 @@ export const api = {
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
-    // settings: createSettingsApi(),
+    settings: createSettingsApi(),
 };
-
-// Custom hooks for nested resources
-export const useCustomerOrders = (customerId: string) => {
-    return useQuery<Order[]>({
-        queryKey: ['customers', customerId, 'orders'],
-        queryFn: async () => {
-            const res = await fetch(`/api/mock/customers/${customerId}/orders`);
-            if (!res.ok) throw new Error('Failed to fetch customer orders');
-            return res.json();
-        },
-        enabled: !!customerId,
-    });
-};
-
 
 type RevenueData = { date: string; ingresos: number };
 type OrdersData = { date: string; pedidos: number };
@@ -374,7 +285,7 @@ type OrderStatusSummary = {
 };
 
 
-// --- Dashboard Stats ---
+// --- Dashboard Stats (Still uses Mock) ---
 export const useDashboardStats = () => useQuery<{
     activeBusinesses: number;
     activeRiders: number;
@@ -400,44 +311,45 @@ export const useDashboardStats = () => useQuery<{
 export const useManageSubscription = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const supabase = createClient();
 
     return useMutation<void, Error, { businessId: string; planId: string; amount: number }>({
         mutationFn: async ({ businessId, planId, amount }) => {
-           // This is a complex operation involving creating payments and updating businesses.
-           // For a mock API, we can simulate this by invalidating queries.
-           // In a real Supabase scenario, this would be a transaction or an RPC call.
-           
-           // Mock creating payment
-           const payment = {
-                id: `pay-${faker.string.uuid()}`,
+           const { data: plan, error: planError } = await supabase.from('plans').select('*').eq('id', planId).single();
+           if(planError) throw new Error("Plan no encontrado.");
+
+           const now = new Date();
+           let periodEnd;
+            switch (plan.validity) {
+                case 'mensual': periodEnd = new Date(now.setMonth(now.getMonth() + 1)); break;
+                case 'quincenal': periodEnd = new Date(now.setDate(now.getDate() + 15)); break;
+                case 'semanal': periodEnd = new Date(now.setDate(now.getDate() + 7)); break;
+                case 'anual': periodEnd = new Date(now.setFullYear(now.getFullYear() + 1)); break;
+            }
+
+           const { error: paymentError } = await supabase.from('payments').insert({
                 business_id: businessId,
                 plan_id: planId,
                 amount: amount,
                 payment_date: new Date().toISOString(),
-           };
-           // In a real app: await supabase.from('payments').insert(payment);
+                period_start: new Date().toISOString(),
+                period_end: periodEnd.toISOString(),
+           });
 
-           // Mock updating business
-           const {data: plan} = await handleApiQuery<Plan>(fetch(`/api/mock/plans/${planId}`));
-           const now = new Date();
-           const periodEnd = add(now, { months: 1 }); // Assuming monthly for simplicity
-            
-           const businessUpdate = {
+           if(paymentError) throw paymentError;
+
+           const { error: businessError } = await supabase.from('businesses').update({
                 plan_id: planId,
                 subscription_status: 'active',
                 current_period_ends_at: periodEnd.toISOString(),
-           };
+           }).eq('id', businessId);
            
-            await handleApiQuery(fetch(`/api/mock/businesses/${businessId}`, {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(businessUpdate),
-            }));
+           if(businessError) throw businessError;
         },
         onSuccess: (_, { businessId }) => {
             queryClient.invalidateQueries({ queryKey: ['businesses', businessId] });
             queryClient.invalidateQueries({ queryKey: ['businesses'] });
-            queryClient.invalidateQueries({ queryKey: ['payments'] }); // Assuming a payments query exists
+            queryClient.invalidateQueries({ queryKey: ['payments'] });
             toast({
                 title: "Suscripción Actualizada",
                 description: "El pago ha sido registrado y el plan ha sido actualizado.",

@@ -174,13 +174,7 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, 
 
 // --- Customer Creation Modal ---
 
-const newCustomerFormSchema = z.object({
-  firstName: z.string().min(2, { message: "El nombre es requerido." }),
-  lastName: z.string().min(2, { message: "El apellido es requerido." }),
-  phone: z.string().min(10, { message: "El teléfono debe tener al menos 10 dígitos." }),
-  email: z.string().email({ message: "El email no es válido." }).optional().or(z.literal('')),
-});
-type NewCustomerFormValues = z.infer<typeof newCustomerFormSchema>;
+type NewCustomerFormValues = z.infer<typeof newCustomerSchema>;
 
 interface CustomerFormModalProps {
     isOpen: boolean;
@@ -192,7 +186,7 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const createCustomerMutation = api.customers.useCreate();
     
     const methods = useForm<NewCustomerFormValues>({
-        resolver: zodResolver(newCustomerFormSchema),
+        resolver: zodResolver(newCustomerSchema),
         defaultValues: {
             firstName: '',
             lastName: '',
@@ -203,10 +197,10 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
 
     const onSubmit = async (data: NewCustomerFormValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data as any);
+            const newCustomer = await createCustomerMutation.mutateAsync(data);
             if(newCustomer) {
                 methods.reset();
-                onCustomerCreated(newCustomer as Customer);
+                onCustomerCreated(newCustomer);
             }
         } catch(e) {
             // error is handled by mutation hook
@@ -280,7 +274,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
             if (addressToEdit) {
                 await updateAddressMutation.mutateAsync({ ...data, id: addressToEdit.id });
             } else {
-                await createAddressMutation.mutateAsync(data as any);
+                await createAddressMutation.mutateAsync(data);
             }
             onClose();
         } catch (error) {
@@ -541,7 +535,7 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
         };
 
         try {
-            await createOrderMutation.mutateAsync(orderData as any);
+            await createOrderMutation.mutateAsync(orderData);
             onOrderCreated();
         } catch (e) {
             // Error is handled by the mutation hook
