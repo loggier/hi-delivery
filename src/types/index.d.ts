@@ -1,7 +1,9 @@
 
 
+
 export type OrderItem = Product & {
   quantity: number;
+  item_description: string;
 };
 
 export type OrderPayload = {
@@ -31,7 +33,9 @@ export type OrderPayload = {
     product_id: string;
     quantity: number;
     price: number;
+    item_description: string;
   }[];
+  items_description: string;
 };
 
 

@@ -30,6 +30,7 @@ export default function POSPage() {
     const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
     const [selectedAddress, setSelectedAddress] = React.useState<CustomerAddress | null>(null);
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
+    const [orderNote, setOrderNote] = React.useState('');
     
     const [isBusinessOpen, setIsBusinessOpen] = React.useState(true);
     const [isCustomerOpen, setIsCustomerOpen] = React.useState(false);
@@ -44,7 +45,7 @@ export default function POSPage() {
     });
 
     const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
-    const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id });
+    const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api["customer-addresses"].useGetAll({ customer_id: selectedCustomer?.id });
     
@@ -53,6 +54,7 @@ export default function POSPage() {
         setSelectedCustomer(null);
         setSelectedAddress(null);
         setOrderItems([]);
+        setOrderNote('');
         setIsBusinessOpen(true);
         setIsCustomerOpen(false);
     }
@@ -90,7 +92,7 @@ export default function POSPage() {
                     item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
                 );
             }
-            return [...prevItems, { ...product, quantity }];
+            return [...prevItems, { ...product, quantity, item_description: '' }];
         });
     };
 
@@ -104,6 +106,14 @@ export default function POSPage() {
             );
         });
     };
+
+    const updateItemNote = (productId: string, note: string) => {
+        setOrderItems((prevItems) => {
+            return prevItems.map((item) =>
+                item.id === productId ? { ...item, item_description: note } : item
+            );
+        });
+    }
 
     const handleOpenAddressModal = (address: CustomerAddress | null = null) => {
         setEditingAddress(address);
@@ -243,6 +253,9 @@ export default function POSPage() {
                 <OrderCart 
                     items={orderItems}
                     onUpdateQuantity={updateQuantity}
+                    onUpdateItemNote={updateItemNote}
+                    orderNote={orderNote}
+                    onOrderNoteChange={setOrderNote}
                     customer={selectedCustomer}
                     business={selectedBusiness}
                     address={selectedAddress}

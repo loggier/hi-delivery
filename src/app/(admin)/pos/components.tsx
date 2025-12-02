@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, useTransition } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 
 const libraries: ('places')[] = ['places'];
 
@@ -491,7 +492,10 @@ const useShippingCalculation = (business: Business | null, address: CustomerAddr
 
 interface OrderCartProps {
     items: OrderItemType[];
+    orderNote: string;
+    onOrderNoteChange: (note: string) => void;
     onUpdateQuantity: (productId: string, quantity: number) => void;
+    onUpdateItemNote: (productId: string, note: string) => void;
     customer: Customer | null;
     business: Business | null;
     address: CustomerAddress | null;
@@ -499,7 +503,7 @@ interface OrderCartProps {
     onOrderCreated: () => void;
 }
 
-export function OrderCart({ items, onUpdateQuantity, customer, business, address, isMapsLoaded, onOrderCreated }: OrderCartProps) {
+export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, address, isMapsLoaded, onOrderCreated }: OrderCartProps) {
     const { toast } = useToast();
     const createOrderMutation = api.orders.useCreate();
     const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(business, address, isMapsLoaded);
@@ -517,7 +521,8 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
         const orderData: OrderPayload = {
             business_id: business.id,
             customer_id: customer.id,
-            items: items.map(item => ({ product_id: item.id, quantity: item.quantity, price: item.price })),
+            items: items.map(item => ({ product_id: item.id, quantity: item.quantity, price: item.price, item_description: item.item_description })),
+            items_description: orderNote,
             pickup_address: {
                 text: business.address_line,
                 coordinates: { lat: business.latitude || 0, lng: business.longitude || 0 }
@@ -555,30 +560,51 @@ export function OrderCart({ items, onUpdateQuantity, customer, business, address
                         <p>Aún no has agregado productos al pedido.</p>
                     </div>
                 ) : (
-                    <div className="max-h-64 overflow-y-auto pr-2 space-y-4">
+                    <div className="max-h-64 overflow-y-auto pr-2 space-y-2">
                         {items.map(item => (
-                            <div key={item.id} className="flex items-center gap-3">
-                                <Image src={item.image_url || 'https://placehold.co/48x48'} alt={item.name} width={48} height={48} className="rounded-md object-cover" />
-                                <div className="flex-1">
-                                    <p className="font-semibold text-sm truncate">{item.name}</p>
-                                    <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                            <div key={item.id} className="p-2 rounded-md border bg-slate-50 dark:bg-slate-800/50">
+                                <div className="flex items-center gap-3">
+                                    <Image src={item.image_url || 'https://placehold.co/48x48'} alt={item.name} width={48} height={48} className="rounded-md object-cover" />
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-sm truncate">{item.name}</p>
+                                        <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Input
+                                            type="number"
+                                            value={item.quantity}
+                                            onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 0)}
+                                            className="h-8 w-16 text-center"
+                                            min="0"
+                                        />
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onUpdateQuantity(item.id, 0)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <Input
-                                        type="number"
-                                        value={item.quantity}
-                                        onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 0)}
-                                        className="h-8 w-16 text-center"
-                                        min="0"
+                                <div className="mt-2 relative">
+                                    <MessageSquare className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Nota para este producto (ej. sin cebolla)..."
+                                        value={item.item_description}
+                                        onChange={(e) => onUpdateItemNote(item.id, e.target.value)}
+                                        className="h-9 text-xs pl-8"
                                     />
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onUpdateQuantity(item.id, 0)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
+                 <div className="space-y-2">
+                    <label htmlFor="order-note" className="text-sm font-medium">Nota General del Pedido</label>
+                    <Textarea 
+                        id="order-note"
+                        placeholder="Instrucciones para el repartidor, el negocio o detalles del cliente..."
+                        value={orderNote}
+                        onChange={(e) => onOrderNoteChange(e.target.value)}
+                    />
+                 </div>
+
                 <div className="space-y-4">
                     <Separator />
                     <h4 className="font-semibold text-base">Costo de Envío</h4>
