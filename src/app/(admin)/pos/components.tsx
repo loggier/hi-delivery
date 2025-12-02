@@ -1,15 +1,13 @@
-
-
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, useTransition } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -500,12 +498,10 @@ interface OrderCartProps {
     business: Business | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
-    onOrderCreated: () => void;
+    onConfirmOrder: () => void;
 }
 
-export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, address, isMapsLoaded, onOrderCreated }: OrderCartProps) {
-    const { toast } = useToast();
-    const createOrderMutation = api.orders.useCreate();
+export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, address, isMapsLoaded, onConfirmOrder }: OrderCartProps) {
     const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(business, address, isMapsLoaded);
 
     const subtotal = useMemo(() => {
@@ -514,40 +510,6 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
     
     const total = subtotal + (shippingInfo?.cost || 0);
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
-
-    const handleCreateOrder = async () => {
-        if (!business || !customer || !address || !shippingInfo) return;
-
-        const orderData: OrderPayload = {
-            business_id: business.id,
-            customer_id: customer.id,
-            items: items.map(item => ({ product_id: item.id, quantity: item.quantity, price: item.price, item_description: item.item_description })),
-            items_description: orderNote,
-            pickup_address: {
-                text: business.address_line,
-                coordinates: { lat: business.latitude || 0, lng: business.longitude || 0 }
-            },
-            delivery_address: {
-                text: address.address,
-                coordinates: { lat: address.latitude, lng: address.longitude }
-            },
-            customer_name: `${customer.first_name} ${customer.last_name}`,
-            customer_phone: customer.phone,
-            subtotal: subtotal,
-            delivery_fee: shippingInfo.cost,
-            order_total: total,
-            distance: shippingInfo.distance,
-        };
-
-        try {
-            await createOrderMutation.mutateAsync(orderData);
-            onOrderCreated();
-        } catch (e) {
-            // Error is handled by the mutation hook
-        }
-    }
-
-    const isSubmitting = createOrderMutation.isPending;
 
     return (
         <Card className="lg:sticky top-6">
@@ -653,13 +615,156 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                         <span>{formatCurrency(total)}</span>
                     </div>
                 </div>
-                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address || isSubmitting} onClick={handleCreateOrder}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address} onClick={onConfirmOrder}>
                     Crear Pedido
                 </Button>
             </CardContent>
         </Card>
     )
+}
+
+// --- Order Confirmation Dialog ---
+interface OrderConfirmationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onOrderCreated: () => void;
+  order: {
+    items: OrderItemType[];
+    customer: Customer | null;
+    business: Business | null;
+    address: CustomerAddress | null;
+    note: string;
+  };
+}
+
+export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order }: OrderConfirmationDialogProps) {
+    const { toast } = useToast();
+    const createOrderMutation = api.orders.useCreate();
+    const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
+
+    useEffect(() => {
+        if(order.business?.delivery_time_min) {
+            setPreparationTime(order.business.delivery_time_min);
+        }
+    }, [order.business]);
+
+    const { shippingInfo } = useShippingCalculation(order.business, order.address, true); // Assuming maps is loaded here
+
+    const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
+    const total = subtotal + (shippingInfo?.cost || 0);
+
+    const handleCreateOrder = async () => {
+        if (!order.business || !order.customer || !order.address || !shippingInfo) return;
+
+        const orderData: OrderPayload = {
+            business_id: order.business.id,
+            customer_id: order.customer.id,
+            items: order.items.map(item => ({ product_id: item.id, quantity: item.quantity, price: item.price, item_description: item.item_description })),
+            items_description: order.note,
+            pickup_address: {
+                text: order.business.address_line,
+                coordinates: { lat: order.business.latitude || 0, lng: order.business.longitude || 0 }
+            },
+            delivery_address: {
+                text: order.address.address,
+                coordinates: { lat: order.address.latitude, lng: order.address.longitude }
+            },
+            customer_name: `${order.customer.first_name} ${order.customer.last_name}`,
+            customer_phone: order.customer.phone,
+            subtotal: subtotal,
+            delivery_fee: shippingInfo.cost,
+            order_total: total,
+            distance: shippingInfo.distance,
+            // preparation_time: preparationTime, // Add this to your payload if the backend supports it
+        };
+
+        try {
+            await createOrderMutation.mutateAsync(orderData);
+            onOrderCreated();
+            onClose();
+        } catch (e) {
+            // Error is handled by the mutation hook
+        }
+    };
+
+    if (!order.customer || !order.business || !order.address) {
+        return null;
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle className="text-2xl">Confirmar Pedido</DialogTitle>
+                    <DialogDescription>Revisa los detalles del pedido antes de crearlo.</DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 space-y-6">
+                    {/* Resumen */}
+                    <div className="space-y-4 rounded-lg border p-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-semibold">{order.business.name}</p>
+                                <p className="text-sm text-muted-foreground">{order.business.address_line}</p>
+                            </div>
+                            <ArrowRight className="h-5 w-5 text-muted-foreground mt-1" />
+                            <div className="text-right">
+                                <p className="font-semibold">{order.customer.first_name} {order.customer.last_name}</p>
+                                <p className="text-sm text-muted-foreground">{order.address.address}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Items */}
+                    <div className="space-y-2">
+                        <h4 className="font-medium">Productos</h4>
+                        {order.items.map(item => (
+                            <div key={item.id} className="flex items-center gap-3 text-sm p-2 rounded-md bg-slate-50 dark:bg-slate-800">
+                                <span className="font-bold">{item.quantity}x</span>
+                                <span className="flex-1">{item.name}</span>
+                                <span className="text-muted-foreground">{formatCurrency(item.price * item.quantity)}</span>
+                                {item.item_description && <p className="text-xs text-blue-500 w-full basis-full mt-1 ml-7 pl-1 border-l-2 border-blue-500">Nota: {item.item_description}</p>}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Nota General */}
+                    {order.note && (
+                        <div>
+                             <h4 className="font-medium">Nota General</h4>
+                             <p className="text-sm text-muted-foreground p-2 bg-slate-50 dark:bg-slate-800 rounded-md">{order.note}</p>
+                        </div>
+                    )}
+
+                    {/* Costos */}
+                     <div className="space-y-2 text-base">
+                        <Separator />
+                        <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                        <div className="flex justify-between"><span>Envío</span><span>{formatCurrency(shippingInfo?.cost || 0)}</span></div>
+                        <Separator />
+                        <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{formatCurrency(total)}</span></div>
+                    </div>
+
+                     {/* Tiempo de Preparacion */}
+                     <div className="flex items-center gap-4 rounded-lg border bg-slate-50 p-3">
+                         <label htmlFor="prep-time" className="font-medium">Tiempo de Preparación (min)</label>
+                         <Input 
+                            id="prep-time"
+                            type="number"
+                            className="w-24 h-9"
+                            value={preparationTime}
+                            onChange={(e) => setPreparationTime(Number(e.target.value))}
+                         />
+                     </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                    <Button onClick={handleCreateOrder} disabled={createOrderMutation.isPending}>
+                         {createOrderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Confirmar y Crear Pedido
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 // -- Shipping Map Modal ---

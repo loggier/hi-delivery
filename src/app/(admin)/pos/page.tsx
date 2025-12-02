@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React from 'react';
@@ -11,9 +9,10 @@ import {
     ProductGrid,
     OrderCart,
     ShippingMapModal,
-    CustomerFormModal
+    CustomerFormModal,
+    OrderConfirmationDialog
 } from './components';
-import { type Customer, type Product, type Business, type CustomerAddress, OrderItem } from '@/types';
+import { type Customer, type Product, type Business, type CustomerAddress, OrderItem, OrderPayload } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,6 +37,8 @@ export default function POSPage() {
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
+    const [isConfirmationOpen, setIsConfirmationOpen] = React.useState(false);
+
 
     const { isLoaded } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -89,7 +90,7 @@ export default function POSPage() {
             const existingItem = prevItems.find((item) => item.id === product.id);
             if (existingItem) {
                 return prevItems.map((item) =>
-                    item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+                    item.id === product.id ? { ...item, quantity: item.quantity + quantity, item_description: item.item_description } : item
                 );
             }
             return [...prevItems, { ...product, quantity, item_description: '' }];
@@ -260,7 +261,7 @@ export default function POSPage() {
                     business={selectedBusiness}
                     address={selectedAddress}
                     isMapsLoaded={isLoaded}
-                    onOrderCreated={resetOrder}
+                    onConfirmOrder={() => setIsConfirmationOpen(true)}
                 />
             </div>
 
@@ -286,6 +287,19 @@ export default function POSPage() {
                 business={selectedBusiness}
                 address={selectedAddress}
                 isMapsLoaded={isLoaded}
+            />
+
+            <OrderConfirmationDialog
+                isOpen={isConfirmationOpen}
+                onClose={() => setIsConfirmationOpen(false)}
+                onOrderCreated={resetOrder}
+                order={{
+                    items: orderItems,
+                    customer: selectedCustomer,
+                    business: selectedBusiness,
+                    address: selectedAddress,
+                    note: orderNote,
+                }}
             />
         </div>
     );
