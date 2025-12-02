@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +16,7 @@ const entityTranslations: { [key: string]: string } = {
     "users": "Usuario",
     "zones": "Zona",
     "customers": "Cliente",
-    "customer-addresses": "Dirección de Cliente",
+    "customer_addresses": "Dirección de Cliente",
     "roles": "Rol",
     "plans": "Plan",
     "payments": "Pago",
@@ -83,7 +84,7 @@ function createCRUDApi<T extends { id: string }>(
       onSuccess: (data: any) => {
         queryClient.invalidateQueries({ queryKey: entityKey });
         if (data.customer_id) {
-            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: data.customer_id }] });
+            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: data.customer_id }] });
         }
         toast({
           title: "Éxito",
@@ -174,7 +175,7 @@ function createCRUDApi<T extends { id: string }>(
         queryClient.invalidateQueries({ queryKey: entityKey });
         queryClient.setQueryData([...entityKey, data.id], data);
         if (data.customer_id) {
-            queryClient.invalidateQueries({ queryKey: ['customer-addresses', { customer_id: data.customer_id }] });
+            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: data.customer_id }] });
         }
         toast({
           title: "Éxito",
@@ -263,7 +264,7 @@ export const api = {
     users: createCRUDApi<User>('users'),
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
-    "customer-addresses": createCRUDApi<CustomerAddress>('customer-addresses'),
+    "customer-addresses": createCRUDApi<CustomerAddress>('customer_addresses'),
     orders: createCRUDApi<Order>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
@@ -305,6 +306,20 @@ export const useDashboardStats = () => useQuery<{
         return res.json();
     }
 });
+
+export const useCustomerOrders = (customerId: string) => {
+    return useQuery<Order[]>({
+        queryKey: ['customerOrders', customerId],
+        queryFn: async () => {
+            const res = await fetch(`/api/mock/customers/${customerId}/orders`);
+            if (!res.ok) {
+                throw new Error('Failed to fetch customer orders');
+            }
+            return res.json();
+        },
+        enabled: !!customerId
+    });
+};
 
 
 // --- Custom Subscription Management Hook ---
