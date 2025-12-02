@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare, Printer } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormField, FormMessage } from '@/components/ui/form';
+import { Form, FormField, FormMessage, FormLabel } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
@@ -23,6 +23,10 @@ import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { useReactToPrint } from 'react-to-print';
+import { Checkbox } from '@/components/ui/checkbox';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const libraries: ('places')[] = ['places'];
 
@@ -187,8 +191,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const methods = useForm<NewCustomerFormValues>({
         resolver: zodResolver(newCustomerSchema),
         defaultValues: {
-            firstName: '',
-            lastName: '',
+            first_name: '',
+            last_name: '',
             phone: '',
             email: ''
         },
@@ -217,8 +221,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
                 <FormProvider {...methods}>
                     <Form {...methods}>
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                             <FormInput name="firstName" label="Nombre(s)" placeholder="Juan"/>
-                             <FormInput name="lastName" label="Apellido(s)" placeholder="Pérez" />
+                             <FormInput name="first_name" label="Nombre(s)" placeholder="Juan"/>
+                             <FormInput name="last_name" label="Apellido(s)" placeholder="Pérez" />
                              <FormInput name="phone" label="Teléfono" type="tel" placeholder="5512345678" />
                              <FormInput name="email" label="Email (Opcional)" type="email" placeholder="juan.perez@email.com"/>
                              <div className="flex justify-end gap-2 pt-4">
@@ -445,7 +449,7 @@ const useShippingCalculation = (business: Business | null, address: CustomerAddr
     const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '');
 
     useEffect(() => {
-        if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude && plan) {
+        if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude && plan && typeof window !== 'undefined') {
             setIsLoading(true);
             setError(null);
             
@@ -623,6 +627,101 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
     )
 }
 
+// --- Order Ticket Component (for printing) ---
+
+interface OrderTicketProps {
+    order: {
+        items: OrderItemType[];
+        customer: Customer;
+        business: Business;
+        address: CustomerAddress;
+        note: string;
+    };
+    shippingInfo: ShippingInfo | null;
+    subtotal: number;
+    total: number;
+    preparationTime: number;
+}
+
+const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order, shippingInfo, subtotal, total, preparationTime }, ref) => {
+    return (
+        <div ref={ref} className="font-mono text-xs text-black p-4 bg-white">
+            <div className="text-center space-y-1">
+                <h3 className="font-bold text-base">{order.business.name}</h3>
+                <p>{order.business.address_line}</p>
+                <p>Tel: {order.business.phone_whatsapp}</p>
+                <p className="text-lg font-bold">PEDIDO</p>
+                <p>{format(new Date(), "'Fecha:' dd/MM/yyyy 'Hora:' HH:mm", { locale: es })}</p>
+            </div>
+            
+            <Separator className="my-2 border-dashed border-black"/>
+            
+            <div>
+                <p><span className="font-bold">Cliente:</span> {order.customer.first_name} {order.customer.last_name}</p>
+                <p><span className="font-bold">Tel:</span> {order.customer.phone}</p>
+                <p><span className="font-bold">Dirección:</span> {order.address.address}</p>
+            </div>
+            
+            <Separator className="my-2 border-dashed border-black"/>
+
+            <table className="w-full">
+                <thead>
+                    <tr>
+                        <th className="text-left">Cant.</th>
+                        <th className="text-left">Producto</th>
+                        <th className="text-right">Precio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {order.items.map(item => (
+                        <React.Fragment key={item.id}>
+                            <tr>
+                                <td>{item.quantity}x</td>
+                                <td>{item.name}</td>
+                                <td className="text-right">{formatCurrency(item.price * item.quantity)}</td>
+                            </tr>
+                            {item.item_description && (
+                                <tr>
+                                    <td colSpan={3} className="text-gray-600 pl-4 text-xs italic">
+                                        - {item.item_description}
+                                    </td>
+                                </tr>
+                            )}
+                        </React.Fragment>
+                    ))}
+                </tbody>
+            </table>
+
+            <Separator className="my-2 border-dashed border-black"/>
+            
+            <div className="space-y-1">
+                <div className="flex justify-between"><span>Subtotal:</span><span>{formatCurrency(subtotal)}</span></div>
+                <div className="flex justify-between"><span>Envío:</span><span>{formatCurrency(shippingInfo?.cost || 0)}</span></div>
+                <div className="flex justify-between font-bold text-sm"><span>TOTAL:</span><span>{formatCurrency(total)}</span></div>
+            </div>
+
+            {order.note && (
+                <>
+                    <Separator className="my-2 border-dashed border-black"/>
+                    <div>
+                        <p className="font-bold">Nota General:</p>
+                        <p>{order.note}</p>
+                    </div>
+                </>
+            )}
+
+            <Separator className="my-2 border-dashed border-black"/>
+
+            <div className="text-center space-y-1">
+                <p>Tiempo de preparación: {preparationTime} min.</p>
+                <p className="font-bold">¡Gracias por su preferencia!</p>
+            </div>
+        </div>
+    );
+});
+OrderTicket.displayName = 'OrderTicket';
+
+
 // --- Order Confirmation Dialog ---
 interface OrderConfirmationDialogProps {
   isOpen: boolean;
@@ -641,6 +740,13 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const { toast } = useToast();
     const createOrderMutation = api.orders.useCreate();
     const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
+    const [shouldPrint, setShouldPrint] = useState(true);
+    const ticketRef = useRef<HTMLDivElement>(null);
+
+    const handlePrint = useReactToPrint({
+        content: () => ticketRef.current,
+        documentTitle: `pedido-${order.customer?.first_name.toLowerCase() || 'cliente'}`
+    });
 
     useEffect(() => {
         if(order.business?.delivery_time_min) {
@@ -675,11 +781,13 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             delivery_fee: shippingInfo.cost,
             order_total: total,
             distance: shippingInfo.distance,
-            // preparation_time: preparationTime, // Add this to your payload if the backend supports it
         };
 
         try {
             await createOrderMutation.mutateAsync(orderData);
+            if (shouldPrint) {
+                handlePrint();
+            }
             onOrderCreated();
             onClose();
         } catch (e) {
@@ -693,74 +801,47 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="text-2xl">Confirmar Pedido</DialogTitle>
-                    <DialogDescription>Revisa los detalles del pedido antes de crearlo.</DialogDescription>
+                    <DialogDescription>Revisa los detalles antes de crear el pedido.</DialogDescription>
                 </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 space-y-6">
-                    {/* Resumen */}
-                    <div className="space-y-4 rounded-lg border p-4">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="font-semibold">{order.business.name}</p>
-                                <p className="text-sm text-muted-foreground">{order.business.address_line}</p>
-                            </div>
-                            <ArrowRight className="h-5 w-5 text-muted-foreground mt-1" />
-                            <div className="text-right">
-                                <p className="font-semibold">{order.customer.first_name} {order.customer.last_name}</p>
-                                <p className="text-sm text-muted-foreground">{order.address.address}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {/* Items */}
-                    <div className="space-y-2">
-                        <h4 className="font-medium">Productos</h4>
-                        {order.items.map(item => (
-                            <div key={item.id} className="flex items-center gap-3 text-sm p-2 rounded-md bg-slate-50 dark:bg-slate-800">
-                                <span className="font-bold">{item.quantity}x</span>
-                                <span className="flex-1">{item.name}</span>
-                                <span className="text-muted-foreground">{formatCurrency(item.price * item.quantity)}</span>
-                                {item.item_description && <p className="text-xs text-blue-500 w-full basis-full mt-1 ml-7 pl-1 border-l-2 border-blue-500">Nota: {item.item_description}</p>}
-                            </div>
-                        ))}
-                    </div>
 
-                    {/* Nota General */}
-                    {order.note && (
-                        <div>
-                             <h4 className="font-medium">Nota General</h4>
-                             <p className="text-sm text-muted-foreground p-2 bg-slate-50 dark:bg-slate-800 rounded-md">{order.note}</p>
-                        </div>
-                    )}
-
-                    {/* Costos */}
-                     <div className="space-y-2 text-base">
-                        <Separator />
-                        <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                        <div className="flex justify-between"><span>Envío</span><span>{formatCurrency(shippingInfo?.cost || 0)}</span></div>
-                        <Separator />
-                        <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{formatCurrency(total)}</span></div>
-                    </div>
-
-                     {/* Tiempo de Preparacion */}
-                     <div className="flex items-center gap-4 rounded-lg border bg-slate-50 p-3">
-                         <label htmlFor="prep-time" className="font-medium">Tiempo de Preparación (min)</label>
-                         <Input 
-                            id="prep-time"
-                            type="number"
-                            className="w-24 h-9"
-                            value={preparationTime}
-                            onChange={(e) => setPreparationTime(Number(e.target.value))}
-                         />
-                     </div>
+                <div className="max-h-[60vh] overflow-y-auto p-1 pr-2">
+                    <OrderTicket
+                        order={order as any}
+                        shippingInfo={shippingInfo}
+                        subtotal={subtotal}
+                        total={total}
+                        preparationTime={preparationTime}
+                        ref={ticketRef}
+                    />
                 </div>
-                <DialogFooter>
-                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleCreateOrder} disabled={createOrderMutation.isPending}>
-                         {createOrderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Confirmar y Crear Pedido
-                    </Button>
+                
+                 {/* Tiempo de Preparacion */}
+                 <div className="flex items-center gap-4 rounded-lg border bg-slate-50 p-3 dark:bg-slate-800">
+                     <Label htmlFor="prep-time" className="font-medium flex-1">Tiempo de Preparación (min)</Label>
+                     <Input 
+                        id="prep-time"
+                        type="number"
+                        className="w-24 h-9"
+                        value={preparationTime}
+                        onChange={(e) => setPreparationTime(Number(e.target.value))}
+                     />
+                 </div>
+                
+                <DialogFooter className="sm:justify-between gap-4">
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="print-ticket" checked={shouldPrint} onCheckedChange={(checked) => setShouldPrint(Boolean(checked))} />
+                        <Label htmlFor="print-ticket">Imprimir ticket</Label>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                        <Button onClick={handleCreateOrder} disabled={createOrderMutation.isPending}>
+                             {createOrderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Confirmar y Crear
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
