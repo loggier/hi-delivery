@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -27,6 +28,7 @@ import { useReactToPrint } from 'react-to-print';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Label } from '@/components/ui/label';
 
 const libraries: ('places')[] = ['places'];
 
@@ -256,8 +258,8 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
         resolver: zodResolver(customerAddressSchema),
     });
     
-    const createAddressMutation = api["customer-addresses"].useCreate();
-    const updateAddressMutation = api["customer-addresses"].useUpdate();
+    const createAddressMutation = api["customer_addresses"].useCreate();
+    const updateAddressMutation = api["customer_addresses"].useUpdate();
 
     useEffect(() => {
         if (addressToEdit) {
