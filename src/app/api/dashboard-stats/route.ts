@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
 
     const defaultResponse = {
         dailyRevenue: 0,
+        dailyRiderEarnings: 0,
         dailyOrders: 0,
         averageTicketToday: 0,
         activeOrders: 0,
@@ -31,8 +33,8 @@ export async function GET(request: Request) {
         topRiders: [],
         topCustomers: [],
     };
-
-    if (!dailyStats || dailyStats.length === 0) {
+    
+    if (!dailyStats || dailyStats.length === 0 || !dailyStats[0]) {
         return NextResponse.json(defaultResponse);
     }
 
@@ -40,6 +42,7 @@ export async function GET(request: Request) {
 
     const responsePayload = {
       dailyRevenue: stats.daily_revenue || 0,
+      dailyRiderEarnings: stats.daily_rider_earnings || 0,
       dailyOrders: stats.daily_orders || 0,
       averageTicketToday: stats.average_ticket_today || 0,
       activeOrders: stats.active_orders || 0,

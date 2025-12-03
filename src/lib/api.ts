@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -254,17 +254,6 @@ const useCreateOrder = () => {
         throw error;
       },
     });
-};
-
-type DashboardStats = {
-  daily_revenue: number;
-  daily_orders: number;
-  average_ticket_today: number;
-  active_orders: number;
-  order_status_summary: { [key: string]: number };
-  top_businesses: { business_id: string; business_name: string; order_count: number }[];
-  top_riders: { rider_id: string; rider_name: string; order_count: number }[];
-  top_customers: { customer_id: string; customer_name: string; order_count: number }[];
 };
 
 const useGetDashboardStats = () => {

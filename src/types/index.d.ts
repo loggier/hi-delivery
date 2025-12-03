@@ -130,6 +130,7 @@ export type Order = {
   subtotal: number;
   delivery_fee: number;
   customer_phone: string;
+  distance: number;
 };
 
 export type BusinessType = "restaurant" | "store" | "service";
@@ -324,3 +325,15 @@ export type SystemSettings = {
     created_at: string;
     updated_at: string;
 }
+
+export type DashboardStats = {
+  dailyRevenue: number;
+  dailyRiderEarnings: number;
+  dailyOrders: number;
+  averageTicketToday: number;
+  activeOrders: number;
+  orderStatusSummary: { [key: string]: number };
+  topBusinesses: { business_id: string; business_name: string; order_count: number }[];
+  topRiders: { rider_id: string; rider_name: string; order_count: number }[];
+  topCustomers: { customer_id: string; customer_name: string; order_count: number }[];
+};
