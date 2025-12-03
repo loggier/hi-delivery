@@ -740,7 +740,6 @@ interface OrderConfirmationDialogProps {
 }
 
 export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order }: OrderConfirmationDialogProps) {
-    const { toast } = useToast();
     const createOrderMutation = api.orders.useCreate();
     const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
     const [shouldPrint, setShouldPrint] = useState(true);
@@ -762,7 +761,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
     const total = subtotal + (shippingInfo?.cost || 0);
 
-    const handleCreateOrder = async () => {
+    const handleCreateOrder = () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
 
         const orderData = {
@@ -792,16 +791,15 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             distance: shippingInfo.distance,
         };
 
-        try {
-            await createOrderMutation.mutateAsync(orderData);
-            if (shouldPrint) {
-                handlePrint();
+        createOrderMutation.mutate(orderData, {
+            onSuccess: () => {
+                if (shouldPrint) {
+                    handlePrint();
+                }
+                onOrderCreated();
+                onClose();
             }
-            onOrderCreated();
-            onClose();
-        } catch (e) {
-            // Error is handled by the mutation hook
-        }
+        });
     };
 
     if (!order.customer || !order.business || !order.address) {
