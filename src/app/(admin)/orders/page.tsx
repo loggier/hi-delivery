@@ -7,13 +7,14 @@ import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table/data-table";
 import { getColumns } from "./columns";
 import { OrderStatusGrid } from '../dashboard/order-status-grid';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, Wallet, Crown, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { TopListCard } from '../dashboard/top-list-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { OrderStatus } from '@/types';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -43,6 +44,12 @@ function KPICardSkeleton() {
     );
 }
 
+const OrderCountBadge = ({ count, isLoading }: { count: number, isLoading: boolean }) => (
+    <Badge className="ml-2" variant={count > 0 ? "default" : "secondary"}>
+        {isLoading ? <div className="h-4 w-4 rounded-full animate-pulse bg-white/50" /> : count}
+    </Badge>
+);
+
 export default function OrdersPage() {
   const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats();
   const { data: orders, isLoading: isLoadingOrders } = api.orders.useGetAll();
@@ -53,9 +60,15 @@ export default function OrdersPage() {
 
   const columns = React.useMemo(() => getColumns(businesses || [], customers || []), [businesses, customers]);
   
-  const pendingOrders = React.useMemo(() => {
-    return orders?.filter(o => o.status === 'pending_acceptance') || [];
-  }, [orders]);
+  const filterOrdersByStatus = (statuses: OrderStatus[]): any[] => {
+    return orders?.filter(o => statuses.includes(o.status)) || [];
+  };
+
+  const pendingOrders = React.useMemo(() => filterOrdersByStatus(['pending_acceptance']), [orders]);
+  const preparingOrders = React.useMemo(() => filterOrdersByStatus(['accepted', 'cooking']), [orders]);
+  const inTransitOrders = React.useMemo(() => filterOrdersByStatus(['out_for_delivery']), [orders]);
+  const historyOrders = React.useMemo(() => filterOrdersByStatus(['delivered', 'cancelled']), [orders]);
+
 
   const topBusinesses = dashboardStats?.topBusinesses?.map(b => ({
       id: b.business_id,
@@ -112,11 +125,17 @@ export default function OrdersPage() {
         <TabsList>
           <TabsTrigger value="pending">
             Pendientes
-            <Badge className="ml-2" variant={pendingOrders.length > 0 ? "default" : "secondary"}>
-              {isLoadingOrders ? <div className="h-4 w-4 rounded-full animate-pulse bg-white/50" /> : pendingOrders.length}
-            </Badge>
+            <OrderCountBadge count={pendingOrders.length} isLoading={isLoadingOrders} />
           </TabsTrigger>
-          <TabsTrigger value="history">Historial Completo</TabsTrigger>
+          <TabsTrigger value="preparing">
+            En Preparación
+            <OrderCountBadge count={preparingOrders.length} isLoading={isLoadingOrders} />
+          </TabsTrigger>
+          <TabsTrigger value="in_transit">
+            En Camino
+            <OrderCountBadge count={inTransitOrders.length} isLoading={isLoadingOrders} />
+          </TabsTrigger>
+          <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
         <TabsContent value="pending">
            <DataTable
@@ -126,10 +145,26 @@ export default function OrdersPage() {
             searchKey="id"
           />
         </TabsContent>
+        <TabsContent value="preparing">
+           <DataTable
+            columns={columns}
+            data={preparingOrders}
+            isLoading={isLoading}
+            searchKey="id"
+          />
+        </TabsContent>
+        <TabsContent value="in_transit">
+           <DataTable
+            columns={columns}
+            data={inTransitOrders}
+            isLoading={isLoading}
+            searchKey="id"
+          />
+        </TabsContent>
         <TabsContent value="history">
            <DataTable
             columns={columns}
-            data={orders || []}
+            data={historyOrders}
             isLoading={isLoading}
             searchKey="id"
           />
