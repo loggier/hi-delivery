@@ -11,7 +11,6 @@ import {
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
-import { OrderStatusGrid } from "./order-status-grid";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -136,8 +135,6 @@ export default function DashboardPage() {
             </>
         ) : null}
       </div>
-
-      <OrderStatusGrid data={data?.order_status_summary} isLoading={isLoading} />
       
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 items-start">
          <TopListCard 
