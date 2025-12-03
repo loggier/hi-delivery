@@ -25,7 +25,6 @@ import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { useReactToPrint } from 'react-to-print';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -648,7 +647,7 @@ interface OrderTicketProps {
 
 const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order, shippingInfo, subtotal, total, preparationTime }, ref) => {
     return (
-        <div ref={ref} className="font-mono text-xs text-black p-4 bg-white">
+        <div ref={ref} className="font-mono text-xs text-black p-4 bg-white" id="ticket-content">
             <div className="text-center space-y-1">
                 <h3 className="font-bold text-base">{order.business.name}</h3>
                 <p>{order.business.address_line}</p>
@@ -758,7 +757,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const handleCreateOrder = async () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
 
-        const orderData = {
+        const orderPayload = {
             business_id: order.business.id,
             customer_id: order.customer.id,
             status: 'pending_acceptance' as const,
@@ -785,14 +784,13 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             distance: shippingInfo.distance,
         };
 
-        createOrderMutation.mutate(orderData, {
+        createOrderMutation.mutate(orderPayload, {
             onSuccess: () => {
                 onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
                 onClose();
             },
             onError: (error) => {
                 // The global error handler in useCreate already shows a toast.
-                // We just need to make sure the loading state stops.
                 console.error("Mutation failed:", error);
             }
         });
@@ -902,26 +900,61 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 interface OrderTicketDialogProps extends OrderTicketProps {
     isOpen: boolean;
     onClose: () => void;
-    shouldPrint: boolean;
 }
 
-export function OrderTicketDialog({ isOpen, onClose, shouldPrint, ...props }: OrderTicketDialogProps) {
+export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDialogProps) {
     const ticketRef = useRef<HTMLDivElement>(null);
-    const handlePrint = useReactToPrint({
-        content: () => ticketRef.current,
-        documentTitle: `pedido-HiDelivery`,
-    });
 
-    useEffect(() => {
-        if (isOpen && shouldPrint) {
-            // This automatic printing is causing issues. Let's disable it for now.
-            // The user can click the button manually.
-            // const timer = setTimeout(() => {
-            //     handlePrint();
-            // }, 500);
-            // return () => clearTimeout(timer);
+    const handlePrint = () => {
+        const node = ticketRef.current;
+        if (!node) return;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert("Por favor, permite las ventanas emergentes para imprimir el ticket.");
+            return;
         }
-    }, [isOpen, shouldPrint, handlePrint]);
+
+        const printDocument = printWindow.document;
+        printDocument.write(`
+            <html>
+                <head>
+                    <title>Imprimir Ticket</title>
+                    <style>
+                        @media print {
+                            body * {
+                                visibility: hidden;
+                            }
+                            #print-section, #print-section * {
+                                visibility: visible;
+                            }
+                            #print-section {
+                                position: absolute;
+                                left: 0;
+                                top: 0;
+                                width: 100%;
+                            }
+                        }
+                        #ticket-content { font-family: monospace; font-size: 12px; color: black; background: white; padding: 1rem; }
+                        #ticket-content h3 { font-weight: bold; font-size: 1rem; }
+                        #ticket-content p { margin: 2px 0; }
+                        #ticket-content table { width: 100%; border-collapse: collapse; }
+                        #ticket-content th, #ticket-content td { padding: 2px 0; }
+                        #ticket-content hr { border: none; border-top: 1px dashed black; margin: 0.5rem 0; }
+                    </style>
+                </head>
+                <body>
+                    <div id="print-section">
+                        ${node.innerHTML}
+                    </div>
+                </body>
+            </html>
+        `);
+        printDocument.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1036,3 +1069,6 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
+
+
+    

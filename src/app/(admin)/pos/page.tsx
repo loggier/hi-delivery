@@ -322,9 +322,10 @@ export default function POSPage() {
                     subtotal={orderForTicket.subtotal}
                     total={orderForTicket.total}
                     preparationTime={orderForTicket.preparationTime}
-                    shouldPrint={orderForTicket.shouldPrint}
                 />
             )}
         </div>
     );
 }
+
+    
