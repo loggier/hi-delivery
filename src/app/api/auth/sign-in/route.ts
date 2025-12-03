@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -68,16 +69,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Credenciales inválidas.' }, { status: 401 });
     }
 
-    // Fetch complete user profile to send to client, excluding password
+    // Fetch complete user profile with role and permissions
     const { data: fullUser, error: fullUserError } = await supabaseAdmin
       .from('users')
-      .select('id, name, email, avatar_url, role_id, status, created_at')
+      .select('*, role:roles(*, role_permissions(*))')
       .eq('id', user.id)
       .single();
     
     if(fullUserError || !fullUser) {
         return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.' }, { status: 500 });
     }
+    
+    // Remove password from the returned user object
+    delete (fullUser as any).password;
 
     return NextResponse.json({ message: 'Inicio de sesión exitoso', user: fullUser as User }, { status: 200 });
 

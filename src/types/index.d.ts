@@ -1,6 +1,7 @@
 
 
 
+
 export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 export type OrderItem = {
@@ -102,6 +103,7 @@ export type User = {
   role_id: string;
   status: "ACTIVE" | "INACTIVE";
   created_at: string;
+  role?: Role;
 };
 
 export type CustomerAddress = {

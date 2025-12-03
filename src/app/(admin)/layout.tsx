@@ -1,5 +1,6 @@
+
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from "next/link";
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -13,7 +14,7 @@ import {
   Bike,
   Tags,
   Settings,
-  Map,
+  Map as MapIcon,
   ShoppingBag,
   List,
   Contact,
@@ -38,25 +39,34 @@ import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
 import { Breadcrumb } from '@/components/breadcrumb';
 import { useAuthStore } from '@/store/auth-store';
+import { RolePermission } from '@/types';
 
-const navItems = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
-    { href: "/pos", icon: ShoppingCart, label: "Punto de Venta" },
-    { href: "/shipping", icon: Send, label: "Envíos" },
-    { href: "/orders", icon: ClipboardList, label: "Pedidos" },
-    { href: "/businesses", icon: Building2, label: "Negocios" },
-    { href: "/riders", icon: Bike, label: "Repartidores" },
-    { href: "/customers", icon: Contact, label: "Clientes" },
-    { href: "/zones", icon: Map, label: "Zonas" },
-    { href: "/subscriptions", icon: Tags, label: "Suscripciones" },
-    { href: "/products", icon: Package, label: "Productos" },
-    { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios" },
-    { href: "/product-categories", icon: List, label: "Cat. de Productos" },
-    { href: "/plans", icon: Tags, label: "Planes" },
-    { href: "/users", icon: Users, label: "Usuarios" },
-    { href: "/roles", icon: Shield, label: "Roles y Permisos" },
-    { href: "/modules", icon: Box, label: "Módulos" },
-    { href: "/settings", icon: Settings, label: "Configuración" },
+type NavItem = {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  module_id: string; // The ID from the 'modules' table this nav item corresponds to
+};
+
+
+const allNavItems: NavItem[] = [
+    { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control", module_id: "dashboard" },
+    { href: "/pos", icon: ShoppingCart, label: "Punto de Venta", module_id: "pos" },
+    { href: "/shipping", icon: Send, label: "Envíos", module_id: "shipping" },
+    { href: "/orders", icon: ClipboardList, label: "Pedidos", module_id: "orders" },
+    { href: "/businesses", icon: Building2, label: "Negocios", module_id: "businesses" },
+    { href: "/riders", icon: Bike, label: "Repartidores", module_id: "riders" },
+    { href: "/customers", icon: Contact, label: "Clientes", module_id: "customers" },
+    { href: "/zones", icon: MapIcon, label: "Zonas", module_id: "zones" },
+    { href: "/subscriptions", icon: Tags, label: "Suscripciones", module_id: "subscriptions" },
+    { href: "/products", icon: Package, label: "Productos", module_id: "products" },
+    { href: "/business-categories", icon: ShoppingBag, label: "Cat. de Negocios", module_id: "business-categories" },
+    { href: "/product-categories", icon: List, label: "Cat. de Productos", module_id: "product-categories" },
+    { href: "/plans", icon: Tags, label: "Planes", module_id: "plans" },
+    { href: "/users", icon: Users, label: "Usuarios", module_id: "users" },
+    { href: "/roles", icon: Shield, label: "Roles y Permisos", module_id: "roles" },
+    { href: "/modules", icon: Box, label: "Módulos", module_id: "modules" },
+    { href: "/settings", icon: Settings, label: "Configuración", module_id: "settings" },
 ];
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Hi Delivery Admin";
@@ -68,10 +78,30 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const userPermissions = useMemo(() => {
+    const permissionsMap = new Map<string, RolePermission>();
+    user?.role?.role_permissions?.forEach(p => {
+      permissionsMap.set(p.module_id, p);
+    });
+    return permissionsMap;
+  }, [user]);
+
+  const navItems = useMemo(() => {
+    // Super-admin (rol 'role-admin') ve todo
+    if (user?.role_id === 'role-admin') {
+      return allNavItems;
+    }
+    return allNavItems.filter(item => {
+      const permission = userPermissions.get(item.module_id);
+      return permission?.can_read;
+    });
+  }, [userPermissions, user?.role_id]);
+
 
   useEffect(() => {
     // Si la carga ha terminado y el usuario no está autenticado, redirigir al login.
