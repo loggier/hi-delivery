@@ -31,18 +31,20 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ message: "Datos proporcionados no válidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
-    // Desestructuramos para separar los campos de contraseña.
+    // Desestructuramos para separar los campos de contraseña y el resto.
     const { password, passwordConfirmation, ...updateData } = parsed.data;
     
+    // Creamos un objeto para la actualización final.
+    const finalUpdateData: Record<string, any> = updateData;
+
     // Si se proporcionó una nueva contraseña, la hasheamos y la añadimos a los datos a actualizar.
     if (password) {
-        (updateData as any).password = await hashPassword(password);
+        finalUpdateData.password = await hashPassword(password);
     }
     
-    // 'updateData' ahora contiene solo los campos que existen en la tabla 'users'.
     const { data, error } = await supabaseAdmin
       .from('users')
-      .update(updateData)
+      .update(finalUpdateData)
       .eq('id', params.id)
       .select()
       .single();
