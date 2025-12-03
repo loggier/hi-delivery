@@ -20,7 +20,7 @@ export default function OrdersPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Pedidos" description="Gestiona todos los pedidos de la plataforma." />
-      <OrderStatusGrid data={dashboardStats?.order_status_summary} isLoading={isLoadingStats} />
+      <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
       <DataTable
         columns={columns}
         data={orders || []}

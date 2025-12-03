@@ -95,21 +95,21 @@ function TopListCard({ title, data, icon: Icon, emptyText, isLoading }: { title:
 export default function DashboardPage() {
   const { data, isLoading } = api.dashboard.useGetStats();
 
-  const topBusinesses = data?.top_businesses?.map(b => ({
+  const topBusinesses = data?.topBusinesses?.map(b => ({
       id: b.business_id,
       name: b.business_name,
       count: b.order_count,
       href: `/businesses/${b.business_id}`
   }));
   
-  const topRiders = data?.top_riders?.map(r => ({
+  const topRiders = data?.topRiders?.map(r => ({
       id: r.rider_id,
       name: r.rider_name,
       count: r.order_count,
       href: `/riders/${r.rider_id}`
   }));
 
-  const topCustomers = data?.top_customers?.map(c => ({
+  const topCustomers = data?.topCustomers?.map(c => ({
       id: c.customer_id,
       name: c.customer_name,
       count: c.order_count,
@@ -128,10 +128,10 @@ export default function DashboardPage() {
             </>
         ) : data ? (
             <>
-                <KPICard title="Ingresos del Día" value={formatCurrency(data.daily_revenue)} icon={DollarSign} description="Total de ventas de hoy" />
-                <KPICard title="Pedidos del Día" value={data.daily_orders} icon={ShoppingCart} description="Total de órdenes hoy" />
-                <KPICard title="Ticket Promedio (Hoy)" value={formatCurrency(data.average_ticket_today)} icon={TrendingUp} description="Valor promedio por orden" />
-                <KPICard title="Pedidos Activos" value={data.active_orders} icon={Activity} description="En preparación o en camino" />
+                <KPICard title="Ingresos del Día" value={formatCurrency(data.dailyRevenue)} icon={DollarSign} description="Total de ventas de hoy" />
+                <KPICard title="Pedidos del Día" value={data.dailyOrders} icon={ShoppingCart} description="Total de órdenes hoy" />
+                <KPICard title="Ticket Promedio (Hoy)" value={formatCurrency(data.averageTicketToday)} icon={TrendingUp} description="Valor promedio por orden" />
+                <KPICard title="Pedidos Activos" value={data.activeOrders} icon={Activity} description="En preparación o en camino" />
             </>
         ) : null}
       </div>
