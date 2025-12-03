@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -64,17 +65,13 @@ export function UserForm({ initialData }: UserFormProps) {
   });
 
   const onSubmit = async (data: UserFormValues) => {
-    try {
-      if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ ...data, id: initialData.id });
-      } else {
-        await createMutation.mutateAsync(data);
-      }
-      router.push("/users");
-      router.refresh();
-    } catch (error) {
-      console.error("No se pudo guardar el usuario", error);
+    if (isEditing && initialData) {
+      await updateMutation.mutateAsync({ ...data, id: initialData.id });
+    } else {
+      await createMutation.mutateAsync(data);
     }
+    router.push("/users");
+    router.refresh();
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -121,7 +118,7 @@ export function UserForm({ initialData }: UserFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Rol</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending || isLoadingRoles}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isPending || isLoadingRoles}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona un rol" />
