@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect } from "react";
@@ -30,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 
 const settingsSchema = z.object({
+  id: z.number().optional(),
   min_shipping_amount: z.coerce
     .number()
     .min(0, "Debe ser un valor positivo"),
@@ -103,7 +105,7 @@ export default function SettingsPage() {
   }, [currentSettings, form]);
 
   const onSubmit = (data: SettingsFormValues) => {
-    updateMutation.mutate(data);
+    updateMutation.mutate({ ...data, id: currentSettings!.id });
   };
 
   const isPending = form.formState.isSubmitting || updateMutation.isPending;

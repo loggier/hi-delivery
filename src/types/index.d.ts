@@ -2,6 +2,7 @@
 
 
 
+
 export type OrderItem = Product & {
   quantity: number;
   item_description: string;
@@ -72,6 +73,7 @@ export type Permissions = {
   modulo: boolean;
   paquete: boolean;
   puntoDeVenta: boolean;
+
   unidad: boolean;
   suscripcion: boolean;
 };

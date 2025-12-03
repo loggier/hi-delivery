@@ -9,7 +9,7 @@ import { createClient } from "./supabase/client";
 const entityTranslations: { [key: string]: string } = {
     "products": "Producto",
     "product_categories": "Categoría de Producto",
-    "business-categories": "Categoría de Negocio",
+    "business_categories": "Categoría de Negocio",
     "businesses": "Negocio",
     "riders": "Repartidor",
     "users": "Usuario",
@@ -24,7 +24,7 @@ const entityTranslations: { [key: string]: string } = {
 }
 
 // --- Generic CRUD Hooks for Supabase ---
-function createCRUDApi<T extends { id: string }>(
+function createCRUDApi<T extends { id: string | number }>(
   entity: keyof typeof entityTranslations,
   select: string = '*'
 ) {
@@ -68,6 +68,19 @@ function createCRUDApi<T extends { id: string }>(
         enabled: !!id,
     });
   }
+  
+    // GET settings (special case for single row table)
+  const useGetSettings = () => {
+    return useQuery<T>({
+      queryKey: [entity],
+      queryFn: async () => {
+        const { data, error } = await supabase.from(entity).select('*').limit(1).single();
+        if (error) throw error;
+        return data as T;
+      },
+    });
+  };
+
 
   // CREATE
   const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
@@ -163,7 +176,7 @@ function createCRUDApi<T extends { id: string }>(
   const useUpdate = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
-    return useMutation<T, Error, Partial<T> & { id: string }>({
+    return useMutation<T, Error, Partial<T> & { id: string | number }>({
       mutationFn: async (item) => {
         const { id, ...updateData } = item;
         const { data, error } = await supabase.from(entity).update(updateData).eq('id', id).select().single();
@@ -210,53 +223,15 @@ function createCRUDApi<T extends { id: string }>(
     });
   };
   
-  return { useGetAll, useGetOne, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
+  return { useGetAll, useGetOne, useGetSettings, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
-function createSettingsApi() {
-    const entity = 'system_settings';
-    const supabase = createClient();
-
-    const useGet = () => {
-        return useQuery<SystemSettings>({
-            queryKey: [entity],
-            queryFn: async () => {
-                const { data, error } = await supabase.from(entity).select('*').limit(1).single();
-                if (error) throw error;
-                return data;
-            },
-        });
-    };
-
-    const useUpdate = () => {
-        const queryClient = useQueryClient();
-        const { toast } = useToast();
-        return useMutation<SystemSettings, Error, Partial<SystemSettings>>({
-            mutationFn: async (settings) => {
-                const { data: existing, error: fetchError } = await supabase.from(entity).select('id').limit(1).single();
-                if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
-                
-                const { data, error } = await supabase.from(entity).update(settings).eq('id', existing.id).select().single();
-                if (error) throw error;
-                return data;
-            },
-            onSuccess: (data) => {
-                queryClient.setQueryData([entity], data);
-                toast({ title: "Éxito", description: `Configuración actualizada.`, variant: 'success' });
-            },
-            onError: (error) => {
-                toast({ variant: "destructive", title: "Error", description: error.message });
-            },
-        });
-    };
-    return { useGet, useUpdate };
-}
-
+const settingsApi = createCRUDApi<SystemSettings>('system_settings');
 
 // --- API Hooks ---
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
-    "business-categories": createCRUDApi<BusinessCategory>('business-categories'),
+    business_categories: createCRUDApi<BusinessCategory>('business_categories'),
     businesses: createCRUDApi<Business>('businesses'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
@@ -264,11 +239,14 @@ export const api = {
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: createCRUDApi<Order>('orders'),
+    orders: createCRUDApi<Order, OrderPayload>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
-    settings: createSettingsApi(),
+    settings: {
+        useGet: settingsApi.useGetSettings,
+        useUpdate: settingsApi.useUpdate,
+    },
 };
 
 type RevenueData = { date: string; ingresos: number };
@@ -379,5 +357,3 @@ export const useManageSubscription = () => {
         }
     });
 };
-
-    
