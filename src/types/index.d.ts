@@ -1,13 +1,13 @@
 
 
-
-
-
-
-
 export type OrderItem = Product & {
+  id: string;
+  order_id: string;
+  product_id: string;
   quantity: number;
+  price: number;
   item_description: string;
+  product: { name: string };
 };
 
 export type OrderPayload = {
@@ -115,12 +115,21 @@ export type Customer = {
 export type Order = {
   id: string;
   customer_id: string;
+  customer_name: string;
   business_id: string;
-  rider_id: string;
-  productCount: number;
-  total: number;
-  status: 'DELIVERED' | 'CANCELLED' | 'PENDING';
+  rider_id?: string;
+  order_total: number;
+  status: string;
   created_at: string;
+  business: { name: string };
+  customer: { first_name: string, last_name: string };
+  rider?: { first_name: string, last_name: string };
+  delivery_address: { text: string };
+  pickup_address: { text: string };
+  items_description?: string;
+  subtotal: number;
+  delivery_fee: number;
+  customer_phone: string;
 };
 
 export type BusinessType = "restaurant" | "store" | "service";

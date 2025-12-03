@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload, OrderItem } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -22,6 +22,7 @@ const entityTranslations: { [key: string]: string } = {
     "payments": "Pago",
     "system_settings": "Configuración",
     "orders": "Pedido",
+    "dashboard-stats": "Estadísticas del Panel",
 }
 
 // --- Generic CRUD Hooks for Supabase ---
@@ -38,7 +39,7 @@ function createCRUDApi<T extends { id: string | number }>(
     return useQuery<T[]>({
       queryKey: [entity, filters],
       queryFn: async () => {
-        let query = supabase.from(entity).select(select);
+        let query = supabase.from(entity).select(select).order('created_at', { ascending: false });;
         for (const key in filters) {
             if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
                 if (key.includes('search')) {
@@ -244,12 +245,7 @@ const useCreateOrder = () => {
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['orders'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-        toast({
-          title: "Éxito",
-          description: "Pedido creado exitosamente.",
-          variant: 'success'
-        });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       },
       onError: (error) => {
         toast({
@@ -262,41 +258,52 @@ const useCreateOrder = () => {
     });
 };
 
+type DashboardStats = {
+    activeBusinesses: number;
+    activeRiders: number;
+    totalRevenue: number;
+    totalOrders: number;
+    orderStatusSummary: { [key: string]: number };
+    revenueData: { date: string; ingresos: number }[];
+    ordersData: { date: string; pedidos: number }[];
+    latestChanges: (Business | Rider)[];
+};
+
+const useGetDashboardStats = () => {
+    return useQuery<DashboardStats>({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => {
+            const res = await fetch(`/api/dashboard-stats`);
+            if (!res.ok) throw new Error('Failed to fetch dashboard stats');
+            return res.json();
+        }
+    });
+};
+
 
 // --- API Hooks ---
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
     business_categories: createCRUDApi<BusinessCategory>('business_categories'),
-    businesses: createCRUDApi<Business>('businesses'),
+    businesses: createCRUDApi<Business>('businesses', '*,plan:plans(name),zone:zones(name)'),
     products: createCRUDApi<Product>('products'),
     riders: createCRUDApi<Rider>('riders'),
     users: createCRUDApi<User>('users'),
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: { ...createCRUDApi<Order>('orders'), useCreate: useCreateOrder },
+    orders: { ...createCRUDApi<Order>('orders', '*,business:businesses(name),customer:customers(first_name,last_name)'), useCreate: useCreateOrder },
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
+    dashboard: {
+      useGetStats: useGetDashboardStats
+    },
     settings: {
         useGet: createCRUDApi<SystemSettings>('system_settings').useGetSettings,
         useUpdate: createCRUDApi<SystemSettings>('system_settings').useUpdate,
     },
 };
-
-type RevenueData = { date: string; ingresos: number };
-type OrdersData = { date: string; pedidos: number };
-type OrderStatusSummary = {
-    unassigned: number;
-    accepted: number;
-    cooking: number;
-    outForDelivery: number;
-    delivered: number;
-    cancelled: number;
-    refunded: number;
-    failed: number;
-};
-
 
 // --- Dashboard Stats (Still uses Mock) ---
 export const useDashboardStats = () => useQuery<{
@@ -305,9 +312,9 @@ export const useDashboardStats = () => useQuery<{
     totalProducts: number;
     totalCategories: number;
     latestChanges: (Category | Business | Product | Rider)[];
-    revenueData: RevenueData[];
-    ordersData: OrdersData[];
-    orderStatusSummary: OrderStatusSummary;
+    revenueData: { date: string; ingresos: number }[];
+    ordersData: { date: string; pedidos: number }[];
+    orderStatusSummary: any;
     totalRevenue: number;
     totalOrders: number;
 }>({
@@ -392,4 +399,3 @@ export const useManageSubscription = () => {
         }
     });
 };
-

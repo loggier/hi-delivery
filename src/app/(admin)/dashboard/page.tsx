@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useDashboardStats } from "@/lib/api";
+import { api, useDashboardStats } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -92,7 +92,7 @@ function getEntityDate(item: any): string | null {
 
 
 export default function DashboardPage() {
-  const { data, isLoading } = useDashboardStats();
+  const { data, isLoading } = api.dashboard.useGetStats();
 
   return (
     <>

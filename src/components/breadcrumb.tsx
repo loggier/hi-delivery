@@ -25,6 +25,7 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   new: 'Nuevo',
   pos: 'Punto de Venta',
   shipping: 'Envíos',
+  orders: 'Pedidos',
 };
 
 
