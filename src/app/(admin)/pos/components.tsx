@@ -426,7 +426,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
                      {Array.from({length: 5}).map((_, i) => <Card key={i} className="h-64"><CardContent className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></CardContent></Card>)}
                 </div>
             ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="max-h-[60vh] overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-1">
                     {filteredProducts.map(p => (
                         <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
                     ))}
@@ -519,7 +519,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <Card className="lg:sticky top-6">
+        <Card>
             <CardHeader>
                 <CardTitle className="text-xl">4. Resumen del Pedido</CardTitle>
             </CardHeader>

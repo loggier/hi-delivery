@@ -3,7 +3,7 @@
 "use client";
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
     CustomerSearch, 
     AddressFormModal,
@@ -53,26 +53,26 @@ export default function POSPage() {
         libraries,
     });
     
-    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({
+    const { data: businessesData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({
       status: 'ACTIVE',
       id: isBusinessOwner ? user?.business_id : undefined,
     });
+
+    const businesses = businessesData || [];
+    
+    // Set business automatically if owner and data is loaded
+    React.useEffect(() => {
+        if (isBusinessOwner && businesses.length > 0 && !selectedBusiness) {
+            setSelectedBusiness(businesses[0]);
+            setIsBusinessOpen(false);
+            setIsCustomerOpen(true);
+        }
+    }, [isBusinessOwner, businesses, selectedBusiness]);
 
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
-    React.useEffect(() => {
-      if (isBusinessOwner && businesses && businesses.length > 0) {
-        if(!selectedBusiness) {
-          setSelectedBusiness(businesses[0]);
-          setIsBusinessOpen(false);
-          setIsCustomerOpen(true);
-        }
-      }
-    }, [isBusinessOwner, businesses, selectedBusiness]);
-
-
     const resetOrder = () => {
         if (!isBusinessOwner) {
             setSelectedBusiness(null);
@@ -164,7 +164,7 @@ export default function POSPage() {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start text-base">
             {/* Main Content Column */}
-            <div className="col-span-1 lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6">
                 
                 {/* Step 1: Business Selection (Collapsible) */}
                  <Card>
@@ -290,19 +290,21 @@ export default function POSPage() {
             </div>
 
             {/* Order Summary Column */}
-            <div className="col-span-1">
-                <OrderCart 
-                    items={orderItems}
-                    onUpdateQuantity={updateQuantity}
-                    onUpdateItemNote={updateItemNote}
-                    orderNote={orderNote}
-                    onOrderNoteChange={setOrderNote}
-                    customer={selectedCustomer}
-                    business={selectedBusiness}
-                    address={selectedAddress}
-                    isMapsLoaded={isLoaded}
-                    onConfirmOrder={() => setIsConfirmationOpen(true)}
-                />
+            <div className="lg:col-span-1">
+                <div className="lg:sticky top-6">
+                    <OrderCart 
+                        items={orderItems}
+                        onUpdateQuantity={updateQuantity}
+                        onUpdateItemNote={updateItemNote}
+                        orderNote={orderNote}
+                        onOrderNoteChange={setOrderNote}
+                        customer={selectedCustomer}
+                        business={selectedBusiness}
+                        address={selectedAddress}
+                        isMapsLoaded={isLoaded}
+                        onConfirmOrder={() => setIsConfirmationOpen(true)}
+                    />
+                </div>
             </div>
 
             {/* Modals */}
@@ -356,7 +358,3 @@ export default function POSPage() {
         </div>
     );
 }
-
-    
-
-    
