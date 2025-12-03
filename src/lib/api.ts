@@ -286,7 +286,8 @@ const useUpdateUser = () => {
             });
             const result = await response.json();
             if (!response.ok) {
-                throw new Error(result.message || "Error al actualizar el usuario.");
+                const errorPayload = result.errors ? `${result.message} Detalles: ${JSON.stringify(result.errors)}` : result.message;
+                throw new Error(errorPayload || "Error al actualizar el usuario.");
             }
             return result;
         },
