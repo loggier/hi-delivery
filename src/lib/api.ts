@@ -268,6 +268,12 @@ const useGetDashboardStats = () => {
     });
 };
 
+const orderSelect = `*,
+  business:businesses(name),
+  customer:customers(first_name,last_name),
+  rider:riders(id,first_name,last_name),
+  order_items:order_items(*, products:products(name))
+`;
 
 // --- API Hooks ---
 export const api = {
@@ -280,8 +286,8 @@ export const api = {
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: { ...createCRUDApi<Order>('orders', '*,business:businesses(name),customer:customers(first_name,last_name),rider:riders(id,first_name,last_name)'), useCreate: useCreateOrder },
-    order_items: createCRUDApi<OrderItem>('order_items', '*, product:products(name)'),
+    orders: { ...createCRUDApi<Order>('orders', orderSelect), useCreate: useCreateOrder },
+    order_items: createCRUDApi<OrderItem>('order_items', '*, products:products(name)'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),

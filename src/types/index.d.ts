@@ -2,14 +2,14 @@
 
 export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
-export type OrderItem = Product & {
+export type OrderItem = {
   id: string;
   order_id: string;
   product_id: string;
   quantity: number;
   price: number;
   item_description: string;
-  product: { name: string };
+  products: { name: string };
 };
 
 export type OrderPayload = {
@@ -133,6 +133,7 @@ export type Order = {
   delivery_fee: number;
   customer_phone: string;
   distance: number;
+  order_items: OrderItem[];
 };
 
 export type BusinessType = "restaurant" | "store" | "service";

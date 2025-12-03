@@ -101,12 +101,9 @@ export default function ViewOrderPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   
-  const { data: order, isLoading: isLoadingOrder, isError } = api.orders.useGetOne(id);
-  const { data: orderItems, isLoading: isLoadingItems } = api.order_items.useGetAll({ order_id: id });
+  const { data: order, isLoading, isError } = api.orders.useGetOne(id);
   const updateStatusMutation = api.orders.useUpdate();
   const [ConfirmationDialog, confirm] = useConfirm();
-
-  const isLoading = isLoadingOrder || isLoadingItems;
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
     if (!order) return;
@@ -193,9 +190,9 @@ export default function ViewOrderPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {orderItems?.map(item => (
+                            {order.order_items?.map((item: any) => (
                                 <TableRow key={item.id}>
-                                    <TableCell className="font-medium">{item.product.name}</TableCell>
+                                    <TableCell className="font-medium">{item.products.name}</TableCell>
                                     <TableCell className="text-center">{item.quantity}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
                                     <TableCell className="text-right font-medium">{formatCurrency(item.price * item.quantity)}</TableCell>
