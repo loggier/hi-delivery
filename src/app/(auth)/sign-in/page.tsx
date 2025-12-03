@@ -29,13 +29,12 @@ import { signInSchema } from "@/lib/schemas";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { User } from "@/types";
-import placeholderImages from "@/lib/placeholder-images.json";
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 export default function SignInPage() {
   const router = useRouter();
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading: isAuthLoading } = useAuthStore();
   const { toast } = useToast();
 
   const form = useForm<SignInFormValues>({
@@ -47,32 +46,44 @@ export default function SignInPage() {
   });
 
   async function onSubmit(data: SignInFormValues) {
-    const mockUser: User = {
-      id: 'user-admin-mock',
-      name: 'Admin',
-      email: data.email,
-      created_at: new Date().toISOString(),
-      role_id: 'role-admin',
-      status: 'ACTIVE',
-      avatar_url: 'https://i.pravatar.cc/150?u=admin-mock'
-    };
-    
-    login(mockUser);
-    
-    toast({
-      title: "Inicio de Sesión Exitoso",
-      description: `¡Bienvenido de nuevo, ${mockUser.name}!`,
-      variant: 'success'
-    });
-    
-    router.push("/dashboard");
-    router.refresh();
+    try {
+      const response = await fetch('/api/auth/sign-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Credenciales inválidas.');
+      }
+
+      login(result.user as User);
+      
+      toast({
+        title: "Inicio de Sesión Exitoso",
+        description: `¡Bienvenido de nuevo, ${result.user.name}!`,
+        variant: 'success'
+      });
+      
+      router.push("/dashboard");
+      router.refresh(); // Ensure layout re-renders with new auth state
+
+    } catch (error) {
+       toast({
+        variant: "destructive",
+        title: "Error de inicio de sesión",
+        description: error instanceof Error ? error.message : "Ocurrió un error inesperado.",
+      });
+    }
   }
 
-  if (isLoading) {
+  if (isAuthLoading) {
      return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
-          <p>Cargando...</p>
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="ml-2">Cargando sesión...</p>
         </div>
      );
   }
@@ -80,11 +91,10 @@ export default function SignInPage() {
   return (
     <div className="relative h-screen w-screen">
       <Image
-        src={placeholderImages.heroRider.src}
+        src="/banner-site-hid.png"
         alt="Fondo de repartidor"
         fill
         className="object-cover"
-        data-ai-hint="delivery city background"
       />
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative z-10 flex h-full w-full items-center justify-center px-4">
@@ -116,6 +126,7 @@ export default function SignInPage() {
                           type="email"
                           placeholder="admin@example.com"
                           {...field}
+                          disabled={form.formState.isSubmitting}
                         />
                       </FormControl>
                       <FormMessage />
@@ -141,6 +152,7 @@ export default function SignInPage() {
                           type="password"
                           placeholder="••••••••"
                           {...field}
+                          disabled={form.formState.isSubmitting}
                         />
                       </FormControl>
                       <FormMessage />
