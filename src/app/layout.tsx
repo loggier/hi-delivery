@@ -3,8 +3,6 @@ import { Mulish } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/toaster";
-import { Header } from "./(site)/_components/header";
-import { Footer } from "./(site)/_components/footer";
 
 const mulish = Mulish({ subsets: ["latin"], variable: "--font-mulish" });
 
@@ -24,11 +22,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={`${mulish.variable} font-sans antialiased`}>
         <Providers>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
+          {children}
           <Toaster />
         </Providers>
       </body>
