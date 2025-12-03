@@ -21,6 +21,7 @@ import {
   ShoppingCart,
   Send,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -35,6 +36,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
 import { Breadcrumb } from '@/components/breadcrumb';
+import { useAuthStore } from '@/store/auth-store';
 
 const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control" },
@@ -62,10 +64,20 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    // Si la carga ha terminado y el usuario no está autenticado, redirigir al login.
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/sign-in');
+    }
+  }, [isLoading, isAuthenticated, router]);
+  
   useEffect(() => {
     if (pathname === '/pos' || pathname === '/shipping') {
       setSidebarCollapsed(true);
@@ -75,6 +87,21 @@ export default function AdminLayout({
   }, [pathname]);
 
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
+
+  // Mientras se verifica el estado de autenticación, muestra un loader
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="ml-2">Verificando sesión...</p>
+      </div>
+    );
+  }
+
+  // Si no está autenticado, no renderiza nada para evitar parpadeos antes de la redirección
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const SidebarContent = ({ isMobile = false }) => (
     <div className="flex h-full flex-col bg-secondary text-secondary-foreground">

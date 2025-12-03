@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,8 +35,16 @@ type SignInFormValues = z.infer<typeof signInSchema>;
 
 export default function SignInPage() {
   const router = useRouter();
-  const { login, isLoading: isAuthLoading } = useAuthStore();
+  const { login, isLoading, isAuthenticated } = useAuthStore();
   const { toast } = useToast();
+
+  // Redirige si el usuario ya está autenticado
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
 
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -68,7 +77,6 @@ export default function SignInPage() {
       });
       
       router.push("/dashboard");
-      router.refresh(); // Ensure layout re-renders with new auth state
 
     } catch (error) {
        toast({
@@ -79,11 +87,11 @@ export default function SignInPage() {
     }
   }
 
-  if (isAuthLoading) {
+  // Muestra un loader general mientras se verifica el estado de autenticación inicial.
+  if (isLoading || isAuthenticated) {
      return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <p className="ml-2">Cargando sesión...</p>
         </div>
      );
   }
