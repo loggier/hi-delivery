@@ -765,10 +765,10 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const handleCreateOrder = async () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
 
-        const orderData: OrderPayload = {
+        const orderData = {
             business_id: order.business.id,
             customer_id: order.customer.id,
-            status: 'pending_acceptance',
+            status: 'pending_acceptance' as const,
             items: order.items.map(item => ({
                 product_id: item.id,
                 quantity: item.quantity,
@@ -793,7 +793,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         };
 
         try {
-            await createOrderMutation.mutateAsync(orderData as any);
+            await createOrderMutation.mutateAsync(orderData);
             if (shouldPrint) {
                 handlePrint();
             }

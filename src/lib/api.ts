@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderPayload, OrderItem } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -227,6 +227,43 @@ function createCRUDApi<T extends { id: string | number }>(
   return { useGetAll, useGetOne, useGetSettings, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
+const useCreateOrder = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation<Order, Error, OrderPayload & { items: any[] }>({
+      mutationFn: async (orderData) => {
+         const response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || `Error al crear el pedido`);
+        return result;
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        toast({
+          title: "Éxito",
+          description: "Pedido creado exitosamente.",
+          variant: 'success'
+        });
+      },
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Error al crear pedido",
+          description: error.message,
+        });
+        // Re-throw for the component to handle
+        throw error;
+      },
+    });
+};
+
+
 // --- API Hooks ---
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
@@ -238,7 +275,7 @@ export const api = {
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: createCRUDApi<Order>('orders'),
+    orders: { ...createCRUDApi<Order>('orders'), useCreate: useCreateOrder },
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
