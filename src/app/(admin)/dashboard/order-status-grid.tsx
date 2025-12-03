@@ -23,8 +23,6 @@ type OrderStatusSummary = {
   out_for_delivery: number;
   delivered: number;
   cancelled: number;
-  refunded: number;
-  failed: number;
 };
 
 interface OrderStatusGridProps {
@@ -34,7 +32,7 @@ interface OrderStatusGridProps {
 
 const statusConfig = {
   pending_acceptance: { label: 'Pedidos Sin Asignar', icon: ClipboardList, color: 'text-slate-500', bgColor: 'bg-slate-50' },
-  accepted: { label: 'Aceptado Por El Repartidor', icon: Check, color: 'text-blue-500', bgColor: 'bg-blue-50' },
+  accepted: { label: 'Aceptado', icon: Check, color: 'text-blue-500', bgColor: 'bg-blue-50' },
   cooking: { label: 'En preparación', icon: CookingPot, color: 'text-orange-500', bgColor: 'bg-orange-50' },
   out_for_delivery: { label: 'En Camino Para Entrega', icon: Bike, color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
   delivered: { label: 'Entregado', icon: Package, color: 'text-green-500', bgColor: 'bg-green-50' },
@@ -80,10 +78,12 @@ const StatusCardSkeleton = () => (
 )
 
 export function OrderStatusGrid({ data, isLoading }: OrderStatusGridProps) {
+    const displayStatuses: (keyof typeof statusConfig)[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery', 'delivered', 'cancelled'];
+    
     if (isLoading) {
         return (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-               {Object.keys(statusConfig).map(key => <StatusCardSkeleton key={key}/>)}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+               {displayStatuses.map(key => <StatusCardSkeleton key={key}/>)}
             </div>
         );
     }
@@ -93,17 +93,20 @@ export function OrderStatusGrid({ data, isLoading }: OrderStatusGridProps) {
     }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {Object.entries(statusConfig).map(([key, config]) => (
-            <StatusCard 
-                key={key}
-                label={config.label}
-                value={data[key as keyof OrderStatusSummary] || 0}
-                icon={config.icon}
-                color={config.color}
-                bgColor={config.bgColor}
-            />
-        ))}
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {displayStatuses.map((key) => {
+            const config = statusConfig[key];
+            return (
+                 <StatusCard 
+                    key={key}
+                    label={config.label}
+                    value={data[key as keyof OrderStatusSummary] || 0}
+                    icon={config.icon}
+                    color={config.color}
+                    bgColor={config.bgColor}
+                />
+            )
+        })}
     </div>
   );
 }
