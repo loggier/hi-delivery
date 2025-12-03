@@ -3,7 +3,7 @@
 "use client";
 
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
     CustomerSearch, 
     AddressFormModal,
@@ -57,17 +57,15 @@ export default function POSPage() {
       status: 'ACTIVE',
       id: isBusinessOwner ? user?.business_id : undefined,
     });
-
-    const businesses = businessesData || [];
     
     // Set business automatically if owner and data is loaded
     React.useEffect(() => {
-        if (isBusinessOwner && businesses.length > 0 && !selectedBusiness) {
-            setSelectedBusiness(businesses[0]);
+        if (isBusinessOwner && businessesData && businessesData.length > 0 && !selectedBusiness) {
+            setSelectedBusiness(businessesData[0]);
             setIsBusinessOpen(false);
             setIsCustomerOpen(true);
         }
-    }, [isBusinessOwner, businesses, selectedBusiness]);
+    }, [isBusinessOwner, businessesData, selectedBusiness]);
 
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
@@ -86,7 +84,7 @@ export default function POSPage() {
     }
     
     const handleSelectBusiness = (businessId: string) => {
-        const business = businesses?.find(b => b.id === businessId);
+        const business = businessesData?.find(b => b.id === businessId);
         if (business) {
             setSelectedBusiness(business);
             setSelectedCustomer(null);
@@ -162,7 +160,7 @@ export default function POSPage() {
 
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start text-base">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             {/* Main Content Column */}
             <div className="lg:col-span-2 space-y-6">
                 
@@ -201,7 +199,7 @@ export default function POSPage() {
                                               <SelectValue placeholder="Elige un negocio para empezar a vender..." />
                                           </SelectTrigger>
                                           <SelectContent>
-                                              {businesses?.map(b => (
+                                              {businessesData?.map(b => (
                                                   <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                                               ))}
                                           </SelectContent>
@@ -290,21 +288,19 @@ export default function POSPage() {
             </div>
 
             {/* Order Summary Column */}
-            <div className="lg:col-span-1">
-                <div className="lg:sticky top-6">
-                    <OrderCart 
-                        items={orderItems}
-                        onUpdateQuantity={updateQuantity}
-                        onUpdateItemNote={updateItemNote}
-                        orderNote={orderNote}
-                        onOrderNoteChange={setOrderNote}
-                        customer={selectedCustomer}
-                        business={selectedBusiness}
-                        address={selectedAddress}
-                        isMapsLoaded={isLoaded}
-                        onConfirmOrder={() => setIsConfirmationOpen(true)}
-                    />
-                </div>
+            <div className="lg:col-span-1 lg:sticky lg:top-6">
+                 <OrderCart 
+                    items={orderItems}
+                    onUpdateQuantity={updateQuantity}
+                    onUpdateItemNote={updateItemNote}
+                    orderNote={orderNote}
+                    onOrderNoteChange={setOrderNote}
+                    customer={selectedCustomer}
+                    business={selectedBusiness}
+                    address={selectedAddress}
+                    isMapsLoaded={isLoaded}
+                    onConfirmOrder={() => setIsConfirmationOpen(true)}
+                />
             </div>
 
             {/* Modals */}
