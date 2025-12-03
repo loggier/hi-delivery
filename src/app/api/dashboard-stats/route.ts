@@ -18,46 +18,34 @@ export async function GET(request: Request) {
         throw dailyStatsError;
     }
 
+    const defaultResponse = {
+        dailyRevenue: 0,
+        dailyOrders: 0,
+        averageTicketToday: 0,
+        activeOrders: 0,
+        orderStatusSummary: {
+            pending_acceptance: 0, accepted: 0, cooking: 0, out_for_delivery: 0, delivered: 0, cancelled: 0, refunded: 0, failed: 0
+        },
+        topBusinesses: [],
+        topRiders: [],
+        topCustomers: [],
+    };
+
     if (!dailyStats || dailyStats.length === 0) {
-        return NextResponse.json({
-            daily_revenue: 0,
-            daily_orders: 0,
-            average_ticket_today: 0,
-            active_orders: 0,
-            order_status_summary: {
-                pending_acceptance: 0, accepted: 0, cooking: 0, out_for_delivery: 0, delivered: 0, cancelled: 0, refunded: 0, failed: 0
-            },
-            top_businesses: [],
-            top_riders: [],
-            top_customers: [],
-        });
+        return NextResponse.json(defaultResponse);
     }
 
     const stats = dailyStats[0];
 
-    const orderStatusSummary = stats.order_status_summary_json ? JSON.parse(stats.order_status_summary_json) : {};
-    const topBusinesses = stats.top_businesses_json ? JSON.parse(stats.top_businesses_json) : [];
-    const topRiders = stats.top_riders_json ? JSON.parse(stats.top_riders_json) : [];
-    const topCustomers = stats.top_customers_json ? JSON.parse(stats.top_customers_json) : [];
-
     const responsePayload = {
-      daily_revenue: stats.daily_revenue || 0,
-      daily_orders: stats.daily_orders || 0,
-      average_ticket_today: stats.average_ticket_today || 0,
-      active_orders: stats.active_orders || 0,
-      order_status_summary: {
-        pending_acceptance: orderStatusSummary.pending_acceptance || 0,
-        accepted: orderStatusSummary.accepted || 0,
-        cooking: orderStatusSummary.cooking || 0,
-        out_for_delivery: orderStatusSummary.out_for_delivery || 0,
-        delivered: orderStatusSummary.delivered || 0,
-        cancelled: orderStatusSummary.cancelled || 0,
-        refunded: orderStatusSummary.refunded || 0,
-        failed: orderStatusSummary.failed || 0
-      },
-      top_businesses: topBusinesses,
-      top_riders: topRiders,
-      top_customers: topCustomers,
+      dailyRevenue: stats.daily_revenue || 0,
+      dailyOrders: stats.daily_orders || 0,
+      averageTicketToday: stats.average_ticket_today || 0,
+      activeOrders: stats.active_orders || 0,
+      orderStatusSummary: stats.order_status_summary_json || defaultResponse.orderStatusSummary,
+      topBusinesses: stats.top_businesses_json || [],
+      topRiders: stats.top_riders_json || [],
+      topCustomers: stats.top_customers_json || [],
     };
     
     return NextResponse.json(responsePayload);
