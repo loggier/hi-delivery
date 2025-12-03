@@ -49,11 +49,17 @@ export function UserForm({ initialData }: UserFormProps) {
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+        ...initialData,
+        password: '',
+        passwordConfirmation: '',
+    } : {
       name: "",
       email: "",
       role_id: undefined,
       status: "ACTIVE",
+      password: '',
+      passwordConfirmation: '',
     },
   });
 

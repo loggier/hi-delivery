@@ -11,7 +11,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'tex
           className
         )}
         ref={ref}
-        value={value === null ? '' : value}
+        value={value === null || value === undefined ? '' : value}
         {...props}
       />
     );
