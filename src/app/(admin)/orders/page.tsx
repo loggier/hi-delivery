@@ -63,7 +63,7 @@ export default function OrdersPage() {
         ) : (
             <>
                 <KPICard title="Ingresos del Día" value={formatCurrency(dashboardStats?.dailyRevenue ?? 0)} icon={DollarSign} />
-                <KPICard title="Ingreso Repartidores (Hoy)" value={formatCurrency(dashboardStats?.dailyRiderEarnings ?? 0)} icon={Wallet} />
+                <KPICard title="Ingreso Repartidores" value={formatCurrency(dashboardStats?.dailyRiderEarnings ?? 0)} icon={Wallet} />
             </>
         )}
       </div>
