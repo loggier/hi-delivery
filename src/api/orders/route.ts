@@ -16,23 +16,25 @@ export async function POST(request: Request) {
   );
 
   try {
-    const orderData: OrderPayload = await request.json();
+    const orderData: OrderPayload & { items: any[] } = await request.json();
+    
+    const { items, ...orderInput } = orderData;
 
     // The RPC function will handle the transaction of creating the order and its items.
     const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
-        business_id_in: orderData.business_id,
-        customer_id_in: orderData.customer_id,
-        pickup_address_in: orderData.pickup_address,
-        delivery_address_in: orderData.delivery_address,
-        customer_name_in: orderData.customer_name,
-        customer_phone_in: orderData.customer_phone,
-        items_description_in: orderData.items_description,
-        subtotal_in: orderData.subtotal,
-        delivery_fee_in: orderData.delivery_fee,
-        order_total_in: orderData.order_total,
-        distance_in: orderData.distance,
-        status_in: orderData.status,
-        items_in: orderData.items,
+        business_id_in: orderInput.business_id,
+        customer_id_in: orderInput.customer_id,
+        pickup_address_in: orderInput.pickup_address,
+        delivery_address_in: orderInput.delivery_address,
+        customer_name_in: orderInput.customer_name,
+        customer_phone_in: orderInput.customer_phone,
+        items_description_in: orderInput.items_description,
+        subtotal_in: orderInput.subtotal,
+        delivery_fee_in: orderInput.delivery_fee,
+        order_total_in: orderInput.order_total,
+        distance_in: orderInput.distance,
+        status_in: orderInput.status,
+        items_in: items,
     }).single();
     
     if (error) {
