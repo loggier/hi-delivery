@@ -23,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   try {
     const json = await request.json();
     
-    // Omitimos la validación del email para permitir su actualización
+    // Validamos los datos, pero omitimos 'email' ya que no se puede cambiar.
     const parsed = userSchema.omit({email: true}).safeParse(json);
 
     if (!parsed.success) {
@@ -31,12 +31,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ message: "Datos proporcionados no válidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
+    // Desestructuramos para separar los campos de contraseña.
     const { password, passwordConfirmation, ...updateData } = parsed.data;
     
+    // Si se proporcionó una nueva contraseña, la hasheamos y la añadimos a los datos a actualizar.
     if (password) {
         (updateData as any).password = await hashPassword(password);
     }
     
+    // 'updateData' ahora contiene solo los campos que existen en la tabla 'users'.
     const { data, error } = await supabaseAdmin
       .from('users')
       .update(updateData)
