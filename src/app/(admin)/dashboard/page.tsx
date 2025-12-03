@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Activity, CreditCard, ShoppingCart, Users, DollarSign, Package, Bike, User, TrendingUp, Crown, Trophy, Wallet } from "lucide-react";
@@ -118,19 +119,15 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
             <>
-                <KPICardSkeleton />
-                <KPICardSkeleton />
                 <KPICardSkeleton />
                 <KPICardSkeleton />
                 <KPICardSkeleton />
             </>
         ) : data ? (
             <>
-                <KPICard title="Ingresos del Día" value={formatCurrency(data.dailyRevenue)} icon={DollarSign} description="Total de ventas de hoy" />
-                <KPICard title="Ganancias Repartidores (Hoy)" value={formatCurrency(data.dailyRiderEarnings)} icon={Wallet} description="Total pagado a repartidores" />
                 <KPICard title="Pedidos del Día" value={data.dailyOrders} icon={ShoppingCart} description="Total de órdenes hoy" />
                 <KPICard title="Ticket Promedio (Hoy)" value={formatCurrency(data.averageTicketToday)} icon={TrendingUp} description="Valor promedio por orden" />
                 <KPICard title="Pedidos Activos" value={data.activeOrders} icon={Activity} description="En preparación o en camino" />

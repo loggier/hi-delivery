@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -22,17 +23,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { type Order, type Business, type Customer } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 
-type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded' | 'failed';
+type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
     accepted: { label: "Aceptado", variant: "default", icon: CheckCircle },
-    cooking: { label: "Cocinando", variant: "default", icon: CookingPot },
+    cooking: { label: "En preparación", variant: "default", icon: CookingPot },
     out_for_delivery: { label: "En Camino", variant: "default", icon: Bike },
     delivered: { label: "Entregado", variant: "success", icon: Package },
     cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
-    refunded: { label: "Reembolsado", variant: "destructive", icon: Ban },
-    failed: { label: "Fallido", variant: "destructive", icon: XCircle },
 }
 
 export const getColumns = (businesses: Business[], customers: Customer[]): ColumnDef<Order>[] => [

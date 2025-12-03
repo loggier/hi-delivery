@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -16,17 +17,15 @@ import { Badge } from "@/components/ui/badge";
 import { type Order, OrderItem, type Business, type Customer } from '@/types';
 import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, Ban } from 'lucide-react';
 
-type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded' | 'failed';
+type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente de Aceptación", variant: "warning", icon: Eye },
     accepted: { label: "Aceptado", variant: "default", icon: CheckCircle },
-    cooking: { label: "Cocinando", variant: "default", icon: CookingPot },
+    cooking: { label: "En preparación", variant: "default", icon: CookingPot },
     out_for_delivery: { label: "En Camino", variant: "default", icon: Bike },
     delivered: { label: "Entregado", variant: "success", icon: Package },
     cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
-    refunded: { label: "Reembolsado", variant: "destructive", icon: Ban },
-    failed: { label: "Fallido", variant: "destructive", icon: XCircle },
 }
 
 const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string, value?: string, children?: React.ReactNode }) => (
@@ -69,7 +68,7 @@ export default function ViewOrderPage() {
       notFound();
   }
 
-  const statusInfo = statusConfig[order.status as OrderStatus];
+  const statusInfo = statusConfig[order.status as OrderStatus] || { label: "Desconocido", variant: "outline", icon: Eye };
   
   return (
     <div className="space-y-6">
