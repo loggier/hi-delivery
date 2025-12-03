@@ -23,7 +23,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   try {
     const json = await request.json();
     
-    // Validamos los datos, pero omitimos 'email' ya que no se puede cambiar.
     const parsed = userSchema.omit({email: true}).safeParse(json);
 
     if (!parsed.success) {
@@ -34,9 +33,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Desestructuramos para separar los campos de contraseña y el resto.
     const { password, passwordConfirmation, ...updateData } = parsed.data;
     
-    // Creamos un objeto limpio que solo contendrá los datos a actualizar
+    // Creamos un objeto limpio que solo contendrá los datos a actualizar.
     const finalUpdateData: Record<string, any> = { ...updateData };
 
+    // Si se proporcionó una contraseña nueva y válida, la hasheamos.
     if (password && password.length > 0) {
         finalUpdateData.password = await hashPassword(password);
     }
