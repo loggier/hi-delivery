@@ -63,7 +63,11 @@ export const getColumns = (businesses: Business[], customers: Customer[]): Colum
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="ID Pedido" />
     ),
-     cell: ({ row }) => <Badge variant="outline" className="font-mono">{row.original.id.split('-')[0].toUpperCase()}</Badge>
+     cell: ({ row }) => {
+        const id = row.original.id;
+        const displayId = `ORD-${id.substring(4, 12).toUpperCase()}`;
+        return <Badge variant="outline" className="font-mono">{displayId}</Badge>
+     }
   },
   {
     accessorKey: "customer_name",

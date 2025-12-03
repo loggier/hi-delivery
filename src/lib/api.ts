@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -232,7 +230,7 @@ const useCreateOrder = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    return useMutation<Order, Error, OrderPayload & { items: OrderItem[] }>({
+    return useMutation<Order, Error, { items: Omit<OrderItem, 'id' | 'order_id' | 'product'>[] } & OrderPayload>({
       mutationFn: async (orderData) => {
          const response = await fetch('/api/orders', {
             method: 'POST',
@@ -259,14 +257,14 @@ const useCreateOrder = () => {
 };
 
 type DashboardStats = {
-    activeBusinesses: number;
-    activeRiders: number;
-    totalRevenue: number;
-    totalOrders: number;
-    orderStatusSummary: { [key: string]: number };
-    revenueData: { date: string; ingresos: number }[];
-    ordersData: { date: string; pedidos: number }[];
-    latestChanges: (Business | Rider)[];
+  daily_revenue: number;
+  daily_orders: number;
+  average_ticket_today: number;
+  active_orders: number;
+  order_status_summary: { [key: string]: number };
+  top_businesses: { business_id: string; business_name: string; order_count: number }[];
+  top_riders: { rider_id: string; rider_name: string; order_count: number }[];
+  top_customers: { customer_id: string; customer_name: string; order_count: number }[];
 };
 
 const useGetDashboardStats = () => {
@@ -293,6 +291,7 @@ export const api = {
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
     orders: { ...createCRUDApi<Order>('orders', '*,business:businesses(name),customer:customers(first_name,last_name)'), useCreate: useCreateOrder },
+    order_items: createCRUDApi<OrderItem>('order_items', '*, product:products(name)'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
@@ -304,42 +303,6 @@ export const api = {
         useUpdate: createCRUDApi<SystemSettings>('system_settings').useUpdate,
     },
 };
-
-// --- Dashboard Stats (Still uses Mock) ---
-export const useDashboardStats = () => useQuery<{
-    activeBusinesses: number;
-    activeRiders: number;
-    totalProducts: number;
-    totalCategories: number;
-    latestChanges: (Category | Business | Product | Rider)[];
-    revenueData: { date: string; ingresos: number }[];
-    ordersData: { date: string; pedidos: number }[];
-    orderStatusSummary: any;
-    totalRevenue: number;
-    totalOrders: number;
-}>({
-    queryKey: ['dashboardStats'],
-    queryFn: async () => {
-        const res = await fetch(`/api/mock/dashboard-stats`);
-        if (!res.ok) throw new Error('Failed to fetch dashboard stats');
-        return res.json();
-    }
-});
-
-export const useCustomerOrders = (customerId: string) => {
-    return useQuery<Order[]>({
-        queryKey: ['customerOrders', customerId],
-        queryFn: async () => {
-            const res = await fetch(`/api/mock/customers/${customerId}/orders`);
-            if (!res.ok) {
-                throw new Error('Failed to fetch customer orders');
-            }
-            return res.json();
-        },
-        enabled: !!customerId
-    });
-};
-
 
 // --- Custom Subscription Management Hook ---
 export const useManageSubscription = () => {

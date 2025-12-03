@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, CreditCard, ShoppingCart, Users, DollarSign } from "lucide-react";
+import { Activity, CreditCard, ShoppingCart, Users, DollarSign, Package, Bike, User, TrendingUp, Crown, Trophy } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -8,23 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { api, useDashboardStats } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { RevenueChart } from "./revenue-chart";
-import { OrdersChart } from "./orders-chart";
 import { formatCurrency } from "@/lib/utils";
 import { OrderStatusGrid } from "./order-status-grid";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 function KPICard({ title, value, icon: Icon, description }: { title: string, value: string | number, icon: React.ElementType, description: string }) {
   return (
@@ -56,43 +45,77 @@ function KPICardSkeleton() {
     );
 }
 
-function getEntityType(item: any) {
-  if ('tax_id' in item) return 'Negocio';
-  if ('lastName' in item) return 'Repartidor';
-  if ('price' in item) return 'Producto';
-  if ('slug' in item) return 'Cat. Producto';
-  return 'Desconocido';
+interface TopListItem {
+    id: string;
+    name: string;
+    count: number;
+    href: string;
 }
 
-function getEntityName(item: any) {
-    if ('name' in item) return item.name;
-    if ('firstName' in item) return `${item.firstName} ${item.lastName}`;
-    return item.id;
-}
-
-function getEntityStatus(item: any) {
-    if (!item.status) return null;
-    const isActive = item.status === 'ACTIVE' || item.status === 'approved';
+function TopListCard({ title, data, icon: Icon, emptyText, isLoading }: { title: string, data?: TopListItem[], icon: React.ElementType, emptyText: string, isLoading: boolean }) {
     return (
-        <Badge className="text-xs" variant={isActive ? 'success' : 'outline'}>
-            {isActive ? 'Activo' : 'Inactivo'}
-        </Badge>
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Icon className="h-5 w-5 text-primary" />
+                    {title}
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                 {isLoading ? (
+                    <div className="space-y-4">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                           <div key={i} className="flex justify-between items-center">
+                                <Skeleton className="h-5 w-3/5" />
+                                <Skeleton className="h-5 w-1/5" />
+                            </div>
+                        ))}
+                    </div>
+                ) : !data || data.length === 0 ? (
+                    <p className="text-sm text-center text-slate-500 py-4">{emptyText}</p>
+                ) : (
+                    <div className="space-y-4">
+                        {data.map((item, index) => (
+                            <div key={item.id} className="flex justify-between items-center text-sm">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-slate-400 w-5">{index + 1}.</span>
+                                    <Link href={item.href} className="font-medium hover:underline truncate" title={item.name}>
+                                        {item.name}
+                                    </Link>
+                                </div>
+                                <span className="font-bold">{item.count}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
-function getEntityDate(item: any): string | null {
-    const dateValue = item.created_at || item.createdAt;
-    if (!dateValue) return null;
-    try {
-        return format(new Date(dateValue), 'PPpp', { locale: es });
-    } catch (e) {
-        return "Fecha inválida";
-    }
-}
-
-
 export default function DashboardPage() {
   const { data, isLoading } = api.dashboard.useGetStats();
+
+  const topBusinesses = data?.top_businesses?.map(b => ({
+      id: b.business_id,
+      name: b.business_name,
+      count: b.order_count,
+      href: `/businesses/${b.business_id}`
+  }));
+  
+  const topRiders = data?.top_riders?.map(r => ({
+      id: r.rider_id,
+      name: r.rider_name,
+      count: r.order_count,
+      href: `/riders/${r.rider_id}`
+  }));
+
+  const topCustomers = data?.top_customers?.map(c => ({
+      id: c.customer_id,
+      name: c.customer_name,
+      count: c.order_count,
+      href: `/customers/${c.customer_id}`
+  }));
 
   return (
     <>
@@ -106,70 +129,39 @@ export default function DashboardPage() {
             </>
         ) : data ? (
             <>
-                <KPICard title="Ingresos Totales" value={formatCurrency(data.totalRevenue)} icon={DollarSign} description="Ingresos de los últimos 7 días" />
-                <KPICard title="Pedidos Totales" value={data.totalOrders} icon={ShoppingCart} description="Pedidos de los últimos 7 días" />
-                <KPICard title="Negocios Activos" value={data.activeBusinesses} icon={CreditCard} description="Total de negocios operando" />
-                <KPICard title="Repartidores Aprobados" value={data.activeRiders} icon={Users} description="Total de repartidores en servicio" />
+                <KPICard title="Ingresos del Día" value={formatCurrency(data.daily_revenue)} icon={DollarSign} description="Total de ventas de hoy" />
+                <KPICard title="Pedidos del Día" value={data.daily_orders} icon={ShoppingCart} description="Total de órdenes hoy" />
+                <KPICard title="Ticket Promedio (Hoy)" value={formatCurrency(data.average_ticket_today)} icon={TrendingUp} description="Valor promedio por orden" />
+                <KPICard title="Pedidos Activos" value={data.active_orders} icon={Activity} description="En preparación o en camino" />
             </>
         ) : null}
       </div>
-      <OrderStatusGrid data={data?.orderStatusSummary} isLoading={isLoading} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RevenueChart data={data?.revenueData} isLoading={isLoading} />
-        <OrdersChart data={data?.ordersData} isLoading={isLoading} />
+
+      <OrderStatusGrid data={data?.order_status_summary} isLoading={isLoading} />
+      
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 items-start">
+         <TopListCard 
+            title="Top 5 Negocios del Día" 
+            data={topBusinesses}
+            icon={Crown}
+            emptyText="No hay pedidos registrados hoy."
+            isLoading={isLoading}
+         />
+         <TopListCard 
+            title="Top 5 Repartidores del Día" 
+            data={topRiders}
+            icon={Trophy}
+            emptyText="No hay entregas completadas hoy."
+            isLoading={isLoading}
+         />
+          <TopListCard 
+            title="Top 5 Clientes del Día" 
+            data={topCustomers}
+            icon={Users}
+            emptyText="No hay pedidos de clientes hoy."
+            isLoading={isLoading}
+         />
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Cambios Recientes</CardTitle>
-          <CardDescription>
-            Un registro de las entidades creadas más recientemente en el sistema.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Entidad</TableHead>
-                <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                <TableHead className="hidden sm:table-cell">Estado</TableHead>
-                <TableHead className="hidden md:table-cell">Creado en</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-                {isLoading && Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-[80px]" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-[70px] rounded-full" /></TableCell>
-                        <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-[120px]" /></TableCell>
-                    </TableRow>
-                ))}
-                {data?.latestChanges.map((item) => (
-                    <TableRow key={item.id}>
-                        <TableCell>
-                            <div className="font-medium">{getEntityName(item)}</div>
-                            <div className="text-sm text-slate-500 md:hidden">
-                                {getEntityDate(item)}
-                            </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">{getEntityType(item)}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                           {getEntityStatus(item)}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">{getEntityDate(item)}</TableCell>
-                    </TableRow>
-                ))}
-                { !isLoading && (!data || data.latestChanges.length === 0) && (
-                     <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                        No hay cambios recientes.
-                        </TableCell>
-                    </TableRow>
-                )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </>
   );
 }

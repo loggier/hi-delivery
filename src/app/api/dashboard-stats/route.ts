@@ -2,7 +2,6 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { subDays, format } from 'date-fns';
 
 export async function GET(request: Request) {
   const supabase = createServerClient(
@@ -12,59 +11,59 @@ export async function GET(request: Request) {
   );
 
   try {
-    const today = new Date();
-    const sevenDaysAgo = subDays(today, 7);
+    const { data: dailyStats, error: dailyStatsError } = await supabase.rpc('get_daily_dashboard_stats');
 
-    // KPIs
-    const { count: activeBusinesses, error: businessesError } = await supabase.from('businesses').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE');
-    if (businessesError) throw businessesError;
+    if (dailyStatsError) {
+        console.error('Error from get_daily_dashboard_stats RPC:', dailyStatsError);
+        throw dailyStatsError;
+    }
 
-    const { count: activeRiders, error: ridersError } = await supabase.from('riders').select('*', { count: 'exact', head: true }).eq('status', 'approved');
-    if (ridersError) throw ridersError;
+    if (!dailyStats || dailyStats.length === 0) {
+        // Return a default structure if there's no data for today
+        return NextResponse.json({
+            daily_revenue: 0,
+            daily_orders: 0,
+            average_ticket_today: 0,
+            active_orders: 0,
+            order_status_summary: {
+                unassigned: 0, accepted: 0, cooking: 0, outForDelivery: 0, delivered: 0, cancelled: 0, refunded: 0, failed: 0
+            },
+            top_businesses: [],
+            top_riders: [],
+            top_customers: [],
+        });
+    }
 
-    const { data: recentOrders, error: recentOrdersError } = await supabase.from('orders').select('order_total').gte('created_at', sevenDaysAgo.toISOString());
-    if (recentOrdersError) throw recentOrdersError;
+    const stats = dailyStats[0];
 
-    const totalRevenue = recentOrders.reduce((sum, order) => sum + order.order_total, 0);
-    const totalOrders = recentOrders.length;
+    // The RPC returns JSON strings, so we need to parse them.
+    const orderStatusSummary = JSON.parse(stats.order_status_summary_json);
+    const topBusinesses = JSON.parse(stats.top_businesses_json);
+    const topRiders = JSON.parse(stats.top_riders_json);
+    const topCustomers = JSON.parse(stats.top_customers_json);
 
-    // Order Status Summary
-    const { data: orderStatus, error: orderStatusError } = await supabase.rpc('get_order_status_summary');
-    if (orderStatusError) throw orderStatusError;
-    
-    // Chart Data
-    const { data: dailyOrders, error: dailyOrdersError } = await supabase.rpc('get_daily_order_counts', { start_date: sevenDaysAgo.toISOString() });
-    if(dailyOrdersError) throw dailyOrdersError;
-
-    const { data: dailyRevenue, error: dailyRevenueError } = await supabase.rpc('get_daily_revenue', { start_date: sevenDaysAgo.toISOString() });
-    if(dailyRevenueError) throw dailyRevenueError;
-
-    const ordersData = dailyOrders.map(d => ({ date: format(new Date(d.day), 'MMM d'), pedidos: d.order_count }));
-    const revenueData = dailyRevenue.map(d => ({ date: format(new Date(d.day), 'MMM d'), ingresos: d.total_revenue }));
-    
-    // Latest changes - This part remains complex for a direct DB query, a simplified version is used
-    const { data: latestBusinesses, error: latestBusinessesError } = await supabase.from('businesses').select('*').order('created_at', { ascending: false }).limit(2);
-    if(latestBusinessesError) throw latestBusinessesError;
-    const { data: latestRiders, error: latestRidersError } = await supabase.from('riders').select('*').order('created_at', { ascending: false }).limit(3);
-    if(latestRidersError) throw latestRidersError;
-
-    const latestChanges = [...(latestBusinesses || []), ...(latestRiders || [])]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5);
-
-
-    const stats = {
-      activeBusinesses,
-      activeRiders,
-      totalRevenue,
-      totalOrders,
-      orderStatusSummary: orderStatus[0],
-      ordersData,
-      revenueData,
-      latestChanges,
+    const responsePayload = {
+      daily_revenue: stats.daily_revenue || 0,
+      daily_orders: stats.daily_orders || 0,
+      average_ticket_today: stats.average_ticket_today || 0,
+      active_orders: stats.active_orders || 0,
+      order_status_summary: {
+        unassigned: orderStatusSummary.pending_acceptance || 0,
+        accepted: orderStatusSummary.accepted || 0,
+        cooking: orderStatusSummary.cooking || 0,
+        outForDelivery: orderStatusSummary.out_for_delivery || 0,
+        delivered: orderStatusSummary.delivered || 0,
+        cancelled: orderStatusSummary.cancelled || 0,
+        refunded: orderStatusSummary.refunded || 0,
+        failed: orderStatusSummary.failed || 0
+      },
+      top_businesses: topBusinesses,
+      top_riders: topRiders,
+      top_customers: topCustomers,
     };
+    
+    return NextResponse.json(responsePayload);
 
-    return NextResponse.json(stats);
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
