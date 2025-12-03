@@ -1,5 +1,6 @@
 
 
+
 export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 export type OrderItem = {
@@ -40,11 +41,27 @@ export type OrderPayload = {
 };
 
 
+export type Module = {
+    id: string;
+    name: string;
+    description: string;
+};
+
+export type RolePermission = {
+    id: string;
+    role_id: string;
+    module_id: string;
+    can_create: boolean;
+    can_read: boolean;
+    can_update: boolean;
+    can_delete: boolean;
+};
+
 export type Role = {
   id: string;
   name: string;
-  permissions: Permissions;
   created_at: string;
+  role_permissions: RolePermission[];
 };
 
 export type Permissions = {

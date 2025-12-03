@@ -3,7 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -22,6 +22,7 @@ const entityTranslations: { [key: string]: string } = {
     "system_settings": "Configuración",
     "orders": "Pedido",
     "dashboard-stats": "Estadísticas del Panel",
+    "modules": "Módulo",
 }
 
 // --- Generic Read/Create/Delete Hooks ---
@@ -311,6 +312,36 @@ const useUpdateUser = () => {
     });
 };
 
+const useCreateOrUpdateRole = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const supabase = createClient();
+
+    return useMutation<Role, Error, { role_id?: string; name: string; permissions: any[] }>({
+        mutationFn: async (payload) => {
+            const { data, error } = await supabase.rpc('create_or_update_role_with_permissions', payload);
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['roles'] });
+             queryClient.invalidateQueries({ queryKey: ['roles', data.id] });
+            toast({
+                title: "Éxito",
+                description: `Rol guardado exitosamente.`,
+                variant: 'success'
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Error al guardar el rol",
+                description: error.message,
+            });
+        },
+    });
+}
+
 
 const orderSelect = `*,
   business:businesses(name),
@@ -318,6 +349,8 @@ const orderSelect = `*,
   rider:riders(id,first_name,last_name),
   order_items:order_items(*, products:products(name))
 `;
+
+const rolesSelect = `*, role_permissions(*)`
 
 // --- API Hooks ---
 export const api = {
@@ -337,9 +370,14 @@ export const api = {
       ...createApi<Order>('orders', orderSelect), 
       useCreate: useCreateOrder,
     },
-    roles: createApi<Role>('roles'),
+    roles: {
+        ...createApi<Role>('roles', rolesSelect),
+        useCreate: useCreateOrUpdateRole,
+        useUpdate: useCreateOrUpdateRole,
+    },
     plans: createApi<Plan>('plans'),
     payments: createApi<Payment>('payments'),
+    modules: createApi<Module>('modules'),
     dashboard: {
       useGetStats: useGetDashboardStats
     },

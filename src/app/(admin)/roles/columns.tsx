@@ -53,10 +53,12 @@ export const columns: ColumnDef<Role>[] = [
   },
   {
     id: "permissions",
-    header: "Permisos",
+    header: "Permisos Activos",
     cell: ({ row }) => {
-      const permissions = row.original.permissions;
-      const enabledPermissions = Object.values(permissions).filter(v => v).length;
+      const permissions = row.original.role_permissions || [];
+      const enabledPermissions = permissions.reduce((acc, perm) => {
+        return acc + (perm.can_create ? 1 : 0) + (perm.can_read ? 1 : 0) + (perm.can_update ? 1 : 0) + (perm.can_delete ? 1 : 0);
+      }, 0);
       return `${enabledPermissions} permisos activos`;
     },
   },

@@ -1,5 +1,6 @@
 
 
+
 import { z } from "zod";
 
 export const signInSchema = z.object({
@@ -20,38 +21,18 @@ export const businessCategorySchema = z.object({
   active: z.boolean().default(true),
 });
 
-const permissionsSchema = z.object({
-  recolectarEfectivo: z.boolean().default(false),
-  complemento: z.boolean().default(false),
-  atributo: z.boolean().default(false),
-  banner: z.boolean().default(false),
-  campaña: z.boolean().default(false),
-  categoria: z.boolean().default(false),
-  cupon: z.boolean().default(false),
-  reembolso: z.boolean().default(false),
-  gestionDeClientes: z.boolean().default(false),
-  repartidor: z.boolean().default(false),
-  proveerGanancias: z.boolean().default(false),
-  empleado: z.boolean().default(false),
-  producto: z.boolean().default(false),
-  notificacion: z.boolean().default(false),
-  pedido: z.boolean().default(false),
-  tienda: z.boolean().default(false),
-  reporte: z.boolean().default(false),
-  configuraciones: z.boolean().default(false),
-  listaDeRetiros: z.boolean().default(false),
-  zona: z.boolean().default(false),
-  modulo: z.boolean().default(false),
-  paquete: z.boolean().default(false),
-  puntoDeVenta: z.boolean().default(false),
-  unidad: z.boolean().default(false),
-  suscripcion: z.boolean().default(false),
+const permissionActionSchema = z.object({
+  can_create: z.boolean().default(false),
+  can_read: z.boolean().default(false),
+  can_update: z.boolean().default(false),
+  can_delete: z.boolean().default(false),
 });
 
 export const roleSchema = z.object({
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
-    permissions: permissionsSchema,
+    permissions: z.record(permissionActionSchema),
 });
+
 
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;
 

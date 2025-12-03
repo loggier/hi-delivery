@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,10 +19,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { type Role, type Permissions } from "@/types";
+import { type Role, type Module } from "@/types";
 import { roleSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type RoleFormValues = z.infer<typeof roleSchema>;
 
@@ -29,79 +30,92 @@ interface RoleFormProps {
   initialData?: Role | null;
 }
 
-const permissionLabels: Record<keyof Permissions, string> = {
-    recolectarEfectivo: "Recolectar Efectivo",
-    complemento: "Complementos",
-    atributo: "Atributos",
-    banner: "Banners",
-    campaña: "Campañas",
-    categoria: "Categorías",
-    cupon: "Cupones",
-    reembolso: "Reembolsos",
-    gestionDeClientes: "Gestión de Clientes",
-    repartidor: "Repartidores",
-    proveerGanancias: "Proveer Ganancias",
-    empleado: "Empleados",
-    producto: "Productos",
-    notificacion: "Notificaciones",
-    pedido: "Pedidos",
-    tienda: "Tiendas",
-    reporte: "Reportes",
-    configuraciones: "Configuraciones",
-    listaDeRetiros: "Lista de Retiros",
-    zona: "Zonas",
-    modulo: "Módulos",
-    paquete: "Paquetes",
-    puntoDeVenta: "Punto de Venta",
-    unidad: "Unidades",
-    suscripcion: "Suscripciones",
-};
-
-const permissionGroups = {
-    "Gestión General": ["tienda", "categoria", "producto", "banner", "campaña"],
-    "Operaciones": ["pedido", "repartidor", "zona", "recolectarEfectivo"],
-    "Finanzas": ["proveerGanancias", "listaDeRetiros", "reembolso", "reporte"],
-    "Administración": ["empleado", "gestionDeClientes", "cupon", "notificacion"],
-    "Sistema": ["configuraciones", "modulo", "paquete", "puntoDeVenta", "unidad", "suscripcion", "atributo", "complemento"],
-}
+const PermissionSwitch = ({ module, action, label }: { module: Module; action: "can_create" | "can_read" | "can_update" | "can_delete", label: string; }) => (
+    <FormField
+        name={`permissions.${module.id}.${action}`}
+        render={({ field }) => (
+        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-4">
+            <FormLabel className="text-sm font-normal">{label}</FormLabel>
+            <FormControl>
+                <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                />
+            </FormControl>
+        </FormItem>
+        )}
+    />
+);
 
 
 export function RoleForm({ initialData }: RoleFormProps) {
   const router = useRouter();
+  const { data: modules, isLoading: isLoadingModules } = api.modules.useGetAll();
   const createMutation = api.roles.useCreate();
   const updateMutation = api.roles.useUpdate();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear rol";
 
+  const defaultPermissions = useMemo(() => {
+    if (!modules) return {};
+    const perms: Record<string, { can_create: boolean; can_read: boolean; can_update: boolean; can_delete: boolean; }> = {};
+    modules.forEach(module => {
+        const existingPerm = initialData?.role_permissions.find(p => p.module_id === module.id);
+        perms[module.id] = {
+            can_create: existingPerm?.can_create || false,
+            can_read: existingPerm?.can_read || false,
+            can_update: existingPerm?.can_update || false,
+            can_delete: existingPerm?.can_delete || false,
+        };
+    });
+    return perms;
+  }, [modules, initialData]);
+
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema),
-    defaultValues: initialData || {
-      name: "",
-      permissions: {
-        recolectarEfectivo: false, complemento: false, atributo: false, banner: false, campaña: false, categoria: false, cupon: false,
-        reembolso: false, gestionDeClientes: false, repartidor: false, proveerGanancias: false, empleado: false, producto: false,
-        notificacion: false, pedido: false, tienda: false, reporte: false, configuraciones: false, listaDeRetiros: false,
-        zona: false, modulo: false, paquete: false, puntoDeVenta: false, unidad: false, suscripcion: false
-      },
-    },
+    defaultValues: {
+        name: initialData?.name || "",
+        permissions: defaultPermissions,
+    }
   });
+  
+  useEffect(() => {
+    form.reset({
+        name: initialData?.name || "",
+        permissions: defaultPermissions,
+    });
+  }, [initialData, defaultPermissions, form]);
 
   const onSubmit = async (data: RoleFormValues) => {
-    try {
-      if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ ...data, id: initialData.id });
-      } else {
-        await createMutation.mutateAsync(data);
-      }
-      router.push("/roles");
-      router.refresh();
-    } catch (error) {
-      console.error("No se pudo guardar el rol", error);
+    const payload = {
+        role_id: initialData?.id, // undefined para creación
+        name: data.name,
+        permissions: Object.entries(data.permissions).map(([module_id, actions]) => ({
+            module_id,
+            ...actions,
+        }))
+    };
+
+    if (isEditing) {
+      await updateMutation.mutateAsync(payload);
+    } else {
+      await createMutation.mutateAsync(payload);
     }
+    router.push("/roles");
+    router.refresh();
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending || isLoadingModules;
+
+  if (isLoadingModules) {
+    return (
+        <div className="space-y-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-64 w-full" />
+        </div>
+    )
+  }
 
   return (
     <Form {...form}>
@@ -129,33 +143,18 @@ export function RoleForm({ initialData }: RoleFormProps) {
         
         <Card>
           <CardHeader>
-            <CardTitle>Permisos</CardTitle>
-            <CardDescription>Selecciona los módulos a los que este rol tendrá acceso.</CardDescription>
+            <CardTitle>Permisos del Rol</CardTitle>
+            <CardDescription>Selecciona las acciones que este rol podrá realizar en cada módulo del sistema.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {Object.entries(permissionGroups).map(([groupName, permissions]) => (
-                <div key={groupName}>
-                    <h3 className="text-lg font-medium mb-2">{groupName}</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 rounded-md border p-4">
-                    {(permissions as (keyof Permissions)[]).map((key) => (
-                        <FormField
-                            key={key}
-                            control={form.control}
-                            name={`permissions.${key}`}
-                            render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-4">
-                                <FormLabel className="text-sm font-normal">{permissionLabels[key]}</FormLabel>
-                                <FormControl>
-                                <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                    disabled={isPending}
-                                />
-                                </FormControl>
-                            </FormItem>
-                            )}
-                        />
-                    ))}
+            {modules?.map(module => (
+                <div key={module.id}>
+                    <h3 className="text-lg font-medium mb-2">{module.name}</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <PermissionSwitch module={module} action="can_read" label="Ver" />
+                        <PermissionSwitch module={module} action="can_create" label="Crear" />
+                        <PermissionSwitch module={module} action="can_update" label="Editar" />
+                        <PermissionSwitch module={module} action="can_delete" label="Borrar" />
                     </div>
                 </div>
             ))}
@@ -167,6 +166,7 @@ export function RoleForm({ initialData }: RoleFormProps) {
             Cancelar
           </Button>
           <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isPending ? "Guardando..." : formAction}
           </Button>
         </div>
