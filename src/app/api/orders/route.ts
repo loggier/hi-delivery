@@ -1,8 +1,10 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { type OrderPayload } from '@/types';
+import { faker } from '@faker-js/faker';
 
 export async function POST(request: Request) {
   const supabaseAdmin = createServerClient(
@@ -20,8 +22,12 @@ export async function POST(request: Request) {
     // Separar los items del resto del payload de la orden.
     const { items, ...orderInput } = orderData;
 
-    // Llamar a la función RPC, pasando los items como un parámetro separado (items_in).
+    // Generar el ID de la orden en el servidor
+    const orderId = `ord-${faker.string.uuid().substring(0, 8)}`;
+
+    // Llamar a la función RPC, pasando el ID y los items como parámetros separados.
     const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
+        order_id_in: orderId, // Pasar el nuevo ID
         business_id_in: orderInput.business_id,
         customer_id_in: orderInput.customer_id,
         pickup_address_in: orderInput.pickup_address,
