@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare, Printer } from 'lucide-react';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare, Printer, Download } from 'lucide-react';
 import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -634,6 +634,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
 
 interface OrderTicketProps {
     order: {
+        id: string;
         items: OrderItemType[];
         customer: Customer;
         business: Business;
@@ -653,7 +654,7 @@ const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order,
                 <h3 className="font-bold text-base">{order.business.name}</h3>
                 <p>{order.business.address_line}</p>
                 <p>Tel: {order.business.phone_whatsapp}</p>
-                <p className="text-lg font-bold">PEDIDO</p>
+                <p className="text-lg font-bold">PEDIDO: {order.id.split('-')[1].toUpperCase()}</p>
                 <p>{format(new Date(), "'Fecha:' dd/MM/yyyy 'Hora:' HH:mm", { locale: es })}</p>
             </div>
             
@@ -755,7 +756,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
     const total = subtotal + (shippingInfo?.cost || 0);
 
-    const handleCreateOrder = async () => {
+    const handleCreateOrder = () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
 
         const orderPayload = {
@@ -786,12 +787,18 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         };
 
         createOrderMutation.mutate(orderPayload, {
-            onSuccess: () => {
-                onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
+            onSuccess: (createdOrder) => {
+                 onOrderCreated({
+                    order: { ...order, id: createdOrder.id }, 
+                    shippingInfo, 
+                    subtotal, 
+                    total, 
+                    preparationTime, 
+                    shouldPrint 
+                });
                 onClose();
             },
             onError: (error) => {
-                // The global error handler in useCreate already shows a toast.
                 console.error("Mutation failed:", error);
             }
         });
@@ -802,7 +809,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     }
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={(open) => !createOrderMutation.isPending && onClose()}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="text-2xl">Confirmar Pedido</DialogTitle>
@@ -885,7 +892,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                         <Label htmlFor="print-ticket">Imprimir ticket</Label>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                        <Button variant="ghost" onClick={onClose} disabled={createOrderMutation.isPending}>Cancelar</Button>
                         <Button onClick={handleCreateOrder} disabled={createOrderMutation.isPending}>
                              {createOrderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Confirmar y Crear
@@ -905,42 +912,36 @@ interface OrderTicketDialogProps extends OrderTicketProps {
 
 export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDialogProps) {
     const ticketRef = useRef<HTMLDivElement>(null);
-    const [isPrinting, setIsPrinting] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const generateCanvas = async () => {
+        const node = ticketRef.current;
+        if (!node) return null;
+        return html2canvas(node, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+        });
+    }
 
     const handlePrint = async () => {
-        const node = ticketRef.current;
-        if (!node) return;
-
-        setIsPrinting(true);
+        setIsProcessing(true);
         try {
-            const canvas = await html2canvas(node, {
-                scale: 2, // Aumentar la escala para mejor calidad en impresoras térmicas
-                backgroundColor: '#ffffff',
-                useCORS: true,
-            });
-            const imgData = canvas.toDataURL('image/png');
+            const canvas = await generateCanvas();
+            if (!canvas) return;
 
+            const imgData = canvas.toDataURL('image/png');
             const printWindow = window.open('', '_blank');
             if (!printWindow) {
                 alert("Por favor, permite las ventanas emergentes para imprimir el ticket.");
-                setIsPrinting(false);
+                setIsProcessing(false);
                 return;
             }
 
             printWindow.document.write(`
-                <html>
-                    <head>
-                        <title>Imprimir Ticket</title>
-                        <style>
-                            @page { size: 80mm auto; margin: 0; }
-                            body { margin: 0; }
-                            img { width: 100%; }
-                        </style>
-                    </head>
-                    <body>
-                        <img src="${imgData}" />
-                    </body>
-                </html>
+                <html><head><title>Imprimir Ticket</title>
+                <style>@page { size: 80mm auto; margin: 0; } body { margin: 0; } img { width: 100%; }</style>
+                </head><body><img src="${imgData}" /></body></html>
             `);
             
             printWindow.document.close();
@@ -948,31 +949,52 @@ export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDial
                 printWindow.focus();
                 printWindow.print();
                 printWindow.close();
-                setIsPrinting(false);
+                setIsProcessing(false);
             };
         } catch (error) {
             console.error("Error al generar la imagen del ticket:", error);
             alert("Ocurrió un error al intentar generar la imagen para imprimir.");
-            setIsPrinting(false);
+            setIsProcessing(false);
         }
     };
+    
+    const handleDownload = async () => {
+        setIsProcessing(true);
+        try {
+            const canvas = await generateCanvas();
+            if (!canvas) return;
+
+            const link = document.createElement('a');
+            link.download = `pedido-${props.order.id}.png`;
+            link.href = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+            link.click();
+        } catch (error) {
+             console.error("Error al descargar la imagen del ticket:", error);
+            alert("Ocurrió un error al intentar descargar la imagen.");
+        } finally {
+            setIsProcessing(false);
+        }
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="text-2xl">Pedido Creado Exitosamente</DialogTitle>
-                    <DialogDescription>
-                        El ticket está listo para ser impreso.
-                    </DialogDescription>
+                    <DialogDescription>El ticket está listo para ser impreso o descargado.</DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 -mr-2">
                     <OrderTicket {...props} ref={ticketRef} />
                 </div>
-                <DialogFooter>
+                <DialogFooter className="gap-2">
                      <Button variant="outline" onClick={onClose}>Cerrar</Button>
-                     <Button onClick={handlePrint} disabled={isPrinting}>
-                        {isPrinting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                     <Button onClick={handleDownload} disabled={isProcessing}>
+                        {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar
+                    </Button>
+                     <Button onClick={handlePrint} disabled={isProcessing}>
+                        {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                         <Printer className="mr-2 h-4 w-4" />
                         Imprimir Ticket
                     </Button>

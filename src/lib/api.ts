@@ -231,7 +231,7 @@ const useCreateOrder = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    return useMutation<Order, Error, OrderPayload & { items: any[] }>({
+    return useMutation<Order, Error, OrderPayload & { items: OrderItem[] }>({
       mutationFn: async (orderData) => {
          const response = await fetch('/api/orders', {
             method: 'POST',
@@ -257,7 +257,6 @@ const useCreateOrder = () => {
           title: "Error al crear pedido",
           description: error.message,
         });
-        // Re-throw for the component to handle
         throw error;
       },
     });
@@ -393,3 +392,4 @@ export const useManageSubscription = () => {
         }
     });
 };
+
