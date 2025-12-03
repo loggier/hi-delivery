@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -30,7 +31,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       return NextResponse.json({ message: "Datos proporcionados no válidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
-    const { password, ...updateData } = parsed.data;
+    const { password, passwordConfirmation, ...updateData } = parsed.data;
     
     if (password) {
         (updateData as any).password = await hashPassword(password);
