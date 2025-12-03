@@ -24,10 +24,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
+import { useAuthStore } from '@/store/auth-store';
 
 const libraries: ('places')[] = ['places'];
 
 export default function POSPage() {
+    const { user } = useAuthStore();
+    const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+
     const [selectedBusiness, setSelectedBusiness] = React.useState<Business | null>(null);
     const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
     const [selectedAddress, setSelectedAddress] = React.useState<CustomerAddress | null>(null);
@@ -50,18 +54,32 @@ export default function POSPage() {
     });
 
     const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
+    const { data: ownerBusiness, isLoading: isLoadingOwnerBusiness } = api.businesses.useGetOne(isBusinessOwner ? user.business_id! : '');
+
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
+    // Auto-select business for owner
+    React.useEffect(() => {
+      if(isBusinessOwner && ownerBusiness) {
+        setSelectedBusiness(ownerBusiness);
+        setIsBusinessOpen(false);
+        setIsCustomerOpen(true);
+      }
+    }, [isBusinessOwner, ownerBusiness]);
+
+
     const resetOrder = () => {
-        setSelectedBusiness(null);
+        if (!isBusinessOwner) {
+            setSelectedBusiness(null);
+            setIsBusinessOpen(true);
+        }
         setSelectedCustomer(null);
         setSelectedAddress(null);
         setOrderItems([]);
         setOrderNote('');
-        setIsBusinessOpen(true);
-        setIsCustomerOpen(false);
+        setIsCustomerOpen(isBusinessOwner);
     }
     
     const handleSelectBusiness = (businessId: string) => {
@@ -147,41 +165,48 @@ export default function POSPage() {
                 
                 {/* Step 1: Business Selection (Collapsible) */}
                  <Card>
-                    <Collapsible open={isBusinessOpen} onOpenChange={setIsBusinessOpen}>
-                        <CollapsibleTrigger asChild>
-                            <div className={cn("flex justify-between items-center p-4 cursor-pointer rounded-t-lg", isBusinessOpen && "border-b")}>
+                    <Collapsible open={isBusinessOpen} onOpenChange={setIsBusinessOpen} disabled={isBusinessOwner}>
+                        <CollapsibleTrigger asChild disabled={isBusinessOwner}>
+                            <div className={cn("flex justify-between items-center p-4 rounded-t-lg", 
+                              isBusinessOpen && "border-b",
+                              isBusinessOwner ? "cursor-default" : "cursor-pointer"
+                            )}>
                                 <div className="flex items-center gap-3">
                                     <Building className="h-6 w-6" />
                                     <div className="flex flex-col text-left">
                                         <h3 className="font-semibold text-xl">
-                                            {selectedBusiness ? `Paso 1: Negocio Seleccionado` : `Paso 1: Seleccionar Negocio`}
+                                            Paso 1: Negocio
                                         </h3>
                                         {selectedBusiness && <span className="text-primary font-medium">{selectedBusiness.name}</span>}
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon">
-                                    {isBusinessOpen ? <ChevronUp /> : <ChevronDown />}
-                                </Button>
+                                {!isBusinessOwner && (
+                                  <Button variant="ghost" size="icon">
+                                      {isBusinessOpen ? <ChevronUp /> : <ChevronDown />}
+                                  </Button>
+                                )}
                             </div>
                         </CollapsibleTrigger>
-                        <CollapsibleContent>
-                             <CardContent className="pt-4">
-                                {isLoadingBusinesses ? (
-                                    <Skeleton className="h-12 w-full" />
-                                ) : (
-                                    <Select onValueChange={handleSelectBusiness} value={selectedBusiness?.id}>
-                                        <SelectTrigger className="h-12 text-base">
-                                            <SelectValue placeholder="Elige un negocio para empezar a vender..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {businesses?.map(b => (
-                                                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </CardContent>
-                        </CollapsibleContent>
+                        {!isBusinessOwner && (
+                          <CollapsibleContent>
+                              <CardContent className="pt-4">
+                                  {isLoadingBusinesses ? (
+                                      <Skeleton className="h-12 w-full" />
+                                  ) : (
+                                      <Select onValueChange={handleSelectBusiness} value={selectedBusiness?.id}>
+                                          <SelectTrigger className="h-12 text-base">
+                                              <SelectValue placeholder="Elige un negocio para empezar a vender..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                              {businesses?.map(b => (
+                                                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                              ))}
+                                          </SelectContent>
+                                      </Select>
+                                  )}
+                              </CardContent>
+                          </CollapsibleContent>
+                        )}
                     </Collapsible>
                 </Card>
 

@@ -14,6 +14,7 @@ export default function CustomersPage() {
   const [search, setSearch] = React.useState('');
   const [debouncedSearch] = useDebounce(search, 500);
 
+  // We are removing the business_id filter to show all customers
   const { data, isLoading } = api.customers.useGetAll({
     name_search: debouncedSearch,
   });
