@@ -755,7 +755,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
     const total = subtotal + (shippingInfo?.cost || 0);
 
-    const handleCreateOrder = () => {
+    const handleCreateOrder = async () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
 
         const orderData = {
@@ -785,16 +785,14 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             distance: shippingInfo.distance,
         };
 
-        createOrderMutation.mutate(orderData, {
-            onSuccess: () => {
-                onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
-                onClose();
-            },
-            onError: (error) => {
-                 // The toast is already shown by the mutation hook.
-                 // We can keep the dialog open for the user to retry.
-            }
-        });
+        try {
+            await createOrderMutation.mutateAsync(orderData);
+            onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
+            onClose();
+        } catch (error) {
+            // The toast is already shown by the mutation hook.
+            // The mutation's isPending state will automatically be set to false.
+        }
     };
 
     if (!order.customer || !order.business || !order.address) {
@@ -901,14 +899,25 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 interface OrderTicketDialogProps extends OrderTicketProps {
     isOpen: boolean;
     onClose: () => void;
+    shouldPrint: boolean;
 }
 
-export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDialogProps) {
+export function OrderTicketDialog({ isOpen, onClose, shouldPrint, ...props }: OrderTicketDialogProps) {
     const ticketRef = useRef<HTMLDivElement>(null);
     const handlePrint = useReactToPrint({
         content: () => ticketRef.current,
         documentTitle: `pedido-HiDelivery`,
     });
+
+    useEffect(() => {
+        if (isOpen && shouldPrint) {
+            // Use a small timeout to ensure the modal content is rendered before printing
+            const timer = setTimeout(() => {
+                handlePrint();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, shouldPrint, handlePrint]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>

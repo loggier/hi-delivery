@@ -132,7 +132,9 @@ export default function POSPage() {
     }
     
     const handleOrderCreated = (orderPayload: any) => {
-        setOrderForTicket(orderPayload);
+        if (orderPayload.shouldPrint) {
+            setOrderForTicket(orderPayload);
+        }
         resetOrder();
     }
 
@@ -320,6 +322,7 @@ export default function POSPage() {
                     subtotal={orderForTicket.subtotal}
                     total={orderForTicket.total}
                     preparationTime={orderForTicket.preparationTime}
+                    shouldPrint={orderForTicket.shouldPrint}
                 />
             )}
         </div>
