@@ -17,9 +17,9 @@ export async function GET(request: Request) {
         console.error('Error from get_daily_dashboard_stats RPC:', dailyStatsError);
         throw dailyStatsError;
     }
-
+    
+    // Si la función no devuelve filas (porque no hay pedidos hoy), devolvemos una estructura por defecto.
     if (!dailyStats || dailyStats.length === 0) {
-        // Return a default structure if there's no data for today
         return NextResponse.json({
             daily_revenue: 0,
             daily_orders: 0,
@@ -36,11 +36,11 @@ export async function GET(request: Request) {
 
     const stats = dailyStats[0];
 
-    // The RPC returns JSON strings, so we need to parse them.
-    const orderStatusSummary = JSON.parse(stats.order_status_summary_json);
-    const topBusinesses = JSON.parse(stats.top_businesses_json);
-    const topRiders = JSON.parse(stats.top_riders_json);
-    const topCustomers = JSON.parse(stats.top_customers_json);
+    // Los campos JSON pueden ser nulos si no hay datos que agregar, así que los parseamos de forma segura.
+    const orderStatusSummary = stats.order_status_summary_json ? JSON.parse(stats.order_status_summary_json) : {};
+    const topBusinesses = stats.top_businesses_json ? JSON.parse(stats.top_businesses_json) : [];
+    const topRiders = stats.top_riders_json ? JSON.parse(stats.top_riders_json) : [];
+    const topCustomers = stats.top_customers_json ? JSON.parse(stats.top_customers_json) : [];
 
     const responsePayload = {
       daily_revenue: stats.daily_revenue || 0,
