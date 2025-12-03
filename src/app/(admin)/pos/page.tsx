@@ -38,8 +38,8 @@ export default function POSPage() {
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
     const [orderNote, setOrderNote] = React.useState('');
     
-    const [isBusinessOpen, setIsBusinessOpen] = React.useState(true);
-    const [isCustomerOpen, setIsCustomerOpen] = React.useState(false);
+    const [isBusinessOpen, setIsBusinessOpen] = React.useState(!isBusinessOwner);
+    const [isCustomerOpen, setIsCustomerOpen] = React.useState(isBusinessOwner);
     const [isAddressModalOpen, setIsAddressModalOpen] = React.useState(false);
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
@@ -52,23 +52,25 @@ export default function POSPage() {
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
-
-    // Hooks para obtener datos
-    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' }, { enabled: !isBusinessOwner });
-    const { data: ownerBusiness, isLoading: isLoadingOwnerBusiness } = api.businesses.useGetOne(isBusinessOwner ? user.business_id! : '', { enabled: isBusinessOwner && !!user.business_id });
+    
+    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({
+      status: 'ACTIVE',
+      id: isBusinessOwner ? user?.business_id : undefined,
+    });
 
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
-    // Efecto para auto-seleccionar el negocio si el usuario es dueño
     React.useEffect(() => {
-      if (isBusinessOwner && ownerBusiness) {
-        setSelectedBusiness(ownerBusiness);
-        setIsBusinessOpen(false);
-        setIsCustomerOpen(true);
+      if (isBusinessOwner && businesses && businesses.length > 0) {
+        if(!selectedBusiness) {
+          setSelectedBusiness(businesses[0]);
+          setIsBusinessOpen(false);
+          setIsCustomerOpen(true);
+        }
       }
-    }, [isBusinessOwner, ownerBusiness]);
+    }, [isBusinessOwner, businesses, selectedBusiness]);
 
 
     const resetOrder = () => {
@@ -354,5 +356,7 @@ export default function POSPage() {
         </div>
     );
 }
+
+    
 
     
