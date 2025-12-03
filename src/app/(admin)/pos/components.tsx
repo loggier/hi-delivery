@@ -29,6 +29,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Label } from '@/components/ui/label';
+import html2canvas from 'html2canvas';
 
 const libraries: ('places')[] = ['places'];
 
@@ -904,56 +905,56 @@ interface OrderTicketDialogProps extends OrderTicketProps {
 
 export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDialogProps) {
     const ticketRef = useRef<HTMLDivElement>(null);
+    const [isPrinting, setIsPrinting] = useState(false);
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         const node = ticketRef.current;
         if (!node) return;
 
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            alert("Por favor, permite las ventanas emergentes para imprimir el ticket.");
-            return;
-        }
+        setIsPrinting(true);
+        try {
+            const canvas = await html2canvas(node, {
+                scale: 2, // Aumentar la escala para mejor calidad en impresoras térmicas
+                backgroundColor: '#ffffff',
+                useCORS: true,
+            });
+            const imgData = canvas.toDataURL('image/png');
 
-        const printDocument = printWindow.document;
-        printDocument.write(`
-            <html>
-                <head>
-                    <title>Imprimir Ticket</title>
-                    <style>
-                        @media print {
-                            body * {
-                                visibility: hidden;
-                            }
-                            #print-section, #print-section * {
-                                visibility: visible;
-                            }
-                            #print-section {
-                                position: absolute;
-                                left: 0;
-                                top: 0;
-                                width: 100%;
-                            }
-                        }
-                        #ticket-content { font-family: monospace; font-size: 12px; color: black; background: white; padding: 1rem; }
-                        #ticket-content h3 { font-weight: bold; font-size: 1rem; }
-                        #ticket-content p { margin: 2px 0; }
-                        #ticket-content table { width: 100%; border-collapse: collapse; }
-                        #ticket-content th, #ticket-content td { padding: 2px 0; }
-                        #ticket-content hr { border: none; border-top: 1px dashed black; margin: 0.5rem 0; }
-                    </style>
-                </head>
-                <body>
-                    <div id="print-section">
-                        ${node.innerHTML}
-                    </div>
-                </body>
-            </html>
-        `);
-        printDocument.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert("Por favor, permite las ventanas emergentes para imprimir el ticket.");
+                setIsPrinting(false);
+                return;
+            }
+
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Imprimir Ticket</title>
+                        <style>
+                            @page { size: 80mm auto; margin: 0; }
+                            body { margin: 0; }
+                            img { width: 100%; }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${imgData}" />
+                    </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.onload = function() {
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+                setIsPrinting(false);
+            };
+        } catch (error) {
+            console.error("Error al generar la imagen del ticket:", error);
+            alert("Ocurrió un error al intentar generar la imagen para imprimir.");
+            setIsPrinting(false);
+        }
     };
 
     return (
@@ -970,7 +971,8 @@ export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDial
                 </div>
                 <DialogFooter>
                      <Button variant="outline" onClick={onClose}>Cerrar</Button>
-                     <Button onClick={handlePrint}>
+                     <Button onClick={handlePrint} disabled={isPrinting}>
+                        {isPrinting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                         <Printer className="mr-2 h-4 w-4" />
                         Imprimir Ticket
                     </Button>
