@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, Wallet, Crown, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { TopListCard } from '../dashboard/top-list-card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -51,6 +53,10 @@ export default function OrdersPage() {
 
   const columns = React.useMemo(() => getColumns(businesses || [], customers || []), [businesses, customers]);
   
+  const pendingOrders = React.useMemo(() => {
+    return orders?.filter(o => o.status === 'pending_acceptance') || [];
+  }, [orders]);
+
   const topBusinesses = dashboardStats?.topBusinesses?.map(b => ({
       id: b.business_id,
       name: b.business_name,
@@ -82,7 +88,9 @@ export default function OrdersPage() {
             </>
         )}
       </div>
-
+      
+       <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
+      
        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
          <TopListCard 
             title="Top 5 Negocios del Día" 
@@ -99,15 +107,34 @@ export default function OrdersPage() {
             isLoading={isLoadingStats}
          />
       </div>
-      
-      <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
-      
-      <DataTable
-        columns={columns}
-        data={orders || []}
-        isLoading={isLoading}
-        searchKey="id"
-      />
+
+      <Tabs defaultValue="pending">
+        <TabsList>
+          <TabsTrigger value="pending">
+            Pendientes
+            <Badge className="ml-2" variant={pendingOrders.length > 0 ? "default" : "secondary"}>
+              {isLoadingOrders ? <div className="h-4 w-4 rounded-full animate-pulse bg-white/50" /> : pendingOrders.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="history">Historial Completo</TabsTrigger>
+        </TabsList>
+        <TabsContent value="pending">
+           <DataTable
+            columns={columns}
+            data={pendingOrders}
+            isLoading={isLoading}
+            searchKey="id"
+          />
+        </TabsContent>
+        <TabsContent value="history">
+           <DataTable
+            columns={columns}
+            data={orders || []}
+            isLoading={isLoading}
+            searchKey="id"
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
