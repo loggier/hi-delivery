@@ -195,7 +195,7 @@ export default function ViewOrderPage() {
                             {order.order_items?.map((item: any) => (
                                 <TableRow key={item.id}>
                                     <TableCell>
-                                      <div className="font-medium">{item.products.name}</div>
+                                      <div className="font-medium">{item.products?.name || 'Producto no encontrado'}</div>
                                       {item.item_description && (
                                         <div className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
                                           <MessageSquare className="h-3 w-3" />
@@ -240,7 +240,7 @@ export default function ViewOrderPage() {
                 <CardContent className="space-y-4">
                     <DetailItem icon={Building} label="Negocio">
                         <Link href={`/businesses/${order.business_id}`} className="font-medium text-sm text-primary hover:underline">
-                            {order.business.name}
+                            {order.business?.name || 'No disponible'}
                         </Link>
                     </DetailItem>
                     <DetailItem icon={User} label="Cliente">
@@ -284,5 +284,3 @@ export default function ViewOrderPage() {
     </div>
   );
 }
-
-    
