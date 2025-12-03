@@ -11,7 +11,8 @@ import {
     OrderCart,
     ShippingMapModal,
     CustomerFormModal,
-    OrderConfirmationDialog
+    OrderConfirmationDialog,
+    OrderTicketDialog
 } from './components';
 import { type Customer, type Product, type Business, type CustomerAddress, OrderItem, OrderPayload } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -39,6 +40,7 @@ export default function POSPage() {
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
     const [isConfirmationOpen, setIsConfirmationOpen] = React.useState(false);
+    const [orderForTicket, setOrderForTicket] = React.useState<any>(null);
 
 
     const { isLoaded } = useLoadScript({
@@ -128,6 +130,12 @@ export default function POSPage() {
         // Automatically open the address modal for the new customer
         setIsAddressModalOpen(true);
     }
+    
+    const handleOrderCreated = (orderPayload: any) => {
+        setOrderForTicket(orderPayload);
+        resetOrder();
+    }
+
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start text-base">
@@ -293,7 +301,7 @@ export default function POSPage() {
             <OrderConfirmationDialog
                 isOpen={isConfirmationOpen}
                 onClose={() => setIsConfirmationOpen(false)}
-                onOrderCreated={resetOrder}
+                onOrderCreated={handleOrderCreated}
                 order={{
                     items: orderItems,
                     customer: selectedCustomer,
@@ -302,8 +310,18 @@ export default function POSPage() {
                     note: orderNote,
                 }}
             />
+            
+            {orderForTicket && (
+                <OrderTicketDialog
+                    isOpen={!!orderForTicket}
+                    onClose={() => setOrderForTicket(null)}
+                    order={orderForTicket.order}
+                    shippingInfo={orderForTicket.shippingInfo}
+                    subtotal={orderForTicket.subtotal}
+                    total={orderForTicket.total}
+                    preparationTime={orderForTicket.preparationTime}
+                />
+            )}
         </div>
     );
 }
-
-    

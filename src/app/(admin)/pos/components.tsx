@@ -729,7 +729,7 @@ OrderTicket.displayName = 'OrderTicket';
 interface OrderConfirmationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onOrderCreated: () => void;
+  onOrderCreated: (orderPayload: any) => void;
   order: {
     items: OrderItemType[];
     customer: Customer | null;
@@ -743,12 +743,6 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const createOrderMutation = api.orders.useCreate();
     const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
     const [shouldPrint, setShouldPrint] = useState(true);
-    const ticketRef = useRef<HTMLDivElement>(null);
-
-    const handlePrint = useReactToPrint({
-        content: () => ticketRef.current,
-        documentTitle: `pedido-${order.customer?.first_name.toLowerCase() || 'cliente'}`
-    });
 
     useEffect(() => {
         if(order.business?.delivery_time_min) {
@@ -756,7 +750,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         }
     }, [order.business]);
 
-    const { shippingInfo } = useShippingCalculation(order.business, order.address, true); // Assuming maps is loaded here
+    const { shippingInfo } = useShippingCalculation(order.business, order.address, true);
 
     const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
     const total = subtotal + (shippingInfo?.cost || 0);
@@ -793,11 +787,12 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 
         createOrderMutation.mutate(orderData, {
             onSuccess: () => {
-                if (shouldPrint) {
-                    handlePrint();
-                }
-                onOrderCreated();
+                onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
                 onClose();
+            },
+            onError: (error) => {
+                 // The toast is already shown by the mutation hook.
+                 // We can keep the dialog open for the user to retry.
             }
         });
     };
@@ -814,18 +809,65 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                     <DialogDescription>Revisa los detalles antes de crear el pedido.</DialogDescription>
                 </DialogHeader>
 
-                <div className="max-h-[60vh] overflow-y-auto p-1 pr-2">
-                    <OrderTicket
-                        order={order as any}
-                        shippingInfo={shippingInfo}
-                        subtotal={subtotal}
-                        total={total}
-                        preparationTime={preparationTime}
-                        ref={ticketRef}
-                    />
+                <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 -mr-2">
+                     <div className="font-mono text-xs text-black bg-white p-4 border rounded-md">
+                        <div className="text-center space-y-1">
+                            <h3 className="font-bold text-base">{order.business.name}</h3>
+                            <p>{order.business.address_line}</p>
+                            <p>Tel: {order.business.phone_whatsapp}</p>
+                            <p className="text-lg font-bold">PEDIDO</p>
+                            <p>{format(new Date(), "'Fecha:' dd/MM/yyyy 'Hora:' HH:mm", { locale: es })}</p>
+                        </div>
+                        <Separator className="my-2 border-dashed border-black"/>
+                        <div>
+                            <p><span className="font-bold">Cliente:</span> {order.customer.first_name} {order.customer.last_name}</p>
+                            <p><span className="font-bold">Tel:</span> {order.customer.phone}</p>
+                            <p><span className="font-bold">Dirección:</span> {order.address.address}</p>
+                        </div>
+                        <Separator className="my-2 border-dashed border-black"/>
+                        <table className="w-full">
+                            <thead>
+                                <tr>
+                                    <th className="text-left">Cant.</th>
+                                    <th className="text-left">Producto</th>
+                                    <th className="text-right">Precio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {order.items.map(item => (
+                                    <React.Fragment key={item.id}>
+                                        <tr>
+                                            <td>{item.quantity}x</td>
+                                            <td>{item.name}</td>
+                                            <td className="text-right">{formatCurrency(item.price * item.quantity)}</td>
+                                        </tr>
+                                        {item.item_description && (
+                                            <tr><td colSpan={3} className="text-gray-600 pl-4 text-xs italic">- {item.item_description}</td></tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                        <Separator className="my-2 border-dashed border-black"/>
+                        <div className="space-y-1">
+                            <div className="flex justify-between"><span>Subtotal:</span><span>{formatCurrency(subtotal)}</span></div>
+                            <div className="flex justify-between"><span>Envío:</span><span>{formatCurrency(shippingInfo?.cost || 0)}</span></div>
+                            <div className="flex justify-between font-bold text-sm"><span>TOTAL:</span><span>{formatCurrency(total)}</span></div>
+                        </div>
+                        {order.note && (
+                            <>
+                                <Separator className="my-2 border-dashed border-black"/>
+                                <div><p className="font-bold">Nota General:</p><p>{order.note}</p></div>
+                            </>
+                        )}
+                        <Separator className="my-2 border-dashed border-black"/>
+                        <div className="text-center space-y-1">
+                            <p>Tiempo de preparación: {preparationTime} min.</p>
+                            <p className="font-bold">¡Gracias por su preferencia!</p>
+                        </div>
+                    </div>
                 </div>
                 
-                 {/* Tiempo de Preparacion */}
                  <div className="flex items-center gap-4 rounded-lg border bg-slate-50 p-3 dark:bg-slate-800">
                      <Label htmlFor="prep-time" className="font-medium flex-1">Tiempo de Preparación (min)</Label>
                      <Input 
@@ -854,6 +896,45 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         </Dialog>
     );
 }
+
+// --- Order Ticket Dialog ---
+interface OrderTicketDialogProps extends OrderTicketProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDialogProps) {
+    const ticketRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        content: () => ticketRef.current,
+        documentTitle: `pedido-HiDelivery`,
+    });
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-2xl">Pedido Creado Exitosamente</DialogTitle>
+                    <DialogDescription>
+                        El ticket está listo para ser impreso.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 -mr-2">
+                    <OrderTicket {...props} ref={ticketRef} />
+                </div>
+                <DialogFooter>
+                     <Button variant="outline" onClick={onClose}>Cerrar</Button>
+                     <Button onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir Ticket
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 
 // -- Shipping Map Modal ---
 
@@ -942,7 +1023,3 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
-
-    
-
-    
