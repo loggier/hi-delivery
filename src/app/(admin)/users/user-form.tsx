@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -29,6 +30,7 @@ import { Switch } from "@/components/ui/switch";
 import { type User } from "@/types";
 import { userSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
+import { Separator } from "@/components/ui/separator";
 
 type UserFormValues = z.infer<typeof userSchema>;
 
@@ -100,8 +102,9 @@ export function UserForm({ initialData }: UserFormProps) {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="ej., juan@example.com" {...field} disabled={isPending}/>
+                      <Input type="email" placeholder="ej., juan@example.com" {...field} disabled={isPending || isEditing}/>
                     </FormControl>
+                    {isEditing && <FormDescription>El email no se puede cambiar.</FormDescription>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -147,6 +150,44 @@ export function UserForm({ initialData }: UserFormProps) {
                   </FormItem>
                 )}
               />
+            </div>
+
+            <Separator />
+            <div className="space-y-2">
+              <h3 className="text-md font-medium">Contraseña</h3>
+               {isEditing && <p className="text-sm text-muted-foreground">Dejar en blanco para no cambiar la contraseña.</p>}
+            </div>
+
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+                <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>
+                            {isEditing ? "Nueva Contraseña" : "Contraseña"}
+                        </FormLabel>
+                        <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} disabled={isPending} />
+                        </FormControl>
+                         <FormDescription>Mínimo 8 caracteres y una mayúscula, un número o un símbolo.</FormDescription>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                <FormField
+                    control={form.control}
+                    name="passwordConfirmation"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Confirmar Contraseña</FormLabel>
+                        <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} disabled={isPending} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
             </div>
             
             <div className="flex items-center justify-end gap-2">

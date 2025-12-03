@@ -53,14 +53,6 @@ export const roleSchema = z.object({
     permissions: permissionsSchema,
 });
 
-export const userSchema = z.object({
-  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
-  email: z.string().email(),
-  role_id: z.string({ required_error: "Debe seleccionar un rol."}),
-  status: z.enum(["ACTIVE", "INACTIVE"]),
-  password: z.string().optional(), // Password is optional when editing, required when creating.
-});
-
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;
 
 const normalizePhone = (phone: string) => {
@@ -74,6 +66,29 @@ const normalizePhone = (phone: string) => {
 
 // Mínimo 8 caracteres, y al menos una mayúscula, un número o un símbolo.
 const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
+
+export const userSchema = z.object({
+  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  email: z.string().email(),
+  role_id: z.string({ required_error: "Debe seleccionar un rol."}),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+  password: z.string().optional(),
+  passwordConfirmation: z.string().optional(),
+}).refine(data => {
+    // Si no hay contraseña, no validamos la confirmación
+    if (!data.password) return true;
+    return data.password === data.passwordConfirmation;
+}, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
+}).refine(data => {
+    // Si no hay contraseña, no validamos el regex
+    if (!data.password) return true;
+    return passwordRegex.test(data.password);
+}, {
+    message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo.",
+    path: ["password"],
+});
 
 const isClient = typeof window !== 'undefined';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
