@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +22,47 @@ const entityTranslations: { [key: string]: string } = {
     "orders": "Pedido",
     "dashboard-stats": "Estadísticas del Panel",
 }
+
+const useUpdateGeneric = <T extends { id: string | number }>(entity: keyof typeof entityTranslations) => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const supabase = createClient();
+  const translatedEntity = entityTranslations[entity] || entity;
+
+  return useMutation<T, Error, Partial<T> & { id: string | number }>({
+    mutationFn: async (itemData) => {
+      const { id, ...updateData } = itemData;
+      const { data, error } = await supabase
+        .from(entity)
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        throw new Error(error.message || `Error al actualizar ${translatedEntity}`);
+      }
+      return data as T;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [entity] });
+      queryClient.setQueryData([entity, data.id], data);
+      toast({
+        title: "Éxito",
+        description: `${translatedEntity} actualizado exitosamente.`,
+        variant: 'success'
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error al actualizar",
+        description: error.message,
+      });
+    },
+  });
+};
+
 
 // --- Generic Read/Create/Delete Hooks ---
 function createApi<T extends { id: string | number }>(
@@ -239,12 +278,10 @@ const useUpdateUser = () => {
 
     return useMutation<User, Error, Partial<User> & { id: string }>({
         mutationFn: async (userData) => {
-            const { id, ...updateData } = userData;
-
-            const response = await fetch(`/api/users/${id}`, {
+            const response = await fetch(`/api/users/${userData.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData),
+                body: JSON.stringify(userData),
             });
             const result = await response.json();
             if (!response.ok) {
@@ -281,28 +318,56 @@ const orderSelect = `*,
 
 // --- API Hooks ---
 export const api = {
-    product_categories: createApi<Category>('product_categories'),
-    business_categories: createApi<BusinessCategory>('business_categories'),
-    businesses: createApi<Business>('businesses', '*,plan:plans(name),zone:zones(name)'),
+    product_categories: {
+      ...createApi<Category>('product_categories'),
+      useUpdate: useUpdateGeneric<Category>('product_categories'),
+    },
+    business_categories: {
+      ...createApi<BusinessCategory>('business_categories'),
+      useUpdate: useUpdateGeneric<BusinessCategory>('business_categories'),
+    },
+    businesses: {
+      ...createApi<Business>('businesses', '*,plan:plans(name),zone:zones(name)'),
+      useUpdate: useUpdateGeneric<Business>('businesses'),
+    },
     products: createApi<Product>('products'),
-    riders: createApi<Rider>('riders'),
+    riders: {
+      ...createApi<Rider>('riders'),
+      useUpdate: useUpdateGeneric<Rider>('riders'),
+    },
     users: {
         ...createApi<User>('users'),
         useUpdate: useUpdateUser,
     },
-    zones: createApi<Zone>('zones'),
+    zones: {
+      ...createApi<Zone>('zones'),
+      useUpdate: useUpdateGeneric<Zone>('zones'),
+    },
     customers: createApi<Customer>('customers'),
-    customer_addresses: createApi<CustomerAddress>('customer_addresses'),
-    orders: { ...createApi<Order>('orders', orderSelect), useCreate: useCreateOrder },
-    roles: createApi<Role>('roles'),
-    plans: createApi<Plan>('plans'),
+    customer_addresses: {
+      ...createApi<CustomerAddress>('customer_addresses'),
+      useUpdate: useUpdateGeneric<CustomerAddress>('customer_addresses'),
+    },
+    orders: { 
+      ...createApi<Order>('orders', orderSelect), 
+      useCreate: useCreateOrder,
+      useUpdate: useUpdateGeneric<Order>('orders'),
+    },
+    roles: {
+      ...createApi<Role>('roles'),
+      useUpdate: useUpdateGeneric<Role>('roles'),
+    },
+    plans: {
+      ...createApi<Plan>('plans'),
+      useUpdate: useUpdateGeneric<Plan>('plans'),
+    },
     payments: createApi<Payment>('payments'),
     dashboard: {
       useGetStats: useGetDashboardStats
     },
     settings: {
         useGet: createApi<SystemSettings>('system_settings').useGetSettings,
-        useUpdate: createApi<SystemSettings>('system_settings').useUpdate,
+        useUpdate: useUpdateGeneric<SystemSettings>('system_settings'),
     },
 };
 
@@ -364,4 +429,3 @@ export const useManageSubscription = () => {
         }
     });
 };
-
