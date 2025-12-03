@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -8,7 +9,7 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/dashboard");
+    router.replace("/site");
   }, [router]);
 
   return (
