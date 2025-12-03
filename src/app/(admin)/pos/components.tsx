@@ -785,14 +785,17 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             distance: shippingInfo.distance,
         };
 
-        try {
-            await createOrderMutation.mutateAsync(orderData);
-            onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
-            onClose();
-        } catch (error) {
-            // The toast is already shown by the mutation hook.
-            // The mutation's isPending state will automatically be set to false.
-        }
+        createOrderMutation.mutate(orderData, {
+            onSuccess: () => {
+                onOrderCreated({ order, shippingInfo, subtotal, total, preparationTime, shouldPrint });
+                onClose();
+            },
+            onError: (error) => {
+                // The global error handler in useCreate already shows a toast.
+                // We just need to make sure the loading state stops.
+                console.error("Mutation failed:", error);
+            }
+        });
     };
 
     if (!order.customer || !order.business || !order.address) {
@@ -911,11 +914,12 @@ export function OrderTicketDialog({ isOpen, onClose, shouldPrint, ...props }: Or
 
     useEffect(() => {
         if (isOpen && shouldPrint) {
-            // Use a small timeout to ensure the modal content is rendered before printing
-            const timer = setTimeout(() => {
-                handlePrint();
-            }, 500);
-            return () => clearTimeout(timer);
+            // This automatic printing is causing issues. Let's disable it for now.
+            // The user can click the button manually.
+            // const timer = setTimeout(() => {
+            //     handlePrint();
+            // }, 500);
+            // return () => clearTimeout(timer);
         }
     }, [isOpen, shouldPrint, handlePrint]);
 
