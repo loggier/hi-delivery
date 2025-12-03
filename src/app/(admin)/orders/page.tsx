@@ -9,8 +9,9 @@ import { getColumns } from "./columns";
 import { OrderStatusGrid } from '../dashboard/order-status-grid';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, Wallet } from 'lucide-react';
+import { DollarSign, Wallet, Crown, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { TopListCard } from '../dashboard/top-list-card';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -50,6 +51,20 @@ export default function OrdersPage() {
 
   const columns = React.useMemo(() => getColumns(businesses || [], customers || []), [businesses, customers]);
   
+  const topBusinesses = dashboardStats?.topBusinesses?.map(b => ({
+      id: b.business_id,
+      name: b.business_name,
+      count: b.order_count,
+      href: `/businesses/${b.business_id}`
+  }));
+  
+  const topCustomers = dashboardStats?.topCustomers?.map(c => ({
+      id: c.customer_id,
+      name: c.customer_name,
+      count: c.order_count,
+      href: `/customers/${c.customer_id}`
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader title="Pedidos" description="Gestiona todos los pedidos de la plataforma." />
@@ -68,6 +83,23 @@ export default function OrdersPage() {
         )}
       </div>
 
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+         <TopListCard 
+            title="Top 5 Negocios del Día" 
+            data={topBusinesses}
+            icon={Crown}
+            emptyText="No hay pedidos registrados hoy."
+            isLoading={isLoadingStats}
+         />
+         <TopListCard 
+            title="Top 5 Clientes del Día" 
+            data={topCustomers}
+            icon={Users}
+            emptyText="No hay pedidos de clientes hoy."
+            isLoading={isLoadingStats}
+         />
+      </div>
+      
       <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
       
       <DataTable
