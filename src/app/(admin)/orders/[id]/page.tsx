@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
 import { type Order, OrderItem, type Business, type Customer, OrderStatus } from '@/types';
-import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, Ban, MoreVertical } from 'lucide-react';
+import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, Ban, MoreVertical, MessageSquare } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -192,7 +192,15 @@ export default function ViewOrderPage() {
                         <TableBody>
                             {order.order_items?.map((item: any) => (
                                 <TableRow key={item.id}>
-                                    <TableCell className="font-medium">{item.products.name}</TableCell>
+                                    <TableCell>
+                                      <div className="font-medium">{item.products.name}</div>
+                                      {item.item_description && (
+                                        <div className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
+                                          <MessageSquare className="h-3 w-3" />
+                                          {item.item_description}
+                                        </div>
+                                      )}
+                                    </TableCell>
                                     <TableCell className="text-center">{item.quantity}</TableCell>
                                     <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
                                     <TableCell className="text-right font-medium">{formatCurrency(item.price * item.quantity)}</TableCell>

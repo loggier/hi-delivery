@@ -231,7 +231,7 @@ const useCreateOrder = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    return useMutation<Order, Error, { items: Omit<OrderItem, 'id' | 'order_id' | 'product'>[] } & OrderPayload>({
+    return useMutation<Order, Error, { items: Omit<OrderItem, 'id' | 'order_id' | 'products'>[] } & OrderPayload>({
       mutationFn: async (orderData) => {
          const response = await fetch('/api/orders', {
             method: 'POST',
@@ -287,7 +287,6 @@ export const api = {
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
     orders: { ...createCRUDApi<Order>('orders', orderSelect), useCreate: useCreateOrder },
-    order_items: createCRUDApi<OrderItem>('order_items', '*, products:products(name)'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),

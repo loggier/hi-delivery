@@ -36,7 +36,7 @@ export type OrderPayload = {
   delivery_fee: number;
   order_total: number;
   distance: number;
-  items_description: string;
+  items_description?: string;
 };
 
 
