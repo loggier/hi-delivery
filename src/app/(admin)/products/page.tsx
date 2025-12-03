@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -10,9 +11,15 @@ import { PageHeader } from "@/components/page-header";
 import { api } from "@/lib/api";
 import { getColumns } from "./columns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/store/auth-store";
 
 export default function ProductsPage() {
-  const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll();
+  const { user } = useAuthStore();
+  const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+
+  const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({
+    business_id: isBusinessOwner ? user.business_id : undefined,
+  });
   const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
   const { data: categories, isLoading: isLoadingCategories } = api.product_categories.useGetAll();
 

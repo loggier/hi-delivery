@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -14,6 +15,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { OrderStatus } from '@/types';
+import { useAuthStore } from '@/store/auth-store';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -50,8 +52,13 @@ const OrderCountBadge = ({ count, isLoading }: { count: number, isLoading: boole
 );
 
 export default function OrdersPage() {
+  const { user } = useAuthStore();
+  const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+
   const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats();
-  const { data: orders, isLoading: isLoadingOrders } = api.orders.useGetAll();
+  const { data: orders, isLoading: isLoadingOrders } = api.orders.useGetAll({
+    business_id: isBusinessOwner ? user.business_id : undefined,
+  });
   const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
   const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
 

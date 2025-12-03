@@ -80,6 +80,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.' }, { status: 500 });
     }
     
+    // If user is a Business Owner, attach their business ID to the session user object
+    if (fullUser.role?.name === 'Dueño de Negocio') {
+      const { data: businessData, error: businessError } = await supabaseAdmin
+        .from('businesses')
+        .select('id')
+        .eq('user_id', fullUser.id)
+        .single();
+      
+      if (businessData) {
+        (fullUser as User).business_id = businessData.id;
+      }
+    }
+    
     // Remove password from the returned user object
     delete (fullUser as any).password;
 
