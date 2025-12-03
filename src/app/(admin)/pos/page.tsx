@@ -53,16 +53,17 @@ export default function POSPage() {
         libraries,
     });
 
-    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' });
-    const { data: ownerBusiness, isLoading: isLoadingOwnerBusiness } = api.businesses.useGetOne(isBusinessOwner ? user.business_id! : '');
+    // Hooks para obtener datos
+    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({ status: 'ACTIVE' }, { enabled: !isBusinessOwner });
+    const { data: ownerBusiness, isLoading: isLoadingOwnerBusiness } = api.businesses.useGetOne(isBusinessOwner ? user.business_id! : '', { enabled: isBusinessOwner && !!user.business_id });
 
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
-    // Auto-select business for owner
+    // Efecto para auto-seleccionar el negocio si el usuario es dueño
     React.useEffect(() => {
-      if(isBusinessOwner && ownerBusiness) {
+      if (isBusinessOwner && ownerBusiness) {
         setSelectedBusiness(ownerBusiness);
         setIsBusinessOpen(false);
         setIsCustomerOpen(true);

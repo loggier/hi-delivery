@@ -29,13 +29,14 @@ const entityTranslations: { [key: string]: string } = {
 // --- Generic Read/Create/Delete Hooks ---
 function createApi<T extends { id: string | number }>(
   entity: keyof typeof entityTranslations,
-  select: string = '*'
+  select: string = '*',
+  options: { enabled?: boolean } = {}
 ) {
   const entityKey = [entity];
   const translatedEntity = entityTranslations[entity] || entity;
   const supabase = createClient();
 
-  const useGetAll = (filters: Record<string, any> = {}) => {
+  const useGetAll = (filters: Record<string, any> = {}, queryOptions: { enabled?: boolean } = {}) => {
     return useQuery<T[]>({
       queryKey: [entity, filters],
       queryFn: async () => {
@@ -57,11 +58,11 @@ function createApi<T extends { id: string | number }>(
         if (error) throw error;
         return data as T[];
       },
-      enabled: !Object.keys(filters).some(key => key.endsWith('_id') && !filters[key])
+      enabled: queryOptions.enabled ?? (!Object.keys(filters).some(key => key.endsWith('_id') && !filters[key]))
     });
   }
 
-  const useGetOne = (id: string) => {
+  const useGetOne = (id: string, queryOptions: { enabled?: boolean } = {}) => {
     return useQuery<T>({
         queryKey: [entity, id],
         queryFn: async () => {
@@ -69,7 +70,7 @@ function createApi<T extends { id: string | number }>(
             if (error) throw error;
             return data as T;
         },
-        enabled: !!id,
+        enabled: queryOptions.enabled ?? !!id,
     });
   }
   
@@ -465,3 +466,4 @@ export const useCustomerOrders = (customerId: string) => {
     
 
     
+
