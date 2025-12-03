@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from "react";
@@ -29,7 +30,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 import { type User } from "@/types";
-import { userSchema } from "@/lib/schemas";
+import { userSchema, updateUserSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { Separator } from "@/components/ui/separator";
 
@@ -42,14 +43,14 @@ interface UserFormProps {
 export function UserForm({ initialData }: UserFormProps) {
   const router = useRouter();
   const createMutation = api["users"].useCreate();
-  const updateMutation = api["users"].useUpdate();
+  const updateMutation = api.users.useUpdate();
   const { data: roles, isLoading: isLoadingRoles } = api.roles.useGetAll();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear usuario";
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+    resolver: zodResolver(isEditing ? updateUserSchema : userSchema),
     defaultValues: initialData ? {
         ...initialData,
         password: '',

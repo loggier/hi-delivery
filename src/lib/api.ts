@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,8 +25,8 @@ const entityTranslations: { [key: string]: string } = {
     "dashboard-stats": "Estadísticas del Panel",
 }
 
-// --- Generic CRUD Hooks for Supabase ---
-function createCRUDApi<T extends { id: string | number }>(
+// --- Generic Read/Create/Delete Hooks ---
+function createApi<T extends { id: string | number }>(
   entity: keyof typeof entityTranslations,
   select: string = '*'
 ) {
@@ -33,7 +34,6 @@ function createCRUDApi<T extends { id: string | number }>(
   const translatedEntity = entityTranslations[entity] || entity;
   const supabase = createClient();
 
-  // GET all
   const useGetAll = (filters: Record<string, any> = {}) => {
     return useQuery<T[]>({
       queryKey: [entity, filters],
@@ -57,7 +57,6 @@ function createCRUDApi<T extends { id: string | number }>(
     });
   }
 
-  // GET one
   const useGetOne = (id: string) => {
     return useQuery<T>({
         queryKey: [entity, id],
@@ -70,7 +69,6 @@ function createCRUDApi<T extends { id: string | number }>(
     });
   }
   
-    // GET settings (special case for single row table)
   const useGetSettings = () => {
     return useQuery<T>({
       queryKey: [entity],
@@ -82,8 +80,6 @@ function createCRUDApi<T extends { id: string | number }>(
     });
   };
 
-
-  // CREATE
   const useCreate = <T_DTO = Omit<T, "id" | "created_at" | "updated_at">>() => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -115,7 +111,6 @@ function createCRUDApi<T extends { id: string | number }>(
     });
   };
   
-  // CREATE with FormData
   const useCreateWithFormData = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -173,36 +168,6 @@ function createCRUDApi<T extends { id: string | number }>(
     });
   };
 
-  // UPDATE
-  const useUpdate = () => {
-    const queryClient = useQueryClient();
-    const { toast } = useToast();
-    return useMutation<T, Error, Partial<T> & { id: string | number }>({
-      mutationFn: async (item) => {
-        const { id, ...updateData } = item;
-        const { data, error } = await supabase.from(entity).update(updateData).eq('id', id).select().single();
-        if (error) throw error;
-        return data as T;
-      },
-      onSuccess: (data: any) => {
-        queryClient.invalidateQueries({ queryKey: entityKey });
-        queryClient.setQueryData([...entityKey, data.id], data);
-        if (data.customer_id) {
-            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: data.customer_id }] });
-        }
-        toast({
-          title: "Éxito",
-          description: `${translatedEntity} actualizado exitosamente.`,
-          variant: 'success'
-        });
-      },
-      onError: (error) => {
-        toast({ variant: "destructive", title: "Error", description: error.message });
-      },
-    });
-  };
-
-  // DELETE
   const useDelete = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -224,7 +189,7 @@ function createCRUDApi<T extends { id: string | number }>(
     });
   };
   
-  return { useGetAll, useGetOne, useGetSettings, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
+  return { useGetAll, useGetOne, useGetSettings, useCreate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
 const useCreateOrder = () => {
@@ -268,6 +233,45 @@ const useGetDashboardStats = () => {
     });
 };
 
+const useUpdateUser = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation<User, Error, Partial<User> & { id: string }>({
+        mutationFn: async (userData) => {
+            const { id, ...updateData } = userData;
+
+            const response = await fetch(`/api/users/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || "Error al actualizar el usuario.");
+            }
+            return result;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.setQueryData(['users', data.id], data);
+            toast({
+                title: "Éxito",
+                description: `Usuario actualizado exitosamente.`,
+                variant: 'success'
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Error al actualizar",
+                description: error.message,
+            });
+        },
+    });
+};
+
+
 const orderSelect = `*,
   business:businesses(name),
   customer:customers(first_name,last_name),
@@ -277,25 +281,28 @@ const orderSelect = `*,
 
 // --- API Hooks ---
 export const api = {
-    product_categories: createCRUDApi<Category>('product_categories'),
-    business_categories: createCRUDApi<BusinessCategory>('business_categories'),
-    businesses: createCRUDApi<Business>('businesses', '*,plan:plans(name),zone:zones(name)'),
-    products: createCRUDApi<Product>('products'),
-    riders: createCRUDApi<Rider>('riders'),
-    users: createCRUDApi<User>('users'),
-    zones: createCRUDApi<Zone>('zones'),
-    customers: createCRUDApi<Customer>('customers'),
-    customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: { ...createCRUDApi<Order>('orders', orderSelect), useCreate: useCreateOrder },
-    roles: createCRUDApi<Role>('roles'),
-    plans: createCRUDApi<Plan>('plans'),
-    payments: createCRUDApi<Payment>('payments'),
+    product_categories: createApi<Category>('product_categories'),
+    business_categories: createApi<BusinessCategory>('business_categories'),
+    businesses: createApi<Business>('businesses', '*,plan:plans(name),zone:zones(name)'),
+    products: createApi<Product>('products'),
+    riders: createApi<Rider>('riders'),
+    users: {
+        ...createApi<User>('users'),
+        useUpdate: useUpdateUser,
+    },
+    zones: createApi<Zone>('zones'),
+    customers: createApi<Customer>('customers'),
+    customer_addresses: createApi<CustomerAddress>('customer_addresses'),
+    orders: { ...createApi<Order>('orders', orderSelect), useCreate: useCreateOrder },
+    roles: createApi<Role>('roles'),
+    plans: createApi<Plan>('plans'),
+    payments: createApi<Payment>('payments'),
     dashboard: {
       useGetStats: useGetDashboardStats
     },
     settings: {
-        useGet: createCRUDApi<SystemSettings>('system_settings').useGetSettings,
-        useUpdate: createCRUDApi<SystemSettings>('system_settings').useUpdate,
+        useGet: createApi<SystemSettings>('system_settings').useGetSettings,
+        useUpdate: createApi<SystemSettings>('system_settings').useUpdate,
     },
 };
 
@@ -357,3 +364,4 @@ export const useManageSubscription = () => {
         }
     });
 };
+

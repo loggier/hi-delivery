@@ -67,24 +67,37 @@ const normalizePhone = (phone: string) => {
 // Mínimo 8 caracteres, y al menos una mayúscula, un número o un símbolo.
 const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
 
-export const userSchema = z.object({
+const baseUserSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   email: z.string().email(),
   role_id: z.string({ required_error: "Debe seleccionar un rol."}),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+});
+
+export const userSchema = baseUserSchema.extend({
+  password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
+  passwordConfirmation: z.string(),
+}).refine(data => data.password === data.passwordConfirmation, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
+});
+
+export const updateUserSchema = baseUserSchema.extend({
   password: z.string().optional(),
   passwordConfirmation: z.string().optional(),
 }).refine(data => {
-    // Si no hay contraseña, no validamos la confirmación
-    if (!data.password) return true;
-    return data.password === data.passwordConfirmation;
+    if (data.password && data.password.length > 0) {
+        return data.password === data.passwordConfirmation;
+    }
+    return true;
 }, {
     message: "Las contraseñas no coinciden.",
     path: ["passwordConfirmation"],
 }).refine(data => {
-    // Si no hay contraseña, no validamos el regex
-    if (!data.password) return true;
-    return passwordRegex.test(data.password);
+    if (data.password && data.password.length > 0) {
+        return passwordRegex.test(data.password);
+    }
+    return true;
 }, {
     message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo.",
     path: ["password"],
