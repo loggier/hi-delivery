@@ -313,7 +313,12 @@ const useCreateOrUpdateRole = () => {
 
     return useMutation<Role, Error, { role_id?: string; name: string; permissions: any[] }>({
         mutationFn: async (payload) => {
-            const { data, error } = await supabase.rpc('create_or_update_role_with_permissions', payload);
+            const rpcPayload = {
+                name_in: payload.name,
+                permissions_in: payload.permissions,
+                role_id_in: payload.role_id,
+            };
+            const { data, error } = await supabase.rpc('create_or_update_role_with_permissions', rpcPayload);
             if (error) throw error;
             return data;
         },
@@ -455,3 +460,5 @@ export const useCustomerOrders = (customerId: string) => {
     enabled: !!customerId,
   });
 };
+
+    
