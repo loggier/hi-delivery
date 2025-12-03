@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -428,4 +429,20 @@ export const useManageSubscription = () => {
             });
         }
     });
+};
+
+export const useCustomerOrders = (customerId: string) => {
+  return useQuery<Order[]>({
+    queryKey: ['orders', { customerId }],
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from('orders')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!customerId,
+  });
 };
