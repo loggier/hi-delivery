@@ -12,13 +12,12 @@ export async function GET(request: Request) {
 
   try {
     const { data: dailyStats, error: dailyStatsError } = await supabase.rpc('get_daily_dashboard_stats');
-
+    
     if (dailyStatsError) {
         console.error('Error from get_daily_dashboard_stats RPC:', dailyStatsError);
         throw dailyStatsError;
     }
-    
-    // Si la función no devuelve filas (porque no hay pedidos hoy), devolvemos una estructura por defecto.
+
     if (!dailyStats || dailyStats.length === 0) {
         return NextResponse.json({
             daily_revenue: 0,
@@ -26,7 +25,7 @@ export async function GET(request: Request) {
             average_ticket_today: 0,
             active_orders: 0,
             order_status_summary: {
-                unassigned: 0, accepted: 0, cooking: 0, outForDelivery: 0, delivered: 0, cancelled: 0, refunded: 0, failed: 0
+                pending_acceptance: 0, accepted: 0, cooking: 0, out_for_delivery: 0, delivered: 0, cancelled: 0, refunded: 0, failed: 0
             },
             top_businesses: [],
             top_riders: [],
@@ -36,7 +35,6 @@ export async function GET(request: Request) {
 
     const stats = dailyStats[0];
 
-    // Los campos JSON pueden ser nulos si no hay datos que agregar, así que los parseamos de forma segura.
     const orderStatusSummary = stats.order_status_summary_json ? JSON.parse(stats.order_status_summary_json) : {};
     const topBusinesses = stats.top_businesses_json ? JSON.parse(stats.top_businesses_json) : [];
     const topRiders = stats.top_riders_json ? JSON.parse(stats.top_riders_json) : [];
@@ -48,10 +46,10 @@ export async function GET(request: Request) {
       average_ticket_today: stats.average_ticket_today || 0,
       active_orders: stats.active_orders || 0,
       order_status_summary: {
-        unassigned: orderStatusSummary.pending_acceptance || 0,
+        pending_acceptance: orderStatusSummary.pending_acceptance || 0,
         accepted: orderStatusSummary.accepted || 0,
         cooking: orderStatusSummary.cooking || 0,
-        outForDelivery: orderStatusSummary.out_for_delivery || 0,
+        out_for_delivery: orderStatusSummary.out_for_delivery || 0,
         delivered: orderStatusSummary.delivered || 0,
         cancelled: orderStatusSummary.cancelled || 0,
         refunded: orderStatusSummary.refunded || 0,

@@ -17,10 +17,10 @@ import {
 import { cn } from '@/lib/utils';
 
 type OrderStatusSummary = {
-  unassigned: number;
+  pending_acceptance: number;
   accepted: number;
   cooking: number;
-  outForDelivery: number;
+  out_for_delivery: number;
   delivered: number;
   cancelled: number;
   refunded: number;
@@ -33,10 +33,10 @@ interface OrderStatusGridProps {
 }
 
 const statusConfig = {
-  unassigned: { label: 'Pedidos Sin Asignar', icon: ClipboardList, color: 'text-slate-500', bgColor: 'bg-slate-50' },
+  pending_acceptance: { label: 'Pedidos Sin Asignar', icon: ClipboardList, color: 'text-slate-500', bgColor: 'bg-slate-50' },
   accepted: { label: 'Aceptado Por El Repartidor', icon: Check, color: 'text-blue-500', bgColor: 'bg-blue-50' },
   cooking: { label: 'Cocinando', icon: CookingPot, color: 'text-orange-500', bgColor: 'bg-orange-50' },
-  outForDelivery: { label: 'En Camino Para Entrega', icon: Bike, color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
+  out_for_delivery: { label: 'En Camino Para Entrega', icon: Bike, color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
   delivered: { label: 'Entregado', icon: Package, color: 'text-green-500', bgColor: 'bg-green-50' },
   cancelled: { label: 'Cancelado', icon: Ban, color: 'text-red-500', bgColor: 'bg-red-50' },
   refunded: { label: 'Reembolsado', icon: CircleDollarSign, color: 'text-amber-500', bgColor: 'bg-amber-50' },
@@ -100,7 +100,7 @@ export function OrderStatusGrid({ data, isLoading }: OrderStatusGridProps) {
             <StatusCard 
                 key={key}
                 label={config.label}
-                value={data[key as keyof OrderStatusSummary]}
+                value={data[key as keyof OrderStatusSummary] || 0}
                 icon={config.icon}
                 color={config.color}
                 bgColor={config.bgColor}
