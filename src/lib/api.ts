@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -226,8 +227,6 @@ function createCRUDApi<T extends { id: string | number }>(
   return { useGetAll, useGetOne, useGetSettings, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
-const settingsApi = createCRUDApi<SystemSettings>('system_settings');
-
 // --- API Hooks ---
 export const api = {
     product_categories: createCRUDApi<Category>('product_categories'),
@@ -239,13 +238,13 @@ export const api = {
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: createCRUDApi<Order, OrderPayload>('orders'),
+    orders: createCRUDApi<Order>('orders'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),
     payments: createCRUDApi<Payment>('payments'),
     settings: {
-        useGet: settingsApi.useGetSettings,
-        useUpdate: settingsApi.useUpdate,
+        useGet: createCRUDApi<SystemSettings>('system_settings').useGetSettings,
+        useUpdate: createCRUDApi<SystemSettings>('system_settings').useUpdate,
     },
 };
 
