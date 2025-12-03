@@ -3,9 +3,10 @@
 
 import Link from "next/link";
 import { notFound, useParams } from 'next/navigation';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -14,19 +15,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
-import { type Order, OrderItem, type Business, type Customer } from '@/types';
-import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, Ban } from 'lucide-react';
+import { type Order, OrderItem, type Business, type Customer, OrderStatus } from '@/types';
+import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, Ban, MoreVertical } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/hooks/use-confirm";
 
-type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
+const libraries: ('places')[] = ['places'];
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
-    pending_acceptance: { label: "Pendiente de Aceptación", variant: "warning", icon: Eye },
+    pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
     accepted: { label: "Aceptado", variant: "default", icon: CheckCircle },
     cooking: { label: "En preparación", variant: "default", icon: CookingPot },
     out_for_delivery: { label: "En Camino", variant: "default", icon: Bike },
     delivered: { label: "Entregado", variant: "success", icon: Package },
     cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
-}
+};
 
 const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string, value?: string, children?: React.ReactNode }) => (
     <div className="flex items-start gap-3">
@@ -38,14 +42,84 @@ const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.Elemen
     </div>
 );
 
+const LocationMap = ({ order }: { order: Order | undefined }) => {
+    const { isLoaded, loadError } = useLoadScript({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries,
+    });
+
+    const businessLocation = order?.pickup_address?.coordinates;
+    const customerLocation = order?.delivery_address?.coordinates;
+
+    const mapCenter = useMemo(() => {
+        if (businessLocation) return businessLocation;
+        if (customerLocation) return customerLocation;
+        return { lat: 19.4326, lng: -99.1332 };
+    }, [businessLocation, customerLocation]);
+    
+    const mapBounds = useMemo(() => {
+        if (!isLoaded || !businessLocation || !customerLocation || typeof window === 'undefined') return undefined;
+        
+        const bounds = new window.google.maps.LatLngBounds();
+        bounds.extend(businessLocation);
+        bounds.extend(customerLocation);
+        return bounds;
+    }, [businessLocation, customerLocation, isLoaded]);
+
+    if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
+    if (!isLoaded) return <Skeleton className="h-full w-full rounded-md" />;
+
+    return (
+        <GoogleMap
+            mapContainerClassName="h-full w-full rounded-md"
+            center={mapCenter}
+             onLoad={map => {
+                if (mapBounds) map.fitBounds(mapBounds, 50);
+            }}
+            options={{
+                disableDefaultUI: true,
+                zoomControl: true,
+            }}
+        >
+            {businessLocation && (
+                <MarkerF position={businessLocation} label={{ text: "N", color: 'white' }} title="Negocio"/>
+            )}
+            {customerLocation && (
+                <MarkerF position={customerLocation} label={{ text: "C", color: 'white' }} title="Cliente"/>
+            )}
+             {businessLocation && customerLocation && (
+                <PolylineF
+                    path={[businessLocation, customerLocation]}
+                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
+                />
+            )}
+        </GoogleMap>
+    )
+}
+
 export default function ViewOrderPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   
   const { data: order, isLoading: isLoadingOrder, isError } = api.orders.useGetOne(id);
   const { data: orderItems, isLoading: isLoadingItems } = api.order_items.useGetAll({ order_id: id });
-  
+  const updateStatusMutation = api.orders.useUpdate();
+  const [ConfirmationDialog, confirm] = useConfirm();
+
   const isLoading = isLoadingOrder || isLoadingItems;
+
+  const handleStatusChange = async (newStatus: OrderStatus) => {
+    if (!order) return;
+    const ok = await confirm({
+      title: `¿Confirmar cambio de estado?`,
+      description: `El pedido se marcará como "${statusConfig[newStatus].label}".`,
+      confirmText: "Confirmar"
+    });
+
+    if (ok) {
+        updateStatusMutation.mutate({ id: order.id, status: newStatus });
+    }
+  }
 
   if (isLoading) {
     return (
@@ -56,8 +130,9 @@ export default function ViewOrderPage() {
                     <Skeleton className="h-64 w-full" />
                     <Skeleton className="h-48 w-full" />
                 </div>
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 space-y-6">
                     <Skeleton className="h-72 w-full" />
+                    <Skeleton className="h-64 w-full" />
                 </div>
             </div>
         </div>
@@ -72,11 +147,33 @@ export default function ViewOrderPage() {
   
   return (
     <div className="space-y-6">
+      <ConfirmationDialog />
       <PageHeader title={`Pedido #${order.id.split('-')[0].toUpperCase()}`}>
-         <Badge variant={statusInfo.variant} className="capitalize text-base py-1 px-3">
-            <statusInfo.icon className="mr-2 h-4 w-4" />
-            {statusInfo.label}
-        </Badge>
+         <div className="flex items-center gap-2">
+            <Badge variant={statusInfo.variant} className="capitalize text-base py-1 px-3">
+                <statusInfo.icon className="mr-2 h-4 w-4" />
+                {statusInfo.label}
+            </Badge>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon"><MoreVertical className="h-4 w-4"/></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Cambiar Estado</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {Object.entries(statusConfig).map(([key, config]) => (
+                        <DropdownMenuItem 
+                            key={key} 
+                            onClick={() => handleStatusChange(key as OrderStatus)}
+                            disabled={order.status === key}
+                            className="capitalize"
+                        >
+                            <config.icon className="mr-2 h-4 w-4"/> {config.label}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+         </div>
       </PageHeader>
       
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -118,6 +215,14 @@ export default function ViewOrderPage() {
                     </CardContent>
                 </Card>
              )}
+             <Card>
+                <CardHeader>
+                    <CardTitle>Mapa de la Ruta</CardTitle>
+                </CardHeader>
+                <CardContent className="h-96">
+                   <LocationMap order={order} />
+                </CardContent>
+             </Card>
         </div>
         <div className="lg:col-span-1 space-y-6">
              <Card>
@@ -138,7 +243,13 @@ export default function ViewOrderPage() {
                     </DetailItem>
                     <DetailItem icon={Phone} label="Teléfono Cliente" value={order.customer_phone} />
                     <DetailItem icon={Home} label="Dirección de Entrega" value={order.delivery_address.text} />
-                    <DetailItem icon={Bike} label="Repartidor" value={order.rider?.first_name ? `${order.rider.first_name} ${order.rider.last_name}` : 'Sin asignar'} />
+                    <DetailItem icon={Bike} label="Repartidor">
+                       {order.rider_id ? (
+                           <Link href={`/riders/${order.rider_id}`} className="font-medium text-sm text-primary hover:underline">
+                                {order.rider?.first_name} {order.rider?.last_name}
+                           </Link>
+                        ) : 'Sin asignar'}
+                    </DetailItem>
                 </CardContent>
              </Card>
              <Card>

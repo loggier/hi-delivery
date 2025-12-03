@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -279,7 +280,7 @@ export const api = {
     zones: createCRUDApi<Zone>('zones'),
     customers: createCRUDApi<Customer>('customers'),
     customer_addresses: createCRUDApi<CustomerAddress>('customer_addresses'),
-    orders: { ...createCRUDApi<Order>('orders', '*,business:businesses(name),customer:customers(first_name,last_name)'), useCreate: useCreateOrder },
+    orders: { ...createCRUDApi<Order>('orders', '*,business:businesses(name),customer:customers(first_name,last_name),rider:riders(id,first_name,last_name)'), useCreate: useCreateOrder },
     order_items: createCRUDApi<OrderItem>('order_items', '*, product:products(name)'),
     roles: createCRUDApi<Role>('roles'),
     plans: createCRUDApi<Plan>('plans'),

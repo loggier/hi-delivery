@@ -1,5 +1,7 @@
 
 
+export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
+
 export type OrderItem = Product & {
   id: string;
   order_id: string;
@@ -13,7 +15,7 @@ export type OrderItem = Product & {
 export type OrderPayload = {
   business_id: string;
   customer_id: string;
-  status: 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded' | 'failed';
+  status: OrderStatus | 'refunded' | 'failed';
   pickup_address: {
     text: string;
     coordinates: {
@@ -119,13 +121,13 @@ export type Order = {
   business_id: string;
   rider_id?: string;
   order_total: number;
-  status: string;
+  status: OrderStatus;
   created_at: string;
   business: { name: string };
   customer: { first_name: string, last_name: string };
-  rider?: { first_name: string, last_name: string };
-  delivery_address: { text: string };
-  pickup_address: { text: string };
+  rider?: { id: string, first_name: string, last_name: string };
+  delivery_address: { text: string, coordinates: { lat: number, lng: number } };
+  pickup_address: { text: string, coordinates: { lat: number, lng: number } };
   items_description?: string;
   subtotal: number;
   delivery_fee: number;
