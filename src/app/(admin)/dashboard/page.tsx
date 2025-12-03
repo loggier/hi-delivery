@@ -129,7 +129,7 @@ export default function DashboardPage() {
         ) : data ? (
             <>
                 <KPICard title="Pedidos del Día" value={data.dailyOrders} icon={ShoppingCart} description="Total de órdenes hoy" />
-                <KPICard title="Ticket Promedio (Hoy)" value={formatCurrency(data.averageTicketToday)} icon={TrendingUp} description="Valor promedio por orden" />
+                <KPICard title="Ticket Promedio (Entregados)" value={formatCurrency(data.averageTicketToday)} icon={TrendingUp} description="Valor promedio por orden completada" />
                 <KPICard title="Pedidos Activos" value={data.activeOrders} icon={Activity} description="En preparación o en camino" />
             </>
         ) : null}
