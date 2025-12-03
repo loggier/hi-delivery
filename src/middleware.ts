@@ -5,10 +5,10 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('supabase_session');
 
-  // Si el usuario va a la raíz, lo mandamos directo al dashboard
-  if (pathname === '/') {
-     return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
+  // Comentado para permitir que la ruta raíz muestre la landing page
+  // if (pathname === '/') {
+  //    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // }
   
   // Proteger rutas de admin si no hay sesión (excepto la de login)
   if (pathname.startsWith('/admin') && !sessionCookie) {
