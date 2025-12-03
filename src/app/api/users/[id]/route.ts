@@ -34,10 +34,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Desestructuramos para separar los campos de contraseña y el resto.
     const { password, passwordConfirmation, ...updateData } = parsed.data;
     
-    // Creamos un objeto para la actualización final.
     const finalUpdateData: Record<string, any> = updateData;
 
-    // Si se proporcionó una nueva contraseña, la hasheamos y la añadimos a los datos a actualizar.
     if (password) {
         finalUpdateData.password = await hashPassword(password);
     }
@@ -51,6 +49,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     if (error) {
       console.error("Supabase Error:", error);
+      // Check for the specific error to avoid confusion
+      if (error.message.includes('passwordConfirmation')) {
+          return NextResponse.json({ message: 'Error interno: El campo passwordConfirmation no debería enviarse a la base de datos.' }, { status: 500 });
+      }
       return NextResponse.json({ message: error.message || 'Error al actualizar el usuario.' }, { status: 500 });
     }
 
