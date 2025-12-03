@@ -3,7 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module } from "@/types";
+import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -44,7 +44,10 @@ function createApi<T extends { id: string | number }>(
                 if (key.includes('search')) {
                     const searchKey = key.split('_search')[0];
                     query = query.ilike(searchKey, `%${filters[key]}%`);
-                } else {
+                } else if(key === 'active') { // Handle boolean filter for business categories
+                    query = query.eq(key, filters[key] === 'true');
+                }
+                else {
                     query = query.eq(key, filters[key]);
                 }
             }
@@ -168,6 +171,37 @@ function createApi<T extends { id: string | number }>(
     });
   };
 
+  const useUpdate = <T_DTO extends { id: string | number }>() => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation<T, Error, Partial<T_DTO>>({
+        mutationFn: async (itemData) => {
+            const { id, ...updateData } = itemData;
+            const { data, error } = await supabase
+                .from(entity)
+                .update(updateData)
+                .eq('id', id)
+                .select()
+                .single();
+            if (error) throw error;
+            return data as T;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: entityKey });
+            queryClient.setQueryData([entity, data.id], data);
+            toast({
+                title: "Éxito",
+                description: `${translatedEntity} actualizado exitosamente.`,
+                variant: 'success',
+            });
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error al actualizar", description: error.message });
+        },
+    });
+  };
+
   const useDelete = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -188,48 +222,8 @@ function createApi<T extends { id: string | number }>(
         },
     });
   };
-  
-  const useUpdateGeneric = <T extends { id: string | number }>() => {
-    const queryClient = useQueryClient();
-    const { toast } = useToast();
-    const supabase = createClient();
-    const translatedEntity = entityTranslations[entity] || entity;
 
-    return useMutation<T, Error, Partial<T> & { id: string | number }>({
-      mutationFn: async (itemData) => {
-        const { id, ...updateData } = itemData;
-        const { data, error } = await supabase
-          .from(entity)
-          .update(updateData)
-          .eq('id', id)
-          .select()
-          .single();
-        
-        if (error) {
-          throw new Error(error.message || `Error al actualizar ${translatedEntity}`);
-        }
-        return data as T;
-      },
-      onSuccess: (data: any) => {
-        queryClient.invalidateQueries({ queryKey: [entity] });
-        queryClient.setQueryData([entity, data.id], data);
-        toast({
-          title: "Éxito",
-          description: `${translatedEntity} actualizado exitosamente.`,
-          variant: 'success'
-        });
-      },
-      onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Error al actualizar",
-          description: error.message,
-        });
-      },
-    });
-  };
-
-  return { useGetAll, useGetOne, useGetSettings, useCreate, useDelete, useCreateWithFormData, useUpdateWithFormData, useUpdate: useUpdateGeneric };
+  return { useGetAll, useGetOne, useGetSettings, useCreate, useUpdate, useDelete, useCreateWithFormData, useUpdateWithFormData };
 }
 
 const useCreateOrder = () => {
@@ -383,6 +377,7 @@ export const api = {
     },
     settings: {
         useGet: createApi<SystemSettings>('system_settings').useGetSettings,
+        useUpdate: createApi<SystemSettings>('system_settings').useUpdate,
     },
 };
 
@@ -460,5 +455,3 @@ export const useCustomerOrders = (customerId: string) => {
     enabled: !!customerId,
   });
 };
-
-    

@@ -20,6 +20,7 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   zones: 'Zonas',
   customers: 'Clientes',
   roles: 'Roles y Permisos',
+  modules: 'Módulos',
   plans: 'Planes',
   subscriptions: 'Suscripciones',
   new: 'Nuevo',

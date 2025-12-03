@@ -22,6 +22,7 @@ import {
   Send,
   ClipboardList,
   Loader2,
+  Box,
 } from "lucide-react";
 
 import {
@@ -54,6 +55,7 @@ const navItems = [
     { href: "/plans", icon: Tags, label: "Planes" },
     { href: "/users", icon: Users, label: "Usuarios" },
     { href: "/roles", icon: Shield, label: "Roles y Permisos" },
+    { href: "/modules", icon: Box, label: "Módulos" },
     { href: "/settings", icon: Settings, label: "Configuración" },
 ];
 
