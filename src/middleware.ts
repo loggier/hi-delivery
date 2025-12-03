@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -5,10 +6,10 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('supabase_session');
 
-  // Comentado para permitir que la ruta raíz muestre la landing page
-  // if (pathname === '/') {
-  //    return NextResponse.redirect(new URL('/dashboard', request.url))
-  // }
+  // Si el usuario va a la raíz, lo mandamos directo a la landing page
+  if (pathname === '/') {
+     return NextResponse.redirect(new URL('/site', request.url))
+  }
   
   // Proteger rutas de admin si no hay sesión (excepto la de login)
   if (pathname.startsWith('/admin') && !sessionCookie) {
