@@ -18,9 +18,10 @@ export async function POST(request: Request) {
   try {
     const orderData: OrderPayload & { items: any[] } = await request.json();
     
+    // Separar los items del resto del payload de la orden.
     const { items, ...orderInput } = orderData;
 
-    // The RPC function will handle the transaction of creating the order and its items.
+    // Llamar a la función RPC, pasando los items como un parámetro separado (items_in).
     const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
         business_id_in: orderInput.business_id,
         customer_id_in: orderInput.customer_id,
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
         order_total_in: orderInput.order_total,
         distance_in: orderInput.distance,
         status_in: orderInput.status,
-        items_in: items,
+        items_in: items, // Este es el parámetro para los items.
     }).single();
     
     if (error) {
@@ -42,8 +43,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Error al crear el pedido en la base de datos.', error: error.message }, { status: 500 });
     }
 
-    // After a successful order creation, you might want to invalidate caches or trigger notifications.
-    // For now, we just return the newly created order.
     return NextResponse.json(newOrder, { status: 201 });
 
   } catch (error) {
