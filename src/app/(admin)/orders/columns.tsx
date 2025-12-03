@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -131,3 +132,5 @@ export const getColumns = (businesses: Business[], customers: Customer[]): Colum
     },
   },
 ];
+
+    

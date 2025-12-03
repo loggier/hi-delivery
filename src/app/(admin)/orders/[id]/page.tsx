@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -141,11 +142,12 @@ export default function ViewOrderPage() {
   }
 
   const statusInfo = statusConfig[order.status as OrderStatus] || { label: "Desconocido", variant: "outline", icon: Eye };
+  const displayId = `ORD-${order.id.substring(4, 12).toUpperCase()}`;
   
   return (
     <div className="space-y-6">
       <ConfirmationDialog />
-      <PageHeader title={`Pedido #${order.id.split('-')[0].toUpperCase()}`}>
+      <PageHeader title={`Pedido #${displayId}`}>
          <div className="flex items-center gap-2">
             <Badge variant={statusInfo.variant} className="capitalize text-base py-1 px-3">
                 <statusInfo.icon className="mr-2 h-4 w-4" />
@@ -282,3 +284,5 @@ export default function ViewOrderPage() {
     </div>
   );
 }
+
+    
