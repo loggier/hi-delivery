@@ -120,7 +120,6 @@ export default function OrdersPage() {
             columns={columns}
             data={pendingOrders}
             isLoading={isLoading}
-            searchKey="customer_name"
           />
         </TabsContent>
         <TabsContent value="preparing">
@@ -128,7 +127,6 @@ export default function OrdersPage() {
             columns={columns}
             data={preparingOrders}
             isLoading={isLoading}
-            searchKey="customer_name"
           />
         </TabsContent>
         <TabsContent value="in_transit">
@@ -136,7 +134,6 @@ export default function OrdersPage() {
             columns={columns}
             data={inTransitOrders}
             isLoading={isLoading}
-            searchKey="customer_name"
           />
         </TabsContent>
         <TabsContent value="history">
@@ -144,7 +141,6 @@ export default function OrdersPage() {
             columns={columns}
             data={historyOrders}
             isLoading={isLoading}
-            searchKey="customer_name"
           />
         </TabsContent>
       </Tabs>
