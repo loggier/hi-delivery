@@ -55,14 +55,17 @@ export default function OrdersPage() {
   const { user } = useAuthStore();
   const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
 
-  const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats();
+  // Solo se necesita el dashboardStats si no es dueño de negocio
+  const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats({ enabled: !isBusinessOwner });
+  
   const { data: orders, isLoading: isLoadingOrders } = api.orders.useGetAll({
-    business_id: isBusinessOwner ? user.business_id : undefined,
+    business_id: isBusinessOwner ? user?.business_id : undefined,
   });
+
   const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
   const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
 
-  const isLoading = isLoadingStats || isLoadingOrders || isLoadingBusinesses || isLoadingCustomers;
+  const isLoading = isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || (isLoadingStats && !isBusinessOwner);
 
   const columns = React.useMemo(() => getColumns(businesses || [], customers || []), [businesses, customers]);
   
@@ -79,21 +82,25 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <PageHeader title="Pedidos" description="Gestiona todos los pedidos de la plataforma." />
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {isLoadingStats ? (
-            <>
-                <KPICardSkeleton />
-                <KPICardSkeleton />
-            </>
-        ) : (
-            <>
-                <KPICard title="Ingresos del Día" value={formatCurrency(dashboardStats?.dailyRevenue ?? 0)} icon={DollarSign} />
-                <KPICard title="Ingreso Repartidores" value={formatCurrency(dashboardStats?.dailyRiderEarnings ?? 0)} icon={Wallet} />
-            </>
-        )}
-      </div>
-      
-       <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
+      {!isBusinessOwner && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {isLoadingStats ? (
+                <>
+                    <KPICardSkeleton />
+                    <KPICardSkeleton />
+                </>
+            ) : (
+                <>
+                    <KPICard title="Ingresos del Día" value={formatCurrency(dashboardStats?.dailyRevenue ?? 0)} icon={DollarSign} />
+                    <KPICard title="Ingreso Repartidores" value={formatCurrency(dashboardStats?.dailyRiderEarnings ?? 0)} icon={Wallet} />
+                </>
+            )}
+          </div>
+          
+           <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
+        </>
+      )}
       
       <Tabs defaultValue="pending">
         <TabsList>
@@ -116,7 +123,7 @@ export default function OrdersPage() {
             columns={columns}
             data={pendingOrders}
             isLoading={isLoading}
-            searchKey="id"
+            searchKey="customer_name"
           />
         </TabsContent>
         <TabsContent value="preparing">
@@ -124,7 +131,7 @@ export default function OrdersPage() {
             columns={columns}
             data={preparingOrders}
             isLoading={isLoading}
-            searchKey="id"
+            searchKey="customer_name"
           />
         </TabsContent>
         <TabsContent value="in_transit">
@@ -132,7 +139,7 @@ export default function OrdersPage() {
             columns={columns}
             data={inTransitOrders}
             isLoading={isLoading}
-            searchKey="id"
+            searchKey="customer_name"
           />
         </TabsContent>
         <TabsContent value="history">
@@ -140,7 +147,7 @@ export default function OrdersPage() {
             columns={columns}
             data={historyOrders}
             isLoading={isLoading}
-            searchKey="id"
+            searchKey="customer_name"
           />
         </TabsContent>
       </Tabs>

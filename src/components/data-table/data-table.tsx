@@ -29,12 +29,14 @@ import {
 import { DataTablePagination } from "./data-table-pagination";
 import { DataTableToolbar } from "./data-table-toolbar";
 import { Skeleton } from "../ui/skeleton";
+import { Input } from "../ui/input";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   toolbar?: React.ReactNode | ((table: ReactTable<TData>) => React.ReactNode);
   isLoading?: boolean;
+  searchKey?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -42,6 +44,7 @@ export function DataTable<TData, TValue>({
   data,
   toolbar,
   isLoading,
+  searchKey,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -50,6 +53,7 @@ export function DataTable<TData, TValue>({
     []
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState('');
 
   const table = useReactTable({
     data,
@@ -59,12 +63,14 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
       columnFilters,
+      globalFilter,
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -77,7 +83,20 @@ export function DataTable<TData, TValue>({
     if (typeof toolbar === 'function') {
       return toolbar(table);
     }
-    return toolbar;
+    if (toolbar) {
+      return toolbar;
+    }
+    if (searchKey) {
+        return (
+            <Input
+              placeholder={`Filtrar por ${searchKey}...`}
+              value={globalFilter ?? ''}
+              onChange={(event) => setGlobalFilter(String(event.target.value))}
+              className="h-8 w-[150px] lg:w-[250px]"
+            />
+        )
+    }
+    return null;
   };
 
   return (
