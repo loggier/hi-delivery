@@ -259,11 +259,11 @@ const useCreateOrder = () => {
 };
 
 const useGetDashboardStats = (filters: { business_id?: string } = {}) => {
-  const queryParams = new URLSearchParams(
-    Object.entries(filters).filter(([, value]) => value !== undefined) as [string, string][]
-  ).toString();
-  
-  const url = `/api/dashboard-stats${queryParams ? `?${queryParams}` : ''}`;
+  const queryParams = new URLSearchParams();
+  if (filters.business_id) {
+    queryParams.set('business_id', filters.business_id);
+  }
+  const url = `/api/dashboard-stats?${queryParams.toString()}`;
   
   return useQuery<DashboardStats>({
     queryKey: ['dashboard-stats', filters],
