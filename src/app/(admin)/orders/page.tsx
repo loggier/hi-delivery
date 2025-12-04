@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React from 'react';
@@ -54,18 +53,18 @@ const OrderCountBadge = ({ count, isLoading }: { count: number, isLoading: boole
 export default function OrdersPage() {
   const { user } = useAuthStore();
   const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+  const businessId = isBusinessOwner ? user?.business_id : undefined;
 
-  // Solo se necesita el dashboardStats si no es dueño de negocio
-  const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats({ enabled: !isBusinessOwner });
+  const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats({ business_id: businessId });
   
   const { data: orders, isLoading: isLoadingOrders } = api.orders.useGetAll({
-    business_id: isBusinessOwner ? user?.business_id : undefined,
+    business_id: businessId,
   });
 
   const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
   const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
 
-  const isLoading = isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || (isLoadingStats && !isBusinessOwner);
+  const isLoading = isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || isLoadingStats;
 
   const columns = React.useMemo(() => getColumns(businesses || [], customers || []), [businesses, customers]);
   
@@ -82,9 +81,7 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <PageHeader title="Pedidos" description="Gestiona todos los pedidos de la plataforma." />
       
-      {!isBusinessOwner && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {isLoadingStats ? (
                 <>
                     <KPICardSkeleton />
@@ -93,14 +90,14 @@ export default function OrdersPage() {
             ) : (
                 <>
                     <KPICard title="Ingresos del Día" value={formatCurrency(dashboardStats?.dailyRevenue ?? 0)} icon={DollarSign} />
-                    <KPICard title="Ingreso Repartidores" value={formatCurrency(dashboardStats?.dailyRiderEarnings ?? 0)} icon={Wallet} />
+                     {!isBusinessOwner && (
+                        <KPICard title="Ingreso Repartidores" value={formatCurrency(dashboardStats?.dailyRiderEarnings ?? 0)} icon={Wallet} />
+                     )}
                 </>
             )}
-          </div>
-          
-           <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
-        </>
-      )}
+        </div>
+        
+        <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
       
       <Tabs defaultValue="pending">
         <TabsList>

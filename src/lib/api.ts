@@ -258,14 +258,17 @@ const useCreateOrder = () => {
     });
 };
 
-const useGetDashboardStats = () => {
+const useGetDashboardStats = (filters?: { business_id?: string }) => {
+    const queryParams = new URLSearchParams(filters as Record<string, string>).toString();
+    const url = `/api/dashboard-stats?${queryParams}`;
+
     return useQuery<DashboardStats>({
-        queryKey: ['dashboard-stats'],
+        queryKey: ['dashboard-stats', filters],
         queryFn: async () => {
-            const res = await fetch(`/api/dashboard-stats`);
+            const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to fetch dashboard stats');
             return res.json();
-        }
+        },
     });
 };
 
@@ -462,8 +465,3 @@ export const useCustomerOrders = (customerId: string) => {
     enabled: !!customerId,
   });
 };
-
-    
-
-    
-
