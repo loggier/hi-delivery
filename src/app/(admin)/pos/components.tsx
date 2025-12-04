@@ -426,7 +426,7 @@ export function ProductGrid({ products, onAddToCart, isLoading, disabled = false
                      {Array.from({length: 5}).map((_, i) => <Card key={i} className="h-64"><CardContent className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></CardContent></Card>)}
                 </div>
             ) : (
-                <div className="max-h-[60vh] overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-1">
+                <div className="max-h-[calc(100vh-250px)] overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-1">
                     {filteredProducts.map(p => (
                         <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
                     ))}
@@ -519,17 +519,17 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <Card>
+        <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle className="text-xl">4. Resumen del Pedido</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 flex-grow overflow-y-auto">
                 {items.length === 0 ? (
                      <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
                         <p>Aún no has agregado productos al pedido.</p>
                     </div>
                 ) : (
-                    <div className="max-h-64 overflow-y-auto pr-2 space-y-2">
+                    <div className="space-y-2">
                         {items.map(item => (
                             <div key={item.id} className="p-2 rounded-md border bg-slate-50 dark:bg-slate-800/50">
                                 <div className="flex items-center gap-3">
@@ -564,6 +564,8 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                         ))}
                     </div>
                 )}
+            </CardContent>
+            <div className="p-6 border-t mt-auto space-y-6">
                  <div className="space-y-2">
                     <label htmlFor="order-note" className="text-sm font-medium">Nota General del Pedido</label>
                     <Textarea 
@@ -625,7 +627,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                 <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address} onClick={onConfirmOrder}>
                     Crear Pedido
                 </Button>
-            </CardContent>
+            </div>
         </Card>
     )
 }
@@ -648,6 +650,12 @@ interface OrderTicketProps {
 }
 
 const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order, shippingInfo, subtotal, total, preparationTime }, ref) => {
+    
+    const getTotalTime = () => {
+        const shippingMinutes = shippingInfo?.duration ? parseInt(shippingInfo.duration.split(' ')[0]) : 0;
+        return preparationTime + shippingMinutes;
+    };
+    
     return (
         <div ref={ref} className="font-mono text-xs text-black p-4 bg-white" id="ticket-content">
             <div className="text-center space-y-1">
@@ -717,7 +725,7 @@ const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order,
             <Separator className="my-2 border-dashed border-black"/>
 
             <div className="text-center space-y-1">
-                <p>Tiempo de preparación: {preparationTime} min.</p>
+                <p>Tiempo total estimado: {getTotalTime()} min.</p>
                 <p className="font-bold">¡Gracias por su preferencia!</p>
             </div>
         </div>
@@ -755,6 +763,12 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 
     const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
     const total = subtotal + (shippingInfo?.cost || 0);
+
+    const getTotalTime = () => {
+        if (!shippingInfo) return preparationTime;
+        const shippingMinutes = parseInt(shippingInfo.duration.split(' ')[0]) || 0;
+        return preparationTime + shippingMinutes;
+    };
 
     const handleCreateOrder = () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
@@ -869,7 +883,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                         )}
                         <Separator className="my-2 border-dashed border-black"/>
                         <div className="text-center space-y-1">
-                            <p>Tiempo de preparación: {preparationTime} min.</p>
+                            <p>Tiempo total estimado: {getTotalTime()} min.</p>
                             <p className="font-bold">¡Gracias por su preferencia!</p>
                         </div>
                     </div>
@@ -1095,4 +1109,6 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
 }
 
 
+
     
+
