@@ -258,18 +258,21 @@ const useCreateOrder = () => {
     });
 };
 
-const useGetDashboardStats = (filters?: { business_id?: string }) => {
-    const queryParams = new URLSearchParams(filters as Record<string, string>).toString();
-    const url = `/api/dashboard-stats?${queryParams}`;
-
-    return useQuery<DashboardStats>({
-        queryKey: ['dashboard-stats', filters],
-        queryFn: async () => {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('Failed to fetch dashboard stats');
-            return res.json();
-        },
-    });
+const useGetDashboardStats = (filters: { business_id?: string } = {}) => {
+  const queryParams = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => value !== undefined) as [string, string][]
+  ).toString();
+  
+  const url = `/api/dashboard-stats${queryParams ? `?${queryParams}` : ''}`;
+  
+  return useQuery<DashboardStats>({
+    queryKey: ['dashboard-stats', filters],
+    queryFn: async () => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch dashboard stats');
+      return res.json();
+    },
+  });
 };
 
 const useUpdateUser = () => {
