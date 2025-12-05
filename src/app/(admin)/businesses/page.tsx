@@ -13,8 +13,12 @@ import { getColumns } from "./columns";
 import { DataTableToolbar, type Filters } from "./data-table-toolbar";
 import { type Table } from "@tanstack/react-table";
 import { type Business } from "@/types";
+import { useAuthStore } from "@/store/auth-store";
 
 export default function BusinessesPage() {
+  const { user } = useAuthStore();
+  const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+
   const [filters, setFilters] = React.useState<Filters>({
     name: '',
     status: '',
@@ -28,7 +32,9 @@ export default function BusinessesPage() {
     status: filters.status,
     type: filters.type,
     category_id: filters.category_id,
-  }), [debouncedName, filters.status, filters.type, filters.category_id]);
+    // Apply business ID filter only if the user is a business owner
+    id: isBusinessOwner ? user.business_id : undefined,
+  }), [debouncedName, filters.status, filters.type, filters.category_id, isBusinessOwner, user?.business_id]);
   
   const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll(queryFilters);
   const { data: categoriesData, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
