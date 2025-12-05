@@ -18,7 +18,7 @@ import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, DirectionsRenderer } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
@@ -534,7 +534,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                                 <>
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-1"><Map className="h-4 w-4"/>Distancia</div>
-                                        <span className="font-semibold">{shippingInfo.distance.toFixed(2)} km</span>
+                                        <span className="font-semibold">{(shippingInfo.distance / 1000).toFixed(2)} km</span>
                                     </div>
                                      <div className="flex justify-between items-center mt-1">
                                         <div className="flex items-center gap-1"><Timer className="h-4 w-4"/>Tiempo estimado</div>
@@ -974,9 +974,10 @@ interface ShippingMapModalProps {
     business: Business | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
+    shippingInfo: ShippingInfo | null;
 }
 
-export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded }: ShippingMapModalProps) {
+export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded, shippingInfo }: ShippingMapModalProps) {
     
     const [isModalReady, setIsModalReady] = useState(false);
 
@@ -1022,18 +1023,18 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                                 zoomControl: true,
                             }}
                         >
-                            {business?.latitude && business?.longitude && (
-                                <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
-                            )}
-                            {address?.latitude && address?.longitude && (
-                                <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
-                            )}
-                            {business?.latitude && business?.longitude && address?.latitude && address?.longitude && (
-                                <PolylineF 
-                                    path={[{ lat: business.latitude, lng: business.longitude }, { lat: address.latitude, lng: address.longitude }]}
-                                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
-                                />
-                            )}
+                           {shippingInfo?.directions ? (
+                                <DirectionsRenderer directions={shippingInfo.directions} options={{ suppressMarkers: true }}/>
+                           ) : (
+                                <>
+                                 {business?.latitude && business?.longitude && (
+                                     <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
+                                 )}
+                                 {address?.latitude && address?.longitude && (
+                                     <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
+                                 )}
+                                </>
+                           )}
                         </GoogleMap>
                     )}
                 </div>

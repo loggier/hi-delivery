@@ -27,7 +27,7 @@ import { useLoadScript } from '@react-google-maps/api';
 import { useAuthStore } from '@/store/auth-store';
 import { useShippingCalculation } from './use-shipping-calculation';
 
-const libraries: ('places' | 'directions')[] = ['places'];
+const libraries: ('places' | 'directions')[] = ['places', 'directions'];
 
 export default function POSPage() {
     const { user } = useAuthStore();
@@ -329,6 +329,7 @@ export default function POSPage() {
                 business={selectedBusiness}
                 address={selectedAddress}
                 isMapsLoaded={isLoaded}
+                shippingInfo={shippingHookResult.shippingInfo}
             />
 
             <OrderConfirmationDialog
