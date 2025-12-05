@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -6,11 +7,9 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Si el usuario va a la raíz, lo mandamos directo a la página de marketing
-  if (pathname === '/') {
-     return NextResponse.redirect(new URL('/site', request.url))
-  }
-  
+  // El manejo de la ruta raíz ahora se hace en src/app/page.tsx
+  // para mayor claridad y seguir las convenciones de Next.js.
+
   // Opcional: si un usuario autenticado intenta ir a /sign-in,
   // podríamos querer redirigirlo. Pero sin acceso a la sesión aquí,
   // esta lógica se mueve al layout de /sign-in si es necesaria.
@@ -27,7 +26,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - site (public marketing pages)
+     * - / (la ruta raíz se maneja en page.tsx)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|site|deliveryman|store).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|site|deliveryman|store|$).*)',
   ],
 }
