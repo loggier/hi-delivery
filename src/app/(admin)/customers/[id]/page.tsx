@@ -64,14 +64,16 @@ const LocationMap = ({ address }: { address: CustomerAddress | null }) => {
 
 const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
     const { data: orders, isLoading } = useCustomerOrders(customerId);
+    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
+    const { data: riders, isLoading: isLoadingRiders } = api.riders.useGetAll();
 
-    const getOrderBusiness = (order: Order) => businesses.find(b => b.id === order.business_id)?.name || 'N/A';
+    const getOrderBusiness = (order: Order) => businesses?.find(b => b.id === order.business_id)?.name || 'N/A';
     const getOrderRider = (order: Order) => {
-        const rider = riders.find(r => r.id === order.rider_id);
+        const rider = riders?.find(r => r.id === order.rider_id);
         return rider ? `${rider.first_name} ${rider.last_name}` : 'N/A';
     }
 
-    if (isLoading) {
+    if (isLoading || isLoadingBusinesses || isLoadingRiders) {
         return (
             <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -97,7 +99,6 @@ const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
                     <TableHead>Fecha</TableHead>
                     <TableHead>Negocio</TableHead>
                     <TableHead>Repartidor</TableHead>
-                    <TableHead>Productos</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                 </TableRow>
             </TableHeader>
@@ -112,8 +113,7 @@ const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
                         <TableCell>{format(new Date(order.created_at), 'd MMM, yyyy', { locale: es })}</TableCell>
                         <TableCell className="font-medium">{getOrderBusiness(order)}</TableCell>
                         <TableCell>{getOrderRider(order)}</TableCell>
-                        <TableCell className="text-center">{order.productCount}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(order.total)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(order.order_total)}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>
