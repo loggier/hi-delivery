@@ -16,7 +16,9 @@ export async function GET(request: Request) {
   const business_id = searchParams.get('business_id') || null;
 
   try {
+    // El nombre del parámetro en la función RPC de Supabase es 'p_business_id'
     const rpcParams = { p_business_id: business_id };
+
     const { data: dailyStats, error: dailyStatsError } = await supabase.rpc('get_daily_dashboard_stats', rpcParams);
     
     if (dailyStatsError) {
