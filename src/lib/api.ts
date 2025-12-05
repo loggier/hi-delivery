@@ -16,6 +16,7 @@ const entityTranslations: { [key: string]: string } = {
     "users": "Usuario",
     "zones": "Zona",
     "customers": "Cliente",
+    "customers_with_stats": "Cliente",
     "customer_addresses": "Dirección de Cliente",
     "roles": "Rol",
     "plans": "Plan",
@@ -43,7 +44,10 @@ function createApi<T extends { id: string | number }>(
         let query = supabase.from(entity).select(select).order('created_at', { ascending: false });;
         for (const key in filters) {
             if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
-                if (key.includes('search')) {
+                if (key === 'name_search' && entity === 'customers_with_stats') {
+                     query = query.or(`first_name.ilike.%${filters[key]}%,last_name.ilike.%${filters[key]}%,email.ilike.%${filters[key]}%,phone.ilike.%${filters[key]}%`);
+                }
+                else if (key.includes('search')) {
                     const searchKey = key.split('_search')[0];
                     query = query.ilike(searchKey, `%${filters[key]}%`);
                 } else if(key === 'active') { // Handle boolean filter for business categories
@@ -352,7 +356,7 @@ const useCreateOrUpdateRole = () => {
 
 const orderSelect = `*,
   business:businesses(name),
-  customer:customers(first_name,last_name),
+  customer:customers!inner(*),
   rider:riders(id,first_name,last_name),
   order_items:order_items(*, products:products(name))
 `;
@@ -371,7 +375,11 @@ export const api = {
         useUpdate: useUpdateUser,
     },
     zones: createApi<Zone>('zones'),
-    customers: createApi<Customer>('customers'),
+    customers: {
+      ...createApi<Customer>('customers_with_stats'),
+      useGetOne: createApi<Customer>('customers').useGetOne,
+      useCreate: createApi<Customer>('customers').useCreate,
+    },
     customer_addresses: createApi<CustomerAddress>('customer_addresses'),
     orders: { 
       ...createApi<Order>('orders', orderSelect), 
@@ -459,11 +467,11 @@ export const useCustomerOrders = (customerId: string) => {
     queryFn: async () => {
       const { data, error } = await createClient()
         .from('orders')
-        .select('*')
+        .select(orderSelect)
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as Order[];
     },
     enabled: !!customerId,
   });

@@ -37,7 +37,7 @@ export const columns: ColumnDef<Customer>[] = [
       <DataTableColumnHeader column={column} title="Pedidos" />
     ),
     cell: ({ row }) => (
-      <div className="text-center">{row.original.order_count}</div>
+      <div className="text-center">{row.original.order_count || 0}</div>
     ),
   },
   {
@@ -48,7 +48,7 @@ export const columns: ColumnDef<Customer>[] = [
     cell: ({ row }) => {
       return (
         <div className="text-right font-medium">
-          {formatCurrency(row.original.total_spent)}
+          {formatCurrency(row.original.total_spent || 0)}
         </div>
       );
     },

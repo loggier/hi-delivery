@@ -5,18 +5,19 @@ import { notFound, useParams } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, Phone, Home, MapPin, Package, Bike, Building, Calendar, Hash, CheckCircle } from "lucide-react";
+import { Mail, Phone, Home, MapPin, Package, Bike, Building, Calendar, Hash, CheckCircle, Eye } from "lucide-react";
 import { useLoadScript, GoogleMap, MarkerF } from '@react-google-maps/api';
+import Link from 'next/link';
 
 import { api, useCustomerOrders } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { businesses, riders } from '@/mocks/data';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { type Order, type CustomerAddress } from '@/types';
+import { type Order, type CustomerAddress, OrderStatus } from '@/types';
+import { Button } from '@/components/ui/button';
 
 const libraries: ('places')[] = ['places'];
 
@@ -62,18 +63,20 @@ const LocationMap = ({ address }: { address: CustomerAddress | null }) => {
 };
 
 
+const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
+    pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
+    accepted: { label: "Aceptado", variant: "default", icon: CheckCircle },
+    cooking: { label: "En preparación", variant: "default", icon: CheckCircle },
+    out_for_delivery: { label: "En Camino", variant: "default", icon: Bike },
+    delivered: { label: "Entregado", variant: "success", icon: Package },
+    cancelled: { label: "Cancelado", variant: "destructive", icon: Home },
+};
+
+
 const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
     const { data: orders, isLoading } = useCustomerOrders(customerId);
-    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
-    const { data: riders, isLoading: isLoadingRiders } = api.riders.useGetAll();
 
-    const getOrderBusiness = (order: Order) => businesses?.find(b => b.id === order.business_id)?.name || 'N/A';
-    const getOrderRider = (order: Order) => {
-        const rider = riders?.find(r => r.id === order.rider_id);
-        return rider ? `${rider.first_name} ${rider.last_name}` : 'N/A';
-    }
-
-    if (isLoading || isLoadingBusinesses || isLoadingRiders) {
+    if (isLoading) {
         return (
             <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -98,24 +101,38 @@ const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
                     <TableHead>ID Pedido</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Negocio</TableHead>
-                    <TableHead>Repartidor</TableHead>
+                    <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {orders.map(order => (
-                    <TableRow key={order.id}>
-                        <TableCell>
-                            <Badge variant="outline" className="font-mono text-xs">
-                                {order.id.split('-')[0]}...
-                            </Badge>
-                        </TableCell>
-                        <TableCell>{format(new Date(order.created_at), 'd MMM, yyyy', { locale: es })}</TableCell>
-                        <TableCell className="font-medium">{getOrderBusiness(order)}</TableCell>
-                        <TableCell>{getOrderRider(order)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(order.order_total)}</TableCell>
-                    </TableRow>
-                ))}
+                {orders.map(order => {
+                    const statusInfo = statusConfig[order.status as OrderStatus] || { label: "Desconocido", variant: "outline", icon: Eye };
+                    return (
+                        <TableRow key={order.id}>
+                            <TableCell>
+                                <Badge variant="outline" className="font-mono text-xs">
+                                    {`ORD-${order.id.substring(4,12).toUpperCase()}`}
+                                </Badge>
+                            </TableCell>
+                            <TableCell>{format(new Date(order.created_at), 'd MMM, yyyy', { locale: es })}</TableCell>
+                            <TableCell className="font-medium">{order.business?.name || 'N/A'}</TableCell>
+                            <TableCell>
+                                <Badge variant={statusInfo.variant} className="capitalize text-xs">
+                                    <statusInfo.icon className="mr-1 h-3 w-3"/>
+                                    {statusInfo.label}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(order.order_total)}</TableCell>
+                             <TableCell className="text-right">
+                                <Button asChild variant="ghost" size="sm">
+                                    <Link href={`/orders/${order.id}`}>Ver</Link>
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    )
+                })}
             </TableBody>
         </Table>
     );
@@ -238,7 +255,7 @@ export default function ViewCustomerPage() {
             <CardHeader>
                 <CardTitle>Historial de Pedidos</CardTitle>
                 <CardDescription>
-                    Un total de {customer.order_count} pedidos con un gasto de {formatCurrency(customer.total_spent)}.
+                    Un total de {customer.order_count || 0} pedidos con un gasto de {formatCurrency(customer.total_spent || 0)}.
                 </CardDescription>
             </CardHeader>
             <CardContent>
