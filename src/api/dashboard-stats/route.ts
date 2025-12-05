@@ -62,7 +62,7 @@ export async function GET(request: Request) {
         orders.forEach(order => {
             const entity = order[key];
             if (entity && 'id' in entity && entity.id) {
-                const name = 'name' in entity ? entity.name : `${entity.first_name} ${entity.last_name}`;
+                const name = 'name' in entity ? entity.name : `${entity.first_name || ''} ${entity.last_name || ''}`.trim();
                 if (counts.has(entity.id)) {
                     counts.get(entity.id)!.count++;
                 } else {
