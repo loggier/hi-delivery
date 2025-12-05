@@ -16,11 +16,9 @@ export async function GET(request: Request) {
   const business_id = searchParams.get('business_id') || null;
 
   try {
-    // Correctly call the RPC function with the parameter name convention used elsewhere in the app.
-    const { data: dailyStats, error: dailyStatsError } = await supabase.rpc(
-        'get_daily_dashboard_stats',
-        { business_id_in: business_id }
-    );
+    // Correctly call the RPC function with the parameter name the database expects.
+    const rpcParams = { p_business_id: business_id };
+    const { data: dailyStats, error: dailyStatsError } = await supabase.rpc('get_daily_dashboard_stats', rpcParams);
     
     if (dailyStatsError) {
         console.error('Error from get_daily_dashboard_stats RPC:', dailyStatsError);
