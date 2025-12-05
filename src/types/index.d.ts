@@ -4,6 +4,7 @@
 
 
 
+
 export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 export type OrderItem = {
@@ -363,4 +364,6 @@ export type DashboardStats = {
   topBusinesses: { business_id: string; business_name: string; order_count: number }[];
   topRiders: { rider_id: string; rider_name: string; order_count: number }[];
   topCustomers: { customer_id: string; customer_name: string; order_count: number }[];
+  revenueLast7Days?: { date: string; ingresos: number }[];
+  ordersLast7Days?: { date: string; pedidos: number }[];
 };
