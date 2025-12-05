@@ -40,6 +40,8 @@ import { UserNav } from "@/components/layout/user-nav";
 import { Breadcrumb } from '@/components/breadcrumb';
 import { useAuthStore } from '@/store/auth-store';
 import { RolePermission } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { api } from '@/lib/api';
 
 type NavItem = {
   href: string;
@@ -83,6 +85,14 @@ export default function AdminLayout({
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const isSuperAdmin = user?.role_id === 'role-admin';
+
+  const { data: pendingBusinesses } = api.businesses.useGetAll({ status: 'PENDING_REVIEW' }, { enabled: isSuperAdmin });
+  const { data: pendingRiders } = api.riders.useGetAll({ status: 'pending_review' }, { enabled: isSuperAdmin });
+
+  const pendingBusinessesCount = pendingBusinesses?.length || 0;
+  const pendingRidersCount = pendingRiders?.length || 0;
+
   const userPermissions = useMemo(() => {
     const permissionsMap = new Map<string, RolePermission>();
     user?.role?.role_permissions?.forEach(p => {
@@ -92,19 +102,17 @@ export default function AdminLayout({
   }, [user]);
 
   const navItems = useMemo(() => {
-    // Super-admin (rol 'role-admin') ve todo
-    if (user?.role_id === 'role-admin') {
+    if (isSuperAdmin) {
       return allNavItems;
     }
     return allNavItems.filter(item => {
       const permission = userPermissions.get(item.module_id);
       return permission?.can_read;
     });
-  }, [userPermissions, user?.role_id]);
+  }, [userPermissions, isSuperAdmin]);
 
 
   useEffect(() => {
-    // Si la carga ha terminado y el usuario no está autenticado, redirigir al login.
     if (!isLoading && !isAuthenticated) {
       router.replace('/sign-in');
     }
@@ -120,7 +128,6 @@ export default function AdminLayout({
 
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
 
-  // Mientras se verifica el estado de autenticación, muestra un loader
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -130,7 +137,6 @@ export default function AdminLayout({
     );
   }
 
-  // Si no está autenticado, no renderiza nada para evitar parpadeos antes de la redirección
   if (!isAuthenticated) {
     return null;
   }
@@ -158,6 +164,13 @@ export default function AdminLayout({
         <TooltipProvider delayDuration={0}>
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
+            let badgeCount = 0;
+            if (item.module_id === 'businesses' && pendingBusinessesCount > 0) {
+              badgeCount = pendingBusinessesCount;
+            } else if (item.module_id === 'riders' && pendingRidersCount > 0) {
+              badgeCount = pendingRidersCount;
+            }
+
             if (isSidebarCollapsed && !isMobile) {
               return (
                 <Tooltip key={item.href}>
@@ -165,7 +178,7 @@ export default function AdminLayout({
                     <Link
                       href={item.href}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 my-1",
+                        "relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 my-1",
                         isActive
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-white/10"
@@ -173,9 +186,17 @@ export default function AdminLayout({
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="sr-only">{item.label}</span>
+                       {badgeCount > 0 && (
+                        <Badge className="absolute -top-1 -right-2 h-4 w-4 shrink-0 justify-center rounded-full p-0 text-xs">
+                          {badgeCount}
+                        </Badge>
+                      )}
                     </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
+                  <TooltipContent side="right">
+                    {item.label}
+                    {badgeCount > 0 && <span className="ml-2 text-muted-foreground">({badgeCount} pendiente{badgeCount > 1 ? 's' : ''})</span>}
+                  </TooltipContent>
                 </Tooltip>
               );
             }
@@ -191,7 +212,12 @@ export default function AdminLayout({
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                 {badgeCount > 0 && (
+                    <Badge className="h-5 shrink-0 justify-center rounded-full text-xs">
+                        {badgeCount}
+                    </Badge>
+                )}
               </Link>
             );
           })}
