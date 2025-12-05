@@ -6,9 +6,9 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Si el usuario va a la raíz, lo mandamos directo al dashboard
+  // Si el usuario va a la raíz, lo mandamos directo a la página de marketing
   if (pathname === '/') {
-     return NextResponse.redirect(new URL('/dashboard', request.url))
+     return NextResponse.redirect(new URL('/site', request.url))
   }
   
   // Opcional: si un usuario autenticado intenta ir a /sign-in,
