@@ -172,7 +172,7 @@ export default function ViewRiderPage() {
                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {rider.moto_photos && rider.moto_photos.length > 0 ? rider.moto_photos.map((photo, index) => (
                             <a key={index} href={photo} target="_blank" rel="noopener noreferrer">
-                                <img src={photo} alt={`Foto de moto ${index + 1}`} className="rounded-md aspect-video object-cover hover:opacity-80 transition-opacity" />
+                                <Image src={photo} alt={`Foto de moto ${index + 1}`} width={200} height={112} className="rounded-md aspect-video object-cover hover:opacity-80 transition-opacity" />
                             </a>
                         )) : <p className="text-sm text-slate-500 col-span-full">No se subieron fotos de la moto.</p>}
                     </div>
