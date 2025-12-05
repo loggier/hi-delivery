@@ -14,7 +14,6 @@ import {
     CustomerFormModal,
     OrderConfirmationDialog,
     OrderTicketDialog,
-    useShippingCalculation
 } from './components';
 import { type Customer, type Product, type Business, type CustomerAddress, OrderItem, OrderPayload } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -26,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
 import { useAuthStore } from '@/store/auth-store';
+import { useShippingCalculation } from './use-shipping-calculation';
 
 const libraries: ('places' | 'directions')[] = ['places', 'directions'];
 
@@ -360,5 +360,7 @@ export default function POSPage() {
         </div>
     );
 }
+
+    
 
     
