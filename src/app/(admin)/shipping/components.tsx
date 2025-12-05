@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -26,6 +27,28 @@ import { LocationPoint } from './page';
 import { Textarea } from '@/components/ui/textarea';
 
 const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+
+// Haversine formula to calculate distance between two points in km
+function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+// Estimate duration based on an average speed
+function estimateDuration(distanceInKm: number) {
+    const AVERAGE_SPEED_KMPH = 30;
+    const timeInHours = distanceInKm / AVERAGE_SPEED_KMPH;
+    const timeInMinutes = Math.round(timeInHours * 60);
+    if (timeInMinutes < 1) return "1 min";
+    return `${timeInMinutes} min`;
+}
 
 // --- Location Selector ---
 interface LocationSelectorProps {
@@ -589,52 +612,39 @@ const useShippingCalculation = (origin: LocationPoint | null, destination: Locat
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // TODO: This should come from a 'General Settings' or similar, not a specific business plan
     const { data: settings, isLoading: isLoadingSettings } = api.settings.useGet();
 
     useEffect(() => {
-        if (isMapsLoaded && origin && destination && settings) {
+        if (origin && destination && settings) {
             setIsLoading(true);
             setError(null);
             
-            const directionsService = new window.google.maps.DirectionsService();
-            directionsService.route({
-                origin: { lat: origin.lat, lng: origin.lng },
-                destination: { lat: destination.lat, lng: destination.lng },
-                travelMode: window.google.maps.TravelMode.DRIVING,
-            }, (result, status) => {
-                setIsLoading(false);
-                if (status === window.google.maps.DirectionsStatus.OK && result) {
-                    const route = result.routes[0].legs[0];
-                    if (route.distance && route.duration) {
-                        const distanceInKm = route.distance.value / 1000;
-                        
-                        // NOTE: This logic needs a rider fee, which is not in system settings.
-                        // Using a placeholder for now.
-                        const RIDER_BASE_FEE_PLACEHOLDER = 30;
+            try {
+                const distanceInKm = getHaversineDistance(origin.lat, origin.lng, destination.lat, destination.lng);
+                const RIDER_BASE_FEE_PLACEHOLDER = 30;
 
-                        let cost = RIDER_BASE_FEE_PLACEHOLDER;
-                        if (distanceInKm > settings.min_distance_km) {
-                            const extraKm = distanceInKm - settings.min_distance_km;
-                            cost += extraKm * settings.cost_per_extra_km;
-                        }
-
-                        setShippingInfo({
-                            distance: distanceInKm,
-                            duration: route.duration.text,
-                            cost: Math.max(cost, settings.min_shipping_amount)
-                        });
-                    }
-                } else {
-                    setError("No se pudo calcular la ruta. Verifica las direcciones.");
-                    setShippingInfo(null);
+                let cost = RIDER_BASE_FEE_PLACEHOLDER;
+                if (distanceInKm > settings.min_distance_km) {
+                    const extraKm = distanceInKm - settings.min_distance_km;
+                    cost += extraKm * settings.cost_per_extra_km;
                 }
-            });
+
+                setShippingInfo({
+                    distance: distanceInKm,
+                    duration: estimateDuration(distanceInKm),
+                    cost: Math.max(cost, settings.min_shipping_amount)
+                });
+            } catch(e) {
+                setError("No se pudo calcular la distancia.");
+                setShippingInfo(null);
+            } finally {
+                setIsLoading(false);
+            }
         } else {
             setShippingInfo(null);
             setError(null);
         }
-    }, [origin, destination, isMapsLoaded, settings]);
+    }, [origin, destination, settings]);
 
     return { shippingInfo, isLoading: isLoading || isLoadingSettings, error };
 }
@@ -719,3 +729,4 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
         </Card>
     )
 }
+

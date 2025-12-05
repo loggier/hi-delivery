@@ -18,7 +18,7 @@ import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF, DirectionsRenderer } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
@@ -32,7 +32,7 @@ import { Label } from '@/components/ui/label';
 import html2canvas from 'html2canvas';
 import { type ShippingInfo, useShippingCalculation } from './use-shipping-calculation';
 
-const libraries: ('places')[] = ['places'];
+const libraries: ('places' | 'directions')[] = ['places', 'directions'];
 
 // --- Customer Search & Display ---
 
@@ -974,10 +974,9 @@ interface ShippingMapModalProps {
     business: Business | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
-    directions: google.maps.DirectionsResult | null;
 }
 
-export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded, directions }: ShippingMapModalProps) {
+export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded }: ShippingMapModalProps) {
     
     const [isModalReady, setIsModalReady] = useState(false);
 
@@ -1023,25 +1022,18 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                                 zoomControl: true,
                             }}
                         >
-                            {directions ? (
-                                <DirectionsRenderer directions={directions} options={{ suppressMarkers: true, polylineOptions: { strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 4 } }}/>
-                            ) : (
-                                <>
-                                {business?.latitude && business?.longitude && (
-                                    <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
-                                )}
-                                {address?.latitude && address?.longitude && (
-                                    <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
-                                )}
-                                </>
+                            {business?.latitude && business?.longitude && (
+                                <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
                             )}
-                             {business?.latitude && business?.longitude && (
-                                <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label={{ text: "N", color: 'white' }} title={business.name}/>
+                            {address?.latitude && address?.longitude && (
+                                <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
                             )}
-                             {address?.latitude && address?.longitude && (
-                                <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label={{ text: "C", color: 'white' }} title={address.address}/>
+                            {business?.latitude && business?.longitude && address?.latitude && address?.longitude && (
+                                <PolylineF 
+                                    path={[{ lat: business.latitude, lng: business.longitude }, { lat: address.latitude, lng: address.longitude }]}
+                                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
+                                />
                             )}
-
                         </GoogleMap>
                     )}
                 </div>
@@ -1049,12 +1041,3 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         </Dialog>
     )
 }
-
-    
-
-
-
-
-    
-
-    
