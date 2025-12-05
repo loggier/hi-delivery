@@ -1024,7 +1024,7 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                             }}
                         >
                            {shippingInfo?.directions ? (
-                                <DirectionsRenderer directions={shippingInfo.directions} options={{ suppressMarkers: true }}/>
+                                <DirectionsRenderer directions={shippingInfo.directions} options={{ suppressMarkers: false }}/>
                            ) : (
                                 <>
                                  {business?.latitude && business?.longitude && (

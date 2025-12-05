@@ -7,7 +7,7 @@ import { notFound, useParams } from 'next/navigation';
 import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, PolylineF, DirectionsRenderer } from '@react-google-maps/api';
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -23,7 +23,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useConfirm } from "@/hooks/use-confirm";
 import { useQueryClient } from "@tanstack/react-query";
 
-const libraries: ('places')[] = ['places'];
+const libraries: ('places' | 'directions')[] = ['places', 'directions'];
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
@@ -49,6 +49,7 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
+    const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
 
     const businessLocation = order?.pickup_address?.coordinates;
     const customerLocation = order?.delivery_address?.coordinates;
@@ -59,14 +60,26 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
         return { lat: 19.4326, lng: -99.1332 };
     }, [businessLocation, customerLocation]);
     
-    const mapBounds = useMemo(() => {
-        if (!isLoaded || !businessLocation || !customerLocation || typeof window === 'undefined') return undefined;
-        
-        const bounds = new window.google.maps.LatLngBounds();
-        bounds.extend(businessLocation);
-        bounds.extend(customerLocation);
-        return bounds;
-    }, [businessLocation, customerLocation, isLoaded]);
+    React.useEffect(() => {
+        if (isLoaded && businessLocation && customerLocation) {
+            const directionsService = new google.maps.DirectionsService();
+            directionsService.route(
+                {
+                    origin: businessLocation,
+                    destination: customerLocation,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                },
+                (result, status) => {
+                    if (status === google.maps.DirectionsStatus.OK) {
+                        setDirections(result);
+                    } else {
+                        console.error(`Error fetching directions ${result}`);
+                    }
+                }
+            );
+        }
+    }, [isLoaded, businessLocation, customerLocation]);
+
 
     if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
     if (!isLoaded) return <Skeleton className="h-full w-full rounded-md" />;
@@ -75,25 +88,26 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
         <GoogleMap
             mapContainerClassName="h-full w-full rounded-md"
             center={mapCenter}
-             onLoad={map => {
-                if (mapBounds) map.fitBounds(mapBounds, 50);
-            }}
+            zoom={12}
             options={{
                 disableDefaultUI: true,
                 zoomControl: true,
             }}
         >
-            {businessLocation && (
-                <MarkerF position={businessLocation} label={{ text: "N", color: 'white' }} title="Negocio"/>
-            )}
-            {customerLocation && (
-                <MarkerF position={customerLocation} label={{ text: "C", color: 'white' }} title="Cliente"/>
-            )}
-             {businessLocation && customerLocation && (
-                <PolylineF
-                    path={[businessLocation, customerLocation]}
-                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
-                />
+            {directions ? (
+                <DirectionsRenderer directions={directions} options={{
+                    suppressMarkers: false,
+                    polylineOptions: { strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 4 }
+                }}/>
+            ) : (
+                <>
+                     {businessLocation && (
+                        <MarkerF position={businessLocation} label={{ text: "N", color: 'white' }} title="Negocio"/>
+                    )}
+                    {customerLocation && (
+                        <MarkerF position={customerLocation} label={{ text: "C", color: 'white' }} title="Cliente"/>
+                    )}
+                </>
             )}
         </GoogleMap>
     )
