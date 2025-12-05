@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -27,16 +28,24 @@ export default function BusinessesPage() {
   });
   const [debouncedName] = useDebounce(filters.name, 500);
 
-  const queryFilters = React.useMemo(() => ({
-    name: debouncedName,
-    status: filters.status,
-    type: filters.type,
-    category_id: filters.category_id,
+  const queryFilters = React.useMemo(() => {
+    const baseFilters: Record<string, any> = {
+      name: debouncedName,
+      status: filters.status,
+      type: filters.type,
+      category_id: filters.category_id,
+    };
+
     // Apply business ID filter only if the user is a business owner
-    id: isBusinessOwner ? user.business_id : undefined,
-  }), [debouncedName, filters.status, filters.type, filters.category_id, isBusinessOwner, user?.business_id]);
+    if (isBusinessOwner && user?.business_id) {
+      baseFilters.id = user.business_id;
+    }
+    
+    return baseFilters;
+
+  }, [debouncedName, filters.status, filters.type, filters.category_id, isBusinessOwner, user?.business_id]);
   
-  const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll(queryFilters);
+  const { data: businessData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll(queryFilters, { enabled: !isBusinessOwner || !!user?.business_id });
   const { data: categoriesData, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
 
   const columns = React.useMemo(() => getColumns(categoriesData || []), [categoriesData]);
