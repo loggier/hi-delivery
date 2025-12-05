@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   try {
     const rpcName = business_id ? 'get_business_dashboard_stats' : 'get_daily_dashboard_stats';
-    const rpcParams = { p_business_id: business_id };
+    const rpcParams = business_id ? { p_business_id: business_id } : {};
     
     const { data: statsData, error: statsError } = await supabase.rpc(rpcName, rpcParams);
     
