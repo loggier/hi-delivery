@@ -9,17 +9,18 @@ export async function GET(request: Request) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { get: () => undefined, set: () => {}, remove: () => {} }, db: { schema: 'grupohubs' } }
+    { cookies: { get: () => undefined, set: () => {}, remove: () => {} }, db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA! } }
   );
 
   const { searchParams } = new URL(request.url);
   const business_id = searchParams.get('business_id') || null;
 
   try {
-    // El nombre del parámetro en la función RPC de Supabase es 'p_business_id'
-    const rpcParams = { p_business_id: business_id };
-
-    const { data: dailyStats, error: dailyStatsError } = await supabase.rpc('get_daily_dashboard_stats', rpcParams);
+    // Correctamente llamar a la función RPC con el nombre de parámetro esperado en la definicion SQL.
+    const { data: dailyStats, error: dailyStatsError } = await supabase.rpc(
+        'get_daily_dashboard_stats',
+        { businessid: business_id }
+    );
     
     if (dailyStatsError) {
         console.error('Error from get_daily_dashboard_stats RPC:', dailyStatsError);
