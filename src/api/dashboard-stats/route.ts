@@ -1,9 +1,11 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { startOfToday, endOfToday } from 'date-fns';
+
+type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 export async function GET(request: Request) {
   const supabase = createServerClient(
@@ -16,45 +18,80 @@ export async function GET(request: Request) {
   const business_id = searchParams.get('business_id') || null;
 
   try {
-    // Correctly call the RPC function with the parameter name the database expects.
-    const rpcParams = { p_business_id: business_id };
-    const { data: dailyStats, error: dailyStatsError } = await supabase.rpc('get_daily_dashboard_stats', rpcParams);
+    const todayStart = startOfToday().toISOString();
+    const todayEnd = endOfToday().toISOString();
+
+    let query = supabase.from('orders').select('order_total, delivery_fee, status, business_id, rider_id, customer_id, business:businesses(name), rider:riders(first_name, last_name), customer:customers(first_name, last_name)').gte('created_at', todayStart).lte('created_at', todayEnd);
+
+    if (business_id) {
+      query = query.eq('business_id', business_id);
+    }
     
-    if (dailyStatsError) {
-        console.error('Error from get_daily_dashboard_stats RPC:', dailyStatsError);
-        throw dailyStatsError;
+    const { data: orders, error } = await query;
+    
+    if (error) {
+        console.error('Error fetching orders for dashboard stats:', error);
+        throw error;
     }
 
-    const defaultResponse = {
-        dailyRevenue: 0,
-        dailyRiderEarnings: 0,
-        dailyOrders: 0,
-        averageTicketToday: 0,
-        activeOrders: 0,
-        orderStatusSummary: {
-            pending_acceptance: 0, accepted: 0, cooking: 0, out_for_delivery: 0, delivered: 0, cancelled: 0, refunded: 0, failed: 0
-        },
-        topBusinesses: [],
-        topRiders: [],
-        topCustomers: [],
+    const deliveredOrders = orders.filter(o => o.status === 'delivered');
+    
+    const dailyRevenue = deliveredOrders.reduce((sum, order) => sum + order.order_total, 0);
+    const dailyRiderEarnings = deliveredOrders.reduce((sum, order) => sum + order.delivery_fee, 0);
+    const dailyOrders = orders.length;
+    const averageTicketToday = deliveredOrders.length > 0 ? dailyRevenue / deliveredOrders.length : 0;
+    
+    const activeOrders = orders.filter(o => ['accepted', 'cooking', 'out_for_delivery'].includes(o.status)).length;
+
+    const orderStatusSummary: { [key in OrderStatus]: number } = {
+        pending_acceptance: 0,
+        accepted: 0,
+        cooking: 0,
+        out_for_delivery: 0,
+        delivered: 0,
+        cancelled: 0,
     };
-    
-    if (!dailyStats || dailyStats.length === 0 || !dailyStats[0]) {
-        return NextResponse.json(defaultResponse);
-    }
+    orders.forEach(order => {
+        if(order.status in orderStatusSummary) {
+            orderStatusSummary[order.status as OrderStatus]++;
+        }
+    });
 
-    const stats = dailyStats[0];
+    const getTopFive = (key: 'business' | 'rider' | 'customer') => {
+        const counts = new Map<string, { id: string; name: string; count: number }>();
+        orders.forEach(order => {
+            const entity = order[key];
+            if (entity && 'id' in entity && entity.id) {
+                const name = 'name' in entity ? entity.name : `${entity.first_name} ${entity.last_name}`;
+                if (counts.has(entity.id)) {
+                    counts.get(entity.id)!.count++;
+                } else {
+                    counts.set(entity.id, { id: entity.id, name: name, count: 1 });
+                }
+            }
+        });
+        return Array.from(counts.values()).sort((a, b) => b.count - a.count).slice(0, 5)
+            .map(item => ({
+                [`${key}_id`]: item.id,
+                [`${key}_name`]: item.name,
+                order_count: item.count,
+            }));
+    };
+
+    const topBusinesses = business_id ? [] : getTopFive('business');
+    const topRiders = getTopFive('rider');
+    const topCustomers = getTopFive('customer');
 
     const responsePayload = {
-      dailyRevenue: stats.daily_revenue || 0,
-      dailyRiderEarnings: stats.daily_rider_earnings || 0,
-      dailyOrders: stats.daily_orders || 0,
-      averageTicketToday: stats.average_ticket_today || 0,
-      activeOrders: stats.active_orders || 0,
-      orderStatusSummary: stats.order_status_summary_json || defaultResponse.orderStatusSummary,
-      topBusinesses: stats.top_businesses_json || [],
-      topRiders: stats.top_riders_json || [],
-      topCustomers: stats.top_customers_json || [],
+      dailyRevenue,
+      dailyRiderEarnings,
+      dailyOrders,
+      averageTicketToday,
+      activeOrders,
+      orderStatusSummary,
+      topBusinesses,
+      topRiders,
+      topCustomers,
     };
     
     return NextResponse.json(responsePayload);

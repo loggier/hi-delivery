@@ -13,7 +13,7 @@ import { DollarSign, Wallet } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { OrderStatus } from '@/types';
+import { OrderStatus, type Business, type Customer } from '@/types';
 import { useAuthStore } from '@/store/auth-store';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
@@ -66,7 +66,7 @@ export default function OrdersPage() {
 
   const isLoading = isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || isLoadingStats;
 
-  const columns = React.useMemo(() => getColumns(businesses || [], customers || []), [businesses, customers]);
+  const columns = React.useMemo(() => getColumns((businesses || []) as Business[], (customers || []) as Customer[]), [businesses, customers]);
   
   const filterOrdersByStatus = (statuses: OrderStatus[]): any[] => {
     return orders?.filter(o => statuses.includes(o.status)) || [];
@@ -97,7 +97,7 @@ export default function OrdersPage() {
             )}
         </div>
         
-        <OrderStatusGrid data={dashboardStats?.orderStatusSummary} isLoading={isLoadingStats} />
+        <OrderStatusGrid data={dashboardStats?.orderStatusSummary as any} isLoading={isLoadingStats} />
       
       <Tabs defaultValue="pending">
         <TabsList>
