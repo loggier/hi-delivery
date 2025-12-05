@@ -17,8 +17,16 @@ export default function ProductsPage() {
   const { user } = useAuthStore();
   const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
 
-  const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({
-    business_id: isBusinessOwner ? user.business_id : undefined,
+  const queryFilters = React.useMemo(() => {
+    const filters: { business_id?: string } = {};
+    if (isBusinessOwner && user?.business_id) {
+      filters.business_id = user.business_id;
+    }
+    return filters;
+  }, [isBusinessOwner, user?.business_id]);
+
+  const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll(queryFilters, {
+    enabled: !isBusinessOwner || !!user?.business_id
   });
   const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
   const { data: categories, isLoading: isLoadingCategories } = api.product_categories.useGetAll();
