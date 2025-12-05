@@ -78,7 +78,7 @@ const StatusCardSkeleton = () => (
 )
 
 export function OrderStatusGrid({ data, isLoading }: OrderStatusGridProps) {
-    const displayStatuses: (keyof typeof statusConfig)[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery', 'delivered', 'cancelled'];
+    const displayStatuses: (keyof typeof statusConfig)[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
     
     if (isLoading) {
         return (
