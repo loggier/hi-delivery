@@ -25,6 +25,7 @@ import { api } from "@/lib/api";
 
 import { type Order, type Business, type Customer, OrderStatus } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
@@ -112,6 +113,7 @@ export const getColumns = (businesses: Business[], customers: Customer[]): Colum
     cell: ({ row }) => {
       const order = row.original;
       const [ConfirmationDialog, confirm] = useConfirm();
+      const queryClient = useQueryClient();
       const updateStatusMutation = api.orders.useUpdate();
 
       const handleStatusChange = async (newStatus: OrderStatus) => {
@@ -124,7 +126,12 @@ export const getColumns = (businesses: Business[], customers: Customer[]): Colum
         });
 
         if (ok) {
-          updateStatusMutation.mutate({ id: order.id, status: newStatus });
+          updateStatusMutation.mutate({ id: order.id, status: newStatus }, {
+              onSuccess: () => {
+                  queryClient.invalidateQueries({ queryKey: ['orders'] });
+                  queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+              }
+          });
         }
       };
 
@@ -185,5 +192,3 @@ export const getColumns = (businesses: Business[], customers: Customer[]): Colum
     },
   },
 ];
-
-    

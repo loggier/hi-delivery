@@ -21,6 +21,7 @@ import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Packag
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useQueryClient } from "@tanstack/react-query";
 
 const libraries: ('places')[] = ['places'];
 
@@ -101,6 +102,7 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
 export default function ViewOrderPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const queryClient = useQueryClient();
   
   const { data: order, isLoading, isError } = api.orders.useGetOne(id);
   const updateStatusMutation = api.orders.useUpdate();
@@ -115,7 +117,12 @@ export default function ViewOrderPage() {
     });
 
     if (ok) {
-        updateStatusMutation.mutate({ id: order.id, status: newStatus });
+        updateStatusMutation.mutate({ id: order.id, status: newStatus }, {
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['orders'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+            }
+        });
     }
   }
 
