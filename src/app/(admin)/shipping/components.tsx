@@ -719,9 +719,3 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
         </Card>
     )
 }
-
-    
-
-    
-
-    
