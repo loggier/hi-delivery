@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormLabel, FormMessage } from '@/componen
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF, Autocomplete } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, PolylineF, Autocomplete, DirectionsRenderer } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
@@ -27,28 +27,6 @@ import { LocationPoint } from './page';
 import { Textarea } from '@/components/ui/textarea';
 
 const libraries: ('places' | 'directions')[] = ['places', 'directions'];
-
-// Haversine formula to calculate distance between two points in km
-function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371; // Radius of the Earth in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-// Estimate duration based on an average speed
-function estimateDuration(distanceInKm: number) {
-    const AVERAGE_SPEED_KMPH = 30;
-    const timeInHours = distanceInKm / AVERAGE_SPEED_KMPH;
-    const timeInMinutes = Math.round(timeInHours * 60);
-    if (timeInMinutes < 1) return "1 min";
-    return `${timeInMinutes} min`;
-}
 
 // --- Location Selector ---
 interface LocationSelectorProps {
@@ -276,8 +254,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const methods = useForm<NewCustomerFormValues>({
         resolver: zodResolver(newCustomerSchema),
         defaultValues: {
-            first_name: '',
-            last_name: '',
+            firstName: '',
+            lastName: '',
             phone: '',
             email: ''
         },
@@ -529,6 +507,7 @@ interface ShippingMapModalProps {
 export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsLoaded }: ShippingMapModalProps) {
     
     const [isModalReady, setIsModalReady] = useState(false);
+    const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -541,6 +520,23 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
         }
     }, [isOpen]);
     
+    useEffect(() => {
+        if (isLoaded && origin && destination) {
+            const directionsService = new google.maps.DirectionsService();
+            directionsService.route({
+                origin: new google.maps.LatLng(origin.lat, origin.lng),
+                destination: new google.maps.LatLng(destination.lat, destination.lng),
+                travelMode: google.maps.TravelMode.DRIVING
+            }, (result, status) => {
+                if (status === google.maps.DirectionsStatus.OK) {
+                    setDirections(result);
+                } else {
+                    console.error(`error fetching directions ${result}`);
+                }
+            });
+        }
+    }, [isLoaded, origin, destination]);
+    
     const mapCenter = useMemo(() => {
         if (origin) return { lat: origin.lat, lng: origin.lng };
         if (destination) return { lat: destination.lat, lng: destination.lng };
@@ -548,13 +544,13 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
     }, [origin, destination]);
 
     const mapBounds = useMemo(() => {
-        if (!isMapsLoaded || !origin || !destination || typeof window === 'undefined') return undefined;
+        if (!isLoaded || !origin || !destination || typeof window === 'undefined') return undefined;
         
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend({ lat: origin.lat, lng: origin.lng });
         bounds.extend({ lat: destination.lat, lng: destination.lng });
         return bounds;
-    }, [origin, destination, isMapsLoaded]);
+    }, [origin, destination, isLoaded]);
 
 
     return (
@@ -580,18 +576,7 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
                                 zoomControl: true,
                             }}
                         >
-                            {origin && (
-                                <MarkerF position={origin} label="O" title={origin.address}/>
-                            )}
-                             {destination && (
-                                <MarkerF position={destination} label="D" title={destination.address}/>
-                            )}
-                            {origin && destination && (
-                                <PolylineF
-                                    path={[origin, destination]}
-                                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
-                                />
-                            )}
+                            {directions && <DirectionsRenderer directions={directions} />}
                         </GoogleMap>
                     )}
                 </div>
@@ -602,12 +587,12 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
 
 // --- Shipping Summary ---
 interface ShippingInfo {
-    distance: number;
+    distance: number; // in meters
     duration: string;
     cost: number;
 }
 
-const useShippingCalculation = (origin: LocationPoint | null, destination: LocationPoint | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
+export const useShippingCalculation = (origin: LocationPoint | null, destination: LocationPoint | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
     const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -615,36 +600,49 @@ const useShippingCalculation = (origin: LocationPoint | null, destination: Locat
     const { data: settings, isLoading: isLoadingSettings } = api.settings.useGet();
 
     useEffect(() => {
-        if (origin && destination && settings) {
+        if (isMapsLoaded && origin && destination && settings) {
             setIsLoading(true);
             setError(null);
             
-            try {
-                const distanceInKm = getHaversineDistance(origin.lat, origin.lng, destination.lat, destination.lng);
-                const RIDER_BASE_FEE_PLACEHOLDER = 30;
+            const directionsService = new google.maps.DirectionsService();
+            directionsService.route(
+                {
+                    origin: new google.maps.LatLng(origin.lat, origin.lng),
+                    destination: new google.maps.LatLng(destination.lat, destination.lng),
+                    travelMode: google.maps.TravelMode.DRIVING
+                },
+                (result, status) => {
+                    if (status === google.maps.DirectionsStatus.OK && result && result.routes[0]?.legs[0]) {
+                        const leg = result.routes[0].legs[0];
+                        const distanceInMeters = leg.distance?.value || 0;
+                        const distanceInKm = distanceInMeters / 1000;
+                        const durationText = leg.duration?.text || 'N/A';
+                        
+                        const RIDER_BASE_FEE_PLACEHOLDER = 30; // This should come from a plan ideally
+                        let cost = RIDER_BASE_FEE_PLACEHOLDER;
+                        if (distanceInKm > settings.min_distance_km) {
+                            const extraKm = distanceInKm - settings.min_distance_km;
+                            cost += extraKm * settings.cost_per_extra_km;
+                        }
 
-                let cost = RIDER_BASE_FEE_PLACEHOLDER;
-                if (distanceInKm > settings.min_distance_km) {
-                    const extraKm = distanceInKm - settings.min_distance_km;
-                    cost += extraKm * settings.cost_per_extra_km;
+                        setShippingInfo({
+                            distance: distanceInMeters,
+                            duration: durationText,
+                            cost: Math.max(cost, settings.min_shipping_amount)
+                        });
+                        
+                    } else {
+                        setError("No se pudo calcular la ruta.");
+                        setShippingInfo(null);
+                    }
+                    setIsLoading(false);
                 }
-
-                setShippingInfo({
-                    distance: distanceInKm,
-                    duration: estimateDuration(distanceInKm),
-                    cost: Math.max(cost, settings.min_shipping_amount)
-                });
-            } catch(e) {
-                setError("No se pudo calcular la distancia.");
-                setShippingInfo(null);
-            } finally {
-                setIsLoading(false);
-            }
+            );
         } else {
             setShippingInfo(null);
             setError(null);
         }
-    }, [origin, destination, settings]);
+    }, [origin, destination, settings, isMapsLoaded]);
 
     return { shippingInfo, isLoading: isLoading || isLoadingSettings, error };
 }
@@ -702,7 +700,7 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
                                 <>
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-1"><Map className="h-4 w-4"/>Distancia</div>
-                                        <span className="font-semibold">{shippingInfo.distance.toFixed(2)} km</span>
+                                        <span className="font-semibold">{(shippingInfo.distance / 1000).toFixed(2)} km</span>
                                     </div>
                                      <div className="flex justify-between items-center mt-1">
                                         <div className="flex items-center gap-1"><Timer className="h-4 w-4"/>Tiempo estimado</div>
@@ -729,4 +727,3 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
         </Card>
     )
 }
-

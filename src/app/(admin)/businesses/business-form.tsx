@@ -41,7 +41,7 @@ import { cn } from "@/lib/utils";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
-const libraries: ('places')[] = ['places'];
+const libraries: ('places' | 'drawing' | 'directions')[] = ['places', 'drawing', 'directions'];
 
 const BusinessMap = ({ isLoaded, loadError }: { isLoaded: boolean, loadError?: Error }) => {
     const { control, setValue, watch } = useFormContext();
