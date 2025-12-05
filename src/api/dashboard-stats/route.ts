@@ -16,10 +16,10 @@ export async function GET(request: Request) {
   const business_id = searchParams.get('business_id') || null;
 
   try {
-    // Correctamente llamar a la función RPC con el nombre de parámetro esperado en la definicion SQL.
+    // Correctly call the RPC function with the parameter name convention used elsewhere in the app.
     const { data: dailyStats, error: dailyStatsError } = await supabase.rpc(
         'get_daily_dashboard_stats',
-        { p_business_id: business_id } // Corregido el nombre del parámetro a 'p_business_id'
+        { business_id_in: business_id }
     );
     
     if (dailyStatsError) {
