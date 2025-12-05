@@ -445,7 +445,7 @@ interface ShippingInfo {
     directions: google.maps.DirectionsResult | null;
 }
 
-const useShippingCalculation = (business: Business | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
+export const useShippingCalculation = (business: Business | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
     const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -1082,7 +1082,7 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                             }}
                         >
                             {directions ? (
-                                <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }}/>
+                                <DirectionsRenderer directions={directions} options={{ suppressMarkers: true, polylineOptions: { strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 4 } }}/>
                             ) : (
                                 <>
                                 {business?.latitude && business?.longitude && (
@@ -1093,11 +1093,11 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                                 )}
                                 </>
                             )}
-                             {business?.latitude && business?.longitude && !directions && (
-                                <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
+                             {business?.latitude && business?.longitude && (
+                                <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label={{ text: "N", color: 'white' }} title={business.name}/>
                             )}
-                             {address?.latitude && address?.longitude && !directions && (
-                                <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
+                             {address?.latitude && address?.longitude && (
+                                <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label={{ text: "C", color: 'white' }} title={address.address}/>
                             )}
 
                         </GoogleMap>
@@ -1111,3 +1111,6 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
     
 
 
+
+
+    
