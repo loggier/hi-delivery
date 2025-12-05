@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -55,18 +56,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
     
     // Process other fields
     for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File) && key !== 'final_submission') {
+      if (!(value instanceof File)) { // Only process non-file fields
         const numericFields = ['latitude', 'longitude', 'delivery_time_min', 'delivery_time_max', 'average_ticket'];
         const booleanFields = ['has_delivery_service'];
 
         if (numericFields.includes(key)) {
              updateData[key] = parseFloat(value as string);
         } else if (booleanFields.includes(key)) {
-            updateData[key] = value === 'true';
+            updateData[key] = value === 'true'; // Convert string 'true'/'false' to boolean
         }
         else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
             updateData[key] = `+52${value}`;
-        } else if (value !== undefined) { // Allow null and empty strings to be processed
+        } else if (value !== undefined) {
             updateData[key] = value;
         }
       }

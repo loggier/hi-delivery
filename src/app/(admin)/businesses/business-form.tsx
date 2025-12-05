@@ -178,22 +178,29 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
     const isEditingMode = !!data.id;
     
     const formData = new FormData();
+    const fileKeys = [
+      'logo_url', 'business_photo_facade_url', 'business_photo_interior_url',
+      'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'
+    ];
     
-    Object.keys(data).forEach(key => {
-        const value = data[key as keyof BusinessFormValues];
-        
-        if (isEditingMode && (key === 'password' || key === 'passwordConfirmation')) {
-            if (!value) return;
+    for (const key in data) {
+        const fieldKey = key as keyof BusinessFormValues;
+        const value = data[fieldKey];
+
+        if (isEditingMode && (fieldKey === 'password' || fieldKey === 'passwordConfirmation') && !value) {
+            continue;
         }
 
-        if (value instanceof FileList && value.length > 0) {
-            formData.append(key, value[0]);
+        if (fileKeys.includes(fieldKey)) {
+            if (value instanceof FileList && value.length > 0) {
+                formData.append(fieldKey, value[0]);
+            }
         } else if (typeof value === 'boolean') {
-            formData.append(key, String(value));
+            formData.append(fieldKey, String(value));
         } else if (value !== null && value !== undefined && value !== '') {
-            formData.append(key, String(value));
+            formData.append(fieldKey, String(value));
         }
-    });
+    }
 
     try {
       if (isEditingMode) {
