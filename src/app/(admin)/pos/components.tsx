@@ -18,7 +18,7 @@ import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, PolylineF, DirectionsRenderer } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
@@ -442,6 +442,7 @@ interface ShippingInfo {
     distance: number;
     duration: string;
     cost: number;
+    directions: google.maps.DirectionsResult | null;
 }
 
 const useShippingCalculation = (business: Business | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
@@ -449,7 +450,7 @@ const useShippingCalculation = (business: Business | null, address: CustomerAddr
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '');
+    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '', { enabled: !!business?.plan_id });
 
     useEffect(() => {
         if (isMapsLoaded && business?.latitude && business?.longitude && address?.latitude && address?.longitude && plan && typeof window !== 'undefined') {
@@ -477,7 +478,8 @@ const useShippingCalculation = (business: Business | null, address: CustomerAddr
                         setShippingInfo({
                             distance: distanceInKm,
                             duration: route.duration.text,
-                            cost: Math.max(cost, plan.min_shipping_fee)
+                            cost: Math.max(cost, plan.min_shipping_fee),
+                            directions: result,
                         });
                     }
                 } else {
@@ -506,10 +508,11 @@ interface OrderCartProps {
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
     onConfirmOrder: () => void;
+    shippingHookResult: ReturnType<typeof useShippingCalculation>;
 }
 
-export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, address, isMapsLoaded, onConfirmOrder }: OrderCartProps) {
-    const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(business, address, isMapsLoaded);
+export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, address, isMapsLoaded, onConfirmOrder, shippingHookResult }: OrderCartProps) {
+    const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = shippingHookResult;
 
     const subtotal = useMemo(() => {
         return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -746,9 +749,10 @@ interface OrderConfirmationDialogProps {
     address: CustomerAddress | null;
     note: string;
   };
+  shippingHookResult: ReturnType<typeof useShippingCalculation>;
 }
 
-export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order }: OrderConfirmationDialogProps) {
+export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order, shippingHookResult }: OrderConfirmationDialogProps) {
     const createOrderMutation = api.orders.useCreate();
     const [preparationTime, setPreparationTime] = useState(order.business?.delivery_time_min || 15);
     const [shouldPrint, setShouldPrint] = useState(true);
@@ -759,7 +763,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         }
     }, [order.business]);
 
-    const { shippingInfo } = useShippingCalculation(order.business, order.address, true);
+    const { shippingInfo } = shippingHookResult;
 
     const subtotal = useMemo(() => order.items.reduce((acc, item) => acc + item.price * item.quantity, 0), [order.items]);
     const total = subtotal + (shippingInfo?.cost || 0);
@@ -1028,9 +1032,10 @@ interface ShippingMapModalProps {
     business: Business | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
+    directions: google.maps.DirectionsResult | null;
 }
 
-export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded }: ShippingMapModalProps) {
+export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded, directions }: ShippingMapModalProps) {
     
     const [isModalReady, setIsModalReady] = useState(false);
 
@@ -1055,16 +1060,6 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         return { lat: 19.4326, lng: -99.1332 }; // Default fallback
     }, [business, address]);
 
-    const mapBounds = useMemo(() => {
-        if (!isMapsLoaded || !business?.latitude || !address?.latitude || typeof window === 'undefined') return undefined;
-        
-        const bounds = new window.google.maps.LatLngBounds();
-        bounds.extend({ lat: business.latitude, lng: business.longitude });
-        bounds.extend({ lat: address.latitude, lng: address.longitude });
-        return bounds;
-    }, [business, address, isMapsLoaded]);
-
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-4xl">
@@ -1080,26 +1075,31 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                         <GoogleMap
                             mapContainerClassName="w-full h-full rounded-md"
                             center={mapCenter}
-                            onLoad={map => {
-                                if (mapBounds) map.fitBounds(mapBounds);
-                            }}
+                            zoom={12}
                             options={{
                                 disableDefaultUI: true,
                                 zoomControl: true,
                             }}
                         >
-                            {business?.latitude && business?.longitude && (
+                            {directions ? (
+                                <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }}/>
+                            ) : (
+                                <>
+                                {business?.latitude && business?.longitude && (
+                                    <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
+                                )}
+                                {address?.latitude && address?.longitude && (
+                                    <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
+                                )}
+                                </>
+                            )}
+                             {business?.latitude && business?.longitude && !directions && (
                                 <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
                             )}
-                             {address?.latitude && address?.longitude && (
+                             {address?.latitude && address?.longitude && !directions && (
                                 <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
                             )}
-                            {business?.latitude && address?.latitude && (
-                                <PolylineF
-                                    path={[{ lat: business.latitude, lng: business.longitude }, { lat: address.latitude, lng: address.longitude }]}
-                                    options={{ strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 3 }}
-                                />
-                            )}
+
                         </GoogleMap>
                     )}
                 </div>
@@ -1108,7 +1108,6 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
     )
 }
 
-
-
     
+
 

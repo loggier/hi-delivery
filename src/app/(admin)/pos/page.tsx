@@ -13,7 +13,8 @@ import {
     ShippingMapModal,
     CustomerFormModal,
     OrderConfirmationDialog,
-    OrderTicketDialog
+    OrderTicketDialog,
+    useShippingCalculation
 } from './components';
 import { type Customer, type Product, type Business, type CustomerAddress, OrderItem, OrderPayload } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -26,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
 import { useAuthStore } from '@/store/auth-store';
 
-const libraries: ('places')[] = ['places'];
+const libraries: ('places' | 'directions')[] = ['places', 'directions'];
 
 export default function POSPage() {
     const { user } = useAuthStore();
@@ -71,6 +72,8 @@ export default function POSPage() {
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
+    const shippingHookResult = useShippingCalculation(selectedBusiness, selectedAddress, isLoaded);
+
     const resetOrder = () => {
         if (!isBusinessOwner) {
             setSelectedBusiness(null);
@@ -300,6 +303,7 @@ export default function POSPage() {
                     address={selectedAddress}
                     isMapsLoaded={isLoaded}
                     onConfirmOrder={() => setIsConfirmationOpen(true)}
+                    shippingHookResult={shippingHookResult}
                 />
             </div>
 
@@ -325,6 +329,7 @@ export default function POSPage() {
                 business={selectedBusiness}
                 address={selectedAddress}
                 isMapsLoaded={isLoaded}
+                directions={shippingHookResult.shippingInfo?.directions || null}
             />
 
             <OrderConfirmationDialog
@@ -338,6 +343,7 @@ export default function POSPage() {
                     address: selectedAddress,
                     note: orderNote,
                 }}
+                shippingHookResult={shippingHookResult}
             />
             
             {orderForTicket && (
