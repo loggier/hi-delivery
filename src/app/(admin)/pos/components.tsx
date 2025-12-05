@@ -719,7 +719,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     const handleCreateOrder = () => {
         if (!order.business || !order.customer || !order.address || !shippingInfo) return;
 
-        const orderPayload = {
+        const orderPayload: OrderPayload = {
             business_id: order.business.id,
             customer_id: order.customer.id,
             status: 'pending_acceptance' as const,
@@ -744,9 +744,10 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             delivery_fee: shippingInfo.cost,
             order_total: total,
             distance: shippingInfo.distance,
+            route_path: shippingInfo.directions, // Save the route path
         };
 
-        createOrderMutation.mutate(orderPayload, {
+        createOrderMutation.mutate(orderPayload as any, {
             onSuccess: (createdOrder) => {
                  onOrderCreated({
                     order: { ...order, id: createdOrder.id }, 
@@ -1024,7 +1025,7 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                             }}
                         >
                            {shippingInfo?.directions ? (
-                                <DirectionsRenderer directions={shippingInfo.directions} options={{ suppressMarkers: false }}/>
+                                <DirectionsRenderer directions={shippingInfo.directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 4 } }}/>
                            ) : (
                                 <>
                                  {business?.latitude && business?.longitude && (

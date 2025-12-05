@@ -41,6 +41,7 @@ export type OrderPayload = {
   order_total: number;
   distance: number;
   items_description?: string;
+  route_path?: any; // To store Google Maps DirectionsResult
 };
 
 
@@ -156,6 +157,7 @@ export type Order = {
   customer_phone: string;
   distance: number;
   order_items: OrderItem[];
+  route_path?: any; // To store Google Maps DirectionsResult
 };
 
 export type BusinessType = "restaurant" | "store" | "service";

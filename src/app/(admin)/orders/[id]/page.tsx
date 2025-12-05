@@ -7,7 +7,7 @@ import { notFound, useParams } from 'next/navigation';
 import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF, DirectionsRenderer } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, DirectionsRenderer } from '@react-google-maps/api';
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -61,6 +61,13 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
     }, [businessLocation, customerLocation]);
     
     React.useEffect(() => {
+        // Si la ruta ya está guardada en la orden, la usamos directamente.
+        if (order?.route_path) {
+            setDirections(order.route_path);
+            return;
+        }
+
+        // Si no, la calculamos (fallback para órdenes antiguas)
         if (isLoaded && businessLocation && customerLocation) {
             const directionsService = new google.maps.DirectionsService();
             directionsService.route(
@@ -78,7 +85,7 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
                 }
             );
         }
-    }, [isLoaded, businessLocation, customerLocation]);
+    }, [isLoaded, businessLocation, customerLocation, order?.route_path]);
 
 
     if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
