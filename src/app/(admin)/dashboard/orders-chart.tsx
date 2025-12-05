@@ -1,7 +1,10 @@
+
 "use client"
 
 import { ShoppingCart } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 
 import {
   Card,
@@ -73,7 +76,7 @@ export function OrdersChart({ data, isLoading }: OrdersChartProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value.slice(0, 3)}
+              tickFormatter={(value) => format(new Date(value), "E", { locale: es }).slice(0, 3)}
             />
             <ChartTooltip
               cursor={false}

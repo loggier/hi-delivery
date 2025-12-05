@@ -1,7 +1,10 @@
+
 "use client"
 
 import { TrendingUp } from "lucide-react"
 import { Bar, BarChart, XAxis, YAxis } from "recharts"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 
 import {
   Card,
@@ -74,7 +77,7 @@ export function RevenueChart({ data, isLoading }: RevenueChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => value.slice(0, 3)}
+                tickFormatter={(value) => format(new Date(value), "E", { locale: es }).slice(0, 3)}
             />
             <YAxis
                 tickLine={false}
