@@ -151,8 +151,8 @@ export const locationInfoSchema = z.object({
   city: z.string().min(3, { message: "La ciudad es requerida." }),
   state: z.string().min(2, { message: "El estado es requerido." }),
   zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
-  latitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
-  longitude: z.number({ required_error: "Debes seleccionar una ubicación en el mapa." }),
+  latitude: z.number({ required_error: "La latitud es requerida." }),
+  longitude: z.number({ required_error: "La longitud es requerida." }),
 });
 
 export const submitBusinessSchema = z.object({
@@ -165,7 +165,7 @@ export const submitBusinessSchema = z.object({
 });
 
 
-const fullBusinessSchema = z.object({
+export const businessSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
@@ -201,35 +201,25 @@ const fullBusinessSchema = z.object({
     owner_ine_front_url: imageFileSchema("INE frontal opcional.").optional(),
     owner_ine_back_url: imageFileSchema("INE reverso opcional.").optional(),
     tax_situation_proof_url: fileSchema("Constancia fiscal opcional.").optional(),
+    password: z.string().optional(),
+    passwordConfirmation: z.string().optional(),
+}).refine(data => {
+    if (data.password && data.password.length > 0) {
+        return passwordRegex.test(data.password);
+    }
+    return true;
+}, {
+    message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo.",
+    path: ["password"],
+}).refine(data => {
+    if (data.password && data.password.length > 0) {
+        return data.password === data.passwordConfirmation;
+    }
+    return true;
+}, {
+    message: "Las contraseñas no coinciden.",
+    path: ["passwordConfirmation"],
 });
-
-
-export const businessSchema = z.discriminatedUnion("id", [
-    // Schema para creación (ID es opcional, contraseña es requerida)
-    fullBusinessSchema.extend({
-        id: z.string().optional(),
-        password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
-        passwordConfirmation: z.string(),
-    }).refine(data => data.password === data.passwordConfirmation, {
-        message: "Las contraseñas no coinciden.",
-        path: ["passwordConfirmation"],
-    }),
-    // Schema para edición (ID es requerido, contraseña es opcional)
-    fullBusinessSchema.extend({
-        id: z.string(),
-        password: z.string().optional(),
-        passwordConfirmation: z.string().optional(),
-    }).refine(data => {
-        if (data.password && data.password.length > 0) {
-            if (!passwordRegex.test(data.password)) return false;
-            return data.password === data.passwordConfirmation;
-        }
-        return true;
-    }, {
-        message: "Las contraseñas no coinciden o no cumplen con los requisitos.",
-        path: ["passwordConfirmation"],
-    })
-]);
 
 
 // Schema for the server-side validation of the initial account creation
@@ -366,3 +356,4 @@ export const customerAddressSchema = z.object({
   longitude: z.number({ required_error: "La longitud es requerida." }),
   is_primary: z.boolean().default(false),
 });
+

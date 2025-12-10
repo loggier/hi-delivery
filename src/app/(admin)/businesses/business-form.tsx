@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FormImageUpload, FormFileUpload } from "@/app/site/apply/_components/form-components";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import type { z } from "zod";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
@@ -365,41 +366,39 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                         )}
                     />
                 </div>
-                 {!isEditing && (
-                    <>
-                        <Separator />
-                        <h3 className="text-md font-medium text-slate-800">Crear Contraseña para el Propietario</h3>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <FormField
-                                control={methods.control}
-                                name="password"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Contraseña</FormLabel>
-                                    <FormControl>
-                                    <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
-                                    </FormControl>
-                                    <FormDescription>Mínimo 8 caracteres y una mayúscula, un número o un símbolo.</FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={methods.control}
-                                name="passwordConfirmation"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Confirmar Contraseña</FormLabel>
-                                    <FormControl>
-                                    <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                         </div>
-                    </>
-                 )}
+                <Separator />
+                <h3 className="text-md font-medium text-slate-800">
+                    {isEditing ? "Cambiar Contraseña (Opcional)" : "Crear Contraseña para el Propietario"}
+                </h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <FormField
+                        control={methods.control}
+                        name="password"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Contraseña</FormLabel>
+                            <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
+                            </FormControl>
+                            <FormDescription>Mínimo 8 caracteres y una mayúscula, un número o un símbolo.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={methods.control}
+                        name="passwordConfirmation"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Confirmar Contraseña</FormLabel>
+                            <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                 </div>
             </CardContent>
         </Card>
 
@@ -549,6 +548,7 @@ const defaultFormValues: BusinessFormValues = {
     website: "",
     instagram: "",
     notes: "",
+    zone_id: undefined,
 };
 
 
@@ -601,7 +601,6 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     }
   }, [initialData, methods]);
   
-  // Conditionally render only when data is ready for editing, or always for creation
   if (isEditing && !methods.getValues('id')) {
     return (
         <div className="space-y-8 rounded-md border p-8">
@@ -617,4 +616,3 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
   );
 }
 
-    
