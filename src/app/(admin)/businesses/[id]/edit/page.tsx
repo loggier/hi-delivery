@@ -17,52 +17,41 @@ export default function EditBusinessPage() {
 
   const isLoading = isLoadingBusiness || isLoadingCategories || isLoadingZones;
 
-  if (isLoading) {
-    return (
-        <div className="space-y-4">
-            <PageHeader title="Editar Negocio" />
-            <div className="space-y-8 rounded-md border p-8">
-                 {/* Simulate form layout */}
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-                 <div className="flex justify-end gap-2">
-                    <Skeleton className="h-10 w-24" />
-                    <Skeleton className="h-10 w-32" />
-                 </div>
-            </div>
-        </div>
-    );
-  }
-
-  if(isError) {
+  if (isError) {
     notFound();
-  }
-  
-  // Only render the form when all data is available
-  if (!business || !categories || !zones) {
-    return <div>No se pudieron cargar los datos necesarios para editar el negocio.</div>;
   }
 
   return (
     <div className="space-y-4">
       <PageHeader title="Editar Negocio" />
-      <BusinessFormWrapper 
-        initialData={business} 
-        categories={categories}
-        zones={zones}
-      />
+      {isLoading ? (
+        <div className="space-y-8 rounded-md border p-8">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex justify-end gap-2">
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-10 w-32" />
+            </div>
+        </div>
+      ) : (
+        <BusinessFormWrapper 
+          initialData={business} 
+          categories={categories || []}
+          zones={zones || []}
+        />
+      )}
     </div>
   );
 }
