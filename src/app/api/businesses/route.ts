@@ -7,6 +7,14 @@ import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
 import type { User } from '@/types';
 
+async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
+    const filePath = `store/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
+    const { error: uploadError } = await supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).upload(filePath, file);
+    if (uploadError) throw new Error(`Error al subir ${fileName}: ${uploadError.message}`);
+    const { data } = supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).getPublicUrl(filePath);
+    return data.publicUrl;
+}
+
 async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
   const formData = await request.formData();
   
@@ -46,56 +54,73 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
     const { data: createdUser, error: userError } = await supabaseAdmin.from('users').insert(userToCreate).select().single();
     
     if (userError) {
-      console.error("Error creating user for business:", userError);
       if (userError.code === '23505') {
           return NextResponse.json({ message: 'El correo electrónico ya está registrado.' }, { status: 409 });
       }
-      return NextResponse.json({ message: userError.message || 'Error al crear la cuenta de usuario.', error: userError.details }, { status: 500 });
+      throw new Error(userError.message || 'Error al crear la cuenta de usuario.');
     }
     
     createdUserId = createdUser.id;
 
     const businessId = `biz-${faker.string.uuid()}`;
-    const newBusinessForDb = {
+    const businessDataToInsert: Record<string, any> = {
       id: businessId,
       user_id: createdUser.id,
+      name: data.name,
+      type: data.type,
+      category_id: data.category_id,
       owner_name: data.owner_name,
       email: data.email,
+      phone_whatsapp: data.phone_whatsapp,
+      address_line: data.address_line,
+      neighborhood: data.neighborhood,
+      city: data.city,
+      state: data.state,
+      zip_code: data.zip_code,
+      latitude: data.latitude,
+      longitude: data.longitude,
       status: 'INCOMPLETE' as const,
+      delivery_time_min: data.delivery_time_min,
+      delivery_time_max: data.delivery_time_max,
+      has_delivery_service: data.has_delivery_service,
+      average_ticket: data.average_ticket,
+      weekly_demand: data.weekly_demand,
+      notes: data.notes,
+      tax_id: data.tax_id,
+      website: data.website,
+      instagram: data.instagram,
     };
+
+    // Handle file uploads
+    const fileFields = ['logo_url', 'business_photo_facade_url', 'business_photo_interior_url', 'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'];
+    for (const field of fileFields) {
+        const file = formData.get(field) as File | null;
+        if (file) {
+            businessDataToInsert[field] = await uploadFileAndGetUrl(supabaseAdmin, file, businessId, field);
+        }
+    }
 
     const { data: createdBusiness, error: insertError } = await supabaseAdmin
       .from('businesses')
-      .insert(newBusinessForDb)
+      .insert(businessDataToInsert)
       .select()
       .single();
 
     if (insertError) {
-        // If business creation fails, roll back user creation
-        if (createdUserId) {
-            await supabaseAdmin.from('users').delete().eq('id', createdUserId);
-        }
-        console.error('Error creating business profile:', insertError);
-        return NextResponse.json({ message: 'Error al crear el perfil del negocio.', error: insertError.details || insertError.message }, { status: 500 });
+        if (createdUserId) await supabaseAdmin.from('users').delete().eq('id', createdUserId);
+        throw new Error(insertError.message || 'Error al crear el perfil del negocio.');
     }
     
     const userForSession: User = {
-        id: createdUser.id,
-        name: createdUser.name,
-        email: createdUser.email,
-        created_at: createdUser.created_at,
-        role_id: createdUser.role_id,
-        status: createdUser.status,
-        avatar_url: createdUser.avatar_url,
+        id: createdUser.id, name: createdUser.name, email: createdUser.email,
+        created_at: createdUser.created_at, role_id: createdUser.role_id, status: createdUser.status,
     };
 
     return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa el perfil de tu negocio.", user: userForSession, businessId: createdBusiness.id }, { status: 201 });
 
   } catch (error) {
     console.error('Unexpected error in business registration API (create mode):', error);
-    if (createdUserId) {
-        await supabaseAdmin.from('users').delete().eq('id', createdUserId);
-    }
+    if (createdUserId) await supabaseAdmin.from('users').delete().eq('id', createdUserId);
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }

@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { businessSchema } from '@/lib/schemas';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
     const filePath = `store/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
@@ -56,25 +57,29 @@ export async function POST(request: Request, { params }: { params: { id: string 
     
     // Process other fields
     for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File)) { // Only process non-file fields
+      if (!(value instanceof File)) {
         const numericFields = ['latitude', 'longitude', 'delivery_time_min', 'delivery_time_max', 'average_ticket'];
         const booleanFields = ['has_delivery_service'];
 
-        if (numericFields.includes(key)) {
+        if (numericFields.includes(key) && value !== 'undefined' && value !== 'null') {
              updateData[key] = parseFloat(value as string);
         } else if (booleanFields.includes(key)) {
-            updateData[key] = value === 'true'; // Convert string 'true'/'false' to boolean
+            updateData[key] = value === 'true';
         }
         else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
             updateData[key] = `+52${value}`;
-        } else if (value !== undefined) {
+        } else if (value !== undefined && value !== 'undefined' && value !== 'null') {
             updateData[key] = value;
         }
       }
     }
     
+    // Server-side validation (optional but recommended)
+    // You can adapt your Zod schema to be more lenient for updates.
+    // For now, we trust the client-side validation for simplicity.
+
     if (Object.keys(updateData).length === 0 && !formData.has('final_submission')) {
-        return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 400 });
+        return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
     }
 
     updateData.updated_at = new Date().toISOString();

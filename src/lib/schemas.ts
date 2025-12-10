@@ -1,6 +1,5 @@
 
 
-
 import { z } from "zod";
 
 export const signInSchema = z.object({
@@ -166,7 +165,7 @@ export const submitBusinessSchema = z.object({
 });
 
 
-export const businessSchema = z.object({
+const fullBusinessSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
@@ -182,19 +181,15 @@ export const businessSchema = z.object({
     city: z.string().min(3, { message: "La ciudad debe tener al menos 3 caracteres." }),
     state: z.string().min(3, { message: "El estado debe tener al menos 3 caracteres." }),
     zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
-    latitude: z.number().optional(),
-    longitude: z.number().optional(),
+    latitude: z.coerce.number().optional(),
+    longitude: z.coerce.number().optional(),
     tax_id: z.string().optional(),
     website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
     instagram: z.string().optional(),
     logo_url: imageFileSchema("El logo es requerido.").optional(),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
-    // Campos de contraseña (opcionales, solo para creación)
-    password: z.string().optional(),
-    passwordConfirmation: z.string().optional(),
     
-    // Nuevos campos
     delivery_time_min: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
     delivery_time_max: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
     has_delivery_service: z.boolean().optional(),
@@ -206,24 +201,36 @@ export const businessSchema = z.object({
     owner_ine_front_url: imageFileSchema("INE frontal opcional.").optional(),
     owner_ine_back_url: imageFileSchema("INE reverso opcional.").optional(),
     tax_situation_proof_url: fileSchema("Constancia fiscal opcional.").optional(),
-}).refine(data => {
-    // Si se proporciona una contraseña, la confirmación también debe proporcionarse y coincidir.
-    if (data.password && data.password.length > 0) {
-        return data.password === data.passwordConfirmation;
-    }
-    return true; // Si no hay contraseña, la validación pasa.
-}, {
-    message: "Las contraseñas no coinciden.",
-    path: ["passwordConfirmation"],
-}).refine(data => {
-    if (data.password && data.password.length > 0) {
-        return passwordRegex.test(data.password);
-    }
-    return true;
-}, {
-    message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo.",
-    path: ["password"],
 });
+
+
+export const businessSchema = z.discriminatedUnion("id", [
+    // Schema para creación (ID es opcional, contraseña es requerida)
+    fullBusinessSchema.extend({
+        id: z.string().optional(),
+        password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
+        passwordConfirmation: z.string(),
+    }).refine(data => data.password === data.passwordConfirmation, {
+        message: "Las contraseñas no coinciden.",
+        path: ["passwordConfirmation"],
+    }),
+    // Schema para edición (ID es requerido, contraseña es opcional)
+    fullBusinessSchema.extend({
+        id: z.string(),
+        password: z.string().optional(),
+        passwordConfirmation: z.string().optional(),
+    }).refine(data => {
+        if (data.password && data.password.length > 0) {
+            if (!passwordRegex.test(data.password)) return false;
+            return data.password === data.passwordConfirmation;
+        }
+        return true;
+    }, {
+        message: "Las contraseñas no coinciden o no cumplen con los requisitos.",
+        path: ["passwordConfirmation"],
+    })
+]);
+
 
 // Schema for the server-side validation of the initial account creation
 export const riderAccountCreationSchema = z.object({

@@ -174,50 +174,52 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
     }
   }, [selectedType, availableCategories, methods]);
 
-  const onSubmit = async (data: BusinessFormValues) => {
-    const isEditingMode = !!data.id;
-    
-    const formData = new FormData();
-    const fileKeys = [
-      'logo_url', 'business_photo_facade_url', 'business_photo_interior_url',
-      'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'
-    ];
-    
-    for (const key in data) {
-        const fieldKey = key as keyof BusinessFormValues;
-        const value = data[fieldKey];
+    const onSubmit = async (data: BusinessFormValues) => {
+        const formData = new FormData();
+        const fileFields: (keyof BusinessFormValues)[] = [
+            'logo_url', 'business_photo_facade_url', 'business_photo_interior_url',
+            'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'
+        ];
 
-        if (isEditingMode && (fieldKey === 'password' || fieldKey === 'passwordConfirmation') && !value) {
-            continue;
-        }
+        // Iterate over form data
+        for (const key in data) {
+            const fieldKey = key as keyof BusinessFormValues;
+            const value = data[fieldKey];
 
-        if (fileKeys.includes(fieldKey)) {
-            if (value instanceof FileList && value.length > 0) {
-                formData.append(fieldKey, value[0]);
+            // Skip passwords on edit if they are empty
+            if (isEditing && (fieldKey === 'password' || fieldKey === 'passwordConfirmation') && !value) {
+                continue;
             }
-        } else if (typeof value === 'boolean') {
-            formData.append(fieldKey, String(value));
-        } else if (value !== null && value !== undefined && value !== '') {
-            formData.append(fieldKey, String(value));
-        }
-    }
 
-    try {
-      if (isEditingMode) {
-        await updateMutation.mutateAsync({ formData, id: data.id! });
-      } else {
-        if (!data.password) {
-            methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
-            return;
+            if (fileFields.includes(fieldKey)) {
+                if (value instanceof FileList && value.length > 0) {
+                    formData.append(fieldKey, value[0]);
+                }
+            } else if (typeof value === 'boolean') {
+                formData.append(fieldKey, String(value));
+            } else if (value !== null && value !== undefined && value !== '') {
+                // Ensure other values are appended as strings
+                formData.append(fieldKey, String(value));
+            }
         }
-        await createMutation.mutateAsync(formData);
-      }
-      router.push("/businesses");
-      router.refresh();
-    } catch (error) {
-      // The error is already handled by the mutation hook (it shows a toast)
-    }
-  };
+        
+        try {
+            if (isEditing) {
+                await updateMutation.mutateAsync({ formData, id: data.id! });
+            } else {
+                 if (!data.password) {
+                    methods.setError("password", { message: "La contraseña es requerida para nuevos negocios." });
+                    return;
+                }
+                await createMutation.mutateAsync(formData);
+            }
+            router.push("/businesses");
+            router.refresh();
+        } catch (error) {
+            // The error is already handled by the mutation hook
+        }
+    };
+
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -530,13 +532,16 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         }
     }
     
-    // Ensure latitude and longitude have default values if they are missing
     if (!sanitizedData.latitude || !sanitizedData.longitude) {
         sanitizedData.latitude = 19.4326;
         sanitizedData.longitude = -99.1332;
     }
+    
+    return {
+        ...sanitizedData,
+        id: initialData.id // Asegúrate de que el id se pasa para el discriminated union
+    } as BusinessFormValues;
 
-    return sanitizedData as BusinessFormValues;
   }, [initialData]);
 
   const methods = useForm<BusinessFormValues>({
