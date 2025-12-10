@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useMemo, useEffect } from "react";
@@ -516,57 +515,52 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
   );
 }
 
+const defaultFormValues: BusinessFormValues = {
+    id: undefined,
+    name: "",
+    type: "restaurant",
+    category_id: "",
+    email: "",
+    owner_name: "",
+    phone_whatsapp: "",
+    address_line: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    latitude: 19.4326,
+    longitude: -99.1332,
+    status: "PENDING_REVIEW",
+    password: "",
+    passwordConfirmation: "",
+    logo_url: null,
+    business_photo_facade_url: null,
+    business_photo_interior_url: null,
+    digital_menu_url: null,
+    owner_ine_front_url: null,
+    owner_ine_back_url: null,
+    tax_situation_proof_url: null,
+    delivery_time_min: undefined,
+    delivery_time_max: undefined,
+    average_ticket: undefined,
+    has_delivery_service: undefined,
+    weekly_demand: undefined,
+    tax_id: "",
+    website: "",
+    instagram: "",
+    notes: "",
+};
+
 
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
   const isEditing = !!initialData;
-
-  const defaultFormValues = {
-    id: initialData?.id || undefined,
-    name: initialData?.name || "",
-    type: initialData?.type || "restaurant",
-    category_id: initialData?.category_id || "",
-    email: initialData?.email || "",
-    owner_name: initialData?.owner_name || "",
-    phone_whatsapp: initialData?.phone_whatsapp || "",
-    address_line: initialData?.address_line || "",
-    neighborhood: initialData?.neighborhood || "",
-    city: initialData?.city || "",
-    state: initialData?.state || "",
-    zip_code: initialData?.zip_code || "",
-    latitude: initialData?.latitude || 19.4326,
-    longitude: initialData?.longitude || -99.1332,
-    status: initialData?.status || "PENDING_REVIEW",
-    password: "",
-    passwordConfirmation: "",
-    // files
-    logo_url: initialData?.logo_url || null,
-    business_photo_facade_url: initialData?.business_photo_facade_url || null,
-    business_photo_interior_url: initialData?.business_photo_interior_url || null,
-    digital_menu_url: initialData?.digital_menu_url || null,
-    owner_ine_front_url: initialData?.owner_ine_front_url || null,
-    owner_ine_back_url: initialData?.owner_ine_back_url || null,
-    tax_situation_proof_url: initialData?.tax_situation_proof_url || null,
-    // operative details
-    delivery_time_min: initialData?.delivery_time_min,
-    delivery_time_max: initialData?.delivery_time_max,
-    average_ticket: initialData?.average_ticket,
-    has_delivery_service: initialData?.has_delivery_service,
-    weekly_demand: initialData?.weekly_demand,
-    // fiscal
-    tax_id: initialData?.tax_id,
-    website: initialData?.website,
-    instagram: initialData?.instagram,
-    notes: initialData?.notes,
-  };
-
+  
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
     defaultValues: defaultFormValues,
   });
 
   useEffect(() => {
-    // Cuando los datos iniciales cambian (después de la carga asíncrona),
-    // actualizamos los valores del formulario.
     if (initialData) {
       methods.reset({
         id: initialData.id,
@@ -586,7 +580,6 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         status: initialData.status || 'INACTIVE',
         password: '',
         passwordConfirmation: '',
-         // files
         logo_url: initialData.logo_url || null,
         business_photo_facade_url: initialData.business_photo_facade_url || null,
         business_photo_interior_url: initialData.business_photo_interior_url || null,
@@ -594,21 +587,28 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         owner_ine_front_url: initialData.owner_ine_front_url || null,
         owner_ine_back_url: initialData.owner_ine_back_url || null,
         tax_situation_proof_url: initialData.tax_situation_proof_url || null,
-        // operative details
         delivery_time_min: initialData.delivery_time_min,
         delivery_time_max: initialData.delivery_time_max,
         average_ticket: initialData.average_ticket,
         has_delivery_service: initialData.has_delivery_service,
         weekly_demand: initialData.weekly_demand,
-        // fiscal
         tax_id: initialData.tax_id,
         website: initialData.website,
         instagram: initialData.instagram,
         notes: initialData.notes,
+        zone_id: initialData.zone_id,
       });
     }
   }, [initialData, methods]);
-
+  
+  // Conditionally render only when data is ready for editing, or always for creation
+  if (isEditing && !methods.getValues('id')) {
+    return (
+        <div className="space-y-8 rounded-md border p-8">
+            <Skeleton className="h-96 w-full" />
+        </div>
+    );
+  }
 
   return (
     <FormProvider {...methods}>
@@ -616,3 +616,5 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   );
 }
+
+    
