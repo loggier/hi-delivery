@@ -520,60 +520,95 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
   const isEditing = !!initialData;
 
-  const formMethodsOptions = {
-    resolver: zodResolver(businessSchema),
+  const defaultFormValues = {
+    id: initialData?.id || undefined,
+    name: initialData?.name || "",
+    type: initialData?.type || "restaurant",
+    category_id: initialData?.category_id || "",
+    email: initialData?.email || "",
+    owner_name: initialData?.owner_name || "",
+    phone_whatsapp: initialData?.phone_whatsapp || "",
+    address_line: initialData?.address_line || "",
+    neighborhood: initialData?.neighborhood || "",
+    city: initialData?.city || "",
+    state: initialData?.state || "",
+    zip_code: initialData?.zip_code || "",
+    latitude: initialData?.latitude || 19.4326,
+    longitude: initialData?.longitude || -99.1332,
+    status: initialData?.status || "PENDING_REVIEW",
+    password: "",
+    passwordConfirmation: "",
+    // files
+    logo_url: initialData?.logo_url || null,
+    business_photo_facade_url: initialData?.business_photo_facade_url || null,
+    business_photo_interior_url: initialData?.business_photo_interior_url || null,
+    digital_menu_url: initialData?.digital_menu_url || null,
+    owner_ine_front_url: initialData?.owner_ine_front_url || null,
+    owner_ine_back_url: initialData?.owner_ine_back_url || null,
+    tax_situation_proof_url: initialData?.tax_situation_proof_url || null,
+    // operative details
+    delivery_time_min: initialData?.delivery_time_min,
+    delivery_time_max: initialData?.delivery_time_max,
+    average_ticket: initialData?.average_ticket,
+    has_delivery_service: initialData?.has_delivery_service,
+    weekly_demand: initialData?.weekly_demand,
+    // fiscal
+    tax_id: initialData?.tax_id,
+    website: initialData?.website,
+    instagram: initialData?.instagram,
+    notes: initialData?.notes,
   };
 
-  if (isEditing) {
-    // For editing, we use 'values' to populate the form reactively from fetched data.
-    const formValues = {
-        ...initialData,
-        id: initialData?.id, // Ensure id is present for the discriminated union
-        // Set default values for any fields that might be null/undefined from the DB
-        name: initialData?.name || '',
-        type: initialData?.type || 'restaurant',
-        category_id: initialData?.category_id || '',
-        email: initialData?.email || '',
-        owner_name: initialData?.owner_name || '',
-        phone_whatsapp: initialData?.phone_whatsapp || '',
-        address_line: initialData?.address_line || '',
-        neighborhood: initialData?.neighborhood || '',
-        city: initialData?.city || '',
-        state: initialData?.state || '',
-        zip_code: initialData?.zip_code || '',
-        latitude: initialData?.latitude || 19.4326,
-        longitude: initialData?.longitude || -99.1332,
-        status: initialData?.status || 'INACTIVE',
+  const methods = useForm<BusinessFormValues>({
+    resolver: zodResolver(businessSchema),
+    defaultValues: defaultFormValues,
+  });
+
+  useEffect(() => {
+    // Cuando los datos iniciales cambian (después de la carga asíncrona),
+    // actualizamos los valores del formulario.
+    if (initialData) {
+      methods.reset({
+        id: initialData.id,
+        name: initialData.name || "",
+        type: initialData.type || "restaurant",
+        category_id: initialData.category_id || "",
+        email: initialData.email || "",
+        owner_name: initialData.owner_name || "",
+        phone_whatsapp: initialData.phone_whatsapp || "",
+        address_line: initialData.address_line || "",
+        neighborhood: initialData.neighborhood || "",
+        city: initialData.city || "",
+        state: initialData.state || "",
+        zip_code: initialData.zip_code || "",
+        latitude: initialData.latitude || 19.4326,
+        longitude: initialData.longitude || -99.1332,
+        status: initialData.status || 'INACTIVE',
         password: '',
         passwordConfirmation: '',
-      };
-    Object.assign(formMethodsOptions, { values: formValues });
-  } else {
-    // For creating, we use 'defaultValues'. 'values' would lock the fields.
-     Object.assign(formMethodsOptions, { 
-        defaultValues: {
-            id: undefined, // Important for Zod discriminated union
-            name: "",
-            type: "restaurant",
-            category_id: "",
-            email: "",
-            owner_name: "",
-            phone_whatsapp: "",
-            address_line: "",
-            neighborhood: "",
-            city: "",
-            state: "",
-            zip_code: "",
-            latitude: 19.4326,
-            longitude: -99.1332,
-            status: "PENDING_REVIEW",
-            password: "",
-            passwordConfirmation: "",
-        } 
-    });
-  }
+         // files
+        logo_url: initialData.logo_url || null,
+        business_photo_facade_url: initialData.business_photo_facade_url || null,
+        business_photo_interior_url: initialData.business_photo_interior_url || null,
+        digital_menu_url: initialData.digital_menu_url || null,
+        owner_ine_front_url: initialData.owner_ine_front_url || null,
+        owner_ine_back_url: initialData.owner_ine_back_url || null,
+        tax_situation_proof_url: initialData.tax_situation_proof_url || null,
+        // operative details
+        delivery_time_min: initialData.delivery_time_min,
+        delivery_time_max: initialData.delivery_time_max,
+        average_ticket: initialData.average_ticket,
+        has_delivery_service: initialData.has_delivery_service,
+        weekly_demand: initialData.weekly_demand,
+        // fiscal
+        tax_id: initialData.tax_id,
+        website: initialData.website,
+        instagram: initialData.instagram,
+        notes: initialData.notes,
+      });
+    }
+  }, [initialData, methods]);
 
-  const methods = useForm<BusinessFormValues>(formMethodsOptions);
 
   return (
     <FormProvider {...methods}>
