@@ -518,36 +518,62 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 
 
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
-  
-  const formValues = useMemo(() => {
-    if (!initialData) return undefined;
+  const isEditing = !!initialData;
 
-    const sanitizedData: Record<string, any> = {};
-    for (const key in initialData) {
-        const value = initialData[key as keyof Business];
-        if (value === null) {
-            sanitizedData[key] = null;
-        } else {
-            sanitizedData[key] = value;
-        }
-    }
-    
-    if (!sanitizedData.latitude || !sanitizedData.longitude) {
-        sanitizedData.latitude = 19.4326;
-        sanitizedData.longitude = -99.1332;
-    }
-    
-    return {
-        ...sanitizedData,
-        id: initialData.id // Asegúrate de que el id se pasa para el discriminated union
-    } as BusinessFormValues;
-
-  }, [initialData]);
-
-  const methods = useForm<BusinessFormValues>({
+  const formMethodsOptions = {
     resolver: zodResolver(businessSchema),
-    values: formValues,
-  });
+  };
+
+  if (isEditing) {
+    // For editing, we use 'values' to populate the form reactively from fetched data.
+    const formValues = {
+        ...initialData,
+        id: initialData?.id, // Ensure id is present for the discriminated union
+        // Set default values for any fields that might be null/undefined from the DB
+        name: initialData?.name || '',
+        type: initialData?.type || 'restaurant',
+        category_id: initialData?.category_id || '',
+        email: initialData?.email || '',
+        owner_name: initialData?.owner_name || '',
+        phone_whatsapp: initialData?.phone_whatsapp || '',
+        address_line: initialData?.address_line || '',
+        neighborhood: initialData?.neighborhood || '',
+        city: initialData?.city || '',
+        state: initialData?.state || '',
+        zip_code: initialData?.zip_code || '',
+        latitude: initialData?.latitude || 19.4326,
+        longitude: initialData?.longitude || -99.1332,
+        status: initialData?.status || 'INACTIVE',
+        password: '',
+        passwordConfirmation: '',
+      };
+    Object.assign(formMethodsOptions, { values: formValues });
+  } else {
+    // For creating, we use 'defaultValues'. 'values' would lock the fields.
+     Object.assign(formMethodsOptions, { 
+        defaultValues: {
+            id: undefined, // Important for Zod discriminated union
+            name: "",
+            type: "restaurant",
+            category_id: "",
+            email: "",
+            owner_name: "",
+            phone_whatsapp: "",
+            address_line: "",
+            neighborhood: "",
+            city: "",
+            state: "",
+            zip_code: "",
+            latitude: 19.4326,
+            longitude: -99.1332,
+            status: "PENDING_REVIEW",
+            password: "",
+            passwordConfirmation: "",
+        } 
+    });
+  }
+
+  const methods = useForm<BusinessFormValues>(formMethodsOptions);
 
   return (
     <FormProvider {...methods}>
