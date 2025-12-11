@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,17 +38,23 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const [newAreaName, setNewAreaName] = useState("");
   
   const mapRef = useRef<google.maps.Map | null>(null);
-  const [mapCenter, setMapCenter] = useState<google.maps.LatLngLiteral | undefined>(
-    initialData?.geofence && initialData.geofence.length > 0
-      ? undefined
-      : { lat: 19.4326, lng: -99.1332 }
-  );
+  const [mapCenter, setMapCenter] = useState<google.maps.LatLngLiteral | undefined>();
   const [mapZoom, setMapZoom] = useState(12);
 
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneSchema),
     defaultValues: initialData || { name: '', status: 'INACTIVE', geofence: [] },
   });
+
+  useEffect(() => {
+    if (initialData?.geofence && initialData.geofence.length > 0 && typeof window !== 'undefined') {
+        const bounds = new window.google.maps.LatLngBounds();
+        initialData.geofence.forEach(coord => bounds.extend(coord));
+        setMapCenter(bounds.getCenter().toJSON());
+    } else {
+        setMapCenter({ lat: 19.4326, lng: -99.1332 });
+    }
+  }, [initialData]);
 
   const onZoneSubmit = async (data: ZoneFormValues) => {
     if (!initialData) return;
@@ -69,7 +75,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
         name: newAreaName,
         status: 'ACTIVE',
         geofence: newAreaGeofence
-    } as any);
+    });
 
     setNewAreaName("");
     setNewAreaGeofence(null);
@@ -92,12 +98,8 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     if (mapRef.current) {
       const center = mapRef.current.getCenter();
       const zoom = mapRef.current.getZoom();
-      if (center) {
-        setMapCenter(center.toJSON());
-      }
-      if (zoom) {
-        setMapZoom(zoom);
-      }
+      if (center) setMapCenter(center.toJSON());
+      if (zoom) setMapZoom(zoom);
     }
   }, []);
   
@@ -193,6 +195,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                         </div>
                         <div className="flex gap-2">
                             <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
+                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                 <Save className="mr-2"/> Guardar Área
                             </Button>
                         </div>
@@ -209,12 +212,12 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xl font-bold">Mapa Interactivo</FormLabel>
-                <p className="text-sm text-muted-foreground">
+                <FormDescription>
                   {isDrawingArea
                     ? "Dibuja el polígono para la nueva área en el mapa."
-                    : "Edita la geocerca principal. Las áreas se muestran en naranja."
+                    : "Edita la geocerca principal. Puedes editarla arrastrando sus puntos. Las áreas (sub-zonas) se mostrarán en naranja."
                   }
-                </p>
+                </FormDescription>
                 <FormControl>
                     <GeofenceMap
                         mainGeofence={field.value}
@@ -224,7 +227,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                         newAreaPath={newAreaGeofence}
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
-                            setIsDrawingArea(true); // Keep drawing mode conceptually active
+                            // Do not disable drawing mode automatically
                         }}
                         onMapLoad={map => (mapRef.current = map)}
                         onMapDragEnd={handleMapStateChange}
@@ -237,7 +240,6 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
               </FormItem>
             )}
           />
-
         </form>
       </FormProvider>
     </>
