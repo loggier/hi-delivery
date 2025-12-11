@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, FileText, CheckCircle, XCircle, Building, Map, ShoppingBag } from "lucide-react";
+import { Pencil, FileText, CheckCircle, XCircle, Building, Map, ShoppingBag, PlusCircle, Store } from "lucide-react";
 import { notFound, useParams } from 'next/navigation';
 import React from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
@@ -18,7 +18,8 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { SubscriptionManager } from "./subscription-manager";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
-import { BusinessType } from "@/types";
+import { BusinessType, BusinessBranch } from "@/types";
+import { BranchFormModal, BranchList } from "./branch-components";
 
 const libraries: ('places')[] = ['places'];
 
@@ -83,6 +84,9 @@ export default function ViewBusinessPage() {
   const { data: categories, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
   const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll();
   
+  const [isBranchModalOpen, setIsBranchModalOpen] = React.useState(false);
+  const [editingBranch, setEditingBranch] = React.useState<BusinessBranch | null>(null);
+  
   const isLoading = isLoadingBusiness || isLoadingCategories || isLoadingZones;
 
   if (isLoading) {
@@ -112,6 +116,11 @@ export default function ViewBusinessPage() {
 
   if (isError || !business) {
       notFound();
+  }
+  
+  const openBranchModal = (branch: BusinessBranch | null = null) => {
+    setEditingBranch(branch);
+    setIsBranchModalOpen(true);
   }
 
   const status = business.status;
@@ -187,8 +196,19 @@ export default function ViewBusinessPage() {
                     </div>
                 </section>
                 <Separator />
+                 <section>
+                    <div className="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 className="text-lg font-semibold">Sucursales</h3>
+                         <Button variant="outline" size="sm" onClick={() => openBranchModal()}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Añadir Sucursal
+                        </Button>
+                    </div>
+                    <BranchList branches={business.business_branches} onEdit={openBranchModal} />
+                </section>
+                <Separator />
                 <section>
-                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Ubicación</h3>
+                    <h3 className="text-lg font-semibold mb-4 border-b pb-2">Ubicación Matriz</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
                             <DetailItem label="Dirección" value={business.address_line} />
@@ -230,10 +250,17 @@ export default function ViewBusinessPage() {
             </CardContent>
         </Card>
       </div>
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1 space-y-6">
         <SubscriptionManager business={business} />
       </div>
     </div>
+    
+    <BranchFormModal 
+        isOpen={isBranchModalOpen}
+        onClose={() => setIsBranchModalOpen(false)}
+        businessId={business.id}
+        initialData={editingBranch}
+    />
     </div>
   );
 }
