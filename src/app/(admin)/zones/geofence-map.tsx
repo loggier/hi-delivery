@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
@@ -6,7 +5,6 @@ import { useLoadScript, GoogleMap, DrawingManager, Autocomplete, Polygon } from 
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 interface GeofenceMapProps {
@@ -23,19 +21,43 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => 
   });
 
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
+  const mapCenter = useMemo(() => {
+    if (value && value.length > 0 && typeof window !== 'undefined' && window.google) {
+      const bounds = new window.google.maps.LatLngBounds();
+      value.forEach(coord => bounds.extend(coord));
+      return bounds.getCenter().toJSON();
+    }
+    return { lat: 19.4326, lng: -99.1332 };
+  }, [value]);
+
+  const drawingOptions = useMemo(() => {
+    if (!isLoaded || typeof window === 'undefined' || !window.google) return undefined;
+    return {
+      drawingControl: true,
+      drawingControlOptions: {
+        position: window.google.maps.ControlPosition.TOP_CENTER,
+        drawingModes: ["polygon"] as google.maps.drawing.OverlayType[],
+      },
+      polygonOptions: {
+        fillColor: "hsl(var(--hid-primary))",
+        fillOpacity: 0.2,
+        strokeColor: "hsl(var(--hid-primary))",
+        strokeWeight: 2,
+        clickable: true,
+        editable: true,
+        zIndex: 1,
+      },
+    } as google.maps.drawing.DrawingManagerOptions;
+  }, [isLoaded]);
+
+
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
-    // Custom map styles can be added here if needed
     setMap(mapInstance);
   }, []);
-
-  useEffect(() => {
-    if (map) map.setMapTypeId(mapTypeId);
-  }, [map, mapTypeId]);
 
   const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
     if (polygonRef.current) {
@@ -51,9 +73,6 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => 
   }, [onChange]);
 
   const onDrawingManagerLoad = useCallback((dm: google.maps.drawing.DrawingManager) => {
-    if (drawingManagerRef.current) {
-      drawingManagerRef.current.setMap(null);
-    }
     drawingManagerRef.current = dm;
   }, []);
   
@@ -94,39 +113,10 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => 
       onChange(newPath);
     }
   };
-
-  const drawingOptions = useMemo(() => {
-    if (!isLoaded || typeof window === 'undefined' || !window.google) return undefined;
-    return {
-      drawingControl: true,
-      drawingControlOptions: {
-        position: window.google.maps.ControlPosition.TOP_CENTER,
-        drawingModes: ["polygon"] as google.maps.drawing.OverlayType[],
-      },
-      polygonOptions: {
-        fillColor: "#04AAF1",
-        fillOpacity: 0.35,
-        strokeColor: "#E33739",
-        strokeWeight: 2,
-        clickable: true,
-        editable: true,
-        zIndex: 1,
-      },
-    } as google.maps.drawing.DrawingManagerOptions;
-  }, [isLoaded]);
-
+  
   if (loadError) return <div>Error cargando el mapa. Por favor, revisa la API Key de Google Maps.</div>;
   if (!isLoaded) return <Skeleton className="h-[500px] w-full" />;
 
-  const mapCenter = useMemo(() => {
-      if (value && value.length > 0) {
-        const bounds = new window.google.maps.LatLngBounds();
-        value.forEach(coord => bounds.extend(coord));
-        return bounds.getCenter().toJSON();
-      }
-      return { lat: 25.738, lng: -100.45 };
-  }, [value]);
-  
   return (
     <div className="relative">
       <GoogleMap
@@ -168,9 +158,9 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => 
             onLoad={(p) => (polygonRef.current = p)}
             onUnmount={() => (polygonRef.current = null)}
             options={{
-              fillColor: "#04AAF1",
+              fillColor: "hsl(var(--hid-primary))",
               fillOpacity: 0.2,
-              strokeColor: "#E33739",
+              strokeColor: "hsl(var(--hid-primary))",
               strokeWeight: 2,
             }}
           />
