@@ -1,3 +1,4 @@
+
 "use client";
 
 import { api } from "@/lib/api";
@@ -6,6 +7,8 @@ import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { notFound, useParams } from "next/navigation";
 import React from 'react';
+import { Separator } from "@/components/ui/separator";
+import { AreaList } from "../../area-list";
 
 export default function EditZonePage() {
   const params = useParams();
@@ -17,15 +20,8 @@ export default function EditZonePage() {
         <div className="space-y-4">
             <PageHeader title="Editar Zona" />
             <div className="space-y-8 rounded-md border p-8">
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1 space-y-6">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                    <div className="lg:col-span-2">
-                        <Skeleton className="h-96 w-full" />
-                    </div>
-                 </div>
+                 <Skeleton className="h-96 w-full" />
+                 <Skeleton className="h-48 w-full" />
                  <div className="flex justify-end gap-2">
                     <Skeleton className="h-10 w-24" />
                     <Skeleton className="h-10 w-32" />
@@ -40,9 +36,17 @@ export default function EditZonePage() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Editar Zona" />
-      <ZoneForm initialData={zone} />
+    <div className="space-y-8">
+      <div>
+        <PageHeader title="Editar Zona" />
+        <ZoneForm initialData={zone} />
+      </div>
+      
+      <Separator />
+
+      <div>
+        <AreaList zone={zone} />
+      </div>
     </div>
   );
 }

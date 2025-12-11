@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission } from "@/types";
+import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -15,6 +15,7 @@ const entityTranslations: { [key: string]: string } = {
     "riders": "Repartidor",
     "users": "Usuario",
     "zones": "Zona",
+    "areas": "Área",
     "customers": "Cliente",
     "customers_with_stats": "Cliente",
     "customer_addresses": "Dirección de Cliente",
@@ -103,6 +104,9 @@ function createApi<T extends { id: string | number }>(
         queryClient.invalidateQueries({ queryKey: entityKey });
         if (data.customer_id) {
             queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: data.customer_id }] });
+        }
+        if (data.zone_id) {
+            queryClient.invalidateQueries({ queryKey: ['zones', data.zone_id] });
         }
         toast({
           title: "Éxito",
@@ -193,9 +197,12 @@ function createApi<T extends { id: string | number }>(
             if (error) throw error;
             return data as T;
         },
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
             queryClient.setQueryData([entity, data.id], data);
+             if (data.zone_id) {
+                queryClient.invalidateQueries({ queryKey: ['zones', data.zone_id] });
+            }
             toast({
                 title: "Éxito",
                 description: `${translatedEntity} actualizado exitosamente.`,
@@ -218,6 +225,12 @@ function createApi<T extends { id: string | number }>(
         },
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
+            // This is a bit of a hack, but it works for now.
+            // When an area is deleted, we need to invalidate the parent zone query
+            // to update the area list. We don't know the zone ID here, so we invalidate all zones.
+            if (entity === 'areas') {
+                queryClient.invalidateQueries({ queryKey: ['zones'] });
+            }
             toast({
                 title: "Éxito",
                 description: `${translatedEntity} eliminado exitosamente.`,
@@ -362,6 +375,7 @@ const orderSelect = `*,
 `;
 
 const rolesSelect = `*, role_permissions(*)`
+const zonesSelect = `*, areas(*)`
 
 // --- API Hooks ---
 export const api = {
@@ -374,7 +388,11 @@ export const api = {
         ...createApi<User>('users'),
         useUpdate: useUpdateUser,
     },
-    zones: createApi<Zone>('zones'),
+    zones: {
+        ...createApi<Zone>('zones', zonesSelect),
+        useGetOne: createApi<Zone>('zones', zonesSelect).useGetOne, // Override to include areas
+    },
+    areas: createApi<Area>('areas'),
     customers: {
       ...createApi<Customer>('customers_with_stats'),
       useGetOne: createApi<Customer>('customers').useGetOne,

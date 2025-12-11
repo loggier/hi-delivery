@@ -1,9 +1,14 @@
 
 
-
-
-
-
+export type Area = {
+  id: string;
+  zone_id: string;
+  name: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  geofence?: { lat: number; lng: number }[];
+  created_at: string;
+  updated_at: string;
+}
 
 export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
@@ -315,6 +320,7 @@ export type Zone = {
     geofence?: { lat: number; lng: number }[]; 
     created_at: string;
     updated_at: string;
+    areas?: Area[];
 }
 
 export type PlanValidity = 'mensual' | 'quincenal' | 'semanal' | 'anual';
