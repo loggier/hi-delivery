@@ -42,7 +42,7 @@ import type { z } from "zod";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
-const libraries: ('places' | 'drawing' | 'directions')[] = ['places', 'drawing', 'directions'];
+const libraries: ('places' | 'drawing')[] = ['places', 'drawing'];
 
 const BusinessMap = ({ isLoaded, loadError }: { isLoaded: boolean, loadError?: Error }) => {
     const { control, setValue, watch } = useFormContext();
@@ -609,5 +609,3 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   );
 }
-
-

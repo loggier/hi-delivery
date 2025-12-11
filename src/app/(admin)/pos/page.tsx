@@ -27,7 +27,7 @@ import { useLoadScript } from '@react-google-maps/api';
 import { useAuthStore } from '@/store/auth-store';
 import { useShippingCalculation } from './use-shipping-calculation';
 
-const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+const libraries: ('places')[] = ['places'];
 
 export default function POSPage() {
     const { user } = useAuthStore();

@@ -26,7 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { LocationPoint } from './page';
 import { Textarea } from '@/components/ui/textarea';
 
-const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+const libraries: ('places')[] = ['places'];
 
 // --- Location Selector ---
 interface LocationSelectorProps {

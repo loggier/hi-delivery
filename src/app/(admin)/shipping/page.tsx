@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
 import { CustomerSearch, AddressFormModal, CustomerDisplay, CustomerFormModal, ShippingMapModal, LocationSelector, PackageDetails, ShippingSummary } from './components';
 
-const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+const libraries: ('places')[] = ['places'];
 export type LocationPoint = { address: string; lat: number; lng: number };
 
 export default function ShippingPage() {

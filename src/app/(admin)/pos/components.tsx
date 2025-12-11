@@ -32,7 +32,7 @@ import { Label } from '@/components/ui/label';
 import html2canvas from 'html2canvas';
 import { type ShippingInfo, useShippingCalculation } from './use-shipping-calculation';
 
-const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+const libraries: ('places')[] = ['places'];
 
 // --- Customer Search & Display ---
 
