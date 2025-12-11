@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission, BusinessBranch } from "@/types";
 import { createClient } from "./supabase/client";
+import { faker } from "@faker-js/faker";
 
 const entityTranslations: { [key: string]: string } = {
     "products": "Producto",
@@ -453,15 +454,16 @@ export const useManageSubscription = () => {
            if(planError) throw new Error("Plan no encontrado.");
 
            const now = new Date();
-           let periodEnd;
+           let periodEnd = new Date(now);
             switch (plan.validity) {
-                case 'mensual': periodEnd = new Date(now.setMonth(now.getMonth() + 1)); break;
-                case 'quincenal': periodEnd = new Date(now.setDate(now.getDate() + 15)); break;
-                case 'semanal': periodEnd = new Date(now.setDate(now.getDate() + 7)); break;
-                case 'anual': periodEnd = new Date(now.setFullYear(now.getFullYear() + 1)); break;
+                case 'mensual': periodEnd.setMonth(now.getMonth() + 1); break;
+                case 'quincenal': periodEnd.setDate(now.getDate() + 15); break;
+                case 'semanal': periodEnd.setDate(now.getDate() + 7); break;
+                case 'anual': periodEnd.setFullYear(now.getFullYear() + 1); break;
             }
 
            const { error: paymentError } = await supabase.from('payments').insert({
+                id: `pay-${faker.string.uuid()}`,
                 business_id: businessId,
                 plan_id: planId,
                 amount: amount,
