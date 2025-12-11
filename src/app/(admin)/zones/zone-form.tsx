@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
+import { useLoadScript } from '@react-google-maps/api';
+
 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -24,6 +26,7 @@ import { api } from "@/lib/api";
 import { GeofenceMap } from "./geofence-map";
 import { useConfirm } from "@/hooks/use-confirm";
 
+const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
 type ZoneFormValues = z.infer<typeof zoneSchema>;
 
 export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
@@ -32,6 +35,11 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const createAreaMutation = api.areas.useCreate();
   const deleteAreaMutation = api.areas.useDelete();
   const [ConfirmationDialog, confirm] = useConfirm();
+
+  const { isLoaded, loadError } = useLoadScript({
+      googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+      libraries,
+  });
 
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [newAreaGeofence, setNewAreaGeofence] = useState<{ lat: number; lng: number }[] | null>(null);
@@ -47,14 +55,14 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   });
 
   useEffect(() => {
-    if (initialData?.geofence && initialData.geofence.length > 0 && typeof window !== 'undefined') {
+    if (isLoaded && initialData?.geofence && initialData.geofence.length > 0) {
         const bounds = new window.google.maps.LatLngBounds();
         initialData.geofence.forEach(coord => bounds.extend(coord));
         setMapCenter(bounds.getCenter().toJSON());
     } else {
         setMapCenter({ lat: 19.4326, lng: -99.1332 });
     }
-  }, [initialData]);
+  }, [initialData, isLoaded]);
 
   const onZoneSubmit = async (data: ZoneFormValues) => {
     if (!initialData) return;
@@ -188,7 +196,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
             </CardContent>
              {isDrawingArea && (
                 <CardContent className="border-t pt-6 bg-slate-50 dark:bg-slate-900">
-                     <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex flex-col sm:flex-row items-end gap-4">
                         <div className="flex-grow">
                             <Label>Nombre de la Nueva Área</Label>
                             <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
@@ -211,15 +219,14 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
             name="geofence"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xl font-bold">Mapa Interactivo</FormLabel>
+                <FormLabel className="text-xl font-bold">Geocerca de la Zona Principal</FormLabel>
                 <FormDescription>
-                  {isDrawingArea
-                    ? "Dibuja el polígono para la nueva área en el mapa."
-                    : "Edita la geocerca principal. Puedes editarla arrastrando sus puntos. Las áreas (sub-zonas) se mostrarán en naranja."
-                  }
+                  Dibuja el polígono principal de la zona. Puedes editarlo arrastrando sus puntos. Las áreas (sub-zonas) se mostrarán en otro color.
                 </FormDescription>
                 <FormControl>
                     <GeofenceMap
+                        isLoaded={isLoaded}
+                        loadError={loadError}
                         mainGeofence={field.value}
                         onMainGeofenceChange={field.onChange}
                         subGeofences={initialData.areas}
@@ -227,7 +234,6 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                         newAreaPath={newAreaGeofence}
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
-                            // Do not disable drawing mode automatically
                         }}
                         onMapLoad={map => (mapRef.current = map)}
                         onMapDragEnd={handleMapStateChange}
@@ -245,3 +251,4 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     </>
   );
 }
+
