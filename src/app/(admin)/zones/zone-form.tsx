@@ -6,11 +6,12 @@ import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { PlusCircle, Loader2, Save, Trash, X } from "lucide-react";
+import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,14 +19,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 import { type Zone, type Area } from "@/types";
-import { zoneSchema, areaSchema } from "@/lib/schemas";
+import { zoneSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { GeofenceMap } from "./geofence-map";
 import { useConfirm } from "@/hooks/use-confirm";
 
 type ZoneFormValues = z.infer<typeof zoneSchema>;
 
-export function ZoneForm({ initialData }: { initialData: Zone }) {
+export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const router = useRouter();
   const updateZoneMutation = api.zones.useUpdate();
   const createAreaMutation = api.areas.useCreate();
@@ -38,10 +39,11 @@ export function ZoneForm({ initialData }: { initialData: Zone }) {
 
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneSchema),
-    defaultValues: initialData,
+    defaultValues: initialData || { name: '', status: 'INACTIVE', geofence: [] },
   });
 
   const onZoneSubmit = async (data: ZoneFormValues) => {
+    if (!initialData) return;
     await updateZoneMutation.mutateAsync({ ...data, id: initialData.id });
     router.refresh();
   };
@@ -52,6 +54,8 @@ export function ZoneForm({ initialData }: { initialData: Zone }) {
       return;
     }
     
+    if (!initialData) return;
+
     await createAreaMutation.mutateAsync({
         zone_id: initialData.id,
         name: newAreaName,
@@ -77,6 +81,10 @@ export function ZoneForm({ initialData }: { initialData: Zone }) {
   }
   
   const isPending = updateZoneMutation.isPending || createAreaMutation.isPending;
+
+  if (!initialData) {
+      return <div>Cargando zona...</div>
+  }
 
   return (
     <>
@@ -177,16 +185,32 @@ export function ZoneForm({ initialData }: { initialData: Zone }) {
           )}
 
           <Separator />
-          
-          <GeofenceMap
-              mainGeofence={form.watch('geofence')}
-              subGeofences={initialData.areas}
-              onMainGeofenceChange={(path) => form.setValue('geofence', path, { shouldValidate: true })}
-              isDrawing={isDrawingArea}
-              onDrawingComplete={(path) => {
-                  setNewAreaGeofence(path);
-                  setIsDrawingArea(false); // Disable drawing mode after one polygon is drawn
-              }}
+
+          <FormField
+            control={form.control}
+            name="geofence"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xl font-bold">Geocerca de la Zona Principal</FormLabel>
+                <FormDescription>
+                  Dibuja el polígono principal de la zona. Puedes editarlo arrastrando sus puntos. Las áreas (sub-zonas) se mostrarán en otro color.
+                </FormDescription>
+                <FormControl>
+                    <GeofenceMap
+                        value={field.value}
+                        onGeofenceChange={field.onChange}
+                        parentGeofence={field.value} // The main geofence is its own parent reference
+                        subGeofences={initialData.areas}
+                        isDrawing={isDrawingArea}
+                        onDrawingComplete={(path) => {
+                            setNewAreaGeofence(path);
+                            setIsDrawingArea(false); // Disable drawing mode after one polygon is drawn
+                        }}
+                    />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
         </form>
