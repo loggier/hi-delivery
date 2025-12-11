@@ -19,23 +19,18 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     
-    // Validamos el payload sin el ID
-    const parsed = areaSchema.omit({ id: true }).safeParse(json);
+    // Ahora validamos que el payload completo, incluyendo el ID, sea correcto.
+    const parsed = areaSchema.safeParse(json);
 
     if (!parsed.success) {
       console.error("Validation errors on area creation:", parsed.error.flatten().fieldErrors);
       return NextResponse.json({ message: "Datos de área inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    // Generamos el ID aquí en el servidor
-    const newAreaWithId = {
-      ...parsed.data,
-      id: `area-${faker.string.uuid()}`,
-    };
-
+    // El ID ya viene generado desde el frontend, así que lo usamos directamente.
     const { data: newArea, error } = await supabaseAdmin
       .from('areas')
-      .insert(newAreaWithId)
+      .insert(parsed.data)
       .select()
       .single();
 

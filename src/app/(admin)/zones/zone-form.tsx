@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
 import { useLoadScript } from '@react-google-maps/api';
+import { faker } from "@faker-js/faker";
 
 
 import { Button } from "@/components/ui/button";
@@ -36,11 +37,6 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const deleteAreaMutation = api.areas.useDelete();
   const [ConfirmationDialog, confirm] = useConfirm();
 
-  const { isLoaded, loadError } = useLoadScript({
-      googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-      libraries,
-  });
-
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [newAreaGeofence, setNewAreaGeofence] = useState<{ lat: number; lng: number }[] | null>(null);
   const [newAreaName, setNewAreaName] = useState("");
@@ -48,6 +44,11 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const mapRef = useRef<google.maps.Map | null>(null);
   const [mapCenter, setMapCenter] = useState<google.maps.LatLngLiteral | undefined>();
   const [mapZoom, setMapZoom] = useState(12);
+
+   const { isLoaded, loadError } = useLoadScript({
+      googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+      libraries,
+  });
 
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneSchema),
@@ -59,7 +60,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
         const bounds = new window.google.maps.LatLngBounds();
         initialData.geofence.forEach(coord => bounds.extend(coord));
         setMapCenter(bounds.getCenter().toJSON());
-    } else {
+    } else if (isLoaded) {
         setMapCenter({ lat: 19.4326, lng: -99.1332 });
     }
   }, [initialData, isLoaded]);
@@ -79,6 +80,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     if (!initialData) return;
 
     await createAreaMutation.mutateAsync({
+        id: `area-${faker.string.uuid()}`, // Generar el ID en el frontend
         zone_id: initialData.id,
         name: newAreaName,
         status: 'ACTIVE',
@@ -251,4 +253,3 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     </>
   );
 }
-
