@@ -21,10 +21,15 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries,
   });
-  
+
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const polygonRef = useRef<google.maps.Polygon | null>(null);
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+
   const mapCenter = useMemo(() => {
-    if (!isLoaded) return { lat: 19.4326, lng: -99.1332 }; // Return default if not loaded
-    
+    if (!isLoaded) return { lat: 19.4326, lng: -99.1332 };
+
     if (value && value.length > 0) {
       const bounds = new window.google.maps.LatLngBounds();
       value.forEach(coord => bounds.extend(coord));
@@ -38,18 +43,13 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
     return { lat: 19.4326, lng: -99.1332 };
   }, [value, parentGeofence, isLoaded]);
 
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const polygonRef = useRef<google.maps.Polygon | null>(null);
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-
   const drawingOptions = useMemo(() => {
     if (!isLoaded) return undefined;
     return {
       drawingControl: true,
       drawingControlOptions: {
         position: window.google.maps.ControlPosition.TOP_CENTER,
-        drawingModes: ["polygon"] as google.maps.drawing.OverlayType[],
+        drawingModes: [window.google.maps.drawing.OverlayType.POLYGON],
       },
       polygonOptions: {
         fillColor: "hsl(var(--hid-primary))",
@@ -66,7 +66,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
-    if (parentGeofence && parentGeofence.length > 0 && window.google) {
+    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
         const bounds = new window.google.maps.LatLngBounds();
         parentGeofence.forEach(coord => bounds.extend(coord));
         mapInstance.fitBounds(bounds);
@@ -153,7 +153,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
             </Autocomplete>
           </div>
 
-        {map && drawingOptions && (
+        {isLoaded && drawingOptions && (
           <DrawingManager
             onLoad={onDrawingManagerLoad}
             onUnmount={onDrawingManagerUnmount}
