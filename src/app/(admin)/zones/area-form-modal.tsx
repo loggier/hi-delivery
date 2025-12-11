@@ -24,9 +24,10 @@ interface AreaFormModalProps {
   onClose: () => void;
   zoneId: string;
   initialData?: Area | null;
+  parentZoneGeofence?: { lat: number, lng: number }[] | null;
 }
 
-export function AreaFormModal({ isOpen, onClose, zoneId, initialData }: AreaFormModalProps) {
+export function AreaFormModal({ isOpen, onClose, zoneId, initialData, parentZoneGeofence }: AreaFormModalProps) {
   const createMutation = api.areas.useCreate();
   const updateMutation = api.areas.useUpdate();
   
@@ -119,7 +120,7 @@ export function AreaFormModal({ isOpen, onClose, zoneId, initialData }: AreaForm
                 <FormItem>
                   <FormLabel>Geocerca del Área</FormLabel>
                   <FormControl>
-                    <GeofenceMap {...field} />
+                    <GeofenceMap {...field} parentGeofence={parentZoneGeofence} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

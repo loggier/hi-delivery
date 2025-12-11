@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
@@ -10,11 +11,12 @@ import { cn } from "@/lib/utils";
 interface GeofenceMapProps {
     value?: { lat: number, lng: number }[];
     onChange: (value: { lat: number, lng: number }[] | undefined) => void;
+    parentGeofence?: { lat: number, lng: number }[] | null;
 }
 
 const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
 
-export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => {
+export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, parentGeofence }) => {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries,
@@ -31,9 +33,14 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => 
       value.forEach(coord => bounds.extend(coord));
       return bounds.getCenter().toJSON();
     }
+    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
+        const bounds = new window.google.maps.LatLngBounds();
+        parentGeofence.forEach(coord => bounds.extend(coord));
+        return bounds.getCenter().toJSON();
+    }
     return { lat: 19.4326, lng: -99.1332 };
-  }, [value]);
-
+  }, [value, parentGeofence]);
+  
   const drawingOptions = useMemo(() => {
     if (!isLoaded || typeof window === 'undefined' || !window.google) return undefined;
     return {
@@ -57,7 +64,12 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange }) => 
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
-  }, []);
+    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
+        const bounds = new window.google.maps.LatLngBounds();
+        parentGeofence.forEach(coord => bounds.extend(coord));
+        mapInstance.fitBounds(bounds);
+    }
+  }, [parentGeofence]);
 
   const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
     if (polygonRef.current) {

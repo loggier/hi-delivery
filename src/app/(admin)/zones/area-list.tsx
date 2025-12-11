@@ -55,6 +55,7 @@ export function AreaList({ zone }: AreaListProps) {
         onClose={() => setIsModalOpen(false)}
         zoneId={zone.id}
         initialData={editingArea}
+        parentZoneGeofence={zone.geofence}
       />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
