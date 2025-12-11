@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -36,6 +36,14 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [newAreaGeofence, setNewAreaGeofence] = useState<{ lat: number; lng: number }[] | null>(null);
   const [newAreaName, setNewAreaName] = useState("");
+  
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapCenter, setMapCenter] = useState(
+    initialData?.geofence && initialData.geofence.length > 0
+      ? undefined
+      : { lat: 19.4326, lng: -99.1332 }
+  );
+  const [mapZoom, setMapZoom] = useState(12);
 
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneSchema),
@@ -79,6 +87,19 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
           deleteAreaMutation.mutate(areaId);
       }
   }
+
+  const handleMapStateChange = useCallback(() => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter();
+      const zoom = mapRef.current.getZoom();
+      if (center) {
+        setMapCenter(center.toJSON());
+      }
+      if (zoom) {
+        setMapZoom(zoom);
+      }
+    }
+  }, []);
   
   const isPending = updateZoneMutation.isPending || createAreaMutation.isPending;
 
@@ -162,7 +183,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
           </Card>
           
           {isDrawingArea && (
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700">
                 <CardHeader>
                     <CardTitle>Modo de Creación de Área</CardTitle>
                     <CardDescription>Dibuja el polígono para la nueva área en el mapa. Una vez dibujado, asígnale un nombre y guárdalo.</CardDescription>
@@ -197,14 +218,19 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                 </FormDescription>
                 <FormControl>
                     <GeofenceMap
-                        mainGeofence={field.value}
+                        value={field.value}
+                        onValueChange={field.onChange}
                         subGeofences={initialData.areas}
-                        onMainGeofenceChange={field.onChange}
                         isDrawing={isDrawingArea}
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
                             setIsDrawingArea(false); 
                         }}
+                        onMapLoad={map => (mapRef.current = map)}
+                        onMapDragEnd={handleMapStateChange}
+                        onMapZoomChanged={handleMapStateChange}
+                        mapCenter={mapCenter}
+                        mapZoom={mapZoom}
                     />
                 </FormControl>
                 <FormMessage />
@@ -217,5 +243,3 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     </>
   );
 }
-
-    
