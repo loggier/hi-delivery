@@ -3,8 +3,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare, Printer, Download } from 'lucide-react';
-import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload } from '@/types';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package, MessageSquare, Printer, Download, Store } from 'lucide-react';
+import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings, OrderItem as OrderItemType, OrderPayload, BusinessBranch } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -33,6 +33,8 @@ import html2canvas from 'html2canvas';
 import { type ShippingInfo, useShippingCalculation } from './use-shipping-calculation';
 
 const libraries: ('places')[] = ['places'];
+
+type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
 
 // --- Customer Search & Display ---
 
@@ -447,13 +449,14 @@ interface OrderCartProps {
     onUpdateItemNote: (productId: string, note: string) => void;
     customer: Customer | null;
     business: Business | null;
+    pickupLocation: PickupLocation | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
     onConfirmOrder: () => void;
     shippingHookResult: ReturnType<typeof useShippingCalculation>;
 }
 
-export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, address, isMapsLoaded, onConfirmOrder, shippingHookResult }: OrderCartProps) {
+export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote, onOrderNoteChange, customer, business, pickupLocation, address, isMapsLoaded, onConfirmOrder, shippingHookResult }: OrderCartProps) {
     const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = shippingHookResult;
 
     const subtotal = useMemo(() => {
@@ -524,7 +527,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                 <div className="space-y-4">
                     <Separator />
                     <h4 className="font-semibold text-base">Costo de Envío</h4>
-                    {business && customer && address ? (
+                    {pickupLocation && customer && address ? (
                         <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
                              {isLoadingShipping ? (
                                  <div className="flex items-center text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Calculando...</div>
@@ -569,7 +572,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                         <span>{formatCurrency(total)}</span>
                     </div>
                 </div>
-                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !business || !address} onClick={onConfirmOrder}>
+                <Button size="lg" className="w-full text-lg h-12" disabled={items.length === 0 || !customer || !pickupLocation || !address} onClick={onConfirmOrder}>
                     Crear Pedido
                 </Button>
             </div>
@@ -584,7 +587,7 @@ interface OrderTicketProps {
         id: string;
         items: OrderItemType[];
         customer: Customer;
-        business: Business;
+        pickupLocation: PickupLocation;
         address: CustomerAddress;
         note: string;
     };
@@ -604,9 +607,8 @@ const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order,
     return (
         <div ref={ref} className="font-mono text-xs text-black p-4 bg-white" id="ticket-content">
             <div className="text-center space-y-1">
-                <h3 className="font-bold text-base">{order.business.name}</h3>
-                <p>{order.business.address_line}</p>
-                <p>Tel: {order.business.phone_whatsapp}</p>
+                <h3 className="font-bold text-base">{order.pickupLocation.name}</h3>
+                <p>{order.pickupLocation.address_line}</p>
                 <p className="text-lg font-bold">PEDIDO: {order.id.split('-')[1].toUpperCase()}</p>
                 <p>{format(new Date(), "'Fecha:' dd/MM/yyyy 'Hora:' HH:mm", { locale: es })}</p>
             </div>
@@ -688,6 +690,7 @@ interface OrderConfirmationDialogProps {
     items: OrderItemType[];
     customer: Customer | null;
     business: Business | null;
+    pickupLocation: PickupLocation | null;
     address: CustomerAddress | null;
     note: string;
   };
@@ -717,7 +720,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
     };
 
     const handleCreateOrder = () => {
-        if (!order.business || !order.customer || !order.address || !shippingInfo) return;
+        if (!order.business || !order.customer || !order.address || !shippingInfo || !order.pickupLocation) return;
 
         const orderPayload: OrderPayload = {
             business_id: order.business.id,
@@ -731,8 +734,8 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             })),
             items_description: order.note,
             pickup_address: {
-                text: order.business.address_line,
-                coordinates: { lat: order.business.latitude || 0, lng: order.business.longitude || 0 }
+                text: order.pickupLocation.address_line || '',
+                coordinates: { lat: order.pickupLocation.latitude || 0, lng: order.pickupLocation.longitude || 0 }
             },
             delivery_address: {
                 text: order.address.address,
@@ -765,7 +768,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
         });
     };
 
-    if (!order.customer || !order.business || !order.address) {
+    if (!order.customer || !order.business || !order.address || !order.pickupLocation) {
         return null;
     }
 
@@ -780,11 +783,8 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                 <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 -mr-2">
                      <div className="font-mono text-xs text-black bg-white p-4 border rounded-md">
                         <div className="text-center space-y-1">
-                            <h3 className="font-bold text-base">{order.business.name}</h3>
-                            <p>{order.business.address_line}</p>
-                            <p>Tel: {order.business.phone_whatsapp}</p>
-                            <p className="text-lg font-bold">PEDIDO</p>
-                            <p>{format(new Date(), "'Fecha:' dd/MM/yyyy 'Hora:' HH:mm", { locale: es })}</p>
+                            <h3 className="font-bold text-base">{order.pickupLocation.name}</h3>
+                            <p>{order.pickupLocation.address_line}</p>
                         </div>
                         <Separator className="my-2 border-dashed border-black"/>
                         <div>
@@ -972,7 +972,7 @@ export function OrderTicketDialog({ isOpen, onClose, ...props }: OrderTicketDial
 interface ShippingMapModalProps {
     isOpen: boolean;
     onClose: () => void;
-    business: Business | null;
+    business: PickupLocation | null;
     address: CustomerAddress | null;
     isMapsLoaded: boolean;
     shippingInfo: ShippingInfo | null;
@@ -1029,7 +1029,7 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                            ) : (
                                 <>
                                  {business?.latitude && business?.longitude && (
-                                     <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name}/>
+                                     <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name || ''}/>
                                  )}
                                  {address?.latitude && address?.longitude && (
                                      <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>

@@ -15,11 +15,11 @@ import {
     OrderConfirmationDialog,
     OrderTicketDialog,
 } from './components';
-import { type Customer, type Product, type Business, type CustomerAddress, OrderItem, OrderPayload } from '@/types';
+import { type Customer, type Product, type Business, type CustomerAddress, OrderItem, OrderPayload, BusinessBranch } from '@/types';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building, ChevronDown, ChevronUp, User, Home } from 'lucide-react';
+import { Building, ChevronDown, ChevronUp, User, Home, Store } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -29,11 +29,15 @@ import { useShippingCalculation } from './use-shipping-calculation';
 
 const libraries: ('places')[] = ['places'];
 
+// Define a type for our pickup location, which can be the main business or a branch
+type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
+
 export default function POSPage() {
     const { user } = useAuthStore();
     const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
 
     const [selectedBusiness, setSelectedBusiness] = React.useState<Business | null>(null);
+    const [selectedPickupLocation, setSelectedPickupLocation] = React.useState<PickupLocation | null>(null);
     const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
     const [selectedAddress, setSelectedAddress] = React.useState<CustomerAddress | null>(null);
     const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
@@ -62,7 +66,16 @@ export default function POSPage() {
     // Set business automatically if owner and data is loaded
     React.useEffect(() => {
         if (isBusinessOwner && businessesData && businessesData.length > 0 && !selectedBusiness) {
-            setSelectedBusiness(businessesData[0]);
+            const business = businessesData[0];
+            setSelectedBusiness(business);
+            // Default to main address on initial load
+            setSelectedPickupLocation({
+                id: business.id,
+                name: `${business.name} (Matriz)`,
+                address_line: business.address_line,
+                latitude: business.latitude,
+                longitude: business.longitude
+            });
             setIsBusinessOpen(false);
             setIsCustomerOpen(true);
         }
@@ -72,11 +85,13 @@ export default function POSPage() {
     const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
-    const shippingHookResult = useShippingCalculation(selectedBusiness, selectedAddress, isLoaded);
+    // Use the selectedPickupLocation for shipping calculation now
+    const shippingHookResult = useShippingCalculation(selectedPickupLocation, selectedAddress, isLoaded);
 
     const resetOrder = () => {
         if (!isBusinessOwner) {
             setSelectedBusiness(null);
+            setSelectedPickupLocation(null);
             setIsBusinessOpen(true);
         }
         setSelectedCustomer(null);
@@ -90,11 +105,37 @@ export default function POSPage() {
         const business = businessesData?.find(b => b.id === businessId);
         if (business) {
             setSelectedBusiness(business);
+            // Set the main address as the default pickup location
+            setSelectedPickupLocation({
+                id: business.id,
+                name: `${business.name} (Matriz)`,
+                address_line: business.address_line,
+                latitude: business.latitude,
+                longitude: business.longitude
+            });
             setSelectedCustomer(null);
             setSelectedAddress(null);
             setOrderItems([]);
             setIsBusinessOpen(false); // Collapse on selection
             setIsCustomerOpen(true);
+        }
+    };
+    
+    const handleSelectPickupLocation = (locationId: string) => {
+        if (!selectedBusiness) return;
+        if (locationId === selectedBusiness.id) { // It's the main address
+            setSelectedPickupLocation({
+                id: selectedBusiness.id,
+                name: `${selectedBusiness.name} (Matriz)`,
+                address_line: selectedBusiness.address_line,
+                latitude: selectedBusiness.latitude,
+                longitude: selectedBusiness.longitude,
+            });
+        } else { // It's a branch
+            const branch = selectedBusiness.business_branches?.find(b => b.id === locationId);
+            if (branch) {
+                setSelectedPickupLocation(branch);
+            }
         }
     };
 
@@ -176,12 +217,12 @@ export default function POSPage() {
                               isBusinessOwner ? "cursor-default" : "cursor-pointer"
                             )}>
                                 <div className="flex items-center gap-3">
-                                    <Building className="h-6 w-6" />
+                                    <Store className="h-6 w-6" />
                                     <div className="flex flex-col text-left">
                                         <h3 className="font-semibold text-xl">
-                                            Paso 1: Negocio
+                                            Paso 1: Negocio y Sucursal
                                         </h3>
-                                        {selectedBusiness && <span className="text-primary font-medium">{selectedBusiness.name}</span>}
+                                        {selectedPickupLocation && <span className="text-primary font-medium">{selectedPickupLocation.name}</span>}
                                     </div>
                                 </div>
                                 {!isBusinessOwner && (
@@ -191,12 +232,12 @@ export default function POSPage() {
                                 )}
                             </div>
                         </CollapsibleTrigger>
-                        {!isBusinessOwner && (
-                          <CollapsibleContent>
-                              <CardContent className="pt-4">
+                        <CollapsibleContent>
+                              <CardContent className="pt-4 space-y-4">
                                   {isLoadingBusinesses ? (
                                       <Skeleton className="h-12 w-full" />
                                   ) : (
+                                    <>
                                       <Select onValueChange={handleSelectBusiness} value={selectedBusiness?.id}>
                                           <SelectTrigger className="h-12 text-base">
                                               <SelectValue placeholder="Elige un negocio para empezar a vender..." />
@@ -207,21 +248,35 @@ export default function POSPage() {
                                               ))}
                                           </SelectContent>
                                       </Select>
+                                      
+                                       {selectedBusiness && selectedBusiness.business_branches && selectedBusiness.business_branches.length > 0 && (
+                                            <Select onValueChange={handleSelectPickupLocation} value={selectedPickupLocation?.id}>
+                                                <SelectTrigger className="h-12 text-base">
+                                                    <SelectValue placeholder="Selecciona una sucursal..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value={selectedBusiness.id}>{selectedBusiness.name} (Matriz)</SelectItem>
+                                                    {selectedBusiness.business_branches.map(branch => (
+                                                        <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                       )}
+                                    </>
                                   )}
                               </CardContent>
                           </CollapsibleContent>
-                        )}
                     </Collapsible>
                 </Card>
 
                 {/* Step 2: Customer Selection (Collapsible) */}
                 <Card>
-                    <Collapsible open={isCustomerOpen} onOpenChange={setIsCustomerOpen} disabled={!selectedBusiness}>
-                         <CollapsibleTrigger asChild disabled={!selectedBusiness}>
+                    <Collapsible open={isCustomerOpen} onOpenChange={setIsCustomerOpen} disabled={!selectedPickupLocation}>
+                         <CollapsibleTrigger asChild disabled={!selectedPickupLocation}>
                            <div className={cn(
                                 "flex justify-between items-center p-4 cursor-pointer rounded-t-lg", 
                                 isCustomerOpen && "border-b",
-                                !selectedBusiness && "opacity-50 cursor-not-allowed"
+                                !selectedPickupLocation && "opacity-50 cursor-not-allowed"
                             )}>
                                 <div className="flex items-center gap-3">
                                     <User className="h-6 w-6" />
@@ -242,7 +297,7 @@ export default function POSPage() {
                                         )}
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" disabled={!selectedBusiness}>
+                                <Button variant="ghost" size="icon" disabled={!selectedPickupLocation}>
                                      {isCustomerOpen ? <ChevronUp /> : <ChevronDown />}
                                 </Button>
                             </div>
@@ -266,7 +321,7 @@ export default function POSPage() {
                                         customers={customers || []}
                                         onSelectCustomer={handleSelectCustomer}
                                         onAddNewCustomer={() => setIsCustomerModalOpen(true)}
-                                        disabled={isLoadingCustomers || !selectedBusiness}
+                                        disabled={isLoadingCustomers || !selectedPickupLocation}
                                     />
                                 )}
                            </CardContent>
@@ -284,7 +339,7 @@ export default function POSPage() {
                             products={products || []} 
                             onAddToCart={addProductToOrder}
                             isLoading={isLoadingProducts}
-                            disabled={!selectedBusiness}
+                            disabled={!selectedPickupLocation}
                         />
                     </CardContent>
                 </Card>
@@ -299,7 +354,8 @@ export default function POSPage() {
                     orderNote={orderNote}
                     onOrderNoteChange={setOrderNote}
                     customer={selectedCustomer}
-                    business={selectedBusiness}
+                    business={selectedBusiness} // Pass the original business object here
+                    pickupLocation={selectedPickupLocation} // Pass the chosen location
                     address={selectedAddress}
                     isMapsLoaded={isLoaded}
                     onConfirmOrder={() => setIsConfirmationOpen(true)}
@@ -326,7 +382,7 @@ export default function POSPage() {
             <ShippingMapModal 
                 isOpen={isMapModalOpen}
                 onClose={() => setIsMapModalOpen(false)}
-                business={selectedBusiness}
+                business={selectedPickupLocation}
                 address={selectedAddress}
                 isMapsLoaded={isLoaded}
                 shippingInfo={shippingHookResult.shippingInfo}
@@ -340,6 +396,7 @@ export default function POSPage() {
                     items: orderItems,
                     customer: selectedCustomer,
                     business: selectedBusiness,
+                    pickupLocation: selectedPickupLocation,
                     address: selectedAddress,
                     note: orderNote,
                 }}

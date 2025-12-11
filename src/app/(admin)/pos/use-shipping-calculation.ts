@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Business, CustomerAddress, Plan } from '@/types';
+import { Business, CustomerAddress, Plan, BusinessBranch } from '@/types';
 import { api } from '@/lib/api';
 
 export interface ShippingInfo {
@@ -12,15 +13,24 @@ export interface ShippingInfo {
     directions: google.maps.DirectionsResult | null;
 }
 
-export const useShippingCalculation = (business: Business | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
+type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
+
+export const useShippingCalculation = (pickupLocation: PickupLocation | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
     const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    
+    // We assume the plan is based on the business, not the branch.
+    // This might need adjustment if branches can have different plans.
+    const businessId = pickupLocation?.id.startsWith('biz-') ? pickupLocation.id : (pickupLocation as BusinessBranch)?.business_id;
 
-    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '', { enabled: !!business?.plan_id });
+    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(
+        (api.businesses.useGetOne(businessId || '').data?.plan_id) || '',
+        { enabled: !!businessId }
+    );
 
     const calculateRoute = useCallback(() => {
-        if (!isMapsLoaded || !business?.latitude || !business?.longitude || !address?.latitude || !address?.longitude || !plan) {
+        if (!isMapsLoaded || !pickupLocation?.latitude || !pickupLocation?.longitude || !address?.latitude || !address?.longitude || !plan) {
             setShippingInfo(null);
             setError(null);
             return;
@@ -33,7 +43,7 @@ export const useShippingCalculation = (business: Business | null, address: Custo
 
         directionsService.route(
             {
-                origin: { lat: business.latitude, lng: business.longitude },
+                origin: { lat: pickupLocation.latitude, lng: pickupLocation.longitude },
                 destination: { lat: address.latitude, lng: address.longitude },
                 travelMode: google.maps.TravelMode.DRIVING,
             },
@@ -67,7 +77,7 @@ export const useShippingCalculation = (business: Business | null, address: Custo
                 setIsLoading(false);
             }
         );
-    }, [isMapsLoaded, business, address, plan]);
+    }, [isMapsLoaded, pickupLocation, address, plan]);
 
     useEffect(() => {
         calculateRoute();

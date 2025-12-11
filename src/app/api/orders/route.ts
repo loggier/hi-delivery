@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
         order_total_in: orderInput.order_total,
         distance_in: orderInput.distance,
         status_in: orderInput.status,
+        route_path_in: orderInput.route_path, // Añadido nuevo parámetro
         items_in: items, // Este es el parámetro para los items.
     }).single();
     
