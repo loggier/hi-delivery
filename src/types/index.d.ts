@@ -11,6 +11,23 @@ export type Area = {
   updated_at: string;
 }
 
+export type BusinessBranch = {
+  id: string;
+  business_id: string;
+  name: string;
+  phone_contact?: string;
+  address_line?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  latitude?: number;
+  longitude?: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  created_at: string;
+  updated_at: string;
+};
+
 export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 export type OrderItem = {
@@ -224,6 +241,9 @@ export type Business = {
   owner_ine_front_url?: string;
   owner_ine_back_url?: string;
   tax_situation_proof_url?: string;
+
+  // Relations
+  business_branches?: BusinessBranch[];
 };
 
 export type Document = {

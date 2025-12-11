@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission } from "@/types";
+import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission, BusinessBranch } from "@/types";
 import { createClient } from "./supabase/client";
 
 const entityTranslations: { [key: string]: string } = {
@@ -12,6 +12,7 @@ const entityTranslations: { [key: string]: string } = {
     "product_categories": "Categoría de Producto",
     "business_categories": "Categoría de Negocio",
     "businesses": "Negocio",
+    "business_branches": "Sucursal",
     "riders": "Repartidor",
     "users": "Usuario",
     "zones": "Zona",
@@ -110,6 +111,9 @@ function createApi<T extends { id: string | number }>(
             queryClient.invalidateQueries({ queryKey: ['zones', data.zone_id] });
             queryClient.invalidateQueries({ queryKey: ['zones'] });
         }
+        if(data.business_id) {
+            queryClient.invalidateQueries({queryKey: ['businesses', data.business_id]});
+        }
         toast({
           title: "Éxito",
           description: `${translatedEntity} creado exitosamente.`,
@@ -206,6 +210,9 @@ function createApi<T extends { id: string | number }>(
                 queryClient.invalidateQueries({ queryKey: ['zones', data.zone_id] });
                 queryClient.invalidateQueries({ queryKey: ['zones'] });
             }
+             if(data.business_id) {
+                queryClient.invalidateQueries({queryKey: ['businesses', data.business_id]});
+            }
             toast({
                 title: "Éxito",
                 description: `${translatedEntity} actualizado exitosamente.`,
@@ -233,6 +240,9 @@ function createApi<T extends { id: string | number }>(
             // to update the area list. We don't know the zone ID here, so we invalidate all zones.
             if (entity === 'areas') {
                 queryClient.invalidateQueries({ queryKey: ['zones'] });
+            }
+            if(entity === 'business_branches'){
+                queryClient.invalidateQueries({queryKey: ['businesses']});
             }
             toast({
                 title: "Éxito",
@@ -379,12 +389,20 @@ const orderSelect = `*,
 
 const rolesSelect = `*, role_permissions(*)`
 const zonesSelect = `*, areas(*)`
+const businessSelect = `*, plan:plans(name), zone:zones(name), business_branches(*)`
+
 
 // --- API Hooks ---
 export const api = {
     product_categories: createApi<Category>('product_categories'),
     business_categories: createApi<BusinessCategory>('business_categories'),
-    businesses: createApi<Business>('businesses', '*,plan:plans(name),zone:zones(name)'),
+    businesses: {
+      ...createApi<Business>('businesses', businessSelect),
+      useGetOne: (id: string, queryOptions?: { enabled?: boolean }) => {
+        return createApi<Business>('businesses', businessSelect).useGetOne(id, queryOptions)
+      }
+    },
+    business_branches: createApi<BusinessBranch>('business_branches'),
     products: createApi<Product>('products'),
     riders: createApi<Rider>('riders'),
     users: {

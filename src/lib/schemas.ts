@@ -366,3 +366,19 @@ export const customerAddressSchema = z.object({
   longitude: z.number({ required_error: "La longitud es requerida." }),
   is_primary: z.boolean().default(false),
 });
+
+export const businessBranchSchema = z.object({
+    id: z.string().optional(),
+    business_id: z.string(),
+    name: z.string().min(3, { message: "El nombre de la sucursal es requerido." }),
+    phone_contact: z.string().optional(),
+    address_line: z.string().min(5, { message: "La dirección es requerida." }),
+    neighborhood: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }).optional(),
+    latitude: z.coerce.number({ required_error: "La latitud es requerida." }),
+    longitude: z.coerce.number({ required_error: "La longitud es requerida." }),
+    status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+
