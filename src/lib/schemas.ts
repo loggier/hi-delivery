@@ -317,10 +317,11 @@ export const zoneSchema = z.object({
 });
 
 export const areaSchema = z.object({
-  id: z.string().optional(),
+  id: z.string(),
   zone_id: z.string(),
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
+  color: z.string().optional(),
   geofence: z.array(z.object({ lat: z.number(), lng: z.number() })).min(3, { message: 'La geocerca debe tener al menos 3 puntos.' }),
 });
 

@@ -4,7 +4,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { areaSchema } from '@/lib/schemas';
-import { faker } from '@faker-js/faker';
 
 export async function POST(request: Request) {
   const supabaseAdmin = createServerClient(
@@ -19,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     
-    // Ahora validamos que el payload completo, incluyendo el ID, sea correcto.
+    // Validamos que el payload completo, incluyendo el ID, sea correcto.
     const parsed = areaSchema.safeParse(json);
 
     if (!parsed.success) {

@@ -26,6 +26,7 @@ import { zoneSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { GeofenceMap } from "./geofence-map";
 import { useConfirm } from "@/hooks/use-confirm";
+import { areaColors } from "@/lib/constants";
 
 const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
 type ZoneFormValues = z.infer<typeof zoneSchema>;
@@ -55,7 +56,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     defaultValues: initialData || { name: '', status: 'INACTIVE', geofence: [] },
   });
 
-  useEffect(() => {
+   useEffect(() => {
     if (isLoaded && initialData?.geofence && initialData.geofence.length > 0) {
         const bounds = new window.google.maps.LatLngBounds();
         initialData.geofence.forEach(coord => bounds.extend(coord));
@@ -72,19 +73,21 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   };
 
   const handleSaveNewArea = async () => {
-    if (!newAreaName || !newAreaGeofence) {
+    if (!newAreaName || !newAreaGeofence || !initialData) {
       alert("Por favor, asigna un nombre y dibuja la geocerca para la nueva área.");
       return;
     }
     
-    if (!initialData) return;
+    const existingAreasCount = initialData.areas?.length || 0;
+    const newAreaColor = areaColors[existingAreasCount % areaColors.length];
 
     await createAreaMutation.mutateAsync({
         id: `area-${faker.string.uuid()}`, // Generar el ID en el frontend
         zone_id: initialData.id,
         name: newAreaName,
         status: 'ACTIVE',
-        geofence: newAreaGeofence
+        geofence: newAreaGeofence,
+        color: newAreaColor,
     });
 
     setNewAreaName("");
@@ -181,7 +184,12 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                   {initialData.areas && initialData.areas.length > 0 ? (
                     initialData.areas.map((area: Area) => (
                       <TableRow key={area.id}>
-                        <TableCell>{area.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: area.color || '#CCCCCC' }}/>
+                            {area.name}
+                          </div>
+                        </TableCell>
                         <TableCell><Badge variant={area.status === 'ACTIVE' ? 'success' : 'outline'}>{area.status}</Badge></TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteArea(area.id, area.name)}>
@@ -198,18 +206,18 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
             </CardContent>
              {isDrawingArea && (
                 <CardContent className="border-t pt-6 bg-slate-50 dark:bg-slate-900">
-                    <div className="flex flex-col sm:flex-row items-end gap-4">
-                        <div className="flex-grow">
-                            <Label>Nombre de la Nueva Área</Label>
-                            <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
-                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                <Save className="mr-2"/> Guardar Área
-                            </Button>
-                        </div>
-                    </div>
+                   <div className="flex flex-col sm:flex-row items-end gap-4">
+                     <div className="flex-grow">
+                         <Label>Nombre de la Nueva Área</Label>
+                         <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
+                     </div>
+                     <div className="flex gap-2">
+                         <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
+                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                             <Save className="mr-2"/> Guardar Área
+                         </Button>
+                     </div>
+                   </div>
                 </CardContent>
              )}
           </Card>

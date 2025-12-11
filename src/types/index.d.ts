@@ -6,6 +6,7 @@ export type Area = {
   name: string;
   status: 'ACTIVE' | 'INACTIVE';
   geofence?: { lat: number; lng: number }[];
+  color?: string;
   created_at: string;
   updated_at: string;
 }
