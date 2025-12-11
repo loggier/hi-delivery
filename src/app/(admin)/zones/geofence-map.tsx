@@ -1,17 +1,18 @@
 
 "use client";
 
-import React, { useCallback, useRef, useState, useMemo, useEffect } from "react";
+import React, { useCallback, useRef, useMemo } from "react";
 import { useLoadScript, GoogleMap, DrawingManager, Polygon } from '@react-google-maps/api';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trash } from "lucide-react";
 
 interface GeofenceMapProps {
-    value?: { lat: number; lng: number }[];
-    onValueChange: (path: { lat: number; lng: number }[]) => void;
+    mainGeofence?: { lat: number; lng: number }[];
+    onMainGeofenceChange: (path: { lat: number; lng: number }[]) => void;
     subGeofences?: { id: string; geofence: { lat: number; lng: number }[] }[];
     isDrawing?: boolean;
+    newAreaPath?: { lat: number; lng: number }[] | null;
     onDrawingComplete?: (path: { lat: number; lng: number }[]) => void;
     onMapLoad?: (map: google.maps.Map) => void;
     onMapDragEnd?: () => void;
@@ -23,10 +24,11 @@ interface GeofenceMapProps {
 const libraries: ('drawing' | 'places')[] = ['drawing', 'places'];
 
 export const GeofenceMap: React.FC<GeofenceMapProps> = ({
-    value,
-    onValueChange,
+    mainGeofence,
+    onMainGeofenceChange,
     subGeofences = [],
     isDrawing = false,
+    newAreaPath,
     onDrawingComplete,
     onMapLoad,
     onMapDragEnd,
@@ -41,33 +43,32 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
 
     const polygonRef = useRef<google.maps.Polygon | null>(null);
     const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-
-    const initialCenter = useMemo(() => {
+    
+    const mapCenter = useMemo(() => {
         if (controlledMapCenter) return controlledMapCenter;
-        if (value && value.length > 0 && window.google) {
+        if (isLoaded && mainGeofence && mainGeofence.length > 0) {
             const bounds = new window.google.maps.LatLngBounds();
-            value.forEach(coord => bounds.extend(coord));
+            mainGeofence.forEach(coord => bounds.extend(coord));
             return bounds.getCenter().toJSON();
         }
         return { lat: 19.4326, lng: -99.1332 };
-    }, [value, controlledMapCenter]);
-
+    }, [mainGeofence, controlledMapCenter, isLoaded]);
 
     const handleMapLoad = useCallback((map: google.maps.Map) => {
         if (onMapLoad) onMapLoad(map);
-        if (value && value.length > 0 && window.google) {
+        if (isLoaded && mainGeofence && mainGeofence.length > 0) {
              const bounds = new window.google.maps.LatLngBounds();
-             value.forEach(coord => bounds.extend(coord));
+             mainGeofence.forEach(coord => bounds.extend(coord));
              map.fitBounds(bounds);
         }
-    }, [onMapLoad, value]);
+    }, [onMapLoad, mainGeofence, isLoaded]);
 
     const onPolygonEdit = useCallback(() => {
         if (polygonRef.current) {
             const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-            onValueChange(newPath);
+            onMainGeofenceChange(newPath);
         }
-    }, [onValueChange]);
+    }, [onMainGeofenceChange]);
 
     const handleDrawingComplete = useCallback((polygon: google.maps.Polygon) => {
         const path = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
@@ -81,9 +82,9 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
     }, [onDrawingComplete]);
     
     const clearGeofence = () => {
-        onValueChange([]);
+        onMainGeofenceChange([]);
     }
-
+    
     if (loadError) return <div>Error cargando el mapa.</div>;
     if (!isLoaded) return <Skeleton className="h-[500px] w-full" />;
 
@@ -91,7 +92,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
         <div className="relative">
             <GoogleMap
                 mapContainerStyle={{ height: '500px', width: '100%' }}
-                center={initialCenter}
+                center={mapCenter}
                 zoom={mapZoom}
                 onLoad={handleMapLoad}
                 onDragEnd={onMapDragEnd}
@@ -102,6 +103,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                     <DrawingManager
                         onLoad={(dm) => { drawingManagerRef.current = dm; }}
                         onPolygonComplete={handleDrawingComplete}
+                        drawingMode={isDrawing ? window.google.maps.drawing.OverlayType.POLYGON : null}
                         options={{
                             drawingControl: isDrawing,
                             drawingControlOptions: {
@@ -110,22 +112,22 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                             },
                             polygonOptions: {
                                 fillColor: "#FF0000",
-                                fillOpacity: 0.3,
+                                fillOpacity: 0.5,
                                 strokeWeight: 2,
                                 strokeColor: "#FF0000",
                                 clickable: false,
-                                editable: false,
-                                zIndex: 1,
+                                editable: true,
+                                zIndex: 2,
                             },
                         }}
                     />
                 )}
 
-                {value && value.length > 0 && (
+                {mainGeofence && mainGeofence.length > 0 && (
                     <Polygon
-                        paths={value}
-                        editable
-                        draggable
+                        paths={mainGeofence}
+                        editable={!isDrawing}
+                        draggable={!isDrawing}
                         onMouseUp={onPolygonEdit}
                         onDragEnd={onPolygonEdit}
                         onLoad={(poly) => { polygonRef.current = poly; }}
@@ -139,6 +141,20 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                         }}
                     />
                 )}
+
+                {newAreaPath && (
+                     <Polygon
+                        paths={newAreaPath}
+                        options={{
+                            fillColor: "#FF0000",
+                            fillOpacity: 0.3,
+                            strokeColor: "#FF0000",
+                            strokeWeight: 2,
+                            zIndex: 3,
+                        }}
+                    />
+                )}
+
                 {subGeofences.map(area => (
                     <Polygon
                         key={area.id}
@@ -148,11 +164,12 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                             fillOpacity: 0.2,
                             strokeColor: "hsl(var(--hid-secondary))",
                             strokeWeight: 1,
+                            zIndex: 2,
                         }}
                     />
                 ))}
             </GoogleMap>
-            {value && value.length > 0 && (
+            {mainGeofence && mainGeofence.length > 0 && !isDrawing && (
                  <Button
                     type="button"
                     variant="destructive"
@@ -161,7 +178,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                     onClick={clearGeofence}
                 >
                     <Trash className="mr-2 h-4 w-4" />
-                    Limpiar Geocerca
+                    Limpiar Geocerca Principal
                 </Button>
             )}
         </div>

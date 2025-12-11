@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,7 +38,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const [newAreaName, setNewAreaName] = useState("");
   
   const mapRef = useRef<google.maps.Map | null>(null);
-  const [mapCenter, setMapCenter] = useState(
+  const [mapCenter, setMapCenter] = useState<google.maps.LatLngLiteral | undefined>(
     initialData?.geofence && initialData.geofence.length > 0
       ? undefined
       : { lat: 19.4326, lng: -99.1332 }
@@ -154,8 +154,12 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                 <CardTitle>Áreas de Operación</CardTitle>
                 <CardDescription>Define cuadrantes o sub-zonas para una mejor logística.</CardDescription>
               </div>
-              <Button type="button" variant="outline" onClick={() => { setIsDrawingArea(true); setNewAreaGeofence(null); }}>
-                <PlusCircle className="mr-2" /> Añadir Nueva Área
+              <Button type="button" variant={isDrawingArea ? "secondary" : "outline"} onClick={() => {
+                  setIsDrawingArea(!isDrawingArea);
+                  setNewAreaGeofence(null);
+                }}>
+                {isDrawingArea ? <X className="mr-2"/> : <PlusCircle className="mr-2" />}
+                {isDrawingArea ? "Cancelar Creación" : "Añadir Nueva Área"}
               </Button>
             </CardHeader>
             <CardContent>
@@ -180,31 +184,23 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                 </TableBody>
               </Table>
             </CardContent>
-          </Card>
-          
-          {isDrawingArea && (
-            <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700">
-                <CardHeader>
-                    <CardTitle>Modo de Creación de Área</CardTitle>
-                    <CardDescription>Dibuja el polígono para la nueva área en el mapa. Una vez dibujado, asígnale un nombre y guárdalo.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row items-end gap-4">
-                    <div className="flex-grow">
-                        <Label>Nombre de la Nueva Área</Label>
-                        <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
-                            <Save className="mr-2"/> Guardar Área
-                        </Button>
-                        <Button type="button" variant="ghost" onClick={() => { setIsDrawingArea(false); setNewAreaGeofence(null); setNewAreaName(""); }}>
-                            <X className="mr-2"/> Cancelar
-                        </Button>
+             {isDrawingArea && (
+                <CardContent className="border-t pt-6 bg-slate-50 dark:bg-slate-900">
+                     <div className="flex flex-col sm:flex-row items-end gap-4">
+                        <div className="flex-grow">
+                            <Label>Nombre de la Nueva Área</Label>
+                            <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
+                                <Save className="mr-2"/> Guardar Área
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
-            </Card>
-          )}
-
+             )}
+          </Card>
+          
           <Separator />
 
           <FormField
@@ -212,19 +208,23 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
             name="geofence"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xl font-bold">Geocerca de la Zona Principal</FormLabel>
-                <FormDescription>
-                  Dibuja el polígono principal de la zona. Puedes editarlo arrastrando sus puntos. Las áreas (sub-zonas) se mostrarán en otro color.
-                </FormDescription>
+                <FormLabel className="text-xl font-bold">Mapa Interactivo</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  {isDrawingArea
+                    ? "Dibuja el polígono para la nueva área en el mapa."
+                    : "Edita la geocerca principal. Las áreas se muestran en naranja."
+                  }
+                </p>
                 <FormControl>
                     <GeofenceMap
-                        value={field.value}
-                        onValueChange={field.onChange}
+                        mainGeofence={field.value}
+                        onMainGeofenceChange={field.onChange}
                         subGeofences={initialData.areas}
                         isDrawing={isDrawingArea}
+                        newAreaPath={newAreaGeofence}
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
-                            setIsDrawingArea(false); 
+                            setIsDrawingArea(true); // Keep drawing mode conceptually active
                         }}
                         onMapLoad={map => (mapRef.current = map)}
                         onMapDragEnd={handleMapStateChange}
