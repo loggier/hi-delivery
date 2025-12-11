@@ -18,7 +18,8 @@ export async function POST(request: Request) {
 
   try {
     const json = await request.json();
-    const parsed = businessBranchSchema.safeParse(json);
+    // We only expect the DTO, so we parse against the base schema without the ID
+    const parsed = businessBranchSchema.omit({ id: true }).safeParse(json);
 
     if (!parsed.success) {
       return NextResponse.json({ message: "Datos de sucursal inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     
     const dataToInsert = {
       ...parsed.data,
-      id: `br-${faker.string.uuid()}`,
+      id: `br-${faker.string.uuid()}`, // Generate ID here
     };
 
     const { data, error } = await supabaseAdmin
