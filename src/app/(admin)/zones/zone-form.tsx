@@ -1,12 +1,11 @@
 
 "use client";
 
-import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
-import { useLoadScript } from '@react-google-maps/api';
+import { type z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +44,8 @@ export function ZoneForm({ initialData }: ZoneFormProps) {
         ...initialData,
         geofence: initialData.geofence || undefined,
       });
+    } else {
+       form.reset({ name: "", status: "ACTIVE", geofence: undefined });
     }
   }, [initialData, form]);
 

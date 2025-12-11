@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
@@ -21,57 +20,39 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries,
   });
-
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  
+  const mapRef = useRef<google.maps.Map | null>(null);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  
   const mapCenter = useMemo(() => {
     if (!isLoaded) return { lat: 19.4326, lng: -99.1332 };
 
-    if (value && value.length > 0) {
+    const getCenter = (coords: { lat: number; lng: number }[]) => {
       const bounds = new window.google.maps.LatLngBounds();
-      value.forEach(coord => bounds.extend(coord));
+      coords.forEach(coord => bounds.extend(coord));
       return bounds.getCenter().toJSON();
-    }
-    if (parentGeofence && parentGeofence.length > 0) {
-        const bounds = new window.google.maps.LatLngBounds();
-        parentGeofence.forEach(coord => bounds.extend(coord));
-        return bounds.getCenter().toJSON();
-    }
+    };
+
+    if (value && value.length > 0) return getCenter(value);
+    if (parentGeofence && parentGeofence.length > 0) return getCenter(parentGeofence);
+    
     return { lat: 19.4326, lng: -99.1332 };
   }, [value, parentGeofence, isLoaded]);
 
-  const drawingOptions = useMemo(() => {
-    if (!isLoaded) return undefined;
-    return {
-      drawingControl: true,
-      drawingControlOptions: {
-        position: window.google.maps.ControlPosition.TOP_CENTER,
-        drawingModes: [window.google.maps.drawing.OverlayType.POLYGON],
-      },
-      polygonOptions: {
-        fillColor: "hsl(var(--hid-primary))",
-        fillOpacity: 0.2,
-        strokeColor: "hsl(var(--hid-primary))",
-        strokeWeight: 2,
-        clickable: true,
-        editable: true,
-        zIndex: 1,
-      },
-    } as google.maps.drawing.DrawingManagerOptions;
-  }, [isLoaded]);
-
-
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
-    setMap(mapInstance);
-    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
+    mapRef.current = mapInstance;
+    if (parentGeofence && parentGeofence.length > 0) {
         const bounds = new window.google.maps.LatLngBounds();
         parentGeofence.forEach(coord => bounds.extend(coord));
         mapInstance.fitBounds(bounds);
+    } else if (value && value.length > 0) {
+        const bounds = new window.google.maps.LatLngBounds();
+        value.forEach(coord => bounds.extend(coord));
+        mapInstance.fitBounds(bounds);
     }
-  }, [parentGeofence]);
+  }, [parentGeofence, value]);
 
   const onPolygonComplete = useCallback((poly: google.maps.Polygon) => {
     if (polygonRef.current) {
@@ -80,54 +61,42 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
     polygonRef.current = poly;
     const path = poly.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
     onChange(path);
-
     if (drawingManagerRef.current) {
       drawingManagerRef.current.setDrawingMode(null);
     }
   }, [onChange]);
 
-  const onDrawingManagerLoad = useCallback((dm: google.maps.drawing.DrawingManager) => {
-    drawingManagerRef.current = dm;
-  }, []);
-  
-  const onDrawingManagerUnmount = useCallback(() => {
-    if (drawingManagerRef.current) {
-      drawingManagerRef.current.setMap(null);
-      drawingManagerRef.current = null;
+  const onPolygonEdit = useCallback(() => {
+    if (polygonRef.current) {
+      const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+      onChange(newPath);
     }
-  }, []);
+  }, [onChange]);
 
   const clearGeofence = () => {
     if (polygonRef.current) {
       polygonRef.current.setMap(null);
-      polygonRef.current = null;
     }
+    polygonRef.current = null;
     onChange(undefined);
   };
-
+  
   const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
     autocompleteRef.current = autocomplete;
   };
 
   const onPlaceChanged = () => {
-    if (autocompleteRef.current && map) {
+    if (autocompleteRef.current && mapRef.current) {
       const place = autocompleteRef.current.getPlace();
       if (place?.geometry?.viewport) {
-        map.fitBounds(place.geometry.viewport);
+        mapRef.current.fitBounds(place.geometry.viewport);
       } else if (place?.geometry?.location) {
-        map.setCenter(place.geometry.location);
-        map.setZoom(12);
+        mapRef.current.setCenter(place.geometry.location);
+        mapRef.current.setZoom(12);
       }
     }
   };
 
-  const onPolygonEdit = () => {
-    if (polygonRef.current) {
-      const newPath = polygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
-      onChange(newPath);
-    }
-  };
-  
   if (loadError) return <div>Error cargando el mapa. Por favor, revisa la API Key de Google Maps.</div>;
   if (!isLoaded) return <Skeleton className="h-[500px] w-full" />;
 
@@ -146,21 +115,35 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
                     type="text"
                     placeholder="Buscar una ubicación..."
                     className={cn(
-                        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-                        "shadow-md"
+                        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background shadow-md",
+                        "file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        "disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                     )}
                 />
             </Autocomplete>
           </div>
 
-        {isLoaded && drawingOptions && (
-          <DrawingManager
-            onLoad={onDrawingManagerLoad}
-            onUnmount={onDrawingManagerUnmount}
-            onPolygonComplete={onPolygonComplete}
-            options={drawingOptions}
-          />
-        )}
+        <DrawingManager
+          onPolygonComplete={onPolygonComplete}
+          onLoad={(dm) => { drawingManagerRef.current = dm; }}
+          options={{
+            drawingControl: true,
+            drawingControlOptions: {
+              position: window.google.maps.ControlPosition.TOP_CENTER,
+              drawingModes: [window.google.maps.drawing.OverlayType.POLYGON],
+            },
+            polygonOptions: {
+              fillColor: "hsl(var(--hid-primary))",
+              fillOpacity: 0.2,
+              strokeColor: "hsl(var(--hid-primary))",
+              strokeWeight: 2,
+              clickable: true,
+              editable: true,
+              zIndex: 1,
+            },
+          }}
+        />
 
         {parentGeofence && (
              <Polygon
@@ -178,15 +161,15 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
             />
         )}
 
-        {value && (
+        {value && !polygonRef.current && (
           <Polygon
             paths={value}
             editable
             draggable
             onMouseUp={onPolygonEdit}
             onDragEnd={onPolygonEdit}
-            onLoad={(p) => (polygonRef.current = p)}
-            onUnmount={() => (polygonRef.current = null)}
+            onLoad={(p) => { polygonRef.current = p; }}
+            onUnmount={() => { polygonRef.current = null; }}
             options={{
               fillColor: "hsl(var(--hid-primary))",
               fillOpacity: 0.2,
@@ -206,7 +189,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
           onClick={clearGeofence}
         >
           <Trash2 className="mr-2 h-4 w-4" />
-          Limpiar Geocerca
+          Limpiar
         </Button>
       )}
     </div>
