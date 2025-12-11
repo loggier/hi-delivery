@@ -22,15 +22,16 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
   for(const [key, value] of formData.entries()) {
       rawData[key] = value;
   }
+  
+  // Para la creación de la cuenta, solo validamos los campos necesarios
+  const validatedAccount = businessAccountCreationSchema.safeParse(rawData);
 
-  const validated = businessAccountCreationSchema.safeParse(rawData);
-
-  if (!validated.success) {
-    console.error("Validation errors:", validated.error.flatten().fieldErrors);
-    return NextResponse.json({ message: "Datos de creación de cuenta inválidos.", errors: validated.error.flatten().fieldErrors }, { status: 400 });
+  if (!validatedAccount.success) {
+    console.error("Validation errors:", validatedAccount.error.flatten().fieldErrors);
+    return NextResponse.json({ message: "Datos de creación de cuenta inválidos.", errors: validatedAccount.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  const data = validated.data;
+  const data = validatedAccount.data;
   let createdUserId: string | null = null;
   
   try {
@@ -63,47 +64,20 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
     createdUserId = createdUser.id;
 
     const businessId = `biz-${faker.string.uuid()}`;
-    const businessDataToInsert: Record<string, any> = {
+    
+    // Ahora insertamos un negocio con datos mínimos, ya que el resto se completará en los siguientes pasos
+    const businessDataToInsert: Partial<Business> = {
       id: businessId,
       user_id: createdUser.id,
-      name: data.name,
-      type: data.type,
-      category_id: data.category_id,
       owner_name: data.owner_name,
       email: data.email,
-      phone_whatsapp: data.phone_whatsapp,
-      address_line: data.address_line,
-      neighborhood: data.neighborhood,
-      city: data.city,
-      state: data.state,
-      zip_code: data.zip_code,
-      latitude: data.latitude,
-      longitude: data.longitude,
       status: 'INCOMPLETE' as const,
-      delivery_time_min: data.delivery_time_min,
-      delivery_time_max: data.delivery_time_max,
-      has_delivery_service: data.has_delivery_service,
-      average_ticket: data.average_ticket,
-      weekly_demand: data.weekly_demand,
-      notes: data.notes,
-      tax_id: data.tax_id,
-      website: data.website,
-      instagram: data.instagram,
     };
-
-    // Handle file uploads
-    const fileFields = ['logo_url', 'business_photo_facade_url', 'business_photo_interior_url', 'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'];
-    for (const field of fileFields) {
-        const file = formData.get(field) as File | null;
-        if (file) {
-            businessDataToInsert[field] = await uploadFileAndGetUrl(supabaseAdmin, file, businessId, field);
-        }
-    }
 
     const { data: createdBusiness, error: insertError } = await supabaseAdmin
       .from('businesses')
       .insert(businessDataToInsert)
-      .select()
+      .select('id')
       .single();
 
     if (insertError) {

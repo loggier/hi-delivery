@@ -356,4 +356,3 @@ export const customerAddressSchema = z.object({
   longitude: z.number({ required_error: "La longitud es requerida." }),
   is_primary: z.boolean().default(false),
 });
-

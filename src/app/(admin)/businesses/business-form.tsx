@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useEffect } from "react";
@@ -176,32 +177,26 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 
     const onSubmit = async (data: BusinessFormValues) => {
         const formData = new FormData();
-        const fileFields: (keyof BusinessFormValues)[] = [
-            'logo_url', 'business_photo_facade_url', 'business_photo_interior_url',
-            'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'
-        ];
+        const currentValues = methods.getValues();
 
-        // Iterate over form data
-        for (const key in data) {
+        Object.keys(currentValues).forEach(key => {
             const fieldKey = key as keyof BusinessFormValues;
-            const value = data[fieldKey];
+            const value = currentValues[fieldKey];
 
             // Skip passwords on edit if they are empty
             if (isEditing && (fieldKey === 'password' || fieldKey === 'passwordConfirmation') && !value) {
-                continue;
+                return;
             }
 
-            if (fileFields.includes(fieldKey)) {
-                if (value instanceof FileList && value.length > 0) {
-                    formData.append(fieldKey, value[0]);
-                }
+            if (value instanceof FileList && value.length > 0) {
+                formData.append(fieldKey, value[0]);
             } else if (typeof value === 'boolean') {
                 formData.append(fieldKey, String(value));
             } else if (value !== null && value !== undefined && value !== '') {
                 // Ensure other values are appended as strings
                 formData.append(fieldKey, String(value));
             }
-        }
+        });
         
         try {
             if (isEditing) {
@@ -553,7 +548,6 @@ const defaultFormValues: BusinessFormValues = {
 
 
 export function BusinessFormWrapper({ initialData, categories, zones }: { initialData?: Business | null; categories: BusinessCategory[]; zones: Zone[]; }) {
-  const isEditing = !!initialData;
   
   const methods = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema),
@@ -569,7 +563,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         category_id: initialData.category_id || "",
         email: initialData.email || "",
         owner_name: initialData.owner_name || "",
-        phone_whatsapp: initialData.phone_whatsapp || "",
+        phone_whatsapp: initialData.phone_whatsapp?.replace('+52', '') || "",
         address_line: initialData.address_line || "",
         neighborhood: initialData.neighborhood || "",
         city: initialData.city || "",
@@ -601,7 +595,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     }
   }, [initialData, methods]);
   
-  if (isEditing && !methods.getValues('id')) {
+  if (initialData && !methods.getValues('id')) {
     return (
         <div className="space-y-8 rounded-md border p-8">
             <Skeleton className="h-96 w-full" />
@@ -615,4 +609,5 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
     </FormProvider>
   );
 }
+
 

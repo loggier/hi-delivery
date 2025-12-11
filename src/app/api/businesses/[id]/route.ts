@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -47,11 +48,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     // Process files first
     for (const fieldName of fileFields) {
-        if (formData.has(fieldName)) {
-            const file = formData.get(fieldName) as File;
-            if (file && file.size > 0) {
-                 updateData[fieldName] = await uploadFileAndGetUrl(supabaseAdmin, file, businessId, fieldName);
-            }
+        const file = formData.get(fieldName) as File | null;
+        if (file instanceof File && file.size > 0) {
+            updateData[fieldName] = await uploadFileAndGetUrl(supabaseAdmin, file, businessId, fieldName);
         }
     }
     
@@ -61,12 +60,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
         const numericFields = ['latitude', 'longitude', 'delivery_time_min', 'delivery_time_max', 'average_ticket'];
         const booleanFields = ['has_delivery_service'];
 
-        if (numericFields.includes(key) && value !== 'undefined' && value !== 'null') {
+        if (numericFields.includes(key) && value !== 'undefined' && value !== 'null' && value !== '') {
              updateData[key] = parseFloat(value as string);
         } else if (booleanFields.includes(key)) {
             updateData[key] = value === 'true';
         }
-        else if (key === 'phone_whatsapp' && typeof value === 'string' && !value.startsWith('+52')) {
+        else if (key === 'phone_whatsapp' && typeof value === 'string' && value.length >= 10 && !value.startsWith('+52')) {
             updateData[key] = `+52${value}`;
         } else if (value !== undefined && value !== 'undefined' && value !== 'null') {
             updateData[key] = value;
@@ -74,10 +73,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }
     }
     
-    // Server-side validation (optional but recommended)
-    // You can adapt your Zod schema to be more lenient for updates.
-    // For now, we trust the client-side validation for simplicity.
-
     if (Object.keys(updateData).length === 0 && !formData.has('final_submission')) {
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
     }
