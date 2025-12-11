@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -197,14 +197,13 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                 </FormDescription>
                 <FormControl>
                     <GeofenceMap
-                        value={field.value}
-                        onGeofenceChange={field.onChange}
-                        parentGeofence={field.value} // The main geofence is its own parent reference
+                        mainGeofence={field.value}
                         subGeofences={initialData.areas}
+                        onMainGeofenceChange={field.onChange}
                         isDrawing={isDrawingArea}
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
-                            setIsDrawingArea(false); // Disable drawing mode after one polygon is drawn
+                            setIsDrawingArea(false); 
                         }}
                     />
                 </FormControl>
@@ -218,3 +217,5 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     </>
   );
 }
+
+    
