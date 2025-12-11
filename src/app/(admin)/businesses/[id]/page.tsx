@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pencil, FileText, CheckCircle, XCircle, Building, Map, ShoppingBag, PlusCircle, Store } from "lucide-react";
 import { notFound, useParams } from 'next/navigation';
 import React from 'react';
-import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF } from '@react-google-maps/api';
 
 
 import { api } from "@/lib/api";
@@ -23,12 +23,7 @@ import { BranchFormModal, BranchList } from "./branch-components";
 
 const libraries: ('places')[] = ['places'];
 
-const BusinessLocationMap = ({ lat, lng }: { lat?: number, lng?: number }) => {
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries,
-    });
-
+const BusinessLocationMap = ({ lat, lng, isLoaded, loadError }: { lat?: number, lng?: number, isLoaded: boolean, loadError?: Error }) => {
     const center = React.useMemo(() => {
         if (lat && lng) return { lat, lng };
         return { lat: 19.4326, lng: -99.1332 }; // Default a Ciudad de México
@@ -47,7 +42,7 @@ const BusinessLocationMap = ({ lat, lng }: { lat?: number, lng?: number }) => {
                 zoomControl: true,
             }}
         >
-            {lat && lng && <Marker position={{ lat, lng }} />}
+            {lat && lng && <MarkerF position={{ lat, lng }} />}
         </GoogleMap>
     );
 };
@@ -80,6 +75,12 @@ const DocumentLink = ({ label, url }: { label: string, url?: string }) => (
 export default function ViewBusinessPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
+
   const { data: business, isLoading: isLoadingBusiness, isError } = api.businesses.useGetOne(id);
   const { data: categories, isLoading: isLoadingCategories } = api.business_categories.useGetAll();
   const { data: zones, isLoading: isLoadingZones } = api.zones.useGetAll();
@@ -215,7 +216,7 @@ export default function ViewBusinessPage() {
                             <DetailItem label="Colonia" value={business.neighborhood} />
                             <DetailItem label="Ciudad, Estado y CP" value={`${business.city}, ${business.state} ${business.zip_code}`} />
                         </div>
-                        <BusinessLocationMap lat={business.latitude} lng={business.longitude} />
+                        <BusinessLocationMap lat={business.latitude} lng={business.longitude} isLoaded={isLoaded} loadError={loadError} />
                     </div>
                 </section>
                  <Separator />
@@ -260,6 +261,7 @@ export default function ViewBusinessPage() {
         onClose={() => setIsBranchModalOpen(false)}
         businessId={business.id}
         initialData={editingBranch}
+        isMapsLoaded={isLoaded}
     />
     </div>
   );

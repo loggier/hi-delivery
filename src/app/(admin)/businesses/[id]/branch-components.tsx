@@ -4,7 +4,6 @@
 import React from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLoadScript } from '@react-google-maps/api';
 import { z } from 'zod';
 import { Loader2, Trash } from 'lucide-react';
 
@@ -19,8 +18,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from '@/app/(admin)/pos/map';
-
-const libraries: ('places')[] = ['places'];
 
 // --- Branch List ---
 interface BranchListProps {
@@ -94,14 +91,10 @@ interface BranchFormModalProps {
     onClose: () => void;
     businessId: string;
     initialData: BusinessBranch | null;
+    isMapsLoaded: boolean;
 }
 
-export function BranchFormModal({ isOpen, onClose, businessId, initialData }: BranchFormModalProps) {
-    const { isLoaded } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries,
-    });
-    
+export function BranchFormModal({ isOpen, onClose, businessId, initialData, isMapsLoaded }: BranchFormModalProps) {
     const createMutation = api.business_branches.useCreate();
     const updateMutation = api.business_branches.useUpdate();
 
@@ -155,7 +148,7 @@ export function BranchFormModal({ isOpen, onClose, businessId, initialData }: Br
                                 <FormInput name="phone_contact" label="Teléfono de Contacto" placeholder="5587654321" />
                             </div>
 
-                             {isLoaded && (
+                             {isMapsLoaded && (
                                 <LocationMap
                                     onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood }) => {
                                         methods.setValue('address_line', address, { shouldValidate: true });
