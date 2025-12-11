@@ -28,8 +28,8 @@ export async function POST(request: Request) {
     
     // 2. Crear el objeto completo para la inserción, incluyendo el ID generado aquí.
     const dataToInsert = {
-      ...parsed.data,
       id: `br-${faker.string.uuid()}`, 
+      ...parsed.data,
     };
 
     // 3. Insertar el objeto completo 'dataToInsert' que ya contiene el ID.
