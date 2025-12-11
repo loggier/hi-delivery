@@ -18,21 +18,22 @@ export async function POST(request: Request) {
 
   try {
     const json = await request.json();
-    // We only expect the DTO, so we parse against the base schema without the ID
+    // Validamos contra el esquema base, que no incluye el ID
     const parsed = businessBranchSchema.omit({ id: true }).safeParse(json);
 
     if (!parsed.success) {
       return NextResponse.json({ message: "Datos de sucursal inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
+    // Creamos el objeto final para insertar, AÑADIENDO el ID generado aquí.
     const dataToInsert = {
       ...parsed.data,
-      id: `br-${faker.string.uuid()}`, // Generate ID here
+      id: `br-${faker.string.uuid()}`, 
     };
 
     const { data, error } = await supabaseAdmin
       .from('business_branches')
-      .insert(dataToInsert)
+      .insert(dataToInsert) // Usamos el objeto completo con el ID
       .select()
       .single();
 
