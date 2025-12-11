@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -38,7 +39,14 @@ const GeofenceMap = ({ geofence }: { geofence?: { lat: number; lng: number }[] }
         <GoogleMap
             mapContainerClassName="h-96 w-full rounded-md"
             center={mapCenter}
-            zoom={12}
+            zoom={geofence && geofence.length > 0 ? undefined : 12}
+            onLoad={(map) => {
+                if (geofence && geofence.length > 0 && typeof window !== 'undefined' && window.google) {
+                    const bounds = new window.google.maps.LatLngBounds();
+                    geofence.forEach(coord => bounds.extend(coord));
+                    map.fitBounds(bounds);
+                }
+            }}
             options={{
                 disableDefaultUI: true,
                 zoomControl: true,

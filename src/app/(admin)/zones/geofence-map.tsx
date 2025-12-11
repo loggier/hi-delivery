@@ -28,12 +28,12 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
   const mapCenter = useMemo(() => {
-    if (value && value.length > 0 && typeof window !== 'undefined' && window.google) {
+    if (value && value.length > 0) {
       const bounds = new window.google.maps.LatLngBounds();
       value.forEach(coord => bounds.extend(coord));
       return bounds.getCenter().toJSON();
     }
-    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
+    if (parentGeofence && parentGeofence.length > 0) {
         const bounds = new window.google.maps.LatLngBounds();
         parentGeofence.forEach(coord => bounds.extend(coord));
         return bounds.getCenter().toJSON();
@@ -42,7 +42,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
   }, [value, parentGeofence]);
   
   const drawingOptions = useMemo(() => {
-    if (!isLoaded || typeof window === 'undefined' || !window.google) return undefined;
+    if (!isLoaded) return undefined;
     return {
       drawingControl: true,
       drawingControlOptions: {
@@ -64,7 +64,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
-    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
+    if (parentGeofence && parentGeofence.length > 0) {
         const bounds = new window.google.maps.LatLngBounds();
         parentGeofence.forEach(coord => bounds.extend(coord));
         mapInstance.fitBounds(bounds);
@@ -158,6 +158,22 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
             onPolygonComplete={onPolygonComplete}
             options={drawingOptions}
           />
+        )}
+
+        {parentGeofence && (
+             <Polygon
+                paths={parentGeofence}
+                options={{
+                    fillColor: "#9ca3af",
+                    fillOpacity: 0.1,
+                    strokeColor: "#6b7280",
+                    strokeOpacity: 0.5,
+                    strokeWeight: 2,
+                    clickable: false,
+                    editable: false,
+                    zIndex: 0,
+                }}
+            />
         )}
 
         {value && (
