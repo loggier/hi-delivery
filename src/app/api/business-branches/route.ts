@@ -3,7 +3,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { businessBranchSchema } from '@/lib/schemas';
-import { faker } from '@faker-js/faker';
 
 export async function POST(request: Request) {
   const supabaseAdmin = createServerClient(
@@ -18,24 +17,18 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     
-    // 1. Validar los datos de entrada, excluyendo el 'id' que vamos a generar.
-    const parsed = businessBranchSchema.omit({ id: true }).safeParse(json);
+    // Validar el payload completo, incluyendo el ID que viene del cliente.
+    const parsed = businessBranchSchema.safeParse(json);
 
     if (!parsed.success) {
       console.error("Validation errors on branch creation:", parsed.error.flatten().fieldErrors);
       return NextResponse.json({ message: "Datos de sucursal inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
-    // 2. Crear el objeto completo para la inserción, incluyendo el ID generado aquí.
-    const dataToInsert = {
-      ...parsed.data,
-      id: `br-${faker.string.uuid()}`, 
-    };
-
-    // 3. Insertar el objeto completo 'dataToInsert' que ya contiene el ID.
+    // Insertar el objeto 'parsed.data' que ya contiene el ID.
     const { data, error } = await supabaseAdmin
       .from('business_branches')
-      .insert(dataToInsert)
+      .insert(parsed.data)
       .select()
       .single();
 

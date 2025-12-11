@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -6,6 +7,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Trash } from 'lucide-react';
+import { faker } from '@faker-js/faker';
 
 import { type BusinessBranch } from '@/types';
 import { businessBranchSchema } from '@/lib/schemas';
@@ -108,6 +110,7 @@ export function BranchFormModal({ isOpen, onClose, businessId, initialData, isMa
             methods.reset({ ...initialData, business_id: businessId });
         } else {
             methods.reset({
+                id: '', // Será sobreescrito
                 name: '',
                 phone_contact: '',
                 address_line: '',
@@ -126,7 +129,8 @@ export function BranchFormModal({ isOpen, onClose, businessId, initialData, isMa
         if (initialData) { // Editing
              await updateMutation.mutateAsync({ ...data, id: initialData.id });
         } else { // Creating
-             await createMutation.mutateAsync(data);
+             const payload = { ...data, id: `br-${faker.string.uuid()}` };
+             await createMutation.mutateAsync(payload);
         }
         onClose();
     };

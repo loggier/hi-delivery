@@ -368,7 +368,7 @@ export const customerAddressSchema = z.object({
 });
 
 export const businessBranchSchema = z.object({
-    id: z.string().optional(),
+    id: z.string(),
     business_id: z.string(),
     name: z.string().min(3, { message: "El nombre de la sucursal es requerido." }),
     phone_contact: z.string().optional(),
