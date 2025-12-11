@@ -19,7 +19,6 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     
-    // 1. Validar los datos de entrada, sin el ID.
     const parsed = businessBranchSchema.omit({ id: true }).safeParse(json);
 
     if (!parsed.success) {
@@ -27,16 +26,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Datos de sucursal inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
-    // 2. Crear un nuevo objeto para la inserción, incluyendo el ID generado explícitamente.
+    // Crear el objeto completo para la inserción, incluyendo el ID generado.
     const dataToInsert = {
       ...parsed.data,
       id: `br-${faker.string.uuid()}`, 
     };
 
-    // 3. Insertar el objeto completo en la base de datos.
     const { data, error } = await supabaseAdmin
       .from('business_branches')
-      .insert(dataToInsert)
+      .insert(dataToInsert) // Usar el objeto completo con el ID.
       .select()
       .single();
 
