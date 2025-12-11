@@ -13,26 +13,36 @@ export interface ShippingInfo {
     directions: google.maps.DirectionsResult | null;
 }
 
-type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
+type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'> & { business_id?: string };
 
 export const useShippingCalculation = (pickupLocation: PickupLocation | null, address: CustomerAddress | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
     const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
-    // We assume the plan is based on the business, not the branch.
-    // This might need adjustment if branches can have different plans.
-    const businessId = pickupLocation?.id.startsWith('biz-') ? pickupLocation.id : (pickupLocation as BusinessBranch)?.business_id;
+    const businessId = pickupLocation?.id.startsWith('biz-') 
+        ? pickupLocation.id 
+        : (pickupLocation as BusinessBranch)?.business_id;
 
-    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(
-        (api.businesses.useGetOne(businessId || '').data?.plan_id) || '',
-        { enabled: !!businessId }
-    );
+    const { data: business, isLoading: isLoadingBusiness } = api.businesses.useGetOne(businessId || '', {
+        enabled: !!businessId
+    });
+
+    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '', {
+        enabled: !!business?.plan_id
+    });
 
     const calculateRoute = useCallback(() => {
-        if (!isMapsLoaded || !pickupLocation?.latitude || !pickupLocation?.longitude || !address?.latitude || !address?.longitude || !plan) {
+        if (!isMapsLoaded || !pickupLocation?.latitude || !pickupLocation?.longitude || !address?.latitude || !address?.longitude) {
             setShippingInfo(null);
             setError(null);
+            return;
+        }
+
+        if (!plan) {
+            if (!isLoadingPlan && !isLoadingBusiness) {
+                setError("El negocio no tiene un plan de suscripción activo para calcular el envío.");
+            }
             return;
         }
 
@@ -77,11 +87,11 @@ export const useShippingCalculation = (pickupLocation: PickupLocation | null, ad
                 setIsLoading(false);
             }
         );
-    }, [isMapsLoaded, pickupLocation, address, plan]);
+    }, [isMapsLoaded, pickupLocation, address, plan, isLoadingPlan, isLoadingBusiness]);
 
     useEffect(() => {
         calculateRoute();
     }, [calculateRoute]);
 
-    return { shippingInfo, isLoading: isLoading || isLoadingPlan, error };
+    return { shippingInfo, isLoading: isLoading || isLoadingPlan || isLoadingBusiness, error };
 };
