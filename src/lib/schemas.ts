@@ -310,9 +310,10 @@ export const riderAdminUpdateSchema = riderApplicationBaseSchema
 
 
 export const zoneSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
-  geofence: z.array(z.object({ lat: z.number(), lng: z.number() })).optional().refine(val => val && val.length >= 3, { message: 'La geocerca debe tener al menos 3 puntos.' }),
+  geofence: z.array(z.object({ lat: z.number(), lng: z.number() })).min(3, 'La geocerca debe tener al menos 3 puntos.').optional(),
 });
 
 export const areaSchema = z.object({
@@ -320,7 +321,7 @@ export const areaSchema = z.object({
   zone_id: z.string(),
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
-  geofence: z.array(z.object({ lat: z.number(), lng: z.number() })).optional().refine(val => val && val.length >= 3, { message: 'La geocerca debe tener al menos 3 puntos.' }),
+  geofence: z.array(z.object({ lat: z.number(), lng: z.number() })).min(3, { message: 'La geocerca debe tener al menos 3 puntos.' }),
 });
 
 export const planSchema = z.object({

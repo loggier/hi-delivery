@@ -7,8 +7,6 @@ import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { notFound, useParams } from "next/navigation";
 import React from 'react';
-import { Separator } from "@/components/ui/separator";
-import { AreaList } from "../../area-list";
 
 export default function EditZonePage() {
   const params = useParams();
@@ -37,16 +35,8 @@ export default function EditZonePage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <PageHeader title="Editar Zona" />
-        <ZoneForm initialData={zone} />
-      </div>
-      
-      <Separator />
-
-      <div>
-        <AreaList zone={zone} />
-      </div>
+      <PageHeader title="Gestionar Zona y Áreas" />
+      <ZoneForm initialData={zone} />
     </div>
   );
 }

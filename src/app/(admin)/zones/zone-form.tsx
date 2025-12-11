@@ -1,145 +1,196 @@
 
 "use client";
 
-import React, { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import React, { useState } from "react";
+import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { type z } from "zod";
+import { z } from "zod";
+import { PlusCircle, Loader2, Save, Trash, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { type Zone } from "@/types";
-import { zoneSchema } from "@/lib/schemas";
-import { api } from "@/lib/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+
+import { type Zone, type Area } from "@/types";
+import { zoneSchema, areaSchema } from "@/lib/schemas";
+import { api } from "@/lib/api";
 import { GeofenceMap } from "./geofence-map";
+import { useConfirm } from "@/hooks/use-confirm";
 
 type ZoneFormValues = z.infer<typeof zoneSchema>;
-interface ZoneFormProps { initialData?: Zone | null; }
 
-export function ZoneForm({ initialData }: ZoneFormProps) {
+export function ZoneForm({ initialData }: { initialData: Zone }) {
   const router = useRouter();
-  const createMutation = api.zones.useCreate();
-  const updateMutation = api.zones.useUpdate();
+  const updateZoneMutation = api.zones.useUpdate();
+  const createAreaMutation = api.areas.useCreate();
+  const deleteAreaMutation = api.areas.useDelete();
+  const [ConfirmationDialog, confirm] = useConfirm();
 
-  const isEditing = !!initialData;
-  const formAction = isEditing ? "Guardar cambios" : "Crear zona";
+  const [isDrawingArea, setIsDrawingArea] = useState(false);
+  const [newAreaGeofence, setNewAreaGeofence] = useState<{ lat: number; lng: number }[] | null>(null);
+  const [newAreaName, setNewAreaName] = useState("");
 
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneSchema),
-    defaultValues: initialData || { name: "", status: "ACTIVE", geofence: undefined },
+    defaultValues: initialData,
   });
 
-  useEffect(() => {
-    if (initialData) {
-      form.reset({
-        ...initialData,
-        geofence: initialData.geofence || undefined,
-      });
-    } else {
-       form.reset({ name: "", status: "ACTIVE", geofence: undefined });
-    }
-  }, [initialData, form]);
-
-  const onSubmit = async (data: ZoneFormValues) => {
-    try {
-      if (isEditing && initialData) {
-        await updateMutation.mutateAsync({ ...data, id: initialData.id });
-      } else {
-        await createMutation.mutateAsync(data);
-      }
-      router.push("/zones");
-      router.refresh();
-    } catch (error) {
-      console.error("No se pudo guardar la zona", error);
-    }
+  const onZoneSubmit = async (data: ZoneFormValues) => {
+    await updateZoneMutation.mutateAsync({ ...data, id: initialData.id });
+    router.refresh();
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const handleSaveNewArea = async () => {
+    if (!newAreaName || !newAreaGeofence) {
+      alert("Por favor, asigna un nombre y dibuja la geocerca para la nueva área.");
+      return;
+    }
+    
+    await createAreaMutation.mutateAsync({
+        zone_id: initialData.id,
+        name: newAreaName,
+        status: 'ACTIVE',
+        geofence: newAreaGeofence
+    } as any);
+
+    setNewAreaName("");
+    setNewAreaGeofence(null);
+    setIsDrawingArea(false);
+  };
+  
+  const handleDeleteArea = async (areaId: string, areaName: string) => {
+      const ok = await confirm({
+          title: `¿Eliminar Área "${areaName}"?`,
+          description: "Esta acción es irreversible.",
+          confirmVariant: "destructive",
+          confirmText: "Eliminar"
+      });
+      if (ok) {
+          deleteAreaMutation.mutate(areaId);
+      }
+  }
+  
+  const isPending = updateZoneMutation.isPending || createAreaMutation.isPending;
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 space-y-8">
-            <Card>
-              <CardHeader><CardTitle>Detalles de la Zona</CardTitle></CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre de la Zona</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej. San Pedro Garza García" {...field} disabled={isPending} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+    <>
+      <ConfirmationDialog />
+      <FormProvider {...form}>
+        <form onSubmit={form.handleSubmit(onZoneSubmit)} className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Detalles de la Zona</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FormField name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre de la Zona</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField name="status" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Activo</SelectItem>
+                      <SelectItem value="INACTIVE">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+               <div className="flex items-end">
+                    <Button type="submit" disabled={isPending}>
+                        {isPending && <Loader2 className="mr-2"/>}
+                        Guardar Cambios de Zona
+                    </Button>
+               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <div>
+                <CardTitle>Áreas de Operación</CardTitle>
+                <CardDescription>Define cuadrantes o sub-zonas para una mejor logística.</CardDescription>
+              </div>
+              <Button type="button" variant="outline" onClick={() => { setIsDrawingArea(true); setNewAreaGeofence(null); }}>
+                <PlusCircle className="mr-2" /> Añadir Nueva Área
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {initialData.areas && initialData.areas.length > 0 ? (
+                    initialData.areas.map((area: Area) => (
+                      <TableRow key={area.id}>
+                        <TableCell>{area.name}</TableCell>
+                        <TableCell><Badge variant={area.status === 'ACTIVE' ? 'success' : 'outline'}>{area.status}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteArea(area.id, area.name)}>
+                            <Trash className="text-destructive"/>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow><TableCell colSpan={3} className="text-center h-24">No hay áreas definidas.</TableCell></TableRow>
                   )}
-                />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Estado</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Selecciona un estado" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="ACTIVE">Activo</SelectItem>
-                          <SelectItem value="INACTIVE">Inactivo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          
+          {isDrawingArea && (
+            <Card className="bg-blue-50 border-blue-200">
+                <CardHeader>
+                    <CardTitle>Modo de Creación de Área</CardTitle>
+                    <CardDescription>Dibuja el polígono para la nueva área en el mapa. Una vez dibujado, asígnale un nombre y guárdalo.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex-grow">
+                        <Label>Nombre de la Nueva Área</Label>
+                        <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
+                            <Save className="mr-2"/> Guardar Área
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => { setIsDrawingArea(false); setNewAreaGeofence(null); setNewAreaName(""); }}>
+                            <X className="mr-2"/> Cancelar
+                        </Button>
+                    </div>
+                </CardContent>
             </Card>
-          </div>
+          )}
 
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Geocerca</CardTitle>
-                <CardDescription>Dibuja el polígono que delimita el área de operación de esta zona en el mapa.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="geofence"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <GeofenceMap {...field} />
-                      </FormControl>
-                      <FormMessage className="mt-2" />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+          <Separator />
+          
+          <GeofenceMap
+              mainGeofence={form.watch('geofence')}
+              subGeofences={initialData.areas}
+              onMainGeofenceChange={(path) => form.setValue('geofence', path, { shouldValidate: true })}
+              isDrawing={isDrawingArea}
+              onDrawingComplete={(path) => {
+                  setNewAreaGeofence(path);
+                  setIsDrawingArea(false); // Disable drawing mode after one polygon is drawn
+              }}
+          />
 
-        <Separator />
-
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => router.back()} disabled={isPending}>Cancelar</Button>
-          <Button type="submit" disabled={isPending}>{isPending ? "Guardando..." : formAction}</Button>
-        </div>
-      </form>
-    </Form>
+        </form>
+      </FormProvider>
+    </>
   );
 }

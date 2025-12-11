@@ -101,12 +101,14 @@ function createApi<T extends { id: string | number }>(
         return data as T;
       },
       onSuccess: (data: any) => {
-        queryClient.invalidateQueries({ queryKey: entityKey });
+        queryClient.invalidateQueries({ queryKey: [entity, (data as any)?.zone_id] });
+        queryClient.invalidateQueries({ queryKey: [entity] });
         if (data.customer_id) {
             queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: data.customer_id }] });
         }
         if (data.zone_id) {
             queryClient.invalidateQueries({ queryKey: ['zones', data.zone_id] });
+            queryClient.invalidateQueries({ queryKey: ['zones'] });
         }
         toast({
           title: "Éxito",
@@ -202,6 +204,7 @@ function createApi<T extends { id: string | number }>(
             queryClient.setQueryData([entity, data.id], data);
              if (data.zone_id) {
                 queryClient.invalidateQueries({ queryKey: ['zones', data.zone_id] });
+                queryClient.invalidateQueries({ queryKey: ['zones'] });
             }
             toast({
                 title: "Éxito",
