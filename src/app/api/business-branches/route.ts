@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const parsed = businessBranchSchema.omit({ id: true }).safeParse(json);
 
     if (!parsed.success) {
+      console.error("Validation errors on branch creation:", parsed.error.flatten().fieldErrors);
       return NextResponse.json({ message: "Datos de sucursal inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
     
