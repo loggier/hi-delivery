@@ -25,7 +25,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  
+
   const mapCenter = useMemo(() => {
     if (!isLoaded) return { lat: 19.4326, lng: -99.1332 };
 
@@ -43,11 +43,11 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
     mapRef.current = mapInstance;
-    if (parentGeofence && parentGeofence.length > 0) {
+    if (parentGeofence && parentGeofence.length > 0 && typeof window !== 'undefined' && window.google) {
         const bounds = new window.google.maps.LatLngBounds();
         parentGeofence.forEach(coord => bounds.extend(coord));
         mapInstance.fitBounds(bounds);
-    } else if (value && value.length > 0) {
+    } else if (value && value.length > 0 && typeof window !== 'undefined' && window.google) {
         const bounds = new window.google.maps.LatLngBounds();
         value.forEach(coord => bounds.extend(coord));
         mapInstance.fitBounds(bounds);
@@ -124,26 +124,28 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({ value, onChange, paren
             </Autocomplete>
           </div>
 
-        <DrawingManager
-          onPolygonComplete={onPolygonComplete}
-          onLoad={(dm) => { drawingManagerRef.current = dm; }}
-          options={{
-            drawingControl: true,
-            drawingControlOptions: {
-              position: window.google.maps.ControlPosition.TOP_CENTER,
-              drawingModes: [window.google.maps.drawing.OverlayType.POLYGON],
-            },
-            polygonOptions: {
-              fillColor: "hsl(var(--hid-primary))",
-              fillOpacity: 0.2,
-              strokeColor: "hsl(var(--hid-primary))",
-              strokeWeight: 2,
-              clickable: true,
-              editable: true,
-              zIndex: 1,
-            },
-          }}
-        />
+        {isLoaded && (
+          <DrawingManager
+            onPolygonComplete={onPolygonComplete}
+            onLoad={(dm) => { drawingManagerRef.current = dm; }}
+            options={{
+              drawingControl: true,
+              drawingControlOptions: {
+                position: window.google.maps.ControlPosition.TOP_CENTER,
+                drawingModes: [window.google.maps.drawing.OverlayType.POLYGON],
+              },
+              polygonOptions: {
+                fillColor: "hsl(var(--hid-primary))",
+                fillOpacity: 0.2,
+                strokeColor: "hsl(var(--hid-primary))",
+                strokeWeight: 2,
+                clickable: true,
+                editable: true,
+                zIndex: 1,
+              },
+            }}
+          />
+        )}
 
         {parentGeofence && (
              <Polygon
