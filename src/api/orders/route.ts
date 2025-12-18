@@ -20,38 +20,50 @@ export async function POST(request: Request) {
   try {
     const orderData: OrderPayload & { items: any[] } = await request.json();
     
-    // Separar los items del resto del payload de la orden.
     const { items, ...orderInput } = orderData;
-
-    // Generar el ID de la orden en el servidor
     const orderId = `ord-${faker.string.uuid().substring(0, 8).toUpperCase()}`;
 
-    // Llamar a la función RPC, pasando el ID y los items como parámetros separados.
-    // Usamos .single() para esperar un único objeto JSON de vuelta.
-    const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
-        order_id_in: orderId, // Pasar el nuevo ID
-        business_id_in: orderInput.business_id,
-        customer_id_in: orderInput.customer_id,
-        pickup_address_in: orderInput.pickup_address,
-        delivery_address_in: orderInput.delivery_address,
-        customer_name_in: orderInput.customer_name,
-        customer_phone_in: orderInput.customer_phone,
-        items_description_in: orderInput.items_description,
-        subtotal_in: orderInput.subtotal,
-        delivery_fee_in: orderInput.delivery_fee,
-        order_total_in: orderInput.order_total,
-        distance_in: orderInput.distance,
-        status_in: orderInput.status,
-        route_path_in: orderInput.route_path, // Añadido nuevo parámetro
-        items_in: items, // Este es el parámetro para los items.
-    }).single();
+    // 1. Insertar la orden principal
+    const { data: newOrder, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert({
+        id: orderId,
+        ...orderInput
+      })
+      .select()
+      .single();
 
-    if (error) {
-        console.error('Error in create_order_with_items RPC:', error);
+    if (orderError) {
+        console.error('Error creating order:', orderError);
         return NextResponse.json({
             message: "Error al crear el pedido en la base de datos.",
-            error: error.message
+            error: orderError.message
         }, { status: 500 });
+    }
+
+    // 2. Preparar e insertar los items de la orden
+    if (items && items.length > 0) {
+        const orderItemsToInsert = items.map(item => ({
+            order_id: orderId,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: item.price,
+            item_description: item.item_description,
+        }));
+
+        const { error: itemsError } = await supabaseAdmin
+            .from('order_items')
+            .insert(orderItemsToInsert);
+
+        if (itemsError) {
+             // Si falla la inserción de items, eliminamos la orden principal para mantener la consistencia
+            await supabaseAdmin.from('orders').delete().eq('id', orderId);
+            console.error('Error creating order items:', itemsError);
+            return NextResponse.json({
+                message: "Error al guardar los productos del pedido.",
+                error: itemsError.message
+            }, { status: 500 });
+        }
     }
 
     return NextResponse.json(newOrder, { status: 201 });
