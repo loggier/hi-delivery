@@ -24,11 +24,12 @@ export async function POST(request: Request) {
     const { items, ...orderInput } = orderData;
 
     // Generar el ID de la orden en el servidor
-    const orderId = `ord-${faker.string.uuid().substring(0, 8)}`;
+    const orderId = `ord-${faker.string.uuid().substring(0, 12)}`;
 
-    // Llamar a la función RPC, pasando el ID y los items como parámetros separados.
-    const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
-        order_id_in: orderId, // Pasar el nuevo ID
+    // Llamar a la función RPC. No esperamos un resultado (`.single()`), solo la ejecución.
+    // Si hay un error en la función de la BD, el `error` no será nulo.
+    const { error } = await supabaseAdmin.rpc('create_order_with_items', {
+        order_id_in: orderId,
         business_id_in: orderInput.business_id,
         customer_id_in: orderInput.customer_id,
         pickup_address_in: orderInput.pickup_address,
@@ -41,16 +42,17 @@ export async function POST(request: Request) {
         order_total_in: orderInput.order_total,
         distance_in: orderInput.distance,
         status_in: orderInput.status,
-        route_path_in: orderInput.route_path, // Añadido nuevo parámetro
-        items_in: items, // Este es el parámetro para los items.
-    }).single();
+        route_path_in: orderInput.route_path,
+        items_in: items,
+    });
     
     if (error) {
-      console.error('Error creating order with items:', error);
+      console.error('Error creating order with items RPC:', error);
       return NextResponse.json({ message: 'Error al crear el pedido en la base de datos.', error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(newOrder, { status: 201 });
+    // Si no hubo error, construimos la respuesta exitosa con el ID generado.
+    return NextResponse.json({ id: orderId, ...orderInput, items }, { status: 201 });
 
   } catch (error) {
     console.error('Unexpected error in order creation API:', error);
