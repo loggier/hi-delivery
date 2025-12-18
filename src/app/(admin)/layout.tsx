@@ -149,7 +149,7 @@ export default function AdminLayout({
         )}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Image src="/logo-hid.png" alt={`Logo ${appName}`} width={28} height={28} />
-          <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>{appName}</span>
+           <span className={cn((isSidebarCollapsed && !isMobile) && "sr-only")}>{appName}</span>
         </Link>
         {!isMobile && (
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex hover:bg-white/10">
