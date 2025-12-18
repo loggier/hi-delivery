@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -19,14 +20,15 @@ export async function POST(request: Request) {
   try {
     const orderData: OrderPayload & { items: any[] } = await request.json();
     
+    // Separar los items del resto del payload de la orden.
     const { items, ...orderInput } = orderData;
-    const orderId = `ord-${faker.string.uuid()}`;
 
-    // Llamar a la función RPC para insertar la orden y sus items.
-    // Se elimina el .single() para no depender de la estructura de retorno de la función,
-    // que es la causa del error "structure of query does not match function result type".
-    const { error } = await supabaseAdmin.rpc('create_order_with_items', {
-        order_id_in: orderId,
+    // Generar el ID de la orden en el servidor
+    const orderId = `ord-${faker.string.uuid().substring(0, 8)}`;
+
+    // Llamar a la función RPC, pasando el ID y los items como parámetros separados.
+    const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
+        order_id_in: orderId, // Pasar el nuevo ID
         business_id_in: orderInput.business_id,
         customer_id_in: orderInput.customer_id,
         pickup_address_in: orderInput.pickup_address,
@@ -39,25 +41,16 @@ export async function POST(request: Request) {
         order_total_in: orderInput.order_total,
         distance_in: orderInput.distance,
         status_in: orderInput.status,
-        route_path_in: orderInput.route_path,
-        items_in: items,
-    });
+        route_path_in: orderInput.route_path, // Añadido nuevo parámetro
+        items_in: items, // Este es el parámetro para los items.
+    }).single();
     
     if (error) {
       console.error('Error creating order with items:', error);
       return NextResponse.json({ message: 'Error al crear el pedido en la base de datos.', error: error.message }, { status: 500 });
     }
 
-    // Si no hay error, construimos el objeto de respuesta manualmente con los datos que ya tenemos.
-    const createdOrderResponse = {
-      id: orderId,
-      ...orderInput,
-      items,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    return NextResponse.json(createdOrderResponse, { status: 201 });
+    return NextResponse.json(newOrder, { status: 201 });
 
   } catch (error) {
     console.error('Unexpected error in order creation API:', error);
