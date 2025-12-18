@@ -20,15 +20,12 @@ export async function POST(request: Request) {
   try {
     const orderData: OrderPayload & { items: any[] } = await request.json();
     
-    // Separar los items del resto del payload de la orden.
     const { items, ...orderInput } = orderData;
 
-    // Generar el ID de la orden en el servidor
     const orderId = `ord-${faker.string.uuid().substring(0, 12)}`;
 
-    // Llamar a la función RPC. No esperamos un resultado (`.single()`), solo la ejecución.
-    // Si hay un error en la función de la BD, el `error` no será nulo.
-    const { error } = await supabaseAdmin.rpc('create_order_with_items', {
+    // Llamar a la función RPC y manejar la promesa directamente para evitar problemas de coincidencia de tipo.
+    const rpcPromise = supabaseAdmin.rpc('create_order_with_items', {
         order_id_in: orderId,
         business_id_in: orderInput.business_id,
         customer_id_in: orderInput.customer_id,
@@ -45,13 +42,15 @@ export async function POST(request: Request) {
         route_path_in: orderInput.route_path,
         items_in: items,
     });
+
+    const { error } = await rpcPromise;
     
     if (error) {
       console.error('Error creating order with items RPC:', error);
       return NextResponse.json({ message: 'Error al crear el pedido en la base de datos.', error: error.message }, { status: 500 });
     }
 
-    // Si no hubo error, construimos la respuesta exitosa con el ID generado.
+    // Si la RPC fue exitosa, construimos la respuesta.
     return NextResponse.json({ id: orderId, ...orderInput, items }, { status: 201 });
 
   } catch (error) {
