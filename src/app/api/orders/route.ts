@@ -24,9 +24,10 @@ export async function POST(request: Request) {
     const { items, ...orderInput } = orderData;
 
     // Generar el ID de la orden en el servidor
-    const orderId = `ord-${faker.string.uuid().substring(0, 8)}`;
+    const orderId = `ord-${faker.string.uuid()}`;
 
     // Llamar a la función RPC, pasando el ID y los items como parámetros separados.
+    // Usamos .then() para evitar que la librería intente procesar un tipo de retorno complejo.
     const { data: newOrder, error } = await supabaseAdmin.rpc('create_order_with_items', {
         order_id_in: orderId, // Pasar el nuevo ID
         business_id_in: orderInput.business_id,
@@ -44,10 +45,13 @@ export async function POST(request: Request) {
         route_path_in: orderInput.route_path, // Añadido nuevo parámetro
         items_in: items, // Este es el parámetro para los items.
     }).single();
-    
+
     if (error) {
-      console.error('Error creating order with items:', error);
-      return NextResponse.json({ message: 'Error al crear el pedido en la base de datos.', error: error.message }, { status: 500 });
+        console.error('Error in create_order_with_items RPC:', error);
+        return NextResponse.json({
+            message: "Error al crear el pedido en la base de datos.",
+            error: error.message
+        }, { status: 500 });
     }
 
     return NextResponse.json(newOrder, { status: 201 });
