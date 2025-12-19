@@ -101,11 +101,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                         onPolygonComplete={handleDrawingComplete}
                         drawingMode={window.google.maps.drawing.OverlayType.POLYGON}
                         options={{
-                            drawingControl: true,
-                            drawingControlOptions: {
-                                position: window.google.maps.ControlPosition.TOP_CENTER,
-                                drawingModes: [window.google.maps.drawing.OverlayType.POLYGON],
-                            },
+                            drawingControl: false, // Deshabilita la barra de herramientas del DrawingManager
                             polygonOptions: {
                                 fillColor: "hsl(var(--hid-primary))",
                                 fillOpacity: 0.3,
