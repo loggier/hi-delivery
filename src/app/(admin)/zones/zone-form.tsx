@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
@@ -72,11 +73,15 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const onZoneSubmit = async (data: ZoneFormValues) => {
     if (isEditing) {
       await updateZoneMutation.mutateAsync({ ...data, id: initialData.id });
+       router.push('/zones');
+       router.refresh();
     } else {
-      await createZoneMutation.mutateAsync(data);
+      await createZoneMutation.mutateAsync(data, {
+        onSuccess: (newZone) => {
+          router.push(`/zones/${newZone.id}/edit`);
+        }
+      });
     }
-    router.push('/zones');
-    router.refresh();
   };
 
   const handleSaveNewArea = async () => {
@@ -160,7 +165,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                <div className="flex items-end">
                     <Button type="submit" disabled={isPending}>
                         {isPending && <Loader2 className="mr-2"/>}
-                        {isEditing ? "Guardar Cambios" : "Crear Zona"}
+                        {isEditing ? "Guardar Cambios" : "Crear y Continuar"}
                     </Button>
                </div>
             </CardContent>
@@ -266,4 +271,3 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     </>
   );
 }
-
