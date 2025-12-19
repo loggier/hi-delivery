@@ -251,6 +251,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                         onMainGeofenceChange={field.onChange}
                         subGeofences={initialData?.areas}
                         isDrawing={isDrawingArea}
+                        isCreatingZone={!isEditing}
                         newAreaPath={newAreaGeofence}
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
