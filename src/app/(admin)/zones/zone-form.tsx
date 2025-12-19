@@ -33,6 +33,7 @@ type ZoneFormValues = z.infer<typeof zoneSchema>;
 
 export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const router = useRouter();
+  const createZoneMutation = api.zones.useCreate();
   const updateZoneMutation = api.zones.useUpdate();
   const createAreaMutation = api.areas.useCreate();
   const deleteAreaMutation = api.areas.useDelete();
@@ -51,9 +52,11 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
       libraries,
   });
 
+  const isEditing = !!initialData;
+
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneSchema),
-    defaultValues: initialData || { name: '', status: 'INACTIVE', geofence: [] },
+    defaultValues: initialData || { id: `zone-${faker.string.uuid()}`, name: '', status: 'INACTIVE', geofence: [] },
   });
 
    useEffect(() => {
@@ -67,8 +70,12 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   }, [initialData, isLoaded]);
 
   const onZoneSubmit = async (data: ZoneFormValues) => {
-    if (!initialData) return;
-    await updateZoneMutation.mutateAsync({ ...data, id: initialData.id });
+    if (isEditing) {
+      await updateZoneMutation.mutateAsync({ ...data, id: initialData.id });
+    } else {
+      await createZoneMutation.mutateAsync(data);
+    }
+    router.push('/zones');
     router.refresh();
   };
 
@@ -82,7 +89,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     const newAreaColor = areaColors[existingAreasCount % areaColors.length];
 
     await createAreaMutation.mutateAsync({
-        id: `area-${faker.string.uuid()}`, // Generar el ID en el frontend
+        id: `area-${faker.string.uuid()}`,
         zone_id: initialData.id,
         name: newAreaName,
         status: 'ACTIVE',
@@ -116,11 +123,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     }
   }, []);
   
-  const isPending = updateZoneMutation.isPending || createAreaMutation.isPending;
-
-  if (!initialData) {
-      return <div>Cargando zona...</div>
-  }
+  const isPending = updateZoneMutation.isPending || createAreaMutation.isPending || createZoneMutation.isPending;
 
   return (
     <>
@@ -157,70 +160,72 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                <div className="flex items-end">
                     <Button type="submit" disabled={isPending}>
                         {isPending && <Loader2 className="mr-2"/>}
-                        Guardar Cambios de Zona
+                        {isEditing ? "Guardar Cambios" : "Crear Zona"}
                     </Button>
                </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle>Áreas de Operación</CardTitle>
-                <CardDescription>Define cuadrantes o sub-zonas para una mejor logística.</CardDescription>
-              </div>
-              <Button type="button" variant={isDrawingArea ? "secondary" : "outline"} onClick={() => {
-                  setIsDrawingArea(!isDrawingArea);
-                  setNewAreaGeofence(null);
-                }}>
-                {isDrawingArea ? <X className="mr-2"/> : <PlusCircle className="mr-2" />}
-                {isDrawingArea ? "Cancelar Creación" : "Añadir Nueva Área"}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {initialData.areas && initialData.areas.length > 0 ? (
-                    initialData.areas.map((area: Area) => (
-                      <TableRow key={area.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: area.color || '#CCCCCC' }}/>
-                            {area.name}
-                          </div>
-                        </TableCell>
-                        <TableCell><Badge variant={area.status === 'ACTIVE' ? 'success' : 'outline'}>{area.status}</Badge></TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteArea(area.id, area.name)}>
-                            <Trash className="text-destructive"/>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow><TableCell colSpan={3} className="text-center h-24">No hay áreas definidas.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-             {isDrawingArea && (
-                <CardContent className="border-t pt-6 bg-slate-50 dark:bg-slate-900">
-                   <div className="flex flex-col sm:flex-row items-end gap-4">
-                     <div className="flex-grow">
-                         <Label>Nombre de la Nueva Área</Label>
-                         <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
-                     </div>
-                     <div className="flex gap-2">
-                         <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
-                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                             <Save className="mr-2"/> Guardar Área
-                         </Button>
-                     </div>
-                   </div>
+          {isEditing && (
+            <Card>
+                <CardHeader className="flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Áreas de Operación</CardTitle>
+                    <CardDescription>Define cuadrantes o sub-zonas para una mejor logística.</CardDescription>
+                </div>
+                <Button type="button" variant={isDrawingArea ? "secondary" : "outline"} onClick={() => {
+                    setIsDrawingArea(!isDrawingArea);
+                    setNewAreaGeofence(null);
+                    }}>
+                    {isDrawingArea ? <X className="mr-2"/> : <PlusCircle className="mr-2" />}
+                    {isDrawingArea ? "Cancelar Creación" : "Añadir Nueva Área"}
+                </Button>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                    {initialData?.areas && initialData.areas.length > 0 ? (
+                        initialData.areas.map((area: Area) => (
+                        <TableRow key={area.id}>
+                            <TableCell>
+                            <div className="flex items-center gap-2">
+                                <div className="h-4 w-4 rounded-full" style={{ backgroundColor: area.color || '#CCCCCC' }}/>
+                                {area.name}
+                            </div>
+                            </TableCell>
+                            <TableCell><Badge variant={area.status === 'ACTIVE' ? 'success' : 'outline'}>{area.status}</Badge></TableCell>
+                            <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteArea(area.id, area.name)}>
+                                <Trash className="text-destructive"/>
+                            </Button>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    ) : (
+                        <TableRow><TableCell colSpan={3} className="text-center h-24">No hay áreas definidas.</TableCell></TableRow>
+                    )}
+                    </TableBody>
+                </Table>
                 </CardContent>
-             )}
-          </Card>
+                {isDrawingArea && (
+                    <CardContent className="border-t pt-6 bg-slate-50 dark:bg-slate-900">
+                    <div className="flex flex-col sm:flex-row items-end gap-4">
+                        <div className="flex-grow">
+                            <Label>Nombre de la Nueva Área</Label>
+                            <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
+                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                <Save className="mr-2"/> Guardar Área
+                            </Button>
+                        </div>
+                    </div>
+                    </CardContent>
+                )}
+            </Card>
+          )}
           
           <Separator />
 
@@ -239,7 +244,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                         loadError={loadError}
                         mainGeofence={field.value}
                         onMainGeofenceChange={field.onChange}
-                        subGeofences={initialData.areas}
+                        subGeofences={initialData?.areas}
                         isDrawing={isDrawingArea}
                         newAreaPath={newAreaGeofence}
                         onDrawingComplete={(path) => {
@@ -261,3 +266,4 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     </>
   );
 }
+
