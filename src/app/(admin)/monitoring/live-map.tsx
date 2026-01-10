@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF, useLoadScript } from '@react-google-maps/api';
 import { Rider } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,7 +21,7 @@ const mapContainerStyle = {
   borderRadius: '0.5rem',
 };
 
-const center = {
+const defaultCenter = {
   lat: 19.4326, // Mexico City
   lng: -99.1332,
 };
@@ -33,6 +33,41 @@ export function LiveMap({ riders }: LiveMapProps) {
   });
 
   const [selectedRider, setSelectedRider] = React.useState<Rider | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    mapRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (mapRef.current && riders.length > 0) {
+      const bounds = new window.google.maps.LatLngBounds();
+      let activeRidersFound = 0;
+      riders.forEach(rider => {
+        if (rider.last_latitude && rider.last_longitude) {
+          bounds.extend(new window.google.maps.LatLng(rider.last_latitude, rider.last_longitude));
+          activeRidersFound++;
+        }
+      });
+      if (activeRidersFound > 0) {
+        mapRef.current.fitBounds(bounds);
+        // Si solo hay un repartidor, el zoom puede ser demasiado cercano. Lo ajustamos.
+        if (activeRidersFound === 1) {
+            const listener = window.google.maps.event.addListener(mapRef.current, "idle", function() {
+                if (mapRef.current) {
+                  if (mapRef.current.getZoom()! > 15) mapRef.current.setZoom(15);
+                  window.google.maps.event.removeListener(listener);
+                }
+            });
+        }
+      }
+    }
+  }, [riders]);
+
 
   if (loadError) return <div>Error al cargar el mapa</div>;
   if (!isLoaded) return <Skeleton className="w-full h-full rounded-lg" />;
@@ -45,9 +80,11 @@ export function LiveMap({ riders }: LiveMapProps) {
   return (
     <GoogleMap
       mapContainerStyle={mapContainerStyle}
-      center={center}
+      center={defaultCenter}
       zoom={12}
       options={mapOptions}
+      onLoad={onMapLoad}
+      onUnmount={onUnmount}
     >
       {riders.map((rider) =>
         rider.last_latitude && rider.last_longitude ? (
