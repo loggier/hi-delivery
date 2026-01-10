@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Loader2,
   Box,
+  Monitor,
 } from "lucide-react";
 
 import {
@@ -53,6 +54,7 @@ type NavItem = {
 
 const allNavItems: NavItem[] = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Panel de Control", module_id: "dashboard" },
+    { href: "/monitoring", icon: Monitor, label: "Monitoreo en Vivo", module_id: "monitoring" },
     { href: "/pos", icon: ShoppingCart, label: "Punto de Venta", module_id: "pos" },
     { href: "/shipping", icon: Send, label: "Envíos", module_id: "shipping" },
     { href: "/orders", icon: ClipboardList, label: "Pedidos", module_id: "orders" },
@@ -119,7 +121,7 @@ export default function AdminLayout({
   }, [isLoading, isAuthenticated, router]);
   
   useEffect(() => {
-    if (pathname === '/pos' || pathname === '/shipping') {
+    if (pathname === '/pos' || pathname === '/shipping' || pathname === '/monitoring') {
       setSidebarCollapsed(true);
     } else {
       setSidebarCollapsed(false);
@@ -149,7 +151,7 @@ export default function AdminLayout({
         )}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Image src="/logo-hid.png" alt={`Logo ${appName}`} width={28} height={28} />
-           <span className={cn((isSidebarCollapsed && !isMobile) && "sr-only")}>{appName}</span>
+           <span className={cn(isSidebarCollapsed && !isMobile && "sr-only")}>{appName}</span>
         </Link>
         {!isMobile && (
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex hover:bg-white/10">
@@ -228,11 +230,11 @@ export default function AdminLayout({
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[auto_1fr]">
-      <aside className={cn(
+       <aside className={cn(
           "hidden lg:block transition-all duration-300",
-          isSidebarCollapsed ? "lg:w-16" : "lg:w-64"
+          (isSidebarCollapsed) ? "lg:w-16" : "lg:w-64"
         )}>
-          <SidebarContent />
+          <SidebarContent isMobile={false}/>
       </aside>
       <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-white px-4 lg:h-[60px] lg:px-6 dark:bg-slate-900">

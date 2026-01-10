@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { Fragment } from 'react';
@@ -27,6 +28,7 @@ const PATH_TRANSLATIONS: { [key: string]: string } = {
   pos: 'Punto de Venta',
   shipping: 'Envíos',
   orders: 'Pedidos',
+  monitoring: 'Monitoreo en Vivo',
 };
 
 
