@@ -308,6 +308,14 @@ export type Rider = {
   has_helmet?: boolean;
   has_uniform?: boolean;
   has_box?: boolean;
+
+  // Real-time status
+  is_active_for_orders?: boolean;
+  last_latitude?: number;
+  last_longitude?: number;
+  last_speed?: number;
+  last_course?: number;
+  last_location_update?: string;
 };
 
 
