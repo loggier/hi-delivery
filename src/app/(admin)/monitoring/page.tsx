@@ -5,13 +5,14 @@ import React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bike, ClipboardList, Package, Phone } from 'lucide-react';
+import { Bike, ClipboardList, Package, Phone, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LiveMap } from './live-map';
 import { OrderStatus, type Rider } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -43,13 +44,30 @@ function KPICardSkeleton() {
 
 const activeOrderStatuses: OrderStatus[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
 
-const ActiveRidersTable = ({ riders, activeOrderRiderIds }: { riders: Rider[], activeOrderRiderIds: Set<string> }) => {
+const ActiveRidersTable = ({ riders, activeOrderRiderIds, searchTerm, onSearchChange }: { riders: Rider[], activeOrderRiderIds: Set<string>, searchTerm: string, onSearchChange: (value: string) => void }) => {
+    const filteredRiders = React.useMemo(() => {
+        if (!searchTerm) return riders;
+        return riders.filter(rider => 
+            `${rider.first_name} ${rider.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            rider.phone_e164.includes(searchTerm)
+        );
+    }, [riders, searchTerm]);
+
     return (
-        <Card>
+        <Card className="flex flex-col">
             <CardHeader>
                 <CardTitle>Repartidores Activos</CardTitle>
+                <div className="relative mt-2">
+                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar por nombre o teléfono..."
+                        value={searchTerm}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="pl-8"
+                    />
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow overflow-y-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -59,14 +77,14 @@ const ActiveRidersTable = ({ riders, activeOrderRiderIds }: { riders: Rider[], a
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {riders.length === 0 && (
+                        {filteredRiders.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={3} className="h-24 text-center">
-                                    No hay repartidores activos.
+                                    No se encontraron repartidores.
                                 </TableCell>
                             </TableRow>
                         )}
-                        {riders.map(rider => (
+                        {filteredRiders.map(rider => (
                             <TableRow key={rider.id}>
                                 <TableCell>
                                     <Link href={`/riders/${rider.id}`} className="font-medium hover:underline">
@@ -92,6 +110,7 @@ const ActiveRidersTable = ({ riders, activeOrderRiderIds }: { riders: Rider[], a
 }
 
 export default function MonitoringPage() {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const { data: allRiders, isLoading: isLoadingRiders } = api.riders.useGetAll({}, {
     refetchInterval: 10000,
   });
@@ -123,7 +142,7 @@ export default function MonitoringPage() {
         description="Vista en tiempo real de repartidores y pedidos activos."
       />
       <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-        <div className="lg:col-span-1 flex flex-col gap-6">
+        <div className="lg:col-span-1 flex flex-col gap-6 h-[calc(100vh-150px)]">
             <div className="grid grid-cols-2 gap-4">
                  {isLoading ? (
                     <>
@@ -137,7 +156,12 @@ export default function MonitoringPage() {
                     </>
                 )}
             </div>
-            <ActiveRidersTable riders={activeRidersForTable} activeOrderRiderIds={activeOrderRiderIds} />
+            <ActiveRidersTable 
+                riders={activeRidersForTable} 
+                activeOrderRiderIds={activeOrderRiderIds}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+            />
         </div>
         <div className="lg:col-span-2 h-[60vh] lg:h-full rounded-lg overflow-hidden">
             <LiveMap riders={activeRidersWithLocation} />
