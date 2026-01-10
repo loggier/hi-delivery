@@ -5,10 +5,13 @@ import React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bike, ClipboardList } from 'lucide-react';
+import { Bike, ClipboardList, Package, Phone } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LiveMap } from './live-map';
-import { OrderStatus } from '@/types';
+import { OrderStatus, type Rider } from '@/types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -40,9 +43,56 @@ function KPICardSkeleton() {
 
 const activeOrderStatuses: OrderStatus[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
 
+const ActiveRidersTable = ({ riders, activeOrderRiderIds }: { riders: Rider[], activeOrderRiderIds: Set<string> }) => {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Repartidores Activos</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Repartidor</TableHead>
+                            <TableHead>Teléfono</TableHead>
+                            <TableHead>Pedido</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {riders.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-24 text-center">
+                                    No hay repartidores activos.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {riders.map(rider => (
+                            <TableRow key={rider.id}>
+                                <TableCell>
+                                    <Link href={`/riders/${rider.id}`} className="font-medium hover:underline">
+                                        {rider.first_name} {rider.last_name}
+                                    </Link>
+                                </TableCell>
+                                <TableCell>{rider.phone_e164}</TableCell>
+                                <TableCell>
+                                    {activeOrderRiderIds.has(rider.id) && (
+                                        <Badge variant="warning">
+                                            <Package className="mr-1 h-3 w-3"/>
+                                            En curso
+                                        </Badge>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function MonitoringPage() {
   const { data: allRiders, isLoading: isLoadingRiders } = api.riders.useGetAll({}, {
-    // Refetch every 10 seconds
     refetchInterval: 10000,
   });
 
@@ -50,13 +100,19 @@ export default function MonitoringPage() {
     refetchInterval: 10000,
   });
 
-  const activeRiders = React.useMemo(() => {
-    return allRiders?.filter(r => r.is_active_for_orders && r.last_latitude && r.last_longitude) || [];
-  }, [allRiders]);
-
-  const activeOrders = React.useMemo(() => {
-    return allOrders?.filter(o => activeOrderStatuses.includes(o.status)) || [];
-  }, [allOrders]);
+  const { activeRidersWithLocation, activeRidersForTable, activeOrders, activeOrderRiderIds } = React.useMemo(() => {
+    const activeRiders = allRiders?.filter(r => r.is_active_for_orders) || [];
+    const activeRidersWithLocation = activeRiders.filter(r => r.last_latitude && r.last_longitude);
+    const activeOrders = allOrders?.filter(o => activeOrderStatuses.includes(o.status)) || [];
+    const activeOrderRiderIds = new Set(activeOrders.map(o => o.rider_id).filter(Boolean) as string[]);
+    
+    return {
+        activeRidersWithLocation,
+        activeRidersForTable: activeRiders,
+        activeOrders,
+        activeOrderRiderIds,
+    };
+  }, [allRiders, allOrders]);
   
   const isLoading = isLoadingRiders || isLoadingOrders;
 
@@ -66,21 +122,26 @@ export default function MonitoringPage() {
         title="Monitoreo en Vivo"
         description="Vista en tiempo real de repartidores y pedidos activos."
       />
-      <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-5 mb-4">
-        {isLoading ? (
-          <>
-            <KPICardSkeleton />
-            <KPICardSkeleton />
-          </>
-        ) : (
-          <>
-            <KPICard title="Repartidores Activos" value={activeRiders.length} icon={Bike} />
-            <KPICard title="Pedidos Activos" value={activeOrders.length} icon={ClipboardList} />
-          </>
-        )}
-      </div>
-      <div className="flex-grow rounded-lg overflow-hidden">
-        <LiveMap riders={activeRiders} />
+      <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+        <div className="lg:col-span-1 flex flex-col gap-6">
+            <div className="grid grid-cols-2 gap-4">
+                 {isLoading ? (
+                    <>
+                        <KPICardSkeleton />
+                        <KPICardSkeleton />
+                    </>
+                    ) : (
+                    <>
+                        <KPICard title="Repartidores Activos" value={activeRidersWithLocation.length} icon={Bike} />
+                        <KPICard title="Pedidos Activos" value={activeOrders.length} icon={ClipboardList} />
+                    </>
+                )}
+            </div>
+            <ActiveRidersTable riders={activeRidersForTable} activeOrderRiderIds={activeOrderRiderIds} />
+        </div>
+        <div className="lg:col-span-2 h-[60vh] lg:h-full rounded-lg overflow-hidden">
+            <LiveMap riders={activeRidersWithLocation} />
+        </div>
       </div>
     </div>
   );
