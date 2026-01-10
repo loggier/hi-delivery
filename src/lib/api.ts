@@ -385,7 +385,9 @@ const orderSelect = `*,
   business:businesses(name),
   customer:customers!inner(*),
   rider:riders(id,first_name,last_name),
-  order_items:order_items(*, products:products(name))
+  order_items:order_items(*, products:products(name)),
+  notified_riders,
+  rejected_riders
 `;
 
 const rolesSelect = `*, role_permissions(*)`

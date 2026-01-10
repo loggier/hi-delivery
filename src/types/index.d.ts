@@ -182,6 +182,8 @@ export type Order = {
   distance: number;
   order_items: OrderItem[];
   route_path?: any; // To store Google Maps DirectionsResult
+  notified_riders?: string[];
+  rejected_riders?: string[];
 };
 
 export type BusinessType = "restaurant" | "store" | "service";
