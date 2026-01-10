@@ -93,14 +93,10 @@ export function LiveMap({ riders }: LiveMapProps) {
             position={{ lat: rider.last_latitude, lng: rider.last_longitude }}
             onClick={() => setSelectedRider(rider)}
             icon={{
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-                  <path fill="%23${rider.is_active_for_orders ? '0F62FE' : '64748b'}" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  <path d="M0 0h24v24H0z" fill="none"/>
-                </svg>
-              `),
-              scaledSize: new window.google.maps.Size(32, 32),
+              url: '/repartidor.png',
+              scaledSize: new window.google.maps.Size(40, 40),
             }}
+            opacity={rider.is_active_for_orders ? 1 : 0.5}
           />
         ) : null
       )}
