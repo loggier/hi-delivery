@@ -112,11 +112,11 @@ const ActiveRidersTable = ({ riders, activeOrderRiderIds, searchTerm, onSearchCh
 export default function MonitoringPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const { data: allRiders, isLoading: isLoadingRiders } = api.riders.useGetAll({}, {
-    refetchInterval: 10000,
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 
   const { data: allOrders, isLoading: isLoadingOrders } = api.orders.useGetAll({}, {
-    refetchInterval: 10000,
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 
   const { activeRidersWithLocation, activeRidersForTable, activeOrders, activeOrderRiderIds } = React.useMemo(() => {
