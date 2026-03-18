@@ -144,6 +144,18 @@ const requiredNumberSchema = (message: string) =>
     invalid_type_error: message,
   });
 
+const optionalNullableStringSchema = () =>
+  z.preprocess(
+    (value) => (value === null || value === undefined ? "" : value),
+    z.string().optional(),
+  );
+
+const optionalNullableUrlSchema = () =>
+  z.preprocess(
+    (value) => (value === null || value === undefined ? "" : value),
+    z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal("")),
+  );
+
 export const businessAccountCreationSchema = z.object({
   owner_name: z.string().min(2, { message: "Tu nombre completo es requerido." }),
   email: z.string().email({ message: "Por favor, ingresa un email válido." }),
@@ -215,16 +227,19 @@ export const businessSchema = z.object({
     zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
     latitude: requiredNumberSchema("La latitud es requerida."),
     longitude: requiredNumberSchema("La longitud es requerida."),
-    tax_id: z.string().optional(),
-    website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
-    instagram: z.string().optional(),
+    tax_id: optionalNullableStringSchema(),
+    website: optionalNullableUrlSchema(),
+    instagram: optionalNullableStringSchema(),
     logo_url: imageFileSchema("Logo opcional.").optional(),
-    notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
+    notes: z.preprocess(
+      (value) => (value === null || value === undefined ? "" : value),
+      z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
+    ),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
     
     delivery_time_min: requiredNumberSchema("El tiempo mínimo de entrega es requerido.").min(0, "Debe ser un número positivo."),
     delivery_time_max: requiredNumberSchema("El tiempo máximo de entrega es requerido.").min(0, "Debe ser un número positivo."),
-    has_delivery_service: z.boolean({ required_error: "Debes indicar si tiene servicio a domicilio propio." }),
+    has_delivery_service: z.boolean().default(false),
     average_ticket: requiredNumberSchema("El ticket promedio es requerido.").min(0, "Debe ser un número positivo."),
     weekly_demand: z.enum(['nuevo', '0-10', '11-50', '51-100', '101-200', '201-500', 'mas de 500'], {
       required_error: "Debes seleccionar la demanda semanal.",

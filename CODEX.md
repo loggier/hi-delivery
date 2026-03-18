@@ -408,4 +408,7 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Ajuste posterior:
   - para edición de negocios no se exige ningún archivo/imágen
   - `logo_url`, fotos del negocio, menú digital, INE y constancia fiscal quedaron opcionales en el schema compartido
+- Ajuste adicional de edición:
+  - los campos opcionales de texto (`tax_id`, `website`, `instagram`, `notes`) ahora toleran `null` desde base y se normalizan a string vacío en schema y form
+  - `has_delivery_service` ahora usa `false` como valor por defecto válido y ya no dispara error por quedar sin activar
   - `flutter analyze` sin errores nuevos; sólo permanecen los warnings/info previos del proyecto
