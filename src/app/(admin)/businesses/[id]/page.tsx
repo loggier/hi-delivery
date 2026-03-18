@@ -22,6 +22,7 @@ import { BusinessType, BusinessBranch } from "@/types";
 import { BranchFormModal, BranchList } from "./branch-components";
 
 const libraries: ('places')[] = ['places'];
+const googleMapsScriptId = "hi-delivery-businesses-google-maps";
 
 const BusinessLocationMap = ({ lat, lng, isLoaded, loadError }: { lat?: number, lng?: number, isLoaded: boolean, loadError?: Error }) => {
     const center = React.useMemo(() => {
@@ -77,6 +78,7 @@ export default function ViewBusinessPage() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   
   const { isLoaded, loadError } = useLoadScript({
+    id: googleMapsScriptId,
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     libraries,
   });

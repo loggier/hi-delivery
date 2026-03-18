@@ -352,4 +352,19 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Ajuste importante:
   - como el keystore real está en la raíz de `hid-repartidores`, la ruta válida quedó `../my-release-key.keystore` desde `android/key.properties`
   - la variante `../../my-release-key.keystore` no coincide con esta estructura actual
+
+### Web Admin: Google Maps Script Dedupe
+
+- En el módulo de negocios se agregó un `id` estable compartido al loader de Google Maps:
+  - `src/app/(admin)/businesses/business-form.tsx`
+  - `src/app/(admin)/businesses/[id]/page.tsx`
+- El `id` fijado (`hi-delivery-businesses-google-maps`) evita que `@react-google-maps/api` trate esas cargas como scripts distintos y reduzca el warning de carga múltiple en `/businesses/new`.
+
+### Web Admin: Alta de Categoría de Negocio
+
+- Se corrigió `business-categories/new`:
+  - `grupohubs.business_categories.id` no tiene default en base
+  - el formulario estaba intentando crear sin `id`
+  - ahora genera `id` en cliente con prefijo `bizcat-` + `crypto.randomUUID()` antes de llamar `useCreate`
+- También se ajustó el tipo del mutation para aceptar explícitamente `{ id, name, type, active }` en creación.
   - `flutter analyze` sin errores nuevos; sólo permanecen los warnings/info previos del proyecto

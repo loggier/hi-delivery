@@ -38,7 +38,7 @@ interface BusinessCategoryFormProps {
 
 export function BusinessCategoryForm({ initialData }: BusinessCategoryFormProps) {
   const router = useRouter();
-  const createMutation = api["business_categories"].useCreate();
+  const createMutation = api["business_categories"].useCreate<Pick<BusinessCategory, "id" | "name" | "type" | "active">>();
   const updateMutation = api["business_categories"].useUpdate();
 
   const isEditing = !!initialData;
@@ -58,7 +58,10 @@ export function BusinessCategoryForm({ initialData }: BusinessCategoryFormProps)
       if (isEditing && initialData) {
         await updateMutation.mutateAsync({ ...data, id: initialData.id });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync({
+          id: `bizcat-${crypto.randomUUID()}`,
+          ...data,
+        });
       }
       router.push("/business-categories");
       router.refresh();

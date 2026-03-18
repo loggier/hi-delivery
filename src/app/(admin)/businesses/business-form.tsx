@@ -43,6 +43,7 @@ import type { z } from "zod";
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
 const libraries: ('places' | 'drawing')[] = ['places', 'drawing'];
+const googleMapsScriptId = "hi-delivery-businesses-google-maps";
 
 const BusinessMap = ({ isLoaded, loadError }: { isLoaded: boolean, loadError?: Error }) => {
     const { control, setValue, watch } = useFormContext();
@@ -152,6 +153,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdateWithFormData();
    const { isLoaded, loadError } = useLoadScript({
+        id: googleMapsScriptId,
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
