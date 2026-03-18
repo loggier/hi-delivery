@@ -367,4 +367,33 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - el formulario estaba intentando crear sin `id`
   - ahora genera `id` en cliente con prefijo `bizcat-` + `crypto.randomUUID()` antes de llamar `useCreate`
 - También se ajustó el tipo del mutation para aceptar explícitamente `{ id, name, type, active }` en creación.
+
+### Web Admin: Validación de Negocios
+
+- Se alineó la validación de create/edit de negocios con la regla operativa actual:
+  - obligatorios:
+    - sección principal del negocio
+    - información de contacto
+    - detalles operativos sin fotos
+    - ubicación
+  - opcionales:
+    - información fiscal/documental
+    - notas
+- `businessSchema` ahora exige explícitamente:
+  - `category_id`
+  - `zone_id`
+  - `phone_whatsapp`
+  - `logo_url`
+  - `delivery_time_min`
+  - `delivery_time_max`
+  - `has_delivery_service`
+  - `average_ticket`
+  - `weekly_demand`
+  - además valida que el máximo de entrega no sea menor que el mínimo
+- Se corrigió el flujo admin de creación de negocios:
+  - `/api/businesses` ya no crea sólo un perfil mínimo/incompleto
+  - ahora procesa el formulario completo del admin, sube archivos, valida el payload y persiste `category_id` y el resto de campos operativos
+- También se endureció el update:
+  - `/api/businesses/[id]` ahora normaliza y valida el formulario completo antes de actualizar
+- En `business-form.tsx`, si cambia el tipo y la categoría ya no aplica, el reset de `category_id` ahora cae a `""` y revalida, en vez de quedar en `undefined`.
   - `flutter analyze` sin errores nuevos; sólo permanecen los warnings/info previos del proyecto

@@ -22,6 +22,76 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: s
     return data.publicUrl;
 }
 
+async function parseBusinessFormData(
+  formData: FormData,
+  supabaseAdmin: any,
+  businessId: string,
+) {
+  const parsedData: Record<string, any> = {};
+  const fileFields = [
+    'logo_url',
+    'business_photo_facade_url',
+    'business_photo_interior_url',
+    'digital_menu_url',
+    'owner_ine_front_url',
+    'owner_ine_back_url',
+    'tax_situation_proof_url',
+  ];
+  const numericFields = [
+    'latitude',
+    'longitude',
+    'delivery_time_min',
+    'delivery_time_max',
+    'average_ticket',
+  ];
+  const booleanFields = ['has_delivery_service'];
+
+  for (const fieldName of fileFields) {
+    const value = formData.get(fieldName);
+    if (value instanceof File && value.size > 0) {
+      parsedData[fieldName] = await uploadFileAndGetUrl(
+        supabaseAdmin,
+        value,
+        businessId,
+        fieldName,
+      );
+    } else if (typeof value === 'string' && value.length > 0) {
+      parsedData[fieldName] = value;
+    }
+  }
+
+  for (const [key, value] of formData.entries()) {
+    if (fileFields.includes(key) || value instanceof File) {
+      continue;
+    }
+
+    if (numericFields.includes(key)) {
+      if (value !== 'undefined' && value !== 'null' && value !== '') {
+        parsedData[key] = Number(value);
+      }
+      continue;
+    }
+    if (booleanFields.includes(key)) {
+      parsedData[key] = value === 'true';
+      continue;
+    }
+    if (
+      key === 'phone_whatsapp' &&
+      typeof value === 'string' &&
+      value.length >= 10 &&
+      !value.startsWith('+52')
+    ) {
+      parsedData[key] = `+52${value}`;
+      continue;
+    }
+    if (value !== undefined && value !== 'undefined' && value !== 'null') {
+      parsedData[key] = value;
+    }
+  }
+
+  return parsedData;
+}
+
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const businessId = params.id;
   if (!businessId) {
@@ -38,45 +108,30 @@ export async function POST(request: Request, { params }: { params: { id: string 
     );
 
   const formData = await request.formData();
-  const updateData: Record<string, any> = {};
-
-  const fileFields = [
-    'logo_url', 'business_photo_facade_url', 'business_photo_interior_url',
-    'digital_menu_url', 'owner_ine_front_url', 'owner_ine_back_url', 'tax_situation_proof_url'
-  ];
 
   try {
-    // Process files first
-    for (const fieldName of fileFields) {
-        const file = formData.get(fieldName) as File | null;
-        if (file instanceof File && file.size > 0) {
-            updateData[fieldName] = await uploadFileAndGetUrl(supabaseAdmin, file, businessId, fieldName);
-        }
-    }
-    
-    // Process other fields
-    for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File)) {
-        const numericFields = ['latitude', 'longitude', 'delivery_time_min', 'delivery_time_max', 'average_ticket'];
-        const booleanFields = ['has_delivery_service'];
-
-        if (numericFields.includes(key) && value !== 'undefined' && value !== 'null' && value !== '') {
-             updateData[key] = parseFloat(value as string);
-        } else if (booleanFields.includes(key)) {
-            updateData[key] = value === 'true';
-        }
-        else if (key === 'phone_whatsapp' && typeof value === 'string' && value.length >= 10 && !value.startsWith('+52')) {
-            updateData[key] = `+52${value}`;
-        } else if (value !== undefined && value !== 'undefined' && value !== 'null') {
-            updateData[key] = value;
-        }
-      }
-    }
+    const updateData = await parseBusinessFormData(formData, supabaseAdmin, businessId);
     
     if (Object.keys(updateData).length === 0 && !formData.has('final_submission')) {
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
     }
 
+    const validatedBusiness = businessSchema.safeParse({
+      ...updateData,
+      id: businessId,
+    });
+
+    if (!validatedBusiness.success) {
+      return NextResponse.json(
+        {
+          message: 'Datos del negocio inválidos.',
+          errors: validatedBusiness.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    Object.assign(updateData, validatedBusiness.data);
     updateData.updated_at = new Date().toISOString();
     
     if (formData.has('final_submission')) {

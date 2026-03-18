@@ -138,6 +138,18 @@ const imageFileSchema = (message: string) =>
       .refine(file => !file || typeof file === 'string' || ACCEPTED_IMAGE_TYPES.includes(file.type), "Solo se permiten formatos .jpg, .png y .webp")
     : z.any().nullable();
 
+const requiredImageFileSchema = (message: string) =>
+  imageFileSchema(message).refine(
+    (file) => file !== null && file !== undefined && file !== "",
+    { message },
+  );
+
+const requiredNumberSchema = (message: string) =>
+  z.coerce.number({
+    required_error: message,
+    invalid_type_error: message,
+  });
+
 export const businessAccountCreationSchema = z.object({
   owner_name: z.string().min(2, { message: "Tu nombre completo es requerido." }),
   email: z.string().email({ message: "Por favor, ingresa un email válido." }),
@@ -197,32 +209,32 @@ export const businessSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
     type: z.enum(["restaurant", "store", "service"], { required_error: "Debes seleccionar un tipo."}),
-    category_id: z.string({ required_error: "Debes seleccionar una categoría." }),
-    zone_id: z.string().optional(),
+    category_id: z.string({ required_error: "Debes seleccionar una categoría." }).min(1, { message: "Debes seleccionar una categoría." }),
+    zone_id: z.string({ required_error: "Debes seleccionar una zona." }).min(1, { message: "Debes seleccionar una zona." }),
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
     owner_name: z.string().min(2, { message: "El nombre del contacto debe tener al menos 2 caracteres." }),
-    phone_whatsapp: z.string()
-        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
-        .transform(normalizePhone),
+    phone_whatsapp: mxPhoneSchema("El teléfono / WhatsApp es requerido."),
     address_line: z.string().min(5, { message: "La dirección debe tener al menos 5 caracteres." }),
     neighborhood: z.string().min(3, { message: "La colonia debe tener al menos 3 caracteres." }),
     city: z.string().min(3, { message: "La ciudad debe tener al menos 3 caracteres." }),
-    state: z.string().min(3, { message: "El estado debe tener al menos 3 caracteres." }),
+    state: z.string().min(2, { message: "El estado debe tener al menos 2 caracteres." }),
     zip_code: z.string().regex(/^\d{5}$/, { message: "El código postal debe ser de 5 dígitos." }),
-    latitude: z.coerce.number().optional(),
-    longitude: z.coerce.number().optional(),
+    latitude: requiredNumberSchema("La latitud es requerida."),
+    longitude: requiredNumberSchema("La longitud es requerida."),
     tax_id: z.string().optional(),
     website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
     instagram: z.string().optional(),
-    logo_url: imageFileSchema("El logo es requerido.").optional(),
+    logo_url: requiredImageFileSchema("El logo es requerido."),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
     
-    delivery_time_min: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
-    delivery_time_max: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
-    has_delivery_service: z.boolean().optional(),
-    average_ticket: z.coerce.number().min(0, "Debe ser un número positivo.").optional(),
-    weekly_demand: z.enum(['nuevo', '0-10', '11-50', '51-100', '101-200', '201-500', 'mas de 500']).optional(),
+    delivery_time_min: requiredNumberSchema("El tiempo mínimo de entrega es requerido.").min(0, "Debe ser un número positivo."),
+    delivery_time_max: requiredNumberSchema("El tiempo máximo de entrega es requerido.").min(0, "Debe ser un número positivo."),
+    has_delivery_service: z.boolean({ required_error: "Debes indicar si tiene servicio a domicilio propio." }),
+    average_ticket: requiredNumberSchema("El ticket promedio es requerido.").min(0, "Debe ser un número positivo."),
+    weekly_demand: z.enum(['nuevo', '0-10', '11-50', '51-100', '101-200', '201-500', 'mas de 500'], {
+      required_error: "Debes seleccionar la demanda semanal.",
+    }),
     business_photo_facade_url: imageFileSchema("Foto de fachada opcional.").optional(),
     business_photo_interior_url: imageFileSchema("Foto de interior opcional.").optional(),
     digital_menu_url: fileSchema("Menú opcional.").optional(),
@@ -231,6 +243,11 @@ export const businessSchema = z.object({
     tax_situation_proof_url: fileSchema("Constancia fiscal opcional.").optional(),
     password: z.string().optional(),
     passwordConfirmation: z.string().optional(),
+}).refine(data => {
+    return data.delivery_time_max >= data.delivery_time_min;
+}, {
+    message: "El tiempo máximo debe ser mayor o igual al mínimo.",
+    path: ["delivery_time_max"],
 }).refine(data => {
     if (data.password && data.password.length > 0) {
         return passwordRegex.test(data.password);

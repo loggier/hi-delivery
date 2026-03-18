@@ -2,10 +2,10 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { businessAccountCreationSchema } from '@/lib/schemas';
+import { businessAccountCreationSchema, businessSchema } from '@/lib/schemas';
 import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
-import type { User } from '@/types';
+import type { Business, User } from '@/types';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
     const filePath = `store/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
@@ -13,6 +13,75 @@ async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: s
     if (uploadError) throw new Error(`Error al subir ${fileName}: ${uploadError.message}`);
     const { data } = supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).getPublicUrl(filePath);
     return data.publicUrl;
+}
+
+async function parseBusinessFormData(
+  formData: FormData,
+  supabaseAdmin: any,
+  businessId: string,
+) {
+  const parsedData: Record<string, any> = {};
+  const fileFields = [
+    'logo_url',
+    'business_photo_facade_url',
+    'business_photo_interior_url',
+    'digital_menu_url',
+    'owner_ine_front_url',
+    'owner_ine_back_url',
+    'tax_situation_proof_url',
+  ];
+  const numericFields = [
+    'latitude',
+    'longitude',
+    'delivery_time_min',
+    'delivery_time_max',
+    'average_ticket',
+  ];
+  const booleanFields = ['has_delivery_service'];
+
+  for (const fieldName of fileFields) {
+    const value = formData.get(fieldName);
+    if (value instanceof File && value.size > 0) {
+      parsedData[fieldName] = await uploadFileAndGetUrl(
+        supabaseAdmin,
+        value,
+        businessId,
+        fieldName,
+      );
+    } else if (typeof value === 'string' && value.length > 0) {
+      parsedData[fieldName] = value;
+    }
+  }
+
+  for (const [key, value] of formData.entries()) {
+    if (fileFields.includes(key) || value instanceof File) {
+      continue;
+    }
+    if (booleanFields.includes(key)) {
+      parsedData[key] = value === 'true';
+      continue;
+    }
+    if (numericFields.includes(key)) {
+      if (value !== '' && value !== 'undefined' && value !== 'null') {
+        parsedData[key] = Number(value);
+      }
+      continue;
+    }
+    if (
+      key === 'phone_whatsapp' &&
+      typeof value === 'string' &&
+      value.length >= 10 &&
+      !value.startsWith('+52')
+    ) {
+      parsedData[key] = `+52${value}`;
+      continue;
+    }
+    if (value !== '' && value !== 'undefined' && value !== 'null') {
+      parsedData[key] = value;
+    }
+  }
+
+  return parsedData;
 }
 
 async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
@@ -64,14 +133,39 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
     createdUserId = createdUser.id;
 
     const businessId = `biz-${faker.string.uuid()}`;
-    
-    // Ahora insertamos un negocio con datos mínimos, ya que el resto se completará en los siguientes pasos
-    const businessDataToInsert: Partial<Business> = {
+
+    const parsedBusinessData = await parseBusinessFormData(
+      formData,
+      supabaseAdmin,
+      businessId,
+    );
+    const validatedBusiness = businessSchema.safeParse({
+      ...parsedBusinessData,
       id: businessId,
-      user_id: createdUser.id,
       owner_name: data.owner_name,
       email: data.email,
-      status: 'INCOMPLETE' as const,
+    });
+
+    if (!validatedBusiness.success) {
+      if (createdUserId) {
+        await supabaseAdmin.from('users').delete().eq('id', createdUserId);
+      }
+      return NextResponse.json(
+        {
+          message: 'Datos del negocio inválidos.',
+          errors: validatedBusiness.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    const businessDataToInsert: Partial<Business> = {
+      ...validatedBusiness.data,
+      id: businessId,
+      user_id: createdUser.id,
+      status: validatedBusiness.data.status || 'PENDING_REVIEW',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     const { data: createdBusiness, error: insertError } = await supabaseAdmin

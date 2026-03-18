@@ -173,7 +173,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
     const isCurrentCategoryAvailable = availableCategories.some(c => c.id === currentCategoryId);
     
     if (currentCategoryId && !isCurrentCategoryAvailable && availableCategories.length > 0) {
-        methods.setValue('category_id', undefined, { shouldDirty: true });
+        methods.setValue('category_id', '', { shouldDirty: true, shouldValidate: true });
     }
   }, [selectedType, availableCategories, methods]);
 
