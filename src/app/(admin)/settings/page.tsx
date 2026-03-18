@@ -24,11 +24,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const settingsSchema = z.object({
   id: z.number().optional(),
@@ -38,6 +44,10 @@ const settingsSchema = z.object({
   min_distance_km: z.coerce.number().min(0, "Debe ser un valor positivo"),
   max_distance_km: z.coerce.number().min(0, "Debe ser un valor positivo"),
   cost_per_extra_km: z.coerce.number().min(0, "Debe ser un valor positivo"),
+  dispatch_algorithm: z.enum(["batch", "sequential"]),
+  dispatch_candidate_radius_km: z.coerce.number().positive("Debe ser mayor a 0"),
+  dispatch_batch_size: z.coerce.number().int().min(1, "Debe ser al menos 1"),
+  dispatch_decision_window_seconds: z.coerce.number().int().min(5, "Debe ser al menos 5 segundos"),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -95,6 +105,10 @@ export default function SettingsPage() {
         min_distance_km: 0,
         max_distance_km: 0,
         cost_per_extra_km: 0,
+        dispatch_algorithm: "batch",
+        dispatch_candidate_radius_km: 3,
+        dispatch_batch_size: 3,
+        dispatch_decision_window_seconds: 60,
     }
   });
   
@@ -228,6 +242,111 @@ export default function SettingsPage() {
                     </FormItem>
                   )}
                 />
+              </div>
+              <Separator />
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-base font-semibold">Configuración de Dispatch</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Ajusta cómo se seleccionan y notifican los repartidores para nuevos despachos.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <FormField
+                    control={form.control}
+                    name="dispatch_algorithm"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Algoritmo de Notificación</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={isPending}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona el algoritmo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="batch">Por lotes</SelectItem>
+                            <SelectItem value="sequential">Secuencial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          `Por lotes` notifica a varios repartidores a la vez. `Secuencial` lo hace uno por uno.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dispatch_candidate_radius_km"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Radio de Búsqueda (KM)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder="Ej. 3"
+                            {...field}
+                            disabled={isPending}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Distancia máxima desde el negocio para considerar candidatos al despacho.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dispatch_batch_size"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tamaño del Lote</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="1"
+                            placeholder="Ej. 3"
+                            {...field}
+                            disabled={isPending}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Cuántos riders se notifican al mismo tiempo en el modo por lotes.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="dispatch_decision_window_seconds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ventana de Decisión (segundos)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="1"
+                            placeholder="Ej. 60"
+                            {...field}
+                            disabled={isPending}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Tiempo máximo para aceptar antes de pasar al siguiente intento o escalar a revisión manual.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
               <Separator />
               <div className="flex justify-end">

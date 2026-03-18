@@ -32,6 +32,14 @@ const vehicleInfoSchema = riderApplicationBaseSchema.pick({
   motoPhotoBack: true,
   motoPhotoLeft: true,
   motoPhotoRight: true,
+}).superRefine((data, ctx) => {
+  if (data.brand === 'Otra' && !data.brandOther?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['brandOther'],
+      message: 'La marca es obligatoria cuando seleccionas "Otra".',
+    });
+  }
 });
 
 type VehicleInfoFormValues = z.infer<typeof vehicleInfoSchema>;
@@ -113,6 +121,13 @@ export function Step3_VehicleInfo() {
   }, [riderId, methods, toast, router]);
 
   const brand = useWatch({ control: methods.control, name: 'brand' });
+
+  useEffect(() => {
+    if (brand !== 'Otra') {
+      methods.setValue('brandOther', '', { shouldValidate: false });
+      methods.clearErrors('brandOther');
+    }
+  }, [brand, methods]);
 
   const onSubmit = async (data: VehicleInfoFormValues) => {
     if (!riderId) {
@@ -203,22 +218,24 @@ export function Step3_VehicleInfo() {
                 <div />
 
                 <FormSelect name="brand" label="Marca de la Moto" placeholder="Selecciona la marca" options={vehicleBrands.map(b => ({value: b, label: b}))} />
+                <div />
                 {brand === 'Otra' && (
+                  <div className="md:col-span-2">
                     <FormInput name="brandOther" label="Especifica la marca" placeholder="Ej. BMW" />
+                  </div>
                 )}
                 <FormSelect name="year" label="Año" placeholder="Selecciona el año" options={vehicleYears.map(y => ({value: y, label: y}))} />
                 <FormInput name="model" label="Modelo" placeholder="Ej. N-Max" />
                 <FormInput name="color" label="Color" placeholder="Ej. Negro" />
                 <FormInput name="plate" label="Placa" placeholder="Ej. ABC-123-DE" />
-                <div />
 
                 <FormFileUpload name="licenseFrontUrl" label="Licencia de Conducir (Frente)" />
                 <FormFileUpload name="licenseBackUrl" label="Licencia de Conducir (Reverso)" />
                 <FormFutureDatePicker name="licenseValidUntil" label="Vigencia de la Licencia" />
-                <div />
-                
                 <FormFileUpload name="circulationCardFrontUrl" label="Tarjeta de Circulación (Frente)" />
+                
                 <FormFileUpload name="circulationCardBackUrl" label="Tarjeta de Circulación (Reverso)" />
+                <div />
                 
                 <div className="md:col-span-2">
                     <FormMultiImageUpload 

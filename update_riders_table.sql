@@ -52,6 +52,7 @@ CREATE TABLE grupohubs.riders (
   
   CONSTRAINT riders_pkey PRIMARY KEY (id),
   CONSTRAINT riders_email_key UNIQUE (email),
+  CONSTRAINT riders_phone_e164_key UNIQUE (phone_e164),
   CONSTRAINT riders_user_id_fkey FOREIGN KEY (user_id) REFERENCES grupohubs.users (id) ON DELETE CASCADE,
   CONSTRAINT riders_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES grupohubs.zones (id) ON DELETE SET NULL,
   CONSTRAINT riders_status_check CHECK (((status)::text = ANY (ARRAY[('pending_review'::character varying)::text, ('approved'::character varying)::text, ('rejected'::character varying)::text, ('inactive'::character varying)::text, ('incomplete'::character varying)::text])))

@@ -40,6 +40,26 @@ export type OrderItem = {
   products: { name: string };
 };
 
+export type OrderAssignmentOutcome = 'notified' | 'accepted' | 'rejected' | 'expired' | 'superseded';
+
+export type OrderAssignmentAttempt = {
+  id: number;
+  order_id: string;
+  rider_id: string;
+  dispatch_attempt_no: number;
+  algorithm: 'batch' | 'sequential';
+  score?: number;
+  distance_km?: number;
+  active_orders_count?: number;
+  notified_at: string;
+  expires_at?: string;
+  responded_at?: string;
+  outcome: OrderAssignmentOutcome;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+  rider?: { id: string; first_name: string; last_name: string };
+};
+
 export type OrderPayload = {
   business_id: string;
   customer_id: string;
@@ -183,7 +203,13 @@ export type Order = {
   order_items: OrderItem[];
   route_path?: any; // To store Google Maps DirectionsResult
   notified_riders?: string[];
+  active_notified_riders?: string[];
   rejected_riders?: string[];
+  notification_expires_at?: string;
+  last_dispatch_at?: string;
+  assignment_exhausted_at?: string;
+  dispatch_attempt_count?: number;
+  order_assignment_attempts?: OrderAssignmentAttempt[];
 };
 
 export type BusinessType = "restaurant" | "store" | "service";
@@ -387,6 +413,10 @@ export type SystemSettings = {
     min_distance_km: number;
     max_distance_km: number;
     cost_per_extra_km: number;
+    dispatch_algorithm: "batch" | "sequential";
+    dispatch_candidate_radius_km: number;
+    dispatch_batch_size: number;
+    dispatch_decision_window_seconds: number;
     created_at: string;
     updated_at: string;
 }
@@ -395,8 +425,13 @@ export type DashboardStats = {
   dailyRevenue: number;
   dailyRiderEarnings: number;
   dailyOrders: number;
+  monthlyOrders?: number;
   averageTicketToday: number;
   activeOrders: number;
+  totalRiders?: number;
+  activeRiders?: number;
+  totalBusinesses?: number;
+  activeBusinesses?: number;
   orderStatusSummary: { [key: string]: number };
   topBusinesses: { business_id: string; business_name: string; order_count: number }[];
   topRiders: { rider_id: string; rider_name: string; order_count: number }[];

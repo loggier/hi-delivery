@@ -35,14 +35,42 @@ export const roleSchema = z.object({
 
 const phoneRegex = /^(?:\+?52)?(\d{10})$/;
 
+const getPhoneDigits = (phone: string) => phone.replace(/\D/g, "");
+
+const isValidMxPhone = (phone: string) => {
+  const digits = getPhoneDigits(phone);
+  return digits.length === 10 || (digits.length === 12 && digits.startsWith("52"));
+};
+
 const normalizePhone = (phone: string) => {
   if (!phone) return phone;
+
+  const digits = getPhoneDigits(phone);
+
+  if (digits.length === 10) {
+    return `+52${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("52")) {
+    return `+${digits}`;
+  }
+
   const match = phone.match(phoneRegex);
   if (match) {
     return `+52${match[1]}`;
   }
-  return phone;
+
+  return phone.trim();
 };
+
+const mxPhoneSchema = (requiredMessage = "El teléfono es requerido.") =>
+  z.string()
+    .trim()
+    .min(1, { message: requiredMessage })
+    .refine(isValidMxPhone, {
+      message: "Ingresa un número de WhatsApp válido de 10 dígitos, con o sin prefijo +52.",
+    })
+    .transform(normalizePhone);
 
 // Mínimo 8 caracteres, y al menos una mayúscula, un número o un símbolo.
 const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
@@ -227,9 +255,7 @@ export const riderAccountCreationSchema = z.object({
     firstName: z.string().min(2, { message: "El nombre es requerido." }),
     lastName: z.string().min(2, { message: "El apellido paterno es requerido." }),
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
-    phoneE164: z.string()
-        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
-        .transform(normalizePhone),
+    phoneE164: mxPhoneSchema("El número de WhatsApp es requerido."),
     password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
     passwordConfirmation: z.string(),
 }).refine(data => data.password === data.passwordConfirmation, {
@@ -244,9 +270,7 @@ export const riderApplicationBaseSchema = z.object({
     first_name: z.string().min(2, { message: "El nombre es requerido." }),
     last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
     email: z.string().email({ message: "Por favor, ingresa un email válido." }),
-    phone_e164: z.string()
-        .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
-        .transform(normalizePhone),
+    phone_e164: mxPhoneSchema(),
     password: z.string().regex(passwordRegex, { message: "La contraseña debe tener al menos 8 caracteres y una mayúscula, un número o un símbolo." }),
     passwordConfirmation: z.string(),
     
@@ -381,4 +405,3 @@ export const businessBranchSchema = z.object({
     longitude: z.coerce.number({ required_error: "La longitud es requerida." }),
     status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
-

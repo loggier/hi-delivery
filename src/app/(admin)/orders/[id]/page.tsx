@@ -14,10 +14,10 @@ import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
-import { type Order, OrderItem, type Business, type Customer, OrderStatus } from '@/types';
-import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, Ban, MoreVertical, MessageSquare } from 'lucide-react';
+import { type Order, type OrderAssignmentAttempt, OrderStatus } from '@/types';
+import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, MoreVertical, MessageSquare, BellRing, GaugeCircle, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -43,6 +43,149 @@ const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.Elemen
         </div>
     </div>
 );
+
+const assignmentOutcomeConfig: Record<OrderAssignmentAttempt["outcome"], { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline" }> = {
+    notified: { label: "Notificado", variant: "outline" },
+    accepted: { label: "Aceptó", variant: "success" },
+    rejected: { label: "Rechazó", variant: "destructive" },
+    expired: { label: "Expiró", variant: "warning" },
+    superseded: { label: "Reemplazado", variant: "default" },
+};
+
+function DispatchSummaryCard({ order }: { order: Order }) {
+    const notifiedCount = order.notified_riders?.length ?? 0;
+    const activeWaveCount = order.active_notified_riders?.length ?? 0;
+    const rejectedCount = order.rejected_riders?.length ?? 0;
+    const attempts = [...(order.order_assignment_attempts ?? [])].sort(
+        (a, b) => new Date(b.notified_at).getTime() - new Date(a.notified_at).getTime()
+    );
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Trazabilidad de Asignación</CardTitle>
+                <CardDescription>
+                    Estado actual del dispatch y registro de notificaciones enviadas a repartidores.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-lg border bg-slate-50 px-3 py-2">
+                        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                            <span>Notificados</span>
+                            <BellRing className="h-3.5 w-3.5" />
+                        </div>
+                        <p className="mt-1 text-2xl font-semibold">{notifiedCount}</p>
+                    </div>
+                    <div className="rounded-lg border bg-slate-50 px-3 py-2">
+                        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                            <span>Ola activa</span>
+                            <Users className="h-3.5 w-3.5" />
+                        </div>
+                        <p className="mt-1 text-2xl font-semibold">{activeWaveCount}</p>
+                    </div>
+                    <div className="rounded-lg border bg-slate-50 px-3 py-2">
+                        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                            <span>Rechazos</span>
+                            <XCircle className="h-3.5 w-3.5" />
+                        </div>
+                        <p className="mt-1 text-2xl font-semibold">{rejectedCount}</p>
+                    </div>
+                    <div className="rounded-lg border bg-slate-50 px-3 py-2">
+                        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-500">
+                            <span>Intentos</span>
+                            <GaugeCircle className="h-3.5 w-3.5" />
+                        </div>
+                        <p className="mt-1 text-2xl font-semibold">{order.dispatch_attempt_count ?? attempts.length}</p>
+                    </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border px-3 py-2 text-sm">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Ventana actual</p>
+                        <p className="mt-1 font-medium">
+                            {order.notification_expires_at
+                                ? format(new Date(order.notification_expires_at), "d MMM, yyyy, h:mm a", { locale: es })
+                                : "Sin ventana activa"}
+                        </p>
+                    </div>
+                    <div className="rounded-lg border px-3 py-2 text-sm">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Estado del dispatch</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                            {order.assignment_exhausted_at ? (
+                                <Badge variant="warning">Sin más candidatos</Badge>
+                            ) : null}
+                            {activeWaveCount > 0 ? (
+                                <Badge variant="default">Esperando respuesta</Badge>
+                            ) : null}
+                            {order.rider_id ? (
+                                <Badge variant="success">Rider asignado</Badge>
+                            ) : null}
+                            {!order.rider_id && !order.assignment_exhausted_at && activeWaveCount === 0 ? (
+                                <Badge variant="outline">Sin ola activa</Badge>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+
+                {attempts.length > 0 ? (
+                    <div className="space-y-3">
+                        {attempts.map((attempt) => {
+                            const outcome = assignmentOutcomeConfig[attempt.outcome] ?? assignmentOutcomeConfig.notified;
+                            const riderName = attempt.rider
+                                ? `${attempt.rider.first_name} ${attempt.rider.last_name}`.trim()
+                                : attempt.rider_id;
+
+                            return (
+                                <div key={attempt.id} className="rounded-lg border px-3 py-3">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                        <div>
+                                            <p className="font-medium text-sm">{riderName}</p>
+                                            <p className="text-xs text-slate-500">
+                                                Intento #{attempt.dispatch_attempt_no} · {attempt.algorithm === 'batch' ? 'Lote' : 'Secuencial'}
+                                            </p>
+                                        </div>
+                                        <Badge variant={outcome.variant}>{outcome.label}</Badge>
+                                    </div>
+                                    <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                                        <div>
+                                            <span className="font-medium text-slate-700">Notificado:</span>{" "}
+                                            {format(new Date(attempt.notified_at), "d MMM, h:mm a", { locale: es })}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-slate-700">Respondió:</span>{" "}
+                                            {attempt.responded_at
+                                                ? format(new Date(attempt.responded_at), "d MMM, h:mm a", { locale: es })
+                                                : "Sin respuesta"}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-slate-700">Expira:</span>{" "}
+                                            {attempt.expires_at
+                                                ? format(new Date(attempt.expires_at), "d MMM, h:mm a", { locale: es })
+                                                : "N/A"}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-slate-700">Score:</span>{" "}
+                                            {attempt.score ?? "N/A"}
+                                            {attempt.distance_km != null ? ` · ${attempt.distance_km.toFixed(2)} km` : ""}
+                                        </div>
+                                    </div>
+                                    {attempt.notes ? (
+                                        <p className="mt-2 text-xs text-slate-500">{attempt.notes}</p>
+                                    ) : null}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="rounded-lg border border-dashed px-3 py-4 text-sm text-slate-500">
+                        Todavía no hay registros en <code>order_assignment_attempts</code> para esta orden. Si ya corriste el SQL nuevo, esto se llenará cuando el dispatch registre cada notificación, rechazo, expiración o aceptación.
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
 
 const LocationMap = ({ order }: { order: Order | undefined }) => {
     const { isLoaded, loadError } = useLoadScript({
@@ -250,6 +393,7 @@ export default function ViewOrderPage() {
                     </CardContent>
                 </Card>
              )}
+             <DispatchSummaryCard order={order} />
              <Card>
                 <CardHeader>
                     <CardTitle>Mapa de la Ruta</CardTitle>

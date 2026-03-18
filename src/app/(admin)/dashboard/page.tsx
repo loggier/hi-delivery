@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Activity, Crown, TrendingUp, ShoppingCart, Trophy, Users, Wallet } from "lucide-react";
+import { Building2, Crown, ShoppingCart, Store, Trophy, TrendingUp, Users, Wallet } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -17,6 +17,7 @@ import { RevenueChart } from "./revenue-chart";
 import { OrdersChart } from "./orders-chart";
 import React from "react";
 import { OrderStatusGrid } from "./order-status-grid";
+import { RiderCapacityChart } from "./rider-capacity-chart";
 
 function KPICard({ title, value, icon: Icon, description }: { title: string, value: string | number, icon: React.ElementType, description: string }) {
   return (
@@ -72,20 +73,36 @@ const AdminDashboard = ({ data, isLoading }: { data: any, isLoading: boolean }) 
   
   return (
     <div className="space-y-4">
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <RiderCapacityChart
+          totalRiders={data?.totalRiders}
+          activeRiders={data?.activeRiders}
+          isLoading={isLoading}
+        />
+        <div className="grid gap-4 md:grid-cols-2">
+          {isLoading ? (
             <>
-                <KPICardSkeleton />
-                <KPICardSkeleton />
-                <KPICardSkeleton />
+              <KPICardSkeleton />
+              <KPICardSkeleton />
+              <KPICardSkeleton />
+              <KPICardSkeleton />
             </>
-        ) : data ? (
+          ) : data ? (
             <>
-                <KPICard title="Pedidos del Día" value={data.dailyOrders} icon={ShoppingCart} description="Total de órdenes hoy" />
-                <KPICard title="Ticket Promedio (Entregados)" value={formatCurrency(data.averageTicketToday)} icon={TrendingUp} description="Valor promedio por orden completada" />
-                <KPICard title="Pedidos Activos" value={data.activeOrders} icon={Activity} description="En preparación o en camino" />
+              <KPICard title="Negocios Registrados" value={data.totalBusinesses || 0} icon={Building2} description="Total de negocios registrados" />
+              <KPICard title="Negocios Activos" value={data.activeBusinesses || 0} icon={Store} description="Negocios con estado activo" />
+              <KPICard title="Pedidos del Día" value={data.dailyOrders} icon={ShoppingCart} description="Órdenes registradas hoy" />
+              <KPICard title="Pedidos del Mes" value={data.monthlyOrders || 0} icon={Wallet} description="Órdenes acumuladas del mes actual" />
             </>
-        ) : null}
+          ) : null}
+        </div>
+      </div>
+
+      <OrderStatusGrid data={data?.orderStatusSummary} isLoading={isLoading} />
+
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <OrdersChart data={data?.ordersLast7Days} isLoading={isLoading} />
+        <RevenueChart data={data?.revenueLast7Days} isLoading={isLoading} />
       </div>
       
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 items-start">
@@ -160,12 +177,19 @@ const BusinessOwnerDashboard = ({ data, isLoading }: { data: any, isLoading: boo
 }
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, isLoading: isAuthLoading } = useAuthStore();
   const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+  const canLoadStats = !isAuthLoading && (!isBusinessOwner || Boolean(user?.business_id));
   
   const { data, isLoading } = api.dashboard.useGetStats({ 
       business_id: isBusinessOwner ? user?.business_id : undefined 
+  }, {
+      enabled: canLoadStats,
   });
+
+  if (isAuthLoading) {
+    return <AdminDashboard data={null} isLoading={true} />;
+  }
 
   return isBusinessOwner 
     ? <BusinessOwnerDashboard data={data} isLoading={isLoading} />

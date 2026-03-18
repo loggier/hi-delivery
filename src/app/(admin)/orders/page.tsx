@@ -51,20 +51,30 @@ const OrderCountBadge = ({ count, isLoading }: { count: number, isLoading: boole
 );
 
 export default function OrdersPage() {
-  const { user } = useAuthStore();
-  const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+  const { user, isLoading: isAuthLoading } = useAuthStore();
+  const isBusinessOwner = user?.role_id === 'role-owner' || user?.role?.name === 'Dueño de Negocio';
   const businessId = isBusinessOwner ? user?.business_id : undefined;
+  const canLoadScopedData = !isAuthLoading && (!isBusinessOwner || Boolean(businessId));
 
-  const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats({ business_id: businessId });
+  const { data: dashboardStats, isLoading: isLoadingStats } = api.dashboard.useGetStats(
+    { business_id: businessId },
+    { enabled: canLoadScopedData }
+  );
   
   const { data: orders, isLoading: isLoadingOrders } = api.orders.useGetAll({
     business_id: businessId,
+  }, {
+    enabled: canLoadScopedData,
   });
 
-  const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
-  const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
+  const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({}, {
+    enabled: canLoadScopedData,
+  });
+  const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll({}, {
+    enabled: canLoadScopedData,
+  });
 
-  const isLoading = isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || isLoadingStats;
+  const isLoading = isAuthLoading || isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || isLoadingStats;
 
   const columns = React.useMemo(() => getColumns((businesses || []) as Business[], (customers || []) as Customer[]), [businesses, customers]);
   

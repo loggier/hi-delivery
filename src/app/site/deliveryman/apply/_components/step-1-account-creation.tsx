@@ -74,7 +74,7 @@ export function Step1_AccountCreation() {
               <FormInput name="firstName" label="Nombre(s)" placeholder="Ej. Juan" />
               <FormInput name="lastName" label="Apellido Paterno" placeholder="Ej. Pérez" />
               <FormInput name="email" label="Email" type="email" placeholder="tu.email@ejemplo.com" />
-              <FormInput name="phoneE164" label="Teléfono Celular (10 dígitos)" type="tel" placeholder="Ej. 5512345678" description="Se usará para notificaciones y contacto."/>
+              <FormInput name="phoneE164" label="WhatsApp (requerido)" type="tel" placeholder="Ej. 5512345678 o +525512345678" description="Se usará para notificaciones y contacto."/>
               <FormInput name="password" label="Contraseña" type="password" placeholder="********" description="Mínimo 8 caracteres y una mayúscula, un número o un símbolo."/>
               <FormInput name="passwordConfirmation" label="Confirmar Contraseña" type="password" placeholder="********" />
             </div>

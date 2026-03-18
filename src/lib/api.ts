@@ -289,7 +289,10 @@ const useCreateOrder = () => {
     });
 };
 
-const useGetDashboardStats = (filters: { business_id?: string } = {}) => {
+const useGetDashboardStats = (
+  filters: { business_id?: string } = {},
+  options?: { enabled?: boolean }
+) => {
   const queryParams = new URLSearchParams();
   if (filters.business_id) {
     queryParams.set('business_id', filters.business_id);
@@ -298,6 +301,7 @@ const useGetDashboardStats = (filters: { business_id?: string } = {}) => {
   
   return useQuery<DashboardStats>({
     queryKey: ['dashboard-stats', filters],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch dashboard stats');
@@ -390,6 +394,24 @@ const orderSelect = `*,
   rejected_riders
 `;
 
+const orderDetailSelect = `*,
+  business:businesses(name),
+  customer:customers!inner(*),
+  rider:riders(id,first_name,last_name),
+  order_items:order_items(*, products:products(name)),
+  notified_riders,
+  active_notified_riders,
+  rejected_riders,
+  notification_expires_at,
+  last_dispatch_at,
+  assignment_exhausted_at,
+  dispatch_attempt_count,
+  order_assignment_attempts:order_assignment_attempts(
+    *,
+    rider:riders(id,first_name,last_name)
+  )
+`;
+
 const rolesSelect = `*, role_permissions(*)`
 const zonesSelect = `*, areas(*)`
 const businessSelect = `*, plan:plans(name), zone:zones(name), business_branches(*)`
@@ -423,8 +445,11 @@ export const api = {
       useCreate: createApi<Customer>('customers').useCreate,
     },
     customer_addresses: createApi<CustomerAddress>('customer_addresses'),
-    orders: { 
-      ...createApi<Order>('orders', orderSelect), 
+    orders: {
+      ...createApi<Order>('orders', orderSelect),
+      useGetOne: (id: string, queryOptions?: { enabled?: boolean }) => {
+        return createApi<Order>('orders', orderDetailSelect).useGetOne(id, queryOptions);
+      },
       useCreate: useCreateOrder,
     },
     roles: {

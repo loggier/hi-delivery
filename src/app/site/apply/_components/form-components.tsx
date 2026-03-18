@@ -138,9 +138,9 @@ export const FormDatePicker = ({ name, label, description }: FormDatePickerProps
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
-              captionLayout="dropdown-buttons"
-              fromYear={1950}
-              toYear={new Date().getFullYear() - 18}
+              captionLayout="dropdown"
+              startMonth={new Date(1950, 0)}
+              endMonth={new Date(new Date().getFullYear() - 18, 11)}
               mode="single"
               selected={field.value}
               onSelect={field.onChange}
@@ -190,9 +190,9 @@ export const FormFutureDatePicker = ({ name, label, description }: FormDatePicke
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
-              captionLayout="dropdown-buttons"
-              fromYear={new Date().getFullYear()}
-              toYear={new Date().getFullYear() + 10}
+              captionLayout="dropdown"
+              startMonth={new Date(new Date().getFullYear(), 0)}
+              endMonth={new Date(new Date().getFullYear() + 10, 11)}
               mode="single"
               selected={field.value}
               onSelect={field.onChange}

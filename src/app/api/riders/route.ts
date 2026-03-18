@@ -72,6 +72,12 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
         if (createdUserId) {
             await supabaseAdmin.from('users').delete().eq('id', createdUserId);
         }
+        if (insertError.code === '23505') {
+            const duplicateField = typeof insertError.message === 'string' && insertError.message.includes('phone_e164')
+              ? 'El número de WhatsApp ya está registrado.'
+              : 'El correo electrónico ya está registrado.';
+            return NextResponse.json({ message: duplicateField }, { status: 409 });
+        }
         return NextResponse.json({ message: 'Error al crear el perfil del repartidor.', error: insertError.message }, { status: 500 });
     }
     
