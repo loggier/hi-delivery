@@ -368,6 +368,14 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - ahora genera `id` en cliente con prefijo `bizcat-` + `crypto.randomUUID()` antes de llamar `useCreate`
 - También se ajustó el tipo del mutation para aceptar explícitamente `{ id, name, type, active }` en creación.
 
+### Web Admin: Alta de Plan
+
+- Se corrigió `plans/new`:
+  - `grupohubs.plans.id` no tiene default en base
+  - el formulario estaba creando sin `id`
+  - ahora genera `id` en cliente con prefijo `plan-` + `crypto.randomUUID()` antes de llamar `useCreate`
+- También se ajustó el tipo del mutation para aceptar explícitamente el payload completo del plan con `id`.
+
 ### Web Admin: Validación de Negocios
 
 - Se alineó la validación de create/edit de negocios con la regla operativa actual:

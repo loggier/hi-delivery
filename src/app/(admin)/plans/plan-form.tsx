@@ -39,7 +39,7 @@ interface PlanFormProps {
 
 export function PlanForm({ initialData }: PlanFormProps) {
   const router = useRouter();
-  const createMutation = api.plans.useCreate();
+  const createMutation = api.plans.useCreate<Pick<Plan, "id" | "name" | "price" | "validity" | "rider_fee" | "fee_per_km" | "min_shipping_fee" | "min_distance" | "details">>();
   const updateMutation = api.plans.useUpdate();
 
   const isEditing = !!initialData;
@@ -64,7 +64,10 @@ export function PlanForm({ initialData }: PlanFormProps) {
       if (isEditing && initialData) {
         await updateMutation.mutateAsync({ ...data, id: initialData.id });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync({
+          id: `plan-${crypto.randomUUID()}`,
+          ...data,
+        });
       }
       router.push("/plans");
       router.refresh();
