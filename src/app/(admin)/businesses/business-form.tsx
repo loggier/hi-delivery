@@ -363,39 +363,55 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                         )}
                     />
                 </div>
-                <Separator />
-                <h3 className="text-md font-medium text-slate-800">
-                    {isEditing ? "Cambiar Contraseña (Opcional)" : "Crear Contraseña para el Propietario"}
-                </h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <FormField
+                {!isEditing && (
+                  <>
+                    <Separator />
+                    <h3 className="text-md font-medium text-slate-800">
+                      Crear Contraseña para el Propietario
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
                         control={methods.control}
                         name="password"
                         render={({ field }) => (
-                        <FormItem>
+                          <FormItem>
                             <FormLabel>Contraseña</FormLabel>
                             <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                {...field}
+                                disabled={isPending}
+                              />
                             </FormControl>
-                            <FormDescription>Mínimo 8 caracteres y una mayúscula, un número o un símbolo.</FormDescription>
+                            <FormDescription>
+                              Mínimo 8 caracteres y una mayúscula, un número o un símbolo.
+                            </FormDescription>
                             <FormMessage />
-                        </FormItem>
+                          </FormItem>
                         )}
-                    />
-                     <FormField
+                      />
+                      <FormField
                         control={methods.control}
                         name="passwordConfirmation"
                         render={({ field }) => (
-                        <FormItem>
+                          <FormItem>
                             <FormLabel>Confirmar Contraseña</FormLabel>
                             <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} disabled={isPending}/>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                {...field}
+                                disabled={isPending}
+                              />
                             </FormControl>
                             <FormMessage />
-                        </FormItem>
+                          </FormItem>
                         )}
-                    />
-                 </div>
+                      />
+                    </div>
+                  </>
+                )}
             </CardContent>
         </Card>
 

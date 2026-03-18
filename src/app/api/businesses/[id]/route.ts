@@ -112,6 +112,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const updateData = await parseBusinessFormData(formData, supabaseAdmin, businessId);
+    delete updateData.password;
+    delete updateData.passwordConfirmation;
     
     if (Object.keys(updateData).length === 0 && !formData.has('final_submission')) {
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });

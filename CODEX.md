@@ -409,6 +409,10 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - en create, la contraseña sólo se usa para crear `users`
   - en edit, si viene contraseña nueva, se actualiza en `users`
   - `owner_name` y `email` del formulario se sincronizan con el usuario asociado al negocio
+- Ajuste posterior en UI/admin:
+  - en edición de negocio ya no se muestra la sección de contraseña
+  - el cambio de password debe hacerse desde usuarios
+  - el backend de `businesses/[id]` además borra defensivamente `password` y `passwordConfirmation` del payload antes de actualizar `businesses`
 - En `business-form.tsx`, si cambia el tipo y la categoría ya no aplica, el reset de `category_id` ahora cae a `""` y revalida, en vez de quedar en `undefined`.
 - Ajuste posterior:
   - para edición de negocios no se exige ningún archivo/imágen
