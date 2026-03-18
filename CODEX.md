@@ -385,6 +385,7 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
     - detalles operativos sin fotos
     - ubicación
   - opcionales:
+    - logo, imágenes y archivos del negocio
     - información fiscal/documental
     - notas
 - `businessSchema` ahora exige explícitamente:
@@ -404,4 +405,7 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - También se endureció el update:
   - `/api/businesses/[id]` ahora normaliza y valida el formulario completo antes de actualizar
 - En `business-form.tsx`, si cambia el tipo y la categoría ya no aplica, el reset de `category_id` ahora cae a `""` y revalida, en vez de quedar en `undefined`.
+- Ajuste posterior:
+  - para edición de negocios no se exige ningún archivo/imágen
+  - `logo_url`, fotos del negocio, menú digital, INE y constancia fiscal quedaron opcionales en el schema compartido
   - `flutter analyze` sin errores nuevos; sólo permanecen los warnings/info previos del proyecto

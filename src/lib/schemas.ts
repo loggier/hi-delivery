@@ -138,12 +138,6 @@ const imageFileSchema = (message: string) =>
       .refine(file => !file || typeof file === 'string' || ACCEPTED_IMAGE_TYPES.includes(file.type), "Solo se permiten formatos .jpg, .png y .webp")
     : z.any().nullable();
 
-const requiredImageFileSchema = (message: string) =>
-  imageFileSchema(message).refine(
-    (file) => file !== null && file !== undefined && file !== "",
-    { message },
-  );
-
 const requiredNumberSchema = (message: string) =>
   z.coerce.number({
     required_error: message,
@@ -224,7 +218,7 @@ export const businessSchema = z.object({
     tax_id: z.string().optional(),
     website: z.string().url({ message: "Por favor, ingresa una URL válida." }).optional().or(z.literal('')),
     instagram: z.string().optional(),
-    logo_url: requiredImageFileSchema("El logo es requerido."),
+    logo_url: imageFileSchema("Logo opcional.").optional(),
     notes: z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
     
