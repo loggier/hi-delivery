@@ -404,6 +404,11 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - ahora procesa el formulario completo del admin, sube archivos, valida el payload y persiste `category_id` y el resto de campos operativos
 - También se endureció el update:
   - `/api/businesses/[id]` ahora normaliza y valida el formulario completo antes de actualizar
+- Separación correcta entre negocio y usuario:
+  - `password` y `passwordConfirmation` no se persisten en `businesses`
+  - en create, la contraseña sólo se usa para crear `users`
+  - en edit, si viene contraseña nueva, se actualiza en `users`
+  - `owner_name` y `email` del formulario se sincronizan con el usuario asociado al negocio
 - En `business-form.tsx`, si cambia el tipo y la categoría ya no aplica, el reset de `category_id` ahora cae a `""` y revalida, en vez de quedar en `undefined`.
 - Ajuste posterior:
   - para edición de negocios no se exige ningún archivo/imágen

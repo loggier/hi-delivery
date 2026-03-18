@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { businessSchema } from '@/lib/schemas';
+import { hashPassword } from '@/lib/auth-utils';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
     const filePath = `store/${businessId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
@@ -131,7 +132,47 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
-    Object.assign(updateData, validatedBusiness.data);
+    const {
+      password,
+      passwordConfirmation: _passwordConfirmation,
+      ...businessOnlyData
+    } = validatedBusiness.data;
+
+    const { data: businessRecord, error: businessRecordError } = await supabaseAdmin
+      .from('businesses')
+      .select('user_id')
+      .eq('id', businessId)
+      .single();
+
+    if (businessRecordError || !businessRecord?.user_id) {
+      return NextResponse.json(
+        { message: 'No se encontró el usuario asociado al negocio.' },
+        { status: 404 },
+      );
+    }
+
+    const userUpdateData: Record<string, any> = {
+      name: businessOnlyData.owner_name,
+      email: businessOnlyData.email,
+    };
+
+    if (password && password.length > 0) {
+      userUpdateData.password = await hashPassword(password);
+    }
+
+    const { error: userUpdateError } = await supabaseAdmin
+      .from('users')
+      .update(userUpdateData)
+      .eq('id', businessRecord.user_id);
+
+    if (userUpdateError) {
+      return NextResponse.json(
+        { message: userUpdateError.message || 'Error al actualizar el usuario asociado.' },
+        { status: 500 },
+      );
+    }
+
+    Object.assign(updateData, businessOnlyData);
     updateData.updated_at = new Date().toISOString();
     
     if (formData.has('final_submission')) {

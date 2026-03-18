@@ -159,8 +159,14 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
       );
     }
 
+    const {
+      password: _password,
+      passwordConfirmation: _passwordConfirmation,
+      ...businessOnlyData
+    } = validatedBusiness.data;
+
     const businessDataToInsert: Partial<Business> = {
-      ...validatedBusiness.data,
+      ...businessOnlyData,
       id: businessId,
       user_id: createdUser.id,
       status: validatedBusiness.data.status || 'PENDING_REVIEW',
