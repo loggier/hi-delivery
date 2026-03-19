@@ -129,6 +129,8 @@ export function PlanForm({ initialData }: PlanFormProps) {
                                 <SelectItem value="semanal">Semanal</SelectItem>
                                 <SelectItem value="quincenal">Quincenal</SelectItem>
                                 <SelectItem value="mensual">Mensual</SelectItem>
+                                <SelectItem value="trimestral">Trimestral</SelectItem>
+                                <SelectItem value="semestral">Semestral</SelectItem>
                                 <SelectItem value="anual">Anual</SelectItem>
                             </SelectContent>
                             </Select>

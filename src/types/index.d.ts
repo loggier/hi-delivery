@@ -380,7 +380,7 @@ export type Zone = {
     areas?: Area[];
 }
 
-export type PlanValidity = 'mensual' | 'quincenal' | 'semanal' | 'anual';
+export type PlanValidity = 'mensual' | 'quincenal' | 'semanal' | 'trimestral' | 'semestral' | 'anual';
 
 export type Plan = {
   id: string;

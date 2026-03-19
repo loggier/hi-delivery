@@ -360,6 +360,23 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - `src/app/(admin)/businesses/[id]/page.tsx`
 - El `id` fijado (`hi-delivery-businesses-google-maps`) evita que `@react-google-maps/api` trate esas cargas como scripts distintos y reduzca el warning de carga múltiple en `/businesses/new`.
 
+### Web Admin: Gestión Manual de Dispatch en Pedido
+
+- En `src/app/(admin)/orders/[id]/page.tsx` se agregaron acciones operativas para pedidos sin rider asignado:
+  - `Reenviar notificación`
+  - `Asignar rider`
+- `Reenviar notificación`:
+  - intenta ejecutar la RPC `dispatch_order`
+  - prueba varias firmas comunes (`order_id_in`, `p_order_id`, `order_id`) para convivir con instalaciones SQL distintas
+- `Asignar rider`:
+  - abre un modal con riders `status = ACTIVE` e `is_active_for_orders = true`
+  - calcula carga actual por rider desde pedidos activos y deja fuera a quienes ya tienen 2 o más
+  - al confirmar, asigna el `rider_id` directo en la orden y la mueve a `accepted`
+  - limpia la ola activa de dispatch y registra `order_events` en modo best-effort con `event_type = driver_assigned`
+- Ajuste posterior:
+  - las llamadas a Supabase para redispatch y asignación manual ahora validan `error` explícitamente
+  - las acciones laterales sólo se muestran cuando la orden sigue en un estado manualmente asignable
+
 ### Web Admin: Alta de Categoría de Negocio
 
 - Se corrigió `business-categories/new`:
@@ -375,6 +392,15 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - el formulario estaba creando sin `id`
   - ahora genera `id` en cliente con prefijo `plan-` + `crypto.randomUUID()` antes de llamar `useCreate`
 - También se ajustó el tipo del mutation para aceptar explícitamente el payload completo del plan con `id`.
+- Se ampliaron las opciones de `validity` para planes:
+  - `trimestral`
+  - `semestral`
+- El cambio quedó propagado en:
+  - tipo `PlanValidity`
+  - `planSchema`
+  - selector del formulario de planes
+  - traducciones de la columna en `/plans`
+  - cálculo de vigencia en `src/lib/api.ts`
 
 ### Web Admin: Validación de Negocios
 

@@ -26,6 +26,8 @@ const validityTranslations: Record<PlanValidity, string> = {
     mensual: "Mensual",
     quincenal: "Quincenal",
     semanal: "Semanal",
+    trimestral: "Trimestral",
+    semestral: "Semestral",
     anual: "Anual",
 };
 

@@ -486,6 +486,8 @@ export const useManageSubscription = () => {
                 case 'mensual': periodEnd.setMonth(now.getMonth() + 1); break;
                 case 'quincenal': periodEnd.setDate(now.getDate() + 15); break;
                 case 'semanal': periodEnd.setDate(now.getDate() + 7); break;
+                case 'trimestral': periodEnd.setMonth(now.getMonth() + 3); break;
+                case 'semestral': periodEnd.setMonth(now.getMonth() + 6); break;
                 case 'anual': periodEnd.setFullYear(now.getFullYear() + 1); break;
             }
 

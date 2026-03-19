@@ -378,7 +378,7 @@ export const areaSchema = z.object({
 export const planSchema = z.object({
     name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }),
     price: z.coerce.number().min(0, { message: "El precio debe ser un valor positivo." }),
-    validity: z.enum(['mensual', 'quincenal', 'semanal', 'anual']),
+    validity: z.enum(['mensual', 'quincenal', 'semanal', 'trimestral', 'semestral', 'anual']),
     rider_fee: z.coerce.number().min(0, { message: "La cuota debe ser un valor positivo." }),
     fee_per_km: z.coerce.number().min(0, { message: "La cuota por km debe ser un valor positivo." }),
     min_shipping_fee: z.coerce.number().min(0, { message: "La cuota mínima de envío debe ser un valor positivo." }),

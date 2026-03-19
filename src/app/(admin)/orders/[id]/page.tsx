@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { notFound, useParams } from 'next/navigation';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useLoadScript, GoogleMap, MarkerF, DirectionsRenderer } from '@react-google-maps/api';
@@ -16,14 +16,40 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
-import { type Order, type OrderAssignmentAttempt, OrderStatus } from '@/types';
-import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, MoreVertical, MessageSquare, BellRing, GaugeCircle, Users } from 'lucide-react';
+import { type Order, type OrderAssignmentAttempt, OrderStatus, type Rider } from '@/types';
+import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, MoreVertical, MessageSquare, BellRing, GaugeCircle, Users, RefreshCw, UserPlus, Clock3 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+const activeDeliveryStatuses: OrderStatus[] = [
+    'accepted',
+    'cooking',
+    'out_for_delivery',
+    'pending_acceptance',
+];
+const manuallyAssignableStatuses: OrderStatus[] = [
+    'pending_acceptance',
+    'accepted',
+    'cooking',
+    'out_for_delivery',
+];
+
+type AvailableRider = Pick<Rider, "id" | "first_name" | "last_name" | "phone_e164" | "zone_id" | "is_active_for_orders" | "last_location_update"> & {
+    activeOrderCount: number;
+};
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
@@ -267,10 +293,60 @@ export default function ViewOrderPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const supabase = createClient();
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [reDispatching, setReDispatching] = useState(false);
+  const [assigningRiderId, setAssigningRiderId] = useState<string | null>(null);
   
   const { data: order, isLoading, isError } = api.orders.useGetOne(id);
   const updateStatusMutation = api.orders.useUpdate();
   const [ConfirmationDialog, confirm] = useConfirm();
+
+  const availableRidersQuery = useQuery<AvailableRider[]>({
+    queryKey: ['orders', 'available-riders', order?.id],
+    enabled: isAssignDialogOpen,
+    queryFn: async () => {
+      const { data: riders, error: riderError } = await supabase
+        .from('riders')
+        .select('id, first_name, last_name, phone_e164, zone_id, is_active_for_orders, last_location_update')
+        .eq('status', 'ACTIVE')
+        .eq('is_active_for_orders', true);
+      if (riderError) {
+        throw riderError;
+      }
+
+      const riderRows = (riders ?? []) as AvailableRider[];
+      if (riderRows.length === 0) {
+        return [];
+      }
+
+      const riderIds = riderRows.map((rider) => rider.id);
+      const { data: activeOrders, error: activeOrdersError } = await supabase
+        .from('orders')
+        .select('id, rider_id, status')
+        .in('rider_id', riderIds)
+        .in('status', activeDeliveryStatuses);
+      if (activeOrdersError) {
+        throw activeOrdersError;
+      }
+
+      const loadByRider = new Map<string, number>();
+      for (const activeOrder of activeOrders ?? []) {
+        const riderId = activeOrder.rider_id as string | null;
+        if (!riderId) continue;
+        loadByRider.set(riderId, (loadByRider.get(riderId) ?? 0) + 1);
+      }
+
+      return riderRows
+        .map((rider) => ({
+          ...rider,
+          activeOrderCount: loadByRider.get(rider.id) ?? 0,
+        }))
+        .filter((rider) => rider.activeOrderCount < 2)
+        .sort((a, b) => a.activeOrderCount - b.activeOrderCount);
+    },
+  });
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
     if (!order) return;
@@ -289,6 +365,132 @@ export default function ViewOrderPage() {
         });
     }
   }
+
+  const tryDispatchOrderRpc = async (orderId: string) => {
+    const attempts = [
+      { order_id_in: orderId },
+      { p_order_id: orderId },
+      { order_id: orderId },
+    ];
+
+    let lastError: unknown = null;
+    for (const params of attempts) {
+      const { error } = await supabase.rpc('dispatch_order', params);
+      if (!error) {
+        return;
+      }
+      lastError = error;
+    }
+    throw lastError instanceof Error ? lastError : new Error('No se pudo ejecutar dispatch_order.');
+  };
+
+  const handleRedispatch = async () => {
+    if (!order) return;
+    const ok = await confirm({
+      title: '¿Reenviar notificación?',
+      description: 'Se intentará lanzar otra vez el dispatch de esta orden a riders disponibles.',
+      confirmText: 'Reenviar',
+    });
+    if (!ok) return;
+
+    setReDispatching(true);
+    try {
+      await tryDispatchOrderRpc(order.id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['orders', order.id] }),
+      ]);
+      toast({
+        title: 'Dispatch reenviado',
+        description: 'La orden volvió a entrar al flujo de notificación.',
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: 'No se pudo reenviar',
+        description: error instanceof Error ? error.message : 'Fallo al ejecutar el dispatch manual.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReDispatching(false);
+    }
+  };
+
+  const handleManualAssign = async (rider: AvailableRider) => {
+    if (!order) return;
+    const ok = await confirm({
+      title: '¿Asignar rider manualmente?',
+      description: `La orden se asignará directamente a ${rider.first_name} ${rider.last_name}.`,
+      confirmText: 'Asignar',
+    });
+    if (!ok) return;
+
+    setAssigningRiderId(rider.id);
+    try {
+      const nowIso = new Date().toISOString();
+      const payload: Record<string, unknown> = {
+        rider_id: rider.id,
+        status: 'accepted',
+        accepted_at: nowIso,
+        active_notified_riders: [],
+        notification_expires_at: null,
+        assignment_exhausted_at: null,
+        updated_at: nowIso,
+      };
+      try {
+        const { error } = await supabase
+          .from('orders')
+          .update(payload)
+          .eq('id', order.id);
+        if (error) {
+          throw error;
+        }
+      } catch {
+        delete payload.accepted_at;
+        const { error } = await supabase
+          .from('orders')
+          .update(payload)
+          .eq('id', order.id);
+        if (error) {
+          throw error;
+        }
+      }
+
+      try {
+        const { error } = await supabase.from('order_events').insert({
+          order_id: order.id,
+          rider_id: rider.id,
+          event_type: 'driver_assigned',
+          notes: 'Asignación manual desde el panel de administración.',
+        });
+        if (error) {
+          throw error;
+        }
+      } catch {
+        // Best effort only.
+      }
+
+      setIsAssignDialogOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['orders', order.id] }),
+        queryClient.invalidateQueries({ queryKey: ['orders', 'available-riders', order.id] }),
+      ]);
+      toast({
+        title: 'Rider asignado',
+        description: `${rider.first_name} ${rider.last_name} quedó asignado a la orden.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: 'No se pudo asignar',
+        description: error instanceof Error ? error.message : 'Error al asignar manualmente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAssigningRiderId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -318,8 +520,86 @@ export default function ViewOrderPage() {
   return (
     <div className="space-y-6">
       <ConfirmationDialog />
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Asignar rider manualmente</DialogTitle>
+            <DialogDescription>
+              Se muestran riders activos para órdenes. La carga actual se calcula con pedidos en curso.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {availableRidersQuery.isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : availableRidersQuery.data?.length ? (
+              availableRidersQuery.data.map((rider) => (
+                <div key={rider.id} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-1">
+                    <div className="font-medium">
+                      {rider.first_name} {rider.last_name}
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      {rider.phone_e164 || 'Sin teléfono'}{rider.zone_id ? ` · Zona ${rider.zone_id}` : ''}
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Badge variant="success">Activo para órdenes</Badge>
+                      <Badge variant={rider.activeOrderCount === 0 ? "outline" : "default"}>
+                        {rider.activeOrderCount} pedido{rider.activeOrderCount === 1 ? '' : 's'} activo{rider.activeOrderCount === 1 ? '' : 's'}
+                      </Badge>
+                      {rider.last_location_update ? (
+                        <Badge variant="outline">
+                          <Clock3 className="mr-1 h-3 w-3" />
+                          {format(new Date(rider.last_location_update), "d MMM, h:mm a", { locale: es })}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleManualAssign(rider)}
+                    disabled={assigningRiderId === rider.id}
+                  >
+                    {assigningRiderId === rider.id ? 'Asignando...' : 'Asignar'}
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">
+                No hay riders activos y disponibles en este momento.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <PageHeader title={`Pedido #${displayId}`}>
          <div className="flex items-center gap-2">
+            {!order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleRedispatch}
+                  disabled={reDispatching}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {reDispatching ? 'Reenviando...' : 'Reenviar notificación'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAssignDialogOpen(true)}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Asignar rider
+                </Button>
+              </>
+            ) : null}
             <Badge variant={statusInfo.variant} className="capitalize text-base py-1 px-3">
                 <statusInfo.icon className="mr-2 h-4 w-4" />
                 {statusInfo.label}
@@ -429,6 +709,29 @@ export default function ViewOrderPage() {
                            </Link>
                         ) : 'Sin asignar'}
                     </DetailItem>
+                    {!order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
+                      <div className="rounded-lg border border-dashed px-3 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleRedispatch}
+                            disabled={reDispatching}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            {reDispatching ? 'Reenviando...' : 'Reenviar'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setIsAssignDialogOpen(true)}
+                          >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Asignar manual
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                 </CardContent>
              </Card>
              <Card>
