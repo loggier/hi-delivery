@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { type OrderPayload } from '@/types';
 import { faker } from '@faker-js/faker';
+import { sendOrderEventPushes } from '@/lib/push-order-events';
 
 export async function POST(request: Request) {
   const supabaseAdmin = createServerClient(
@@ -52,6 +53,15 @@ export async function POST(request: Request) {
             message: "Error al crear el pedido en la base de datos.",
             error: error.message
         }, { status: 500 });
+    }
+
+    try {
+      await sendOrderEventPushes({
+        orderId,
+        type: 'dispatch_wave',
+      });
+    } catch (pushError) {
+      console.error('Push dispatch after order creation failed:', pushError);
     }
 
     return NextResponse.json(newOrder, { status: 201 });

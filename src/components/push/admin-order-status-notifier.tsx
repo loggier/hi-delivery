@@ -1,0 +1,117 @@
+"use client";
+
+import { useEffect, useRef } from 'react';
+import { PostgresChangeEvent } from '@supabase/supabase-js';
+
+import { createClient } from '@/lib/supabase/client';
+import { useAuthStore } from '@/store/auth-store';
+
+const INTERESTING_STATUSES = new Set([
+  'accepted',
+  'at_store',
+  'picked_up',
+  'on_the_way',
+  'arrived_at_destination',
+  'delivered',
+  'cancelled',
+]);
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'accepted':
+      return 'Pedido aceptado';
+    case 'at_store':
+      return 'Rider en el negocio';
+    case 'picked_up':
+      return 'Pedido recogido';
+    case 'on_the_way':
+      return 'Pedido en camino';
+    case 'arrived_at_destination':
+      return 'Rider en destino';
+    case 'delivered':
+      return 'Pedido entregado';
+    case 'cancelled':
+      return 'Pedido cancelado';
+    default:
+      return 'Actualización de pedido';
+  }
+}
+
+export function AdminOrderStatusNotifier() {
+  const { user, isAuthenticated } = useAuthStore();
+  const seenEventsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isAuthenticated || !user || typeof window === 'undefined') {
+      return;
+    }
+
+    if (!('Notification' in window)) {
+      return;
+    }
+
+    const permissionPromptKey = 'hid-admin-order-notifications-prompted';
+    if (
+      Notification.permission === 'default' &&
+      !window.localStorage.getItem(permissionPromptKey)
+    ) {
+      window.localStorage.setItem(permissionPromptKey, '1');
+      void Notification.requestPermission();
+    }
+
+    if (Notification.permission !== 'granted') {
+      return;
+    }
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`grupohubs-admin-order-status-${user.id}`)
+      .onPostgresChanges(
+        {
+          event: PostgresChangeEvent.update,
+          schema: 'grupohubs',
+          table: 'orders',
+        },
+        (payload) => {
+          const record = payload.newRecord;
+          const previous = payload.oldRecord;
+          const orderId = record.id?.toString();
+          const newStatus = record.status?.toString().toLowerCase() ?? '';
+          const oldStatus = previous.status?.toString().toLowerCase() ?? '';
+
+          if (!orderId || !INTERESTING_STATUSES.has(newStatus)) {
+            return;
+          }
+          if (newStatus === oldStatus) {
+            return;
+          }
+
+          const dedupeKey = `${orderId}:${newStatus}`;
+          if (seenEventsRef.current.has(dedupeKey)) {
+            return;
+          }
+          seenEventsRef.current.add(dedupeKey);
+
+          const customerName =
+            record.customer_name?.toString().trim() || 'Cliente';
+          const notification = new Notification(getStatusLabel(newStatus), {
+            body: `${customerName} • Pedido ${orderId}`,
+            icon: '/logo-hid.png',
+            tag: dedupeKey,
+          });
+
+          notification.onclick = () => {
+            window.focus();
+            window.location.href = `/orders/${orderId}`;
+          };
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, user]);
+
+  return null;
+}

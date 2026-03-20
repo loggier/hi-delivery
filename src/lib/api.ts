@@ -30,6 +30,45 @@ const entityTranslations: { [key: string]: string } = {
     "modules": "Módulo",
 }
 
+const entityIdPrefixes: Partial<Record<keyof typeof entityTranslations, string>> = {
+    products: "prod",
+    product_categories: "prodcat",
+    business_categories: "bizcat",
+    businesses: "biz",
+    business_branches: "branch",
+    riders: "rider",
+    users: "user",
+    zones: "zone",
+    areas: "area",
+    customers: "cust",
+    customer_addresses: "addr",
+    roles: "role",
+    plans: "plan",
+    payments: "pay",
+    orders: "ord",
+    modules: "module",
+};
+
+function ensureEntityId<T_DTO extends Record<string, unknown>>(
+    entity: keyof typeof entityTranslations,
+    dto: T_DTO,
+) {
+    const prefix = entityIdPrefixes[entity];
+    if (!prefix) {
+        return dto;
+    }
+
+    const currentId = dto.id;
+    if (typeof currentId === "string" && currentId.trim().length > 0) {
+        return dto;
+    }
+
+    return {
+        ...dto,
+        id: `${prefix}-${crypto.randomUUID()}`,
+    };
+}
+
 // --- Generic Read/Create/Delete Hooks ---
 function createApi<T extends { id: string | number }>(
   entity: keyof typeof entityTranslations,
@@ -98,7 +137,8 @@ function createApi<T extends { id: string | number }>(
 
     return useMutation<T, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
-        const { data, error } = await supabase.from(entity).insert(newItemDTO as any).select().single();
+        const payload = ensureEntityId(entity, (newItemDTO ?? {}) as Record<string, unknown>);
+        const { data, error } = await supabase.from(entity).insert(payload as any).select().single();
         if (error) throw error;
         return data as T;
       },

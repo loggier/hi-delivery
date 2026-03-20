@@ -5,46 +5,95 @@ import React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bike, ClipboardList, Package, Phone, Search } from 'lucide-react';
+import { Bike, ClipboardList, Package, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LiveMap } from './live-map';
-import { OrderStatus, type Rider } from '@/types';
+import { OrderStatus, type Rider, type Zone } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createClient } from '@/lib/supabase/client';
+
+function getInitials(firstName: string, lastName: string) {
+  return `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase();
+}
+
+function sanitizeImageUrl(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().replace(/^"+|"+$/g, "").replace(/^'+|'+$/g, "");
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (
+    normalized.startsWith("/") ||
+    normalized.startsWith("http://") ||
+    normalized.startsWith("https://") ||
+    normalized.startsWith("data:") ||
+    normalized.startsWith("blob:")
+  ) {
+    return normalized;
+  }
+
+  return undefined;
+}
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-      </CardContent>
-    </Card>
+    <div className="flex min-w-[132px] items-center gap-2 rounded-lg border bg-card px-3 py-2">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
+        <Icon className="h-3.5 w-3.5 text-slate-600" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+        <div className="text-lg font-bold leading-none">{value}</div>
+      </div>
+    </div>
   );
 }
 
 function KPICardSkeleton() {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <Skeleton className="h-4 w-2/4" />
-        <Skeleton className="h-4 w-4" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-8 w-1/4" />
-      </CardContent>
-    </Card>
+    <div className="flex min-w-[132px] items-center gap-2 rounded-lg border bg-card px-3 py-2">
+      <Skeleton className="h-8 w-8 rounded-full" />
+      <div className="space-y-1">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-5 w-10" />
+      </div>
+    </div>
   );
 }
 
 const activeOrderStatuses: OrderStatus[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
 
-const ActiveRidersTable = ({ riders, activeOrderRiderIds, searchTerm, onSearchChange }: { riders: Rider[], activeOrderRiderIds: Set<string>, searchTerm: string, onSearchChange: (value: string) => void }) => {
+const ActiveRidersTable = ({
+    riders,
+    zones,
+    activeOrderRiderIds,
+    searchTerm,
+    onSearchChange,
+    selectedZoneId,
+    onZoneChange,
+    selectedRiderId,
+    onSelectRider,
+}: {
+    riders: Rider[],
+    zones: Zone[],
+    activeOrderRiderIds: Set<string>,
+    searchTerm: string,
+    onSearchChange: (value: string) => void,
+    selectedZoneId: string,
+    onZoneChange: (value: string) => void,
+    selectedRiderId: string | null,
+    onSelectRider: (rider: Rider) => void,
+}) => {
     const filteredRiders = React.useMemo(() => {
         if (!searchTerm) return riders;
         return riders.filter(rider => 
@@ -55,46 +104,95 @@ const ActiveRidersTable = ({ riders, activeOrderRiderIds, searchTerm, onSearchCh
 
     return (
         <Card className="flex flex-col">
-            <CardHeader>
-                <CardTitle>Repartidores Activos</CardTitle>
-                <div className="relative mt-2">
-                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por nombre o teléfono..."
-                        value={searchTerm}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        className="pl-8"
-                    />
+            <CardHeader className="px-4 py-3 pb-2">
+                <CardTitle className="text-base">Repartidores Activos</CardTitle>
+                <div className="mt-2 space-y-2">
+                    <Select value={selectedZoneId} onValueChange={onZoneChange}>
+                        <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Filtrar por zona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas las zonas</SelectItem>
+                            {zones.map((zone) => (
+                                <SelectItem key={zone.id} value={zone.id}>
+                                    {zone.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <div className="relative">
+                     <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar por nombre o teléfono..."
+                            value={searchTerm}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            className="h-9 pl-8 text-xs"
+                        />
+                    </div>
                 </div>
             </CardHeader>
-            <CardContent className="flex-grow overflow-y-auto">
+            <CardContent className="flex-grow overflow-y-auto px-0 pb-0">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Repartidor</TableHead>
-                            <TableHead>Teléfono</TableHead>
-                            <TableHead>Pedido</TableHead>
+                            <TableHead className="px-4 py-2 text-[11px] uppercase tracking-wide">Repartidor</TableHead>
+                            <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Teléfono</TableHead>
+                            <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Pedido</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredRiders.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={3} className="h-24 text-center">
+                                <TableCell colSpan={3} className="h-20 text-center text-sm">
                                     No se encontraron repartidores.
                                 </TableCell>
                             </TableRow>
                         )}
                         {filteredRiders.map(rider => (
-                            <TableRow key={rider.id}>
-                                <TableCell>
-                                    <Link href={`/riders/${rider.id}`} className="font-medium hover:underline">
-                                        {rider.first_name} {rider.last_name}
-                                    </Link>
+                            <TableRow
+                                key={rider.id}
+                                className={cn(
+                                    "cursor-pointer transition-colors",
+                                    selectedRiderId === rider.id && "bg-primary/5",
+                                )}
+                                onClick={() => onSelectRider(rider)}
+                            >
+                                <TableCell className="px-4 py-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                        <Avatar className="h-9 w-9 border">
+                                            <AvatarImage src={sanitizeImageUrl(rider.avatar1x1_url)} alt={`${rider.first_name} ${rider.last_name}`} />
+                                            <AvatarFallback className="bg-slate-100 text-xs font-semibold text-slate-700">
+                                                {getInitials(rider.first_name, rider.last_name)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="space-y-0.5">
+                                            <Link
+                                                href={`/riders/${rider.id}`}
+                                                className="text-sm font-medium leading-none hover:underline"
+                                                onClick={(event) => event.stopPropagation()}
+                                            >
+                                                {rider.first_name} {rider.last_name}
+                                            </Link>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                <Badge className="px-1.5 py-0 text-[10px]" variant={rider.is_active_for_orders ? "success" : "outline"}>
+                                                    {rider.is_active_for_orders ? "Disponible" : "No disponible"}
+                                                </Badge>
+                                                {typeof rider.last_speed === 'number' ? (
+                                                    <Badge className="px-1.5 py-0 text-[10px] font-bold" variant="outline">
+                                                        {Math.round(rider.last_speed)} KPH
+                                                    </Badge>
+                                                ) : null}
+                                                {selectedRiderId === rider.id ? (
+                                                    <Badge className="px-1.5 py-0 text-[10px]" variant="default">Seleccionado</Badge>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </TableCell>
-                                <TableCell>{rider.phone_e164}</TableCell>
-                                <TableCell>
+                                <TableCell className="px-3 py-2.5 text-xs">{rider.phone_e164}</TableCell>
+                                <TableCell className="px-3 py-2.5">
                                     {activeOrderRiderIds.has(rider.id) && (
-                                        <Badge variant="warning">
+                                        <Badge className="px-1.5 py-0 text-[10px]" variant="warning">
                                             <Package className="mr-1 h-3 w-3"/>
                                             En curso
                                         </Badge>
@@ -110,28 +208,120 @@ const ActiveRidersTable = ({ riders, activeOrderRiderIds, searchTerm, onSearchCh
 }
 
 export default function MonitoringPage() {
+  const supabase = React.useMemo(() => createClient(), []);
   const [searchTerm, setSearchTerm] = React.useState('');
-  const { data: allRiders, isLoading: isLoadingRiders } = api.riders.useGetAll({}, {
-    refetchInterval: 10000, // Refetch every 10 seconds
-  });
+  const [selectedZoneId, setSelectedZoneId] = React.useState('all');
+  const [selectedRiderId, setSelectedRiderId] = React.useState<string | null>(null);
+  const [realtimeRiders, setRealtimeRiders] = React.useState<Rider[]>([]);
+  const [realtimeOrders, setRealtimeOrders] = React.useState<any[]>([]);
+  const { data: allRiders, isLoading: isLoadingRiders } = api.riders.useGetAll();
+  const { data: zones } = api.zones.useGetAll({ status: 'ACTIVE' });
+  const { data: allOrders, isLoading: isLoadingOrders } = api.orders.useGetAll();
 
-  const { data: allOrders, isLoading: isLoadingOrders } = api.orders.useGetAll({}, {
-    refetchInterval: 10000, // Refetch every 10 seconds
-  });
+  React.useEffect(() => {
+    if (allRiders) {
+      setRealtimeRiders(allRiders);
+    }
+  }, [allRiders]);
 
-  const { activeRidersWithLocation, activeRidersForTable, activeOrders, activeOrderRiderIds } = React.useMemo(() => {
-    const activeRiders = allRiders?.filter(r => r.is_active_for_orders) || [];
-    const activeRidersWithLocation = activeRiders.filter(r => r.last_latitude && r.last_longitude);
-    const activeOrders = allOrders?.filter(o => activeOrderStatuses.includes(o.status)) || [];
+  React.useEffect(() => {
+    if (allOrders) {
+      setRealtimeOrders(allOrders);
+    }
+  }, [allOrders]);
+
+  React.useEffect(() => {
+    const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA || 'public';
+    const riderChannel = supabase
+      .channel('monitoring-riders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema, table: 'riders' },
+        (payload) => {
+          setRealtimeRiders((current) => {
+            if (payload.eventType === 'DELETE') {
+              const deletedId = payload.old.id as string;
+              return current.filter((rider) => rider.id !== deletedId);
+            }
+
+            const nextRider = payload.new as Rider;
+            const existingIndex = current.findIndex((rider) => rider.id === nextRider.id);
+            if (existingIndex === -1) {
+              return [nextRider, ...current];
+            }
+
+            const updated = [...current];
+            updated[existingIndex] = { ...updated[existingIndex], ...nextRider };
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+
+    const orderChannel = supabase
+      .channel('monitoring-orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema, table: 'orders' },
+        (payload) => {
+          setRealtimeOrders((current) => {
+            if (payload.eventType === 'DELETE') {
+              const deletedId = payload.old.id as string;
+              return current.filter((order) => order.id !== deletedId);
+            }
+
+            const nextOrder = payload.new as any;
+            const existingIndex = current.findIndex((order) => order.id === nextOrder.id);
+            if (existingIndex === -1) {
+              return [nextOrder, ...current];
+            }
+
+            const updated = [...current];
+            updated[existingIndex] = { ...updated[existingIndex], ...nextOrder };
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(riderChannel);
+      supabase.removeChannel(orderChannel);
+    };
+  }, [supabase]);
+
+  const { activeRidersWithLocation, activeRidersForTable, activeOrders, activeOrderRiderIds, activeOrderByRiderId } = React.useMemo(() => {
+    const availableRiders = realtimeRiders.filter(
+      (r) => (r.status === 'approved' || (r.status as string) === 'ACTIVE') && r.is_active_for_orders
+    );
+    const filteredRiders = selectedZoneId === 'all'
+      ? availableRiders
+      : availableRiders.filter((rider) => rider.zone_id === selectedZoneId);
+    const activeRidersWithLocation = filteredRiders.filter(r => r.last_latitude && r.last_longitude);
+    const activeOrders = realtimeOrders.filter(o => activeOrderStatuses.includes(o.status));
     const activeOrderRiderIds = new Set(activeOrders.map(o => o.rider_id).filter(Boolean) as string[]);
+    const activeOrderByRiderId = new Map(
+      activeOrders
+        .filter((order) => Boolean(order.rider_id))
+        .map((order) => [order.rider_id as string, { id: order.id }]),
+    );
     
     return {
         activeRidersWithLocation,
-        activeRidersForTable: activeRiders,
+        activeRidersForTable: filteredRiders,
         activeOrders,
         activeOrderRiderIds,
+        activeOrderByRiderId,
     };
-  }, [allRiders, allOrders]);
+  }, [realtimeRiders, realtimeOrders, selectedZoneId]);
+
+  React.useEffect(() => {
+    if (!selectedRiderId) return;
+    const stillExists = activeRidersForTable.some((rider) => rider.id === selectedRiderId);
+    if (!stillExists) {
+      setSelectedRiderId(null);
+    }
+  }, [activeRidersForTable, selectedRiderId]);
   
   const isLoading = isLoadingRiders || isLoadingOrders;
 
@@ -140,31 +330,43 @@ export default function MonitoringPage() {
       <PageHeader
         title="Monitoreo en Vivo"
         description="Vista en tiempo real de repartidores y pedidos activos."
-      />
-      <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-        <div className="lg:col-span-1 flex flex-col gap-6 h-[calc(100vh-150px)]">
-            <div className="grid grid-cols-2 gap-4">
-                 {isLoading ? (
-                    <>
-                        <KPICardSkeleton />
-                        <KPICardSkeleton />
-                    </>
-                    ) : (
-                    <>
-                        <KPICard title="Repartidores Activos" value={activeRidersWithLocation.length} icon={Bike} />
-                        <KPICard title="Pedidos Activos" value={activeOrders.length} icon={ClipboardList} />
-                    </>
-                )}
-            </div>
+      >
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isLoading ? (
+            <>
+              <KPICardSkeleton />
+              <KPICardSkeleton />
+            </>
+          ) : (
+            <>
+              <KPICard title="Repartidores Activos" value={activeRidersForTable.length} icon={Bike} />
+              <KPICard title="Pedidos Activos" value={activeOrders.length} icon={ClipboardList} />
+            </>
+          )}
+        </div>
+      </PageHeader>
+      <div className="mt-3 grid flex-grow grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="flex h-[calc(100vh-150px)] flex-col gap-4 lg:col-span-1">
             <ActiveRidersTable 
                 riders={activeRidersForTable} 
+                zones={zones || []}
                 activeOrderRiderIds={activeOrderRiderIds}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
+                selectedZoneId={selectedZoneId}
+                onZoneChange={setSelectedZoneId}
+                selectedRiderId={selectedRiderId}
+                onSelectRider={(rider) => setSelectedRiderId(rider.id)}
             />
         </div>
-        <div className="lg:col-span-2 h-[60vh] lg:h-full rounded-lg overflow-hidden">
-            <LiveMap riders={activeRidersWithLocation} />
+        <div className="h-[60vh] overflow-hidden rounded-lg lg:col-span-2 lg:h-full">
+            <LiveMap
+                riders={activeRidersWithLocation}
+                activeOrderRiderIds={activeOrderRiderIds}
+                activeOrderByRiderId={activeOrderByRiderId}
+                selectedRiderId={selectedRiderId}
+                onSelectRider={(rider) => setSelectedRiderId(rider?.id ?? null)}
+            />
         </div>
       </div>
     </div>

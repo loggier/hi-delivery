@@ -147,6 +147,8 @@ export type User = {
   email: string;
   password?: string;
   avatar_url?: string;
+  web_push_token?: string;
+  web_push_token_updated_at?: string;
   role_id: string;
   status: "ACTIVE" | "INACTIVE";
   created_at: string;
@@ -344,6 +346,9 @@ export type Rider = {
   last_speed?: number;
   last_course?: number;
   last_location_update?: string;
+  push_token?: string;
+  push_platform?: string;
+  push_token_updated_at?: string;
 };
 
 

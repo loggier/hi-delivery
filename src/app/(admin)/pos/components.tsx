@@ -197,8 +197,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const methods = useForm<NewCustomerFormValues>({
         resolver: zodResolver(newCustomerSchema),
         defaultValues: {
-            firstName: '',
-            lastName: '',
+            first_name: '',
+            last_name: '',
             phone: '',
             email: ''
         },
@@ -227,8 +227,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
                 <FormProvider {...methods}>
                     <Form {...methods}>
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                             <FormInput name="firstName" label="Nombre(s)" placeholder="Juan"/>
-                             <FormInput name="lastName" label="Apellido(s)" placeholder="Pérez" />
+                             <FormInput name="first_name" label="Nombre(s)" placeholder="Juan"/>
+                             <FormInput name="last_name" label="Apellido(s)" placeholder="Pérez" />
                              <FormInput name="phone" label="Teléfono" type="tel" placeholder="5512345678" />
                              <FormInput name="email" label="Email (Opcional)" type="email" placeholder="juan.perez@email.com"/>
                              <div className="flex justify-end gap-2 pt-4">

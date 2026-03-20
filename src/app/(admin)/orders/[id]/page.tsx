@@ -49,7 +49,70 @@ const manuallyAssignableStatuses: OrderStatus[] = [
 
 type AvailableRider = Pick<Rider, "id" | "first_name" | "last_name" | "phone_e164" | "zone_id" | "is_active_for_orders" | "last_location_update"> & {
     activeOrderCount: number;
+    last_latitude?: number;
+    last_longitude?: number;
+    zoneName?: string;
+    areaName?: string;
 };
+
+function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function isPointInsidePolygon(
+  point: { lat: number; lng: number },
+  polygon?: { lat: number; lng: number }[],
+) {
+  if (!polygon || polygon.length < 3) {
+    return false;
+  }
+
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lng;
+    const yj = polygon[j].lat;
+
+    const intersects =
+      yi > point.lat !== yj > point.lat &&
+      point.lng < ((xj - xi) * (point.lat - yi)) / ((yj - yi) || Number.EPSILON) + xi;
+
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+async function triggerOrderPushEvent(
+  orderId: string,
+  type: 'dispatch_wave' | 'manual_assignment',
+) {
+  const response = await fetch('/api/push/order-event', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderId, type }),
+  });
+
+  if (!response.ok) {
+    const result = await response.json().catch(() => null);
+    throw new Error(
+      result?.message || 'No se pudieron enviar las notificaciones push.',
+    );
+  }
+}
 
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
@@ -215,6 +278,7 @@ function DispatchSummaryCard({ order }: { order: Order }) {
 
 const LocationMap = ({ order }: { order: Order | undefined }) => {
     const { isLoaded, loadError } = useLoadScript({
+        id: "hi-delivery-orders-google-maps",
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
@@ -298,6 +362,7 @@ export default function ViewOrderPage() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [reDispatching, setReDispatching] = useState(false);
   const [assigningRiderId, setAssigningRiderId] = useState<string | null>(null);
+  const [testingPush, setTestingPush] = useState(false);
   
   const { data: order, isLoading, isError } = api.orders.useGetOne(id);
   const updateStatusMutation = api.orders.useUpdate();
@@ -307,10 +372,26 @@ export default function ViewOrderPage() {
     queryKey: ['orders', 'available-riders', order?.id],
     enabled: isAssignDialogOpen,
     queryFn: async () => {
+      const { data: businessZoneRow, error: businessZoneError } = await supabase
+        .from('businesses')
+        .select('zone_id')
+        .eq('id', order?.business_id)
+        .single();
+
+      if (businessZoneError) {
+        throw businessZoneError;
+      }
+
+      const businessZoneId = businessZoneRow?.zone_id as string | null;
+      if (!businessZoneId) {
+        return [];
+      }
+
       const { data: riders, error: riderError } = await supabase
         .from('riders')
-        .select('id, first_name, last_name, phone_e164, zone_id, is_active_for_orders, last_location_update')
-        .eq('status', 'ACTIVE')
+        .select('id, first_name, last_name, phone_e164, zone_id, is_active_for_orders, last_location_update, last_latitude, last_longitude, status')
+        .in('status', ['ACTIVE', 'approved'])
+        .eq('zone_id', businessZoneId)
         .eq('is_active_for_orders', true);
       if (riderError) {
         throw riderError;
@@ -319,6 +400,23 @@ export default function ViewOrderPage() {
       const riderRows = (riders ?? []) as AvailableRider[];
       if (riderRows.length === 0) {
         return [];
+      }
+
+      const zoneIds = Array.from(new Set(riderRows.map((rider) => rider.zone_id).filter(Boolean))) as string[];
+      const [{ data: zones, error: zonesError }, { data: areas, error: areasError }] = await Promise.all([
+        zoneIds.length > 0
+          ? supabase.from('zones').select('id, name').in('id', zoneIds)
+          : Promise.resolve({ data: [], error: null }),
+        zoneIds.length > 0
+          ? supabase.from('areas').select('id, zone_id, name, status, geofence').in('zone_id', zoneIds).eq('status', 'ACTIVE')
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (zonesError) {
+        throw zonesError;
+      }
+      if (areasError) {
+        throw areasError;
       }
 
       const riderIds = riderRows.map((rider) => rider.id);
@@ -338,10 +436,27 @@ export default function ViewOrderPage() {
         loadByRider.set(riderId, (loadByRider.get(riderId) ?? 0) + 1);
       }
 
+      const zoneNameById = new Map<string, string>(
+        ((zones ?? []) as Array<{ id: string; name: string }>).map((zone) => [zone.id, zone.name]),
+      );
+      const areasByZone = new Map<string, Array<{ name: string; geofence?: { lat: number; lng: number }[] }>>();
+      for (const area of (areas ?? []) as Array<{ zone_id: string; name: string; geofence?: { lat: number; lng: number }[] }>) {
+        const currentAreas = areasByZone.get(area.zone_id) ?? [];
+        currentAreas.push({ name: area.name, geofence: area.geofence });
+        areasByZone.set(area.zone_id, currentAreas);
+      }
+
       return riderRows
         .map((rider) => ({
           ...rider,
           activeOrderCount: loadByRider.get(rider.id) ?? 0,
+          zoneName: rider.zone_id ? zoneNameById.get(rider.zone_id) : undefined,
+          areaName: rider.zone_id && typeof rider.last_latitude === 'number' && typeof rider.last_longitude === 'number'
+            ? areasByZone
+                .get(rider.zone_id)
+                ?.find((area) => isPointInsidePolygon({ lat: rider.last_latitude as number, lng: rider.last_longitude as number }, area.geofence))
+                ?.name
+            : undefined,
         }))
         .filter((rider) => rider.activeOrderCount < 2)
         .sort((a, b) => a.activeOrderCount - b.activeOrderCount);
@@ -384,6 +499,120 @@ export default function ViewOrderPage() {
     throw lastError instanceof Error ? lastError : new Error('No se pudo ejecutar dispatch_order.');
   };
 
+  const handleRedispatchFallback = async () => {
+    if (!order) {
+      throw new Error('No se encontró la orden.');
+    }
+
+    const { data: settings } = await supabase
+      .from('system_settings')
+      .select('dispatch_algorithm, dispatch_candidate_radius_km, dispatch_batch_size, dispatch_decision_window_seconds')
+      .eq('id', 1)
+      .single();
+
+    const dispatchAlgorithm = settings?.dispatch_algorithm ?? 'batch';
+    const dispatchRadiusKm = settings?.dispatch_candidate_radius_km ?? 10;
+    const dispatchBatchSize = settings?.dispatch_batch_size ?? 3;
+    const decisionWindowSeconds = settings?.dispatch_decision_window_seconds ?? 60;
+
+    const { data: riders, error: riderError } = await supabase
+      .from('riders')
+      .select('id, first_name, last_name, phone_e164, zone_id, is_active_for_orders, last_location_update, last_latitude, last_longitude, status')
+      .in('status', ['ACTIVE', 'approved'])
+      .eq('is_active_for_orders', true);
+
+    if (riderError) {
+      throw riderError;
+    }
+
+    const riderRows = (riders ?? []) as AvailableRider[];
+    if (riderRows.length === 0) {
+      throw new Error('No hay riders activos para reenviar este pedido.');
+    }
+
+    const riderIds = riderRows.map((rider) => rider.id);
+    const { data: activeOrders, error: activeOrdersError } = await supabase
+      .from('orders')
+      .select('id, rider_id, status')
+      .in('rider_id', riderIds)
+      .in('status', activeDeliveryStatuses);
+
+    if (activeOrdersError) {
+      throw activeOrdersError;
+    }
+
+    const pickupCoordinates = order.pickup_address?.coordinates;
+    const rejectedRiderIds = new Set(order.rejected_riders ?? []);
+    const loadByRider = new Map<string, number>();
+
+    for (const activeOrder of activeOrders ?? []) {
+      const riderId = activeOrder.rider_id as string | null;
+      if (!riderId) continue;
+      if (activeOrder.id === order.id) continue;
+      loadByRider.set(riderId, (loadByRider.get(riderId) ?? 0) + 1);
+    }
+
+    const candidateRiders = riderRows
+      .filter((rider) => !rejectedRiderIds.has(rider.id))
+      .map((rider) => {
+        const activeOrderCount = loadByRider.get(rider.id) ?? 0;
+        const hasLocation = typeof rider.last_latitude === 'number' && typeof rider.last_longitude === 'number';
+        const distanceKm = pickupCoordinates && hasLocation
+          ? getDistanceInKm(
+              rider.last_latitude as number,
+              rider.last_longitude as number,
+              pickupCoordinates.lat,
+              pickupCoordinates.lng,
+            )
+          : Number.POSITIVE_INFINITY;
+
+        return {
+          ...rider,
+          activeOrderCount,
+          distanceKm,
+        };
+      })
+      .filter((rider) => rider.activeOrderCount < 2)
+      .filter((rider) => !pickupCoordinates || rider.distanceKm <= dispatchRadiusKm || !Number.isFinite(rider.distanceKm))
+      .sort((a, b) => {
+        if (a.activeOrderCount !== b.activeOrderCount) {
+          return a.activeOrderCount - b.activeOrderCount;
+        }
+        return a.distanceKm - b.distanceKm;
+      });
+
+    if (candidateRiders.length === 0) {
+      throw new Error('No hay riders elegibles para reenviar este pedido.');
+    }
+
+    const selectionSize = dispatchAlgorithm === 'sequential' ? 1 : dispatchBatchSize;
+    const selectedRiders = candidateRiders.slice(0, Math.max(1, selectionSize));
+    const selectedIds = selectedRiders.map((rider) => rider.id);
+    const notifiedRiders = Array.from(new Set([...(order.notified_riders ?? []), ...selectedIds]));
+    const expiresAt = new Date(Date.now() + decisionWindowSeconds * 1000).toISOString();
+
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status: 'pending_acceptance',
+        rider_id: null,
+        active_notified_riders: selectedIds,
+        notified_riders: notifiedRiders,
+        notification_expires_at: expiresAt,
+        assignment_exhausted_at: null,
+        last_dispatch_at: new Date().toISOString(),
+        dispatch_attempt_count: (order.dispatch_attempt_count ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return selectedRiders.length;
+  };
+
   const handleRedispatch = async () => {
     if (!order) return;
     const ok = await confirm({
@@ -395,14 +624,35 @@ export default function ViewOrderPage() {
 
     setReDispatching(true);
     try {
-      await tryDispatchOrderRpc(order.id);
+      let selectedRiderCount: number | null = null;
+      try {
+        await tryDispatchOrderRpc(order.id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const shouldFallback =
+          message.includes('dispatch_order') ||
+          message.includes('function') ||
+          message.includes('schema cache');
+
+        if (!shouldFallback) {
+          throw error;
+        }
+
+        selectedRiderCount = await handleRedispatchFallback();
+      }
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['orders'] }),
         queryClient.invalidateQueries({ queryKey: ['orders', order.id] }),
       ]);
+      await triggerOrderPushEvent(order.id, 'dispatch_wave').catch((error) => {
+        console.error('Push redispatch failed:', error);
+      });
       toast({
         title: 'Dispatch reenviado',
-        description: 'La orden volvió a entrar al flujo de notificación.',
+        description: selectedRiderCount != null
+          ? `La orden volvió a entrar al flujo de notificación con ${selectedRiderCount} rider${selectedRiderCount === 1 ? '' : 's'} candidato${selectedRiderCount === 1 ? '' : 's'}.`
+          : 'La orden volvió a entrar al flujo de notificación.',
         variant: 'success',
       });
     } catch (error) {
@@ -476,6 +726,9 @@ export default function ViewOrderPage() {
         queryClient.invalidateQueries({ queryKey: ['orders', order.id] }),
         queryClient.invalidateQueries({ queryKey: ['orders', 'available-riders', order.id] }),
       ]);
+      await triggerOrderPushEvent(order.id, 'manual_assignment').catch((error) => {
+        console.error('Manual assignment push failed:', error);
+      });
       toast({
         title: 'Rider asignado',
         description: `${rider.first_name} ${rider.last_name} quedó asignado a la orden.`,
@@ -489,6 +742,34 @@ export default function ViewOrderPage() {
       });
     } finally {
       setAssigningRiderId(null);
+    }
+  };
+
+  const handleTestPush = async () => {
+    if (!order) return;
+    setTestingPush(true);
+    try {
+      await triggerOrderPushEvent(
+        order.id,
+        order.rider_id ? 'manual_assignment' : 'dispatch_wave',
+      );
+      toast({
+        title: 'Push enviado',
+        description:
+          'Se disparó una notificación de prueba hacia los destinatarios disponibles de esta orden.',
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: 'No se pudo enviar el push',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Error al enviar la notificación de prueba.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingPush(false);
     }
   };
 
@@ -543,7 +824,11 @@ export default function ViewOrderPage() {
                       {rider.first_name} {rider.last_name}
                     </div>
                     <div className="text-sm text-slate-500">
-                      {rider.phone_e164 || 'Sin teléfono'}{rider.zone_id ? ` · Zona ${rider.zone_id}` : ''}
+                      {[
+                        rider.phone_e164 || 'Sin teléfono',
+                        rider.zoneName ? `Zona ${rider.zoneName}` : rider.zone_id ? 'Zona asignada' : null,
+                        rider.areaName ? `Área ${rider.areaName}` : null,
+                      ].filter(Boolean).join(' · ')}
                     </div>
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Badge variant="success">Activo para órdenes</Badge>
@@ -568,7 +853,7 @@ export default function ViewOrderPage() {
               ))
             ) : (
               <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">
-                No hay riders activos y disponibles en este momento.
+                No hay riders activos y disponibles en la misma zona de este negocio.
               </div>
             )}
           </div>
@@ -581,6 +866,14 @@ export default function ViewOrderPage() {
       </Dialog>
       <PageHeader title={`Pedido #${displayId}`}>
          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleTestPush}
+              disabled={testingPush}
+            >
+              <BellRing className="mr-2 h-4 w-4" />
+              {testingPush ? 'Enviando push...' : 'Probar push'}
+            </Button>
             {!order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
               <>
                 <Button

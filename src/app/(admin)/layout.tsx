@@ -43,6 +43,8 @@ import { useAuthStore } from '@/store/auth-store';
 import { RolePermission } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
+import { AdminOrderStatusNotifier } from '@/components/push/admin-order-status-notifier';
+import { AdminWebPushBootstrap } from '@/components/push/admin-web-push-bootstrap';
 
 type NavItem = {
   href: string;
@@ -230,6 +232,8 @@ export default function AdminLayout({
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[auto_1fr]">
+      <AdminWebPushBootstrap />
+      <AdminOrderStatusNotifier />
        <aside className={cn(
           "hidden lg:block transition-all duration-300",
           (isSidebarCollapsed) ? "lg:w-16" : "lg:w-64"

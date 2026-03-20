@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,9 +25,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2 } from "lucide-react";
+import { Loader2, BellRing, Smartphone, Globe } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -35,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 const settingsSchema = z.object({
   id: z.number().optional(),
@@ -51,6 +54,19 @@ const settingsSchema = z.object({
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
+
+type PushTestHistoryItem = {
+  id: string;
+  createdAt: string;
+  channel: "rider" | "web";
+  targetLabel: string;
+  title: string;
+  body: string;
+  targetCount: number;
+  sentCount: number;
+  status: "success" | "error";
+  message?: string;
+};
 
 const SettingsSkeleton = () => (
     <Card>
@@ -96,7 +112,18 @@ const SettingsSkeleton = () => (
 
 export default function SettingsPage() {
   const { data: currentSettings, isLoading } = api.settings.useGet();
+  const { data: riders = [], isLoading: isLoadingRiders } = api.riders.useGetAll();
+  const { data: users = [], isLoading: isLoadingUsers } = api.users.useGetAll();
   const updateMutation = api.settings.useUpdate();
+  const { toast } = useToast();
+  const [pushChannel, setPushChannel] = useState<"rider" | "web">("rider");
+  const [pushTargetMode, setPushTargetMode] = useState<"single" | "admins">("single");
+  const [pushTargetId, setPushTargetId] = useState<string>("");
+  const [pushTitle, setPushTitle] = useState("Prueba de notificación");
+  const [pushBody, setPushBody] = useState("Este es un envío manual para validar que las push están funcionando.");
+  const [pushOrderId, setPushOrderId] = useState("");
+  const [isSendingPush, setIsSendingPush] = useState(false);
+  const [pushHistory, setPushHistory] = useState<PushTestHistoryItem[]>([]);
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -118,11 +145,168 @@ export default function SettingsPage() {
     }
   }, [currentSettings, form]);
 
+  const ridersWithPush = useMemo(
+    () =>
+      riders.filter(
+        (rider) => Boolean(rider.push_token?.trim()) && rider.status === "approved",
+      ),
+    [riders],
+  );
+
+  const webAdminsWithPush = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          user.role_id === "role-admin" &&
+          user.status === "ACTIVE" &&
+          Boolean(user.web_push_token?.trim()),
+      ),
+    [users],
+  );
+
+  useEffect(() => {
+    if (pushChannel === "rider") {
+      if (ridersWithPush.length > 0 && !ridersWithPush.some((rider) => rider.id === pushTargetId)) {
+        setPushTargetId(ridersWithPush[0].id);
+      }
+      return;
+    }
+
+    if (pushTargetMode === "single") {
+      if (
+        webAdminsWithPush.length > 0 &&
+        !webAdminsWithPush.some((user) => user.id === pushTargetId)
+      ) {
+        setPushTargetId(webAdminsWithPush[0].id);
+      }
+      return;
+    }
+
+    setPushTargetId("");
+  }, [pushChannel, pushTargetId, pushTargetMode, ridersWithPush, webAdminsWithPush]);
+
   const onSubmit = (data: SettingsFormValues) => {
     updateMutation.mutate({ ...data, id: currentSettings!.id });
   };
 
   const isPending = form.formState.isSubmitting || updateMutation.isPending;
+
+  const handleSendTestPush = async () => {
+    if (!pushTitle.trim() || !pushBody.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Datos incompletos",
+        description: "Debes capturar título y mensaje para la prueba.",
+      });
+      return;
+    }
+
+    if (pushChannel === "rider" && !pushTargetId) {
+      toast({
+        variant: "destructive",
+        title: "Selecciona un rider",
+        description: "Elige el repartidor que recibirá la notificación de prueba.",
+      });
+      return;
+    }
+
+    if (pushChannel === "web" && pushTargetMode === "single" && !pushTargetId) {
+      toast({
+        variant: "destructive",
+        title: "Selecciona un admin",
+        description: "Elige el usuario web que recibirá la prueba.",
+      });
+      return;
+    }
+
+    setIsSendingPush(true);
+
+    const currentTargetLabel =
+      pushChannel === "rider"
+        ? ridersWithPush.find((rider) => rider.id === pushTargetId)
+          ? `${ridersWithPush.find((rider) => rider.id === pushTargetId)!.first_name} ${ridersWithPush.find((rider) => rider.id === pushTargetId)!.last_name}`
+          : "Rider"
+        : pushTargetMode === "admins"
+          ? "Todos los admins activos"
+          : webAdminsWithPush.find((user) => user.id === pushTargetId)
+            ? webAdminsWithPush.find((user) => user.id === pushTargetId)!.name
+            : "Admin web";
+
+    try {
+      const response = await fetch("/api/push/test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          channel: pushChannel,
+          riderIds: pushChannel === "rider" ? [pushTargetId] : undefined,
+          userIds:
+            pushChannel === "web" && pushTargetMode === "single"
+              ? [pushTargetId]
+              : undefined,
+          adminBroadcast: pushChannel === "web" && pushTargetMode === "admins",
+          title: pushTitle.trim(),
+          body: pushBody.trim(),
+          orderId: pushOrderId.trim() || undefined,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        message?: string;
+        sentCount?: number;
+        targetCount?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "No se pudo enviar la notificación de prueba.");
+      }
+
+      toast({
+        title: "Push enviada",
+        description: `Se enviaron ${result.sentCount ?? 0} de ${result.targetCount ?? 0} notificaciones.`,
+      });
+      setPushHistory((current) => [
+        {
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          channel: pushChannel,
+          targetLabel: currentTargetLabel,
+          title: pushTitle.trim(),
+          body: pushBody.trim(),
+          targetCount: result.targetCount ?? 0,
+          sentCount: result.sentCount ?? 0,
+          status: "success",
+        },
+        ...current,
+      ].slice(0, 8));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo completar la prueba.";
+      toast({
+        variant: "destructive",
+        title: "Error al enviar push",
+        description: message,
+      });
+      setPushHistory((current) => [
+        {
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          channel: pushChannel,
+          targetLabel: currentTargetLabel,
+          title: pushTitle.trim(),
+          body: pushBody.trim(),
+          targetCount: pushChannel === "web" && pushTargetMode === "admins" ? webAdminsWithPush.length : 1,
+          sentCount: 0,
+          status: "error",
+          message,
+        },
+        ...current,
+      ].slice(0, 8));
+    } finally {
+      setIsSendingPush(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -357,6 +541,206 @@ export default function SettingsPage() {
               </div>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BellRing className="h-5 w-5" />
+            Prueba Manual de Push
+          </CardTitle>
+          <CardDescription>
+            Herramienta operativa para validar push de riders Android y web admin sin depender de una orden real.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary" className="gap-1">
+              <Smartphone className="h-3.5 w-3.5" />
+              Riders con token: {ridersWithPush.length}
+            </Badge>
+            <Badge variant="secondary" className="gap-1">
+              <Globe className="h-3.5 w-3.5" />
+              Admins web con token: {webAdminsWithPush.length}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <FormLabel>Canal</FormLabel>
+              <Select
+                value={pushChannel}
+                onValueChange={(value: "rider" | "web") => {
+                  setPushChannel(value);
+                  setPushTargetMode("single");
+                }}
+                disabled={isSendingPush}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona el canal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rider">Rider app</SelectItem>
+                  <SelectItem value="web">Web admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <FormLabel>Destino</FormLabel>
+              {pushChannel === "web" ? (
+                <Select
+                  value={pushTargetMode}
+                  onValueChange={(value: "single" | "admins") => setPushTargetMode(value)}
+                  disabled={isSendingPush}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona el alcance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Admin individual</SelectItem>
+                    <SelectItem value="admins">Todos los admins activos</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex h-10 items-center rounded-md border px-3 text-sm text-muted-foreground">
+                  Rider individual
+                </div>
+              )}
+            </div>
+            {pushChannel === "rider" && (
+              <div className="space-y-2 md:col-span-2">
+                <FormLabel>Rider</FormLabel>
+                <Select
+                  value={pushTargetId || undefined}
+                  onValueChange={setPushTargetId}
+                  disabled={isSendingPush || isLoadingRiders || ridersWithPush.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un rider con token push" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ridersWithPush.map((rider) => (
+                      <SelectItem key={rider.id} value={rider.id}>
+                        {`${rider.first_name} ${rider.last_name} · ${rider.phone_e164}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {pushChannel === "web" && pushTargetMode === "single" && (
+              <div className="space-y-2 md:col-span-2">
+                <FormLabel>Admin web</FormLabel>
+                <Select
+                  value={pushTargetId || undefined}
+                  onValueChange={setPushTargetId}
+                  disabled={isSendingPush || isLoadingUsers || webAdminsWithPush.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un admin con token web" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {webAdminsWithPush.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {`${user.name} · ${user.email}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2 md:col-span-2">
+              <FormLabel>Título</FormLabel>
+              <Input
+                value={pushTitle}
+                onChange={(event) => setPushTitle(event.target.value)}
+                placeholder="Ej. Nueva solicitud de entrega"
+                disabled={isSendingPush}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <FormLabel>Mensaje</FormLabel>
+              <Textarea
+                value={pushBody}
+                onChange={(event) => setPushBody(event.target.value)}
+                placeholder="Escribe el mensaje de la push de prueba"
+                disabled={isSendingPush}
+                className="min-h-[96px]"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <FormLabel>Order ID opcional</FormLabel>
+              <Input
+                value={pushOrderId}
+                onChange={(event) => setPushOrderId(event.target.value)}
+                placeholder="ord-xxxxxxxx"
+                disabled={isSendingPush}
+              />
+              <FormDescription>
+                Si lo envías, la push web abrirá el detalle de la orden y la app rider intentará enfocar ese pedido.
+              </FormDescription>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={handleSendTestPush}
+              disabled={
+                isSendingPush ||
+                (pushChannel === "rider" && ridersWithPush.length === 0) ||
+                (pushChannel === "web" && pushTargetMode === "single" && webAdminsWithPush.length === 0) ||
+                (pushChannel === "web" && pushTargetMode === "admins" && webAdminsWithPush.length === 0)
+              }
+            >
+              {isSendingPush && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSendingPush ? "Enviando..." : "Enviar push de prueba"}
+            </Button>
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">Últimas pruebas</h3>
+              <p className="text-sm text-muted-foreground">
+                Historial local de esta sesión para validar entrega y destino.
+              </p>
+            </div>
+            {pushHistory.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
+                Aún no has enviado pruebas manuales desde esta sesión.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pushHistory.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-lg border px-4 py-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={entry.status === "success" ? "default" : "destructive"}>
+                          {entry.status === "success" ? "Enviada" : "Error"}
+                        </Badge>
+                        <Badge variant="outline">
+                          {entry.channel === "rider" ? "Rider app" : "Web admin"}
+                        </Badge>
+                        <span className="text-sm font-medium">{entry.targetLabel}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm font-semibold">{entry.title}</p>
+                      <p className="text-sm text-muted-foreground">{entry.body}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.sentCount}/{entry.targetCount} entregadas
+                        {entry.message ? ` · ${entry.message}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

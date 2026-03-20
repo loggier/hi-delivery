@@ -19,6 +19,8 @@ interface GeofenceMapProps {
     isCreatingZone?: boolean; // Flag to indicate if we are on the "new zone" page
     newAreaPath?: { lat: number; lng: number }[] | null;
     onDrawingComplete?: (path: { lat: number; lng: number }[]) => void;
+    editableArea?: { id: string; geofence: { lat: number; lng: number }[]; color?: string } | null;
+    onEditableAreaChange?: (path: { lat: number; lng: number }[]) => void;
     onMapLoad?: (map: google.maps.Map) => void;
     onMapDragEnd?: () => void;
     onMapZoomChanged?: () => void;
@@ -36,6 +38,8 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
     isCreatingZone = false,
     newAreaPath,
     onDrawingComplete,
+    editableArea,
+    onEditableAreaChange,
     onMapLoad,
     onMapDragEnd,
     onMapZoomChanged,
@@ -43,6 +47,7 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
     mapZoom,
 }) => {
     const mainPolygonRef = useRef<google.maps.Polygon | null>(null);
+    const editableAreaPolygonRef = useRef<google.maps.Polygon | null>(null);
     const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
 
     const handleMapLoad = useCallback((map: google.maps.Map) => {
@@ -60,6 +65,13 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
             onMainGeofenceChange(newPath);
         }
     }, [onMainGeofenceChange]);
+
+    const onEditableAreaEdit = useCallback(() => {
+        if (editableAreaPolygonRef.current && onEditableAreaChange) {
+            const newPath = editableAreaPolygonRef.current.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+            onEditableAreaChange(newPath);
+        }
+    }, [onEditableAreaChange]);
 
     const handleDrawingComplete = useCallback((polygon: google.maps.Polygon) => {
         const path = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
@@ -147,7 +159,27 @@ export const GeofenceMap: React.FC<GeofenceMapProps> = ({
                     />
                 )}
 
-                {subGeofences.map(area => (
+                {editableArea && editableArea.geofence.length > 0 && (
+                    <Polygon
+                        paths={editableArea.geofence}
+                        editable
+                        draggable
+                        onMouseUp={onEditableAreaEdit}
+                        onDragEnd={onEditableAreaEdit}
+                        onLoad={(poly) => { editableAreaPolygonRef.current = poly; }}
+                        options={{
+                            fillColor: editableArea.color || "hsl(var(--hid-secondary))",
+                            fillOpacity: 0.28,
+                            strokeColor: editableArea.color || "hsl(var(--hid-secondary))",
+                            strokeWeight: 2,
+                            zIndex: 4,
+                        }}
+                    />
+                )}
+
+                {subGeofences
+                    .filter(area => area.id !== editableArea?.id)
+                    .map(area => (
                     <Polygon
                         key={area.id}
                         paths={area.geofence}

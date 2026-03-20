@@ -398,8 +398,8 @@ export const productSchema = z.object({
 });
 
 export const newCustomerSchema = z.object({
-  firstName: z.string().min(2, "El nombre es requerido."),
-  lastName: z.string().min(2, "El apellido es requerido."),
+  first_name: z.string().min(2, "El nombre es requerido."),
+  last_name: z.string().min(2, "El apellido es requerido."),
   phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),
   email: z.string().email("El email no es válido.").optional().or(z.literal('')),
 });

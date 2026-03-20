@@ -345,6 +345,29 @@ interface FormImageUploadProps {
   aspectRatio?: 'square' | 'video';
 }
 
+function sanitizePreviewUrl(value: string | null | undefined) {
+    if (!value) {
+        return null;
+    }
+
+    const normalized = value.trim().replace(/^"+|"+$/g, "").replace(/^'+|'+$/g, "");
+    if (!normalized) {
+        return null;
+    }
+
+    if (
+        normalized.startsWith("data:") ||
+        normalized.startsWith("blob:") ||
+        normalized.startsWith("/") ||
+        normalized.startsWith("http://") ||
+        normalized.startsWith("https://")
+    ) {
+        return normalized;
+    }
+
+    return null;
+}
+
 export const FormImageUpload = ({ name, label, description, aspectRatio = 'square' }: FormImageUploadProps) => {
     const { control, watch, setValue, formState: { errors } } = useFormContext();
     const watchedValue = watch(name);
@@ -360,7 +383,7 @@ export const FormImageUpload = ({ name, label, description, aspectRatio = 'squar
         }
 
         if (typeof watchedValue === 'string') {
-            setPreview(watchedValue);
+            setPreview(sanitizePreviewUrl(watchedValue));
         } else if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -461,7 +484,7 @@ const SingleImageDropzone = ({ name, label }: SingleImageDropzoneProps) => {
 
   useEffect(() => {
      if (typeof watchedValue === 'string') {
-        setPreview(watchedValue);
+        setPreview(sanitizePreviewUrl(watchedValue));
     } else if (watchedValue instanceof FileList && watchedValue.length > 0) {
         const file = watchedValue[0];
         const reader = new FileReader();

@@ -3,8 +3,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Trash2, Map, Minus, Loader2, Edit, CheckCircle, AlertCircle, Timer, Building, ArrowRight, Package } from 'lucide-react';
-import { Customer, Product, Business, Order, CustomerAddress, Plan, SystemSettings } from '@/types';
+import { Search, PlusCircle, X, MapPin, User, Phone, Home, Loader2, Edit, AlertCircle, Timer, Building, Package, Route, Map } from 'lucide-react';
+import { Customer, Business, CustomerAddress } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -15,13 +15,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormLabel, FormMessage } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
-import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoadScript, GoogleMap, MarkerF, PolylineF, Autocomplete, DirectionsRenderer } from '@react-google-maps/api';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GoogleMap, Autocomplete, DirectionsRenderer } from '@react-google-maps/api';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
-import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LocationPoint } from './page';
 import { Textarea } from '@/components/ui/textarea';
@@ -254,8 +251,8 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
     const methods = useForm<NewCustomerFormValues>({
         resolver: zodResolver(newCustomerSchema),
         defaultValues: {
-            firstName: '',
-            lastName: '',
+            first_name: '',
+            last_name: '',
             phone: '',
             email: ''
         },
@@ -312,9 +309,10 @@ interface AddressFormModalProps {
     onClose: () => void;
     customerId: string;
     addressToEdit: CustomerAddress | null;
+    isMapsLoaded: boolean;
 }
 
-export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }: AddressFormModalProps) {
+export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, isMapsLoaded }: AddressFormModalProps) {
     const methods = useForm<AddressFormValues>({
         resolver: zodResolver(customerAddressSchema),
     });
@@ -356,14 +354,15 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6 pt-4">
                             <div>
                                 <LocationMap
+                                    isMapsLoaded={isMapsLoaded}
                                     onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood }) => {
                                         methods.setValue('address', address, { shouldValidate: true });
                                         methods.setValue('latitude', lat, { shouldValidate: true });
                                         methods.setValue('longitude', lng, { shouldValidate: true });
-                                        if (city) methods.setValue('city', city);
-                                        if (state) methods.setValue('state');
-                                        if (zip_code) methods.setValue('zip_code');
-                                        if (neighborhood) methods.setValue('neighborhood');
+                                        if (city) methods.setValue('city', city, { shouldValidate: true });
+                                        if (state) methods.setValue('state', state, { shouldValidate: true });
+                                        if (zip_code) methods.setValue('zip_code', zip_code, { shouldValidate: true });
+                                        if (neighborhood) methods.setValue('neighborhood', neighborhood, { shouldValidate: true });
                                     }}
                                 />
                                 <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
@@ -385,15 +384,11 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
 }
 
 interface LocationMapProps {
+    isMapsLoaded: boolean;
     onLocationSelect: (location: { address: string, lat: number, lng: number, city: string, state: string, zip_code: string, neighborhood: string }) => void;
 }
 
-export function LocationMap({ onLocationSelect }: LocationMapProps) {
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries,
-    });
-
+export function LocationMap({ isMapsLoaded, onLocationSelect }: LocationMapProps) {
     const [location, setLocation] = React.useState<{ lat: number, lng: number }>({ lat: 19.4326, lng: -99.1332 });
     const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
     const mapRef = React.useRef<google.maps.Map | null>(null);
@@ -459,8 +454,7 @@ export function LocationMap({ onLocationSelect }: LocationMapProps) {
         }
     };
 
-    if (loadError) return <div className="text-destructive">Error al cargar el mapa.</div>;
-    if (!isLoaded) return <Skeleton className="h-96 w-full" />;
+    if (!isMapsLoaded) return <Skeleton className="h-96 w-full" />;
 
     return (
         <div className="space-y-4">
@@ -521,7 +515,7 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
     }, [isOpen]);
     
     useEffect(() => {
-        if (isLoaded && origin && destination) {
+        if (isMapsLoaded && origin && destination) {
             const directionsService = new google.maps.DirectionsService();
             directionsService.route({
                 origin: new google.maps.LatLng(origin.lat, origin.lng),
@@ -534,8 +528,10 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
                     console.error(`error fetching directions ${result}`);
                 }
             });
+        } else {
+            setDirections(null);
         }
-    }, [isLoaded, origin, destination]);
+    }, [isMapsLoaded, origin, destination]);
     
     const mapCenter = useMemo(() => {
         if (origin) return { lat: origin.lat, lng: origin.lng };
@@ -544,13 +540,13 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
     }, [origin, destination]);
 
     const mapBounds = useMemo(() => {
-        if (!isLoaded || !origin || !destination || typeof window === 'undefined') return undefined;
+        if (!isMapsLoaded || !origin || !destination || typeof window === 'undefined') return undefined;
         
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend({ lat: origin.lat, lng: origin.lng });
         bounds.extend({ lat: destination.lat, lng: destination.lng });
         return bounds;
-    }, [origin, destination, isLoaded]);
+    }, [origin, destination, isMapsLoaded]);
 
 
     return (
@@ -590,17 +586,25 @@ interface ShippingInfo {
     distance: number; // in meters
     duration: string;
     cost: number;
+    directions: google.maps.DirectionsResult | null;
 }
 
-export const useShippingCalculation = (origin: LocationPoint | null, destination: LocationPoint | null, isMapsLoaded: boolean): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
+export const useShippingCalculation = (
+    business: Pick<Business, 'id' | 'plan_id'> | null,
+    origin: LocationPoint | null,
+    destination: LocationPoint | null,
+    isMapsLoaded: boolean
+): { shippingInfo: ShippingInfo | null, isLoading: boolean, error: string | null } => {
     const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { data: settings, isLoading: isLoadingSettings } = api.settings.useGet();
+    const { data: plan, isLoading: isLoadingPlan } = api.plans.useGetOne(business?.plan_id || '', {
+        enabled: !!business?.plan_id,
+    });
 
     useEffect(() => {
-        if (isMapsLoaded && origin && destination && settings) {
+        if (isMapsLoaded && origin && destination && plan) {
             setIsLoading(true);
             setError(null);
             
@@ -618,17 +622,17 @@ export const useShippingCalculation = (origin: LocationPoint | null, destination
                         const distanceInKm = distanceInMeters / 1000;
                         const durationText = leg.duration?.text || 'N/A';
                         
-                        const RIDER_BASE_FEE_PLACEHOLDER = 30; // This should come from a plan ideally
-                        let cost = RIDER_BASE_FEE_PLACEHOLDER;
-                        if (distanceInKm > settings.min_distance_km) {
-                            const extraKm = distanceInKm - settings.min_distance_km;
-                            cost += extraKm * settings.cost_per_extra_km;
+                        let cost = plan.rider_fee;
+                        if (distanceInKm > plan.min_distance) {
+                            const extraKm = distanceInKm - plan.min_distance;
+                            cost += extraKm * plan.fee_per_km;
                         }
 
                         setShippingInfo({
                             distance: distanceInMeters,
                             duration: durationText,
-                            cost: Math.max(cost, settings.min_shipping_amount)
+                            cost: Math.max(cost, plan.min_shipping_fee),
+                            directions: result,
                         });
                         
                     } else {
@@ -640,29 +644,84 @@ export const useShippingCalculation = (origin: LocationPoint | null, destination
             );
         } else {
             setShippingInfo(null);
-            setError(null);
+            setError(
+                !business
+                    ? "Debes seleccionar un negocio para calcular el envío."
+                    : !plan && !isLoadingPlan && business?.plan_id
+                      ? "El negocio no tiene un plan válido para calcular el envío."
+                      : null
+            );
         }
-    }, [origin, destination, settings, isMapsLoaded]);
+    }, [business, origin, destination, plan, isMapsLoaded, isLoadingPlan]);
 
-    return { shippingInfo, isLoading: isLoading || isLoadingSettings, error };
+    return { shippingInfo, isLoading: isLoading || isLoadingPlan, error };
 }
 
 interface ShippingSummaryProps {
+    business: Business | null;
+    customer: Customer | null;
     origin: LocationPoint | null;
     destination: LocationPoint | null;
     packageDescription: string;
     isMapsLoaded: boolean;
+    onCreateShipping: (payload: { shippingInfo: ShippingInfo }) => void;
+    isCreating: boolean;
+    onOpenMap: () => void;
 }
 
-export function ShippingSummary({ origin, destination, packageDescription, isMapsLoaded }: ShippingSummaryProps) {
-    const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(origin, destination, isMapsLoaded);
+export function ShippingSummary({
+    business,
+    customer,
+    origin,
+    destination,
+    packageDescription,
+    isMapsLoaded,
+    onCreateShipping,
+    isCreating,
+    onOpenMap,
+}: ShippingSummaryProps) {
+    const { shippingInfo, isLoading: isLoadingShipping, error: shippingError } = useShippingCalculation(
+        business ? { id: business.id, plan_id: business.plan_id } : null,
+        origin,
+        destination,
+        isMapsLoaded
+    );
+
+    const isReadyToCreate =
+        !!business &&
+        !!customer &&
+        !!origin &&
+        !!destination &&
+        !!packageDescription.trim() &&
+        !!shippingInfo &&
+        !isLoadingShipping &&
+        !isCreating;
 
     return (
         <Card className="lg:sticky top-6">
             <CardHeader>
-                <CardTitle className="text-xl">4. Resumen del Envío</CardTitle>
+                <CardTitle className="text-xl">5. Resumen del Envío</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+                 <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                        <Building className="h-5 w-5 text-slate-500 mt-1" />
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Negocio</p>
+                            <p className="font-medium">{business?.name || 'No seleccionado'}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <User className="h-5 w-5 text-slate-500 mt-1" />
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Cliente</p>
+                            <p className="font-medium">
+                                {customer ? `${customer.first_name} ${customer.last_name}` : 'No seleccionado'}
+                            </p>
+                        </div>
+                    </div>
+                 </div>
+
                  <div className="space-y-4">
                     <div className="flex items-start gap-3">
                         <Building className="h-5 w-5 text-slate-500 mt-1" />
@@ -710,6 +769,15 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
                                         <span className="font-semibold">Costo de envío</span>
                                         <span className="font-bold text-primary">{formatCurrency(shippingInfo.cost)}</span>
                                     </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="mt-3 w-full"
+                                        onClick={onOpenMap}
+                                    >
+                                        <Route className="mr-2 h-4 w-4" />
+                                        Ver ruta
+                                    </Button>
                                 </>
                              ) : null}
                         </div>
@@ -720,7 +788,13 @@ export function ShippingSummary({ origin, destination, packageDescription, isMap
                     )}
                 </div>
                 
-                <Button size="lg" className="w-full text-lg h-12" disabled={!origin || !destination || !packageDescription}>
+                <Button
+                    size="lg"
+                    className="w-full text-lg h-12"
+                    disabled={!isReadyToCreate}
+                    onClick={() => shippingInfo && onCreateShipping({ shippingInfo })}
+                >
+                    {isCreating && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                     Crear Envío
                 </Button>
             </CardContent>

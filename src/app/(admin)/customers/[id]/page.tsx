@@ -5,7 +5,7 @@ import { notFound, useParams } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, Phone, Home, MapPin, Package, Bike, Building, Calendar, Hash, CheckCircle, Eye } from "lucide-react";
+import { Mail, Phone, Home, MapPin, Package, Bike, Building, Calendar, Hash, CheckCircle, Eye, Trash2 } from "lucide-react";
 import { useLoadScript, GoogleMap, MarkerF } from '@react-google-maps/api';
 import Link from 'next/link';
 
@@ -18,6 +18,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { type Order, type CustomerAddress, OrderStatus } from '@/types';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const libraries: ('places')[] = ['places'];
 
@@ -145,8 +146,10 @@ export default function ViewCustomerPage() {
   
   const { data: customer, isLoading, isError } = api.customers.useGetOne(id);
   const { data: addresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: id });
+  const deleteAddressMutation = api.customer_addresses.useDelete();
   
   const [selectedAddress, setSelectedAddress] = useState<CustomerAddress | null>(null);
+  const [ConfirmationDialog, confirm] = useConfirm();
 
   React.useEffect(() => {
     if (addresses && addresses.length > 0) {
@@ -156,6 +159,26 @@ export default function ViewCustomerPage() {
         setSelectedAddress(null);
     }
   }, [addresses]);
+
+  const handleDeleteAddress = async (address: CustomerAddress) => {
+    const ok = await confirm({
+      title: "¿Eliminar dirección?",
+      description: "Esta dirección se eliminará del cliente y no podrá recuperarse.",
+      confirmText: "Eliminar",
+      confirmVariant: "destructive",
+    });
+
+    if (!ok) return;
+
+    deleteAddressMutation.mutate(address.id, {
+      onSuccess: () => {
+        if (selectedAddress?.id === address.id) {
+          const remainingAddresses = (addresses ?? []).filter((item) => item.id !== address.id);
+          setSelectedAddress(remainingAddresses[0] ?? null);
+        }
+      },
+    });
+  };
 
 
   if (isLoading) {
@@ -182,6 +205,7 @@ export default function ViewCustomerPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmationDialog />
       <PageHeader title={`${customer.first_name} ${customer.last_name}`} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -227,7 +251,22 @@ export default function ViewCustomerPage() {
                                         <p className="text-sm font-medium leading-tight">{addr.address}</p>
                                         <p className="text-xs text-muted-foreground">{addr.city}, {addr.state}</p>
                                     </div>
-                                    {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />}
+                                    <div className="flex items-center gap-1.5">
+                                        {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-slate-500 hover:text-red-600"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                void handleDeleteAddress(addr);
+                                            }}
+                                            disabled={deleteAddressMutation.isPending}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

@@ -218,6 +218,81 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - tamaño de la ola activa
   - contador de intentos
   - trazabilidad reciente desde `order_assignment_attempts`
+
+## Sesión 2026-03-19
+
+### Shipping directo
+
+- `src/app/(admin)/shipping/components.tsx`:
+  - corregido el runtime de `ShippingMapModal` para usar `isMapsLoaded` en vez de `isLoaded`
+  - `AddressFormModal` y `LocationMap` ya no recargan Google Maps por separado; ahora reutilizan el loader del page con `id` estable `hi-delivery-shipping-google-maps`
+  - corregidas las asignaciones del formulario de dirección para `state`, `zip_code` y `neighborhood`
+  - corrección menor posterior: el resumen de shipping volvió a importar el ícono `Map` de `lucide-react` para evitar el runtime `Constructor Map requires 'new'`
+  - el cálculo de envío dejó de usar `system_settings` y ahora usa la misma lógica base del POS sobre el plan del negocio:
+    - `rider_fee`
+    - `fee_per_km`
+    - `min_distance`
+    - `min_shipping_fee`
+  - el resumen ahora muestra negocio y cliente, expone `Ver ruta` y puede disparar la creación del envío
+- `src/app/(admin)/shipping/page.tsx`:
+  - el flujo de shipping ahora exige seleccionar negocio, igual que POS cuando aplica
+  - si el usuario es `role-owner`, el negocio se toma automáticamente desde la sesión
+  - el botón `Crear Envío` ya crea una orden real mediante `api.orders.useCreate()` y termina en la misma ruta backend del POS (`/api/orders` -> `create_order_with_items`)
+  - el envío express se persiste como pedido sin productos (`items: []`) con:
+    - `status = pending_acceptance`
+    - `items_description` como descripción del paquete
+    - `pickup_address` desde el origen capturado
+    - `delivery_address` desde la dirección del cliente
+    - `route_path` con el resultado de Google Maps
+  - tras crear la orden, la UI navega al detalle del pedido para continuar el flujo operativo/dispatch
+
+### Push notifications
+
+- Se integró una primera capa real de push para riders y notificaciones operativas para web/admin.
+- Backend web (`hi-delivery`):
+  - se añadieron helpers:
+    - `src/lib/supabase/admin.ts`
+    - `src/lib/firebase/firebase-admin.ts`
+    - `src/lib/push-notifications.ts`
+    - `src/lib/push-order-events.ts`
+  - se añadió el endpoint `src/app/api/push/order-event/route.ts` para disparar pushes de:
+    - `dispatch_wave`
+    - `manual_assignment`
+  - `src/app/api/orders/route.ts` ahora intenta enviar push a la ola activa de riders tras crear una orden si la base ya dejó `active_notified_riders`
+  - `src/app/(admin)/orders/[id]/page.tsx` ahora dispara push explícito cuando admin:
+    - reenvía notificación
+    - asigna manualmente un rider
+- Web/admin:
+  - `src/components/push/admin-order-status-notifier.tsx` quedó suscrito a cambios realtime de `orders` para mostrar notificaciones del navegador ante cambios relevantes de estado
+  - `src/app/(admin)/layout.tsx` ya monta ese notifier globalmente en el panel
+  - esto cubre notificación operativa en navegador mientras la sesión admin está abierta
+- Flutter rider (`hid-repartidores`):
+  - se agregaron `firebase_core` y `firebase_messaging`
+  - Android quedó cableado con el plugin `com.google.gms.google-services`
+  - `lib/services/rider_push_service.dart`:
+    - inicializa FCM
+    - registra `onMessage`, `onMessageOpenedApp` y background handler
+    - sincroniza el token del dispositivo en `riders.push_token`
+    - limpia el token al cerrar sesión
+  - `lib/main.dart` ahora inicializa Firebase antes del servicio push
+  - `login_screen.dart`, `home_screen.dart` y `profile_screen.dart` quedaron conectados al ciclo de vida del token
+  - `rider_notification_service.dart` ahora puede mostrar una push remota entrante como notificación local rica dentro de la app
+- SQL versionado:
+  - `src/sql/add_push_notification_fields.sql` agrega:
+    - `riders.push_token`
+    - `riders.push_platform`
+    - `riders.push_token_updated_at`
+    - `users.web_push_token`
+    - `users.web_push_token_updated_at`
+- Limitación actual consciente:
+  - el panel web ya notifica por navegador usando realtime cuando está abierto
+  - para FCM web de fondo ya se añadió:
+    - `public/firebase-messaging-sw.js`
+    - bootstrap cliente para registrar el token del navegador en `users.web_push_token`
+    - endpoint `src/app/api/push/web-token/route.ts`
+    - soporte de envío web desde `src/lib/push-notifications.ts`
+  - sigue siendo necesaria la `NEXT_PUBLIC_FIREBASE_VAPID_KEY` para que el navegador pueda obtener el token FCM web; sin esa clave, el panel no rompe pero no registra push token de fondo
+  - `src/lib/push-order-events.ts` ahora también intenta notificar al dueño del negocio y a usuarios `role-admin` que tengan `web_push_token`
 - `order_card.dart` ahora muestra metadata de ventana/intentona cuando el pedido sigue pendiente.
 
 ### Validación
@@ -376,6 +451,67 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Ajuste posterior:
   - las llamadas a Supabase para redispatch y asignación manual ahora validan `error` explícitamente
   - las acciones laterales sólo se muestran cuando la orden sigue en un estado manualmente asignable
+  - el modal de asignación manual ahora acepta riders con estado `approved` o `ACTIVE`, porque el proyecto mezcla ambos modelos de estado
+  - el modal de asignación manual ya no muestra `zone_id` crudo:
+    - resuelve y muestra nombre de zona
+    - si el rider tiene ubicación y existe un área activa cuyo geofence lo contiene, también muestra el nombre del área
+  - el modal de asignación manual ahora restringe candidatos a la misma `zone_id` del negocio de la orden
+  - `Reenviar notificación` ahora cae a un fallback manual si la RPC `dispatch_order` no existe en esa base:
+    - consulta `system_settings`
+    - toma riders activos para órdenes
+    - filtra por carga y rechazos previos
+    - prioriza cercanía al pickup cuando hay ubicación
+    - reactiva `active_notified_riders`, `notification_expires_at` y `dispatch_attempt_count` directamente en `orders`
+  - el mapa del detalle de pedido ahora usa `id` estable en `useLoadScript` (`hi-delivery-orders-google-maps`) para evitar warnings por carga múltiple del script en navegación cliente
+
+### Web Admin: Monitoring
+
+- En `src/app/(admin)/monitoring/live-map.tsx` el loader de Google Maps ahora usa `id` estable (`hi-delivery-monitoring-google-maps`) para evitar el warning de carga múltiple del script.
+- `/monitoring` quedó más interactivo sin cambiar su estructura base:
+  - la tabla de riders ahora permite seleccionar un repartidor
+  - esa selección resalta la fila y enfoca el mapa en el rider
+  - al tocar un marcador en el mapa, también queda seleccionado en la vista
+  - el marcador seleccionado gana prioridad visual
+  - los marcadores del mapa ahora exponen `title` con nombre completo del rider y una etiqueta visual tipo label:
+    - fondo blanco
+    - texto en negrita
+    - barra lateral de 2px
+    - verde para rider libre/disponible
+    - ámbar para rider con pedido activo
+  - el detalle flotante del rider en el mapa ya no usa `InfoWindow` nativa:
+    - ahora es una tarjeta compacta propia, anclada sobre el icono
+    - se cierra al hacer click en cualquier otro punto del mapa
+    - también se cierra al hacer click fuera del mapa
+  - si el rider tiene pedido activo, la tarjeta flotante muestra link directo al detalle del pedido
+  - el mapa de monitoreo ahora usa clustering de marcadores para agrupar riders cercanos y mejorar lectura cuando hay muchos puntos
+  - `/monitoring` ahora consume cambios realtime de `riders` y `orders` vía Supabase Realtime, en vez de depender sólo de polling
+  - los marcadores del mapa ahora interpolan posición con animación suave cuando cambia la ubicación del rider, para que el desplazamiento se sienta más tipo app operativa
+  - el icono visual del rider ahora rota según `last_course`, para reflejar dirección de movimiento
+- Ajuste posterior en la lista:
+  - el listado volvió a restringirse a riders disponibles para órdenes (`is_active_for_orders = true`) con compatibilidad de estado `approved`/`ACTIVE`
+  - se agregó filtro por zona en la propia pantalla y ese filtro aplica tanto a la tabla como al mapa
+  - cada fila muestra avatar del rider usando `avatar1x1_url` cuando existe
+  - si no hay foto, cae a iniciales del nombre como fallback
+  - el avatar del listado ahora sanea `avatar1x1_url` antes de renderizar, para tolerar URLs guardadas con comillas extra
+  - la tabla ahora muestra `last_speed` en KPH por rider
+  - se compactó la densidad visual sólo en `/monitoring`:
+    - menos padding en KPIs, card de riders, controles y tabla
+    - filas y badges más densos para soportar listas largas sin verse apretado
+  - los KPIs de monitoreo se movieron al `PageHeader` en una sola línea compacta para liberar altura útil sobre el mapa y la lista
+
+### Web Admin: Edición de Riders y Previews
+
+- Se corrigió un fallo en previews de imagen compartidos que rompía edición de riders cuando la URL venía contaminada desde base, por ejemplo con comillas dobles alrededor de `https://...`.
+- En los componentes compartidos de upload de imagen:
+  - `src/app/site/apply/_components/form-components.tsx`
+  - `src/app/site/deliveryman/apply/_components/form-components.tsx`
+  ahora se sanea el string antes de pasarlo a `next/image`.
+- El saneamiento acepta sólo:
+  - `data:`
+  - `blob:`
+  - rutas locales que empiezan con `/`
+  - URLs absolutas `http://` o `https://`
+- Si el valor no cumple eso, el preview se omite en vez de romper la pantalla.
 
 ### Web Admin: Alta de Categoría de Negocio
 
@@ -401,6 +537,64 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - selector del formulario de planes
   - traducciones de la columna en `/plans`
   - cálculo de vigencia en `src/lib/api.ts`
+
+### Web Admin: Generación Centralizada de IDs en Altas
+
+- Se corrigió el patrón repetido de `id = null` en formularios que crean registros vía `api.*.useCreate()`.
+- `src/lib/api.ts` ahora genera `id` automáticamente cuando el DTO de creación no lo trae, viene vacío o viene `null`, usando prefijos por entidad.
+- Esto cubre en una sola capa las altas que dependen del create genérico, incluyendo:
+  - clientes
+  - direcciones de cliente
+  - usuarios
+  - módulos
+  - roles
+  - zonas y áreas
+  - sucursales
+  - productos y categorías
+  - planes, pagos y otros registros con `id` string
+- Con esto ya no hace falta que cada formulario recuerde construir su `id` manualmente para esas tablas.
+
+### Web Admin: Alta de Clientes
+
+- Se corrigió el desalineamiento entre formularios de cliente y la tabla `grupohubs.customers`.
+- El contrato real quedó normalizado a:
+  - `first_name`
+  - `last_name`
+  - `phone`
+  - `email`
+- Se ajustó en:
+  - `src/lib/schemas.ts` (`newCustomerSchema`)
+  - `src/app/(admin)/pos/components.tsx`
+  - `src/app/(admin)/shipping/components.tsx`
+  - `src/app/api/customers/route.ts`
+- Con esto, crear clientes desde POS o desde Shipping ya no manda `firstName`/`lastName`, sino columnas compatibles con la tabla real.
+
+### Web Admin: Detalle de Cliente
+
+- En `src/app/(admin)/customers/[id]/page.tsx` se agregó eliminación de direcciones guardadas desde la propia vista del cliente.
+- La acción:
+  - pide confirmación
+  - elimina vía `api.customer_addresses.useDelete()`
+  - y si la dirección borrada era la seleccionada en el mapa, cambia la selección a otra disponible o limpia el mapa
+
+### Web Admin: Edición de Zonas y Áreas
+
+- Se revisó el flujo de `zones/[id]/edit`:
+  - la zona principal ya soportaba edición correcta de nombre, estado y geocerca principal
+  - las áreas sólo permitían crear y eliminar; no existía edición real
+- Ahora `src/app/(admin)/zones/zone-form.tsx` soporta edición estructurada de áreas:
+  - editar nombre
+  - editar color con selector
+  - editar polígono directamente en el mapa
+- `src/app/(admin)/zones/geofence-map.tsx` ahora acepta un `editableArea` independiente:
+  - la sub-zona activa queda editable/draggable
+  - las demás áreas siguen visibles como referencia
+- La edición quedó separada de la creación:
+  - crear nueva área usa su propio panel
+  - editar área existente usa panel distinto con guardar/cancelar
+  - sólo una experiencia activa a la vez para evitar mezclar estados
+- Ajuste posterior:
+  - los botones de editar/eliminar área dentro de la tabla ahora usan `type="button"` para no disparar el submit del formulario principal de zona
 
 ### Web Admin: Validación de Negocios
 
@@ -447,3 +641,94 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - los campos opcionales de texto (`tax_id`, `website`, `instagram`, `notes`) ahora toleran `null` desde base y se normalizan a string vacío en schema y form
   - `has_delivery_service` ahora usa `false` como valor por defecto válido y ya no dispara error por quedar sin activar
   - `flutter analyze` sin errores nuevos; sólo permanecen los warnings/info previos del proyecto
+
+### Push Notifications: Prueba Manual y Cambios de Estado
+
+- En el detalle de pedido del admin (`src/app/(admin)/orders/[id]/page.tsx`) se agregó el botón `Probar push` en el header, junto a:
+  - `Reenviar notificación`
+  - `Asignar rider`
+- Ese botón reutiliza el mismo endpoint interno de push:
+  - si la orden no tiene rider, dispara `dispatch_wave`
+  - si ya tiene rider asignado, dispara `manual_assignment`
+- Se agregó el endpoint `src/app/api/push/order-status/route.ts` para recibir notificaciones internas de cambio de estado y traducirlas a push web para:
+  - admins activos
+  - dueño del negocio de la orden
+- `src/lib/push-order-events.ts` ahora expone `sendOrderStatusWebPush(...)` con títulos por fase:
+  - `accepted`
+  - `at_store`
+  - `picked_up`
+  - `on_the_way`
+  - `arrived_at_destination`
+  - `completed` / `delivered`
+  - `cancelled`
+- En la app rider (`hid-repartidores`) se agregó un bridge HTTP best-effort para reportar cambios de estado al panel web:
+  - `lib/services/order_push_bridge_service.dart`
+  - usa `POST /api/push/order-status`
+  - no bloquea la operación del rider si falla
+- `lib/env.dart` ahora define `adminPanelBaseUrl` por plataforma para entorno local:
+  - web/desktop: `http://localhost:9002`
+  - Android emulador: `http://10.0.2.2:9002`
+- Se conectó el bridge en las transiciones reales del rider:
+  - `lib/services/order_assignment_service.dart`
+    - al avanzar estados operativos (`accepted`, `at_store`, `picked_up`, `on_the_way`, etc.)
+  - `lib/screens/orders_screen.dart`
+    - al completar entrega con foto
+  - `lib/screens/map_screen.dart`
+    - al completar el pedido desde el flujo del mapa
+- Validación:
+  - `dart format` aplicado a los archivos nuevos/tocados
+  - `flutter analyze` sobre los archivos cambiados sin errores nuevos de compilación; sólo quedaron `info` previos de estilo en `orders_screen.dart`
+- Herramienta manual de prueba en admin:
+  - se agregó un panel `Prueba Manual de Push` dentro de `src/app/(admin)/settings/page.tsx`
+  - permite probar:
+    - `Rider app` a un rider individual con `push_token`
+    - `Web admin` a un admin individual con `web_push_token`
+    - `Web admin` a todos los admins activos con token
+  - soporta `title`, `body` y `orderId` opcional para abrir detalle de pedido
+- Se agregó el endpoint `src/app/api/push/test/route.ts`:
+  - para riders usa `sendPushToRiders(...)`
+  - para web usa `sendPushToWebUsers(...)`
+  - y para broadcast admin resuelve server-side a todos los `role-admin` activos con token web
+- Ubicación elegida:
+  - `Configuración` en lugar de `Riders`
+  - razón: es una herramienta operativa global y no una acción propia del expediente de un rider
+- Ajuste posterior en `Configuración`:
+  - el panel de prueba manual ahora muestra un historial local de las últimas pruebas enviadas en la sesión
+  - se registra:
+    - canal
+    - destino
+    - título/mensaje
+    - cuántas notificaciones se intentaron y cuántas salieron como enviadas
+    - error si la prueba falla
+
+### Rider App: Política de Tracking en Tiempo Real
+
+- Se endureció `hid-repartidores/lib/services/rider_availability_service.dart` para que el rider activo actualice ubicación con reglas explícitas:
+  - si está detenido: heartbeat cada 10 minutos
+  - si está en movimiento: actualización al acumular 10 metros
+  - si cambia el curso más de 30 grados: actualización anticipada, siempre que ya haya al menos ~3 metros de desplazamiento real
+- Implementación técnica:
+  - el stream de GPS sigue abierto con alta frecuencia
+  - la app filtra localmente antes de escribir en `riders`
+  - se guarda y compara:
+    - última posición enviada
+    - último curso enviado
+    - timestamp del último envío
+- Se añadió un timer interno de heartbeat estacionario para que el rider no “desaparezca” cuando permanece detenido con la app activa.
+- Validación:
+  - `dart format` aplicado
+  - `flutter analyze lib/services/rider_availability_service.dart` sin issues
+
+### Seguridad: Credenciales Firebase / Google Services
+
+- Se reforzó `.gitignore` en ambos proyectos para ignorar credenciales sensibles de Firebase y Google Services:
+  - `firebase-*.json`
+  - `*firebase*.json`
+  - `google-service.json`
+  - `google-services.json`
+  - `GoogleService-Info.plist`
+  - `service-account*.json`
+- En `hi-delivery` además se sacaron del índice de Git, sin borrar archivos locales:
+  - `firebase-push.json`
+  - `dev2026-914cf-firebase-adminsdk-fbsvc-02c14893a9.json`
+- En `hid-repartidores`, `android/google-services.json` ya quedó efectivamente cubierto por `.gitignore`.

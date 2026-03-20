@@ -7,7 +7,7 @@ import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { Loader2, Save, Trash, X, PlusCircle } from "lucide-react";
+import { Loader2, Save, Trash, X, PlusCircle, Pencil } from "lucide-react";
 import { useLoadScript } from '@react-google-maps/api';
 import { faker } from "@faker-js/faker";
 
@@ -37,12 +37,18 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
   const createZoneMutation = api.zones.useCreate();
   const updateZoneMutation = api.zones.useUpdate();
   const createAreaMutation = api.areas.useCreate();
+  const updateAreaMutation = api.areas.useUpdate();
   const deleteAreaMutation = api.areas.useDelete();
   const [ConfirmationDialog, confirm] = useConfirm();
 
   const [isDrawingArea, setIsDrawingArea] = useState(false);
   const [newAreaGeofence, setNewAreaGeofence] = useState<{ lat: number; lng: number }[] | null>(null);
   const [newAreaName, setNewAreaName] = useState("");
+  const [newAreaColor, setNewAreaColor] = useState(areaColors[0]);
+  const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [editingAreaName, setEditingAreaName] = useState("");
+  const [editingAreaColor, setEditingAreaColor] = useState(areaColors[0]);
+  const [editingAreaGeofence, setEditingAreaGeofence] = useState<{ lat: number; lng: number }[] | null>(null);
   
   const mapRef = useRef<google.maps.Map | null>(null);
   const [mapCenter, setMapCenter] = useState<google.maps.LatLngLiteral | undefined>();
@@ -89,9 +95,6 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
       alert("Por favor, asigna un nombre y dibuja la geocerca para la nueva área.");
       return;
     }
-    
-    const existingAreasCount = initialData.areas?.length || 0;
-    const newAreaColor = areaColors[existingAreasCount % areaColors.length];
 
     await createAreaMutation.mutateAsync({
         id: `area-${faker.string.uuid()}`,
@@ -104,7 +107,40 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
 
     setNewAreaName("");
     setNewAreaGeofence(null);
+    setNewAreaColor(areaColors[0]);
     setIsDrawingArea(false);
+  };
+
+  const handleStartEditArea = (area: Area) => {
+    setIsDrawingArea(false);
+    setNewAreaGeofence(null);
+    setNewAreaName("");
+    setEditingArea(area);
+    setEditingAreaName(area.name);
+    setEditingAreaColor(area.color || areaColors[0]);
+    setEditingAreaGeofence(area.geofence || []);
+  };
+
+  const handleCancelEditArea = () => {
+    setEditingArea(null);
+    setEditingAreaName("");
+    setEditingAreaColor(areaColors[0]);
+    setEditingAreaGeofence(null);
+  };
+
+  const handleSaveEditedArea = async () => {
+    if (!editingArea || !editingAreaName || !editingAreaGeofence) {
+      return;
+    }
+
+    await updateAreaMutation.mutateAsync({
+      id: editingArea.id,
+      name: editingAreaName,
+      color: editingAreaColor,
+      geofence: editingAreaGeofence,
+    });
+
+    handleCancelEditArea();
   };
   
   const handleDeleteArea = async (areaId: string, areaName: string) => {
@@ -128,7 +164,7 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
     }
   }, []);
   
-  const isPending = updateZoneMutation.isPending || createAreaMutation.isPending || createZoneMutation.isPending;
+  const isPending = updateZoneMutation.isPending || createAreaMutation.isPending || updateAreaMutation.isPending || createZoneMutation.isPending;
 
   return (
     <>
@@ -181,6 +217,11 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                 <Button type="button" variant={isDrawingArea ? "secondary" : "outline"} onClick={() => {
                     setIsDrawingArea(!isDrawingArea);
                     setNewAreaGeofence(null);
+                    if (!isDrawingArea) {
+                      handleCancelEditArea();
+                      const existingAreasCount = initialData?.areas?.length || 0;
+                      setNewAreaColor(areaColors[existingAreasCount % areaColors.length]);
+                    }
                     }}>
                     {isDrawingArea ? <X className="mr-2"/> : <PlusCircle className="mr-2" />}
                     {isDrawingArea ? "Cancelar Creación" : "Añadir Nueva Área"}
@@ -201,9 +242,14 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                             </TableCell>
                             <TableCell><Badge variant={area.status === 'ACTIVE' ? 'success' : 'outline'}>{area.status}</Badge></TableCell>
                             <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteArea(area.id, area.name)}>
-                                <Trash className="text-destructive"/>
-                            </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleStartEditArea(area)}>
+                                    <Pencil className="h-4 w-4"/>
+                                </Button>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteArea(area.id, area.name)}>
+                                    <Trash className="text-destructive"/>
+                                </Button>
+                              </div>
                             </TableCell>
                         </TableRow>
                         ))
@@ -220,6 +266,22 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                             <Label>Nombre de la Nueva Área</Label>
                             <Input value={newAreaName} onChange={(e) => setNewAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro"/>
                         </div>
+                        <div className="w-full sm:w-52">
+                            <Label>Color</Label>
+                            <Select value={newAreaColor} onValueChange={setNewAreaColor}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {areaColors.map((color) => (
+                                        <SelectItem key={color} value={color}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-3.5 w-3.5 rounded-full border" style={{ backgroundColor: color }} />
+                                                {color}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="flex gap-2">
                             <Button type="button" onClick={handleSaveNewArea} disabled={!newAreaName || !newAreaGeofence || isPending}>
                                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
@@ -227,6 +289,46 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                             </Button>
                         </div>
                     </div>
+                    </CardContent>
+                )}
+                {editingArea && (
+                    <CardContent className="border-t pt-6 bg-slate-50 dark:bg-slate-900">
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+                          <div className="flex-grow">
+                            <Label>Nombre del Área</Label>
+                            <Input value={editingAreaName} onChange={(e) => setEditingAreaName(e.target.value)} placeholder="Ej. Cuadrante Centro" />
+                          </div>
+                          <div className="w-full lg:w-52">
+                            <Label>Color</Label>
+                            <Select value={editingAreaColor} onValueChange={setEditingAreaColor}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {areaColors.map((color) => (
+                                        <SelectItem key={color} value={color}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-3.5 w-3.5 rounded-full border" style={{ backgroundColor: color }} />
+                                                {color}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button type="button" variant="outline" onClick={handleCancelEditArea}>
+                              Cancelar
+                            </Button>
+                            <Button type="button" onClick={handleSaveEditedArea} disabled={!editingAreaName || !editingAreaGeofence || isPending}>
+                              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                              <Save className="mr-2"/> Guardar Área
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Puedes editar el nombre, cambiar el color y ajustar el polígono directamente en el mapa arrastrando sus vértices.
+                        </p>
+                      </div>
                     </CardContent>
                 )}
             </Card>
@@ -256,6 +358,12 @@ export function ZoneForm({ initialData }: { initialData?: Zone | null }) {
                         onDrawingComplete={(path) => {
                             setNewAreaGeofence(path);
                         }}
+                        editableArea={editingArea && editingAreaGeofence ? {
+                          id: editingArea.id,
+                          geofence: editingAreaGeofence,
+                          color: editingAreaColor,
+                        } : null}
+                        onEditableAreaChange={setEditingAreaGeofence}
                         onMapLoad={map => (mapRef.current = map)}
                         onMapDragEnd={handleMapStateChange}
                         onMapZoomChanged={handleMapStateChange}

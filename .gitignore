@@ -43,3 +43,12 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# Firebase / Google services credentials
+firebase-*.json
+*firebase*.json
+google-service.json
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+*-service-account*.json
