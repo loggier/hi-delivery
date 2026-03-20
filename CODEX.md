@@ -732,3 +732,10 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - `firebase-push.json`
   - `dev2026-914cf-firebase-adminsdk-fbsvc-02c14893a9.json`
 - En `hid-repartidores`, `android/google-services.json` ya quedó efectivamente cubierto por `.gitignore`.
+- Limpieza adicional de secretos web:
+  - se eliminó la configuración hardcodeada de Firebase Web del código fuente
+  - `src/lib/firebase/firebase-web.ts` ahora sólo lee `NEXT_PUBLIC_FIREBASE_*` desde variables de entorno
+  - el service worker dejó de vivir en `public/firebase-messaging-sw.js`
+  - ahora se sirve dinámicamente desde `src/app/firebase-messaging-sw.js/route.ts`, usando variables de entorno al responder el JS
+  - `src/components/push/admin-web-push-bootstrap.tsx` ya no intenta registrar web push si falta configuración Firebase web
+- Se reescribió `main` para sacar del historial remoto el commit que contenía la API key web de Firebase/Google y se hizo `push --force-with-lease`.
