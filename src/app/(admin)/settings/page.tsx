@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, BellRing, Smartphone, Globe } from "lucide-react";
@@ -566,7 +567,7 @@ export default function SettingsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <FormLabel>Canal</FormLabel>
+              <Label>Canal</Label>
               <Select
                 value={pushChannel}
                 onValueChange={(value: "rider" | "web") => {
@@ -585,7 +586,7 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <FormLabel>Destino</FormLabel>
+              <Label>Destino</Label>
               {pushChannel === "web" ? (
                 <Select
                   value={pushTargetMode}
@@ -608,7 +609,7 @@ export default function SettingsPage() {
             </div>
             {pushChannel === "rider" && (
               <div className="space-y-2 md:col-span-2">
-                <FormLabel>Rider</FormLabel>
+                <Label>Rider</Label>
                 <Select
                   value={pushTargetId || undefined}
                   onValueChange={setPushTargetId}
@@ -629,7 +630,7 @@ export default function SettingsPage() {
             )}
             {pushChannel === "web" && pushTargetMode === "single" && (
               <div className="space-y-2 md:col-span-2">
-                <FormLabel>Admin web</FormLabel>
+                <Label>Admin web</Label>
                 <Select
                   value={pushTargetId || undefined}
                   onValueChange={setPushTargetId}
@@ -649,7 +650,7 @@ export default function SettingsPage() {
               </div>
             )}
             <div className="space-y-2 md:col-span-2">
-              <FormLabel>Título</FormLabel>
+              <Label>Título</Label>
               <Input
                 value={pushTitle}
                 onChange={(event) => setPushTitle(event.target.value)}
@@ -658,7 +659,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <FormLabel>Mensaje</FormLabel>
+              <Label>Mensaje</Label>
               <Textarea
                 value={pushBody}
                 onChange={(event) => setPushBody(event.target.value)}
@@ -668,16 +669,16 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <FormLabel>Order ID opcional</FormLabel>
+              <Label>Order ID opcional</Label>
               <Input
                 value={pushOrderId}
                 onChange={(event) => setPushOrderId(event.target.value)}
                 placeholder="ord-xxxxxxxx"
                 disabled={isSendingPush}
               />
-              <FormDescription>
+              <p className="text-sm text-muted-foreground">
                 Si lo envías, la push web abrirá el detalle de la orden y la app rider intentará enfocar ese pedido.
-              </FormDescription>
+              </p>
             </div>
           </div>
           <div className="flex justify-end">

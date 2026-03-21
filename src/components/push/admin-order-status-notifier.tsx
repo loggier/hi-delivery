@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
-import { PostgresChangeEvent } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/auth-store';
@@ -64,17 +63,19 @@ export function AdminOrderStatusNotifier() {
     }
 
     const supabase = createClient();
+    const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA || 'public';
     const channel = supabase
       .channel(`grupohubs-admin-order-status-${user.id}`)
-      .onPostgresChanges(
+      .on(
+        'postgres_changes',
         {
-          event: PostgresChangeEvent.update,
-          schema: 'grupohubs',
+          event: 'UPDATE',
+          schema,
           table: 'orders',
         },
         (payload) => {
-          const record = payload.newRecord;
-          const previous = payload.oldRecord;
+          const record = payload.new as Record<string, unknown>;
+          const previous = payload.old as Record<string, unknown>;
           const orderId = record.id?.toString();
           const newStatus = record.status?.toString().toLowerCase() ?? '';
           const oldStatus = previous.status?.toString().toLowerCase() ?? '';

@@ -719,6 +719,28 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - `dart format` aplicado
   - `flutter analyze lib/services/rider_availability_service.dart` sin issues
 
+### Rider App: Estado y Control de Push en Perfil
+
+- `hid-repartidores/lib/services/rider_push_service.dart` ahora expone estado útil de push por sesión:
+  - permiso del sistema
+  - token local disponible o no
+  - token registrado en servidor o no
+  - fecha del último registro remoto
+- Se agregaron acciones explícitas:
+  - activar recepción de notificaciones
+  - desactivar recepción para el dispositivo actual
+  - solicitar permiso nuevamente
+  - validar / re-registrar token
+- `hid-repartidores/lib/screens/profile_screen.dart` ahora muestra una tarjeta de `Notificaciones` en Perfil:
+  - switch de activación
+  - estado visual de permiso
+  - estado del token local
+  - estado del token en servidor
+  - último momento de registro del token
+- Validación:
+  - `dart format` aplicado
+  - `flutter analyze lib/services/rider_push_service.dart lib/screens/profile_screen.dart` sin issues
+
 ### Seguridad: Credenciales Firebase / Google Services
 
 - Se reforzó `.gitignore` en ambos proyectos para ignorar credenciales sensibles de Firebase y Google Services:
@@ -739,3 +761,14 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - ahora se sirve dinámicamente desde `src/app/firebase-messaging-sw.js/route.ts`, usando variables de entorno al responder el JS
   - `src/components/push/admin-web-push-bootstrap.tsx` ya no intenta registrar web push si falta configuración Firebase web
 - Se reescribió `main` para sacar del historial remoto el commit que contenía la API key web de Firebase/Google y se hizo `push --force-with-lease`.
+- Configuración local posterior:
+  - `.env` local del proyecto web ya quedó preparado con:
+    - `NEXT_PUBLIC_FIREBASE_API_KEY`
+    - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+    - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+    - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+    - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+    - `NEXT_PUBLIC_FIREBASE_APP_ID`
+    - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
+    - `FIREBASE_ADMIN_CREDENTIALS_PATH`
+  - `NEXT_PUBLIC_FIREBASE_VAPID_KEY` quedó pendiente de llenar desde Firebase Console, porque no viene en los JSON locales.
