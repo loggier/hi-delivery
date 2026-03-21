@@ -741,6 +741,27 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - `dart format` aplicado
   - `flutter analyze lib/services/rider_push_service.dart lib/screens/profile_screen.dart` sin issues
 
+### Rider Tracking: Historial de Posiciones
+
+- Se agregó el script SQL `src/sql/add_rider_location_history.sql` para crear `grupohubs.rider_location_history`.
+- La tabla guarda cada punto confirmado de tracking con:
+  - `rider_id`
+  - `latitude`
+  - `longitude`
+  - `speed`
+  - `course`
+  - `recorded_at`
+  - `source`
+- La deduplicación quedó resuelta en base con índice único por:
+  - `rider_id`
+  - `recorded_at`
+  - `latitude`
+  - `longitude`
+- `hid-repartidores/lib/services/rider_availability_service.dart` ahora, además de actualizar la posición actual del rider, intenta insertar cada punto en `rider_location_history`.
+- La inserción histórica quedó como `best effort`:
+  - no bloquea el tracking principal si la tabla aún no existe
+  - ignora duplicados por la restricción única
+
 ### Seguridad: Credenciales Firebase / Google Services
 
 - Se reforzó `.gitignore` en ambos proyectos para ignorar credenciales sensibles de Firebase y Google Services:
