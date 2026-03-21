@@ -3,10 +3,10 @@
 
 import Link from 'next/link';
 import React, { useEffect, useCallback, useRef } from 'react';
-import { GoogleMap, MarkerClustererF, MarkerF, OverlayViewF, useLoadScript } from '@react-google-maps/api';
+import { GoogleMap, MarkerClustererF, MarkerF, OverlayViewF, PolylineF, useLoadScript } from '@react-google-maps/api';
 import { Rider } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowRight, User } from 'lucide-react';
+import { ArrowRight, User, History } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -17,6 +17,20 @@ interface LiveMapProps {
   activeOrderRiderIds: Set<string>;
   activeOrderByRiderId: Map<string, { id: string }>;
   selectedRiderId?: string | null;
+  historyPath?: Array<{
+    latitude: number;
+    longitude: number;
+    recorded_at: string;
+    speed?: number | null;
+    course?: number | null;
+  }>;
+  playbackPoint?: {
+    latitude: number;
+    longitude: number;
+    recorded_at: string;
+    speed?: number | null;
+    course?: number | null;
+  } | null;
   onSelectRider?: (rider: Rider | null) => void;
 }
 
@@ -31,7 +45,15 @@ const defaultCenter = {
   lng: -99.1332,
 };
 
-export function LiveMap({ riders, activeOrderRiderIds, activeOrderByRiderId, selectedRiderId, onSelectRider }: LiveMapProps) {
+export function LiveMap({
+  riders,
+  activeOrderRiderIds,
+  activeOrderByRiderId,
+  selectedRiderId,
+  historyPath = [],
+  playbackPoint = null,
+  onSelectRider,
+}: LiveMapProps) {
   const { isLoaded, loadError } = useLoadScript({
     id: "hi-delivery-monitoring-google-maps",
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -147,6 +169,29 @@ export function LiveMap({ riders, activeOrderRiderIds, activeOrderByRiderId, sel
   }, [selectedRider]);
 
   useEffect(() => {
+    if (
+      mapRef.current &&
+      selectedRiderId &&
+      historyPath.length > 1
+    ) {
+      const bounds = new window.google.maps.LatLngBounds();
+      historyPath.forEach((point) => {
+        bounds.extend(
+          new window.google.maps.LatLng(point.latitude, point.longitude),
+        );
+      });
+      mapRef.current.fitBounds(bounds);
+      const listener = window.google.maps.event.addListener(mapRef.current, 'idle', function () {
+        if (mapRef.current) {
+          if ((mapRef.current.getZoom() ?? 0) > 18) {
+            mapRef.current.setZoom(18);
+          }
+          window.google.maps.event.removeListener(listener);
+        }
+      });
+      return;
+    }
+
     if (mapRef.current && animatedRiders.length > 0) {
       if (selectedRiderId) {
         return;
@@ -171,7 +216,7 @@ export function LiveMap({ riders, activeOrderRiderIds, activeOrderByRiderId, sel
         });
       }
     }
-  }, [animatedRiders, selectedRiderId]);
+  }, [animatedRiders, historyPath, selectedRiderId]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -329,9 +374,71 @@ export function LiveMap({ riders, activeOrderRiderIds, activeOrderByRiderId, sel
         )}
       </MarkerClustererF>
 
+      {historyPath.length > 1 ? (
+        <PolylineF
+          path={historyPath.map((point) => ({
+            lat: point.latitude,
+            lng: point.longitude,
+          }))}
+          options={{
+            strokeColor: '#2563eb',
+            strokeOpacity: 0.85,
+            strokeWeight: 4,
+            zIndex: 50,
+          }}
+        />
+      ) : null}
+
+      {playbackPoint ? (
+        <>
+          <MarkerF
+            position={{ lat: playbackPoint.latitude, lng: playbackPoint.longitude }}
+            zIndex={1200}
+            icon={{
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#2563eb',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeOpacity: 1,
+              strokeWeight: 3,
+            }}
+          />
+          <OverlayViewF
+            position={{ lat: playbackPoint.latitude, lng: playbackPoint.longitude }}
+            mapPaneName="floatPane"
+            getPixelPositionOffset={(width, height) => ({
+              x: -(width / 2),
+              y: -(height + 42),
+            })}
+          >
+            <div className="pointer-events-none relative min-w-[160px] rounded-xl border border-blue-200 bg-white px-3 py-2 shadow-lg">
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <History className="h-3.5 w-3.5 text-blue-600" />
+                  Replay
+                </div>
+                <p className="text-[11px] text-slate-700">
+                  {format(new Date(playbackPoint.recorded_at), 'dd MMM HH:mm:ss', { locale: es })}
+                </p>
+                {typeof playbackPoint.speed === 'number' ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    {Math.round(playbackPoint.speed)} KPH
+                  </p>
+                ) : null}
+              </div>
+              <div className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-blue-200 bg-white" />
+            </div>
+          </OverlayViewF>
+        </>
+      ) : null}
+
       {selectedRider && selectedRider.last_latitude && selectedRider.last_longitude && (
         <OverlayViewF
-          position={{ lat: selectedRider.last_latitude, lng: selectedRider.last_longitude }}
+          position={{
+            lat: playbackPoint?.latitude ?? selectedRider.last_latitude,
+            lng: playbackPoint?.longitude ?? selectedRider.last_longitude,
+          }}
           mapPaneName="floatPane"
           getPixelPositionOffset={(width, height) => ({
             x: -(width / 2),

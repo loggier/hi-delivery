@@ -758,9 +758,33 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - `latitude`
   - `longitude`
 - `hid-repartidores/lib/services/rider_availability_service.dart` ahora, además de actualizar la posición actual del rider, intenta insertar cada punto en `rider_location_history`.
-- La inserción histórica quedó como `best effort`:
-  - no bloquea el tracking principal si la tabla aún no existe
-  - ignora duplicados por la restricción única
+- Ajuste posterior de arquitectura:
+  - el historial ya no depende de `dual write` desde la app
+  - ahora `src/sql/add_rider_location_history.sql` también crea una función + trigger sobre `grupohubs.riders`
+  - cada update de:
+    - `last_latitude`
+    - `last_longitude`
+    - `last_speed`
+    - `last_course`
+    - `last_location_update`
+    dispara inserción automática en `rider_location_history`
+  - la inserción usa `on conflict do nothing` contra el índice único, así que evita duplicados por misma hora + coordenadas
+- `hid-repartidores/lib/services/rider_availability_service.dart` volvió a quedar responsable sólo de actualizar `riders`; la base se encarga del historial.
+
+### Monitoring: Replay de Recorridos
+
+- `/monitoring` ahora soporta consulta y reproducción de historial de recorrido para el rider seleccionado.
+- `src/app/(admin)/monitoring/page.tsx` agrega:
+  - filtros rápidos `Hoy` y `Ayer`
+  - rango personalizado `desde / hasta`
+  - consulta del historial desde `grupohubs.rider_location_history`
+  - slider de avance
+  - reproducción con velocidad variable (`1x`, `2x`, `4x`, `8x`)
+- `src/app/(admin)/monitoring/live-map.tsx` ahora soporta:
+  - dibujar la polilínea del recorrido histórico
+  - marcador/popup de replay con timestamp y velocidad
+  - `fitBounds` sobre la ruta histórica cuando existe
+- La vista sigue mostrando monitoreo vivo, pero cuando hay historial cargado para el rider seleccionado, el mapa también entra en modo de replay interactivo.
 
 ### Seguridad: Credenciales Firebase / Google Services
 

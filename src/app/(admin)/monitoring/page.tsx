@@ -5,7 +5,7 @@ import React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bike, ClipboardList, Package, Search } from 'lucide-react';
+import { Bike, ClipboardList, Package, Search, History, Play, Pause, RotateCcw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LiveMap } from './live-map';
 import { OrderStatus, type Rider, type Zone } from '@/types';
@@ -17,6 +17,11 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase();
@@ -72,6 +77,49 @@ function KPICardSkeleton() {
 }
 
 const activeOrderStatuses: OrderStatus[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
+type HistoryPreset = 'today' | 'yesterday' | 'custom';
+
+type RiderHistoryPoint = {
+  id: number;
+  rider_id: string;
+  latitude: number;
+  longitude: number;
+  speed?: number | null;
+  course?: number | null;
+  recorded_at: string;
+  source?: string | null;
+};
+
+function formatDateTimeLocal(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  const hours = `${value.getHours()}`.padStart(2, '0');
+  const minutes = `${value.getMinutes()}`.padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function getRangeForPreset(preset: HistoryPreset) {
+  const now = new Date();
+  if (preset === 'today') {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return {
+      start: formatDateTimeLocal(start),
+      end: formatDateTimeLocal(now),
+    };
+  }
+
+  const start = new Date(now);
+  start.setDate(start.getDate() - 1);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(23, 59, 0, 0);
+  return {
+    start: formatDateTimeLocal(start),
+    end: formatDateTimeLocal(end),
+  };
+}
 
 const ActiveRidersTable = ({
     riders,
@@ -207,11 +255,206 @@ const ActiveRidersTable = ({
     )
 }
 
+function RiderHistoryPanel({
+  rider,
+  points,
+  isLoading,
+  error,
+  preset,
+  startAt,
+  endAt,
+  playbackIndex,
+  isPlaying,
+  playbackSpeed,
+  onPresetChange,
+  onStartChange,
+  onEndChange,
+  onLoad,
+  onTogglePlayback,
+  onResetPlayback,
+  onPlaybackIndexChange,
+  onPlaybackSpeedChange,
+}: {
+  rider: Rider | null;
+  points: RiderHistoryPoint[];
+  isLoading: boolean;
+  error: string | null;
+  preset: HistoryPreset;
+  startAt: string;
+  endAt: string;
+  playbackIndex: number;
+  isPlaying: boolean;
+  playbackSpeed: number;
+  onPresetChange: (value: HistoryPreset) => void;
+  onStartChange: (value: string) => void;
+  onEndChange: (value: string) => void;
+  onLoad: () => void;
+  onTogglePlayback: () => void;
+  onResetPlayback: () => void;
+  onPlaybackIndexChange: (value: number) => void;
+  onPlaybackSpeedChange: (value: number) => void;
+}) {
+  const activePoint = points.length
+    ? points[Math.min(playbackIndex, points.length - 1)]
+    : null;
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="px-4 py-3 pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="h-4 w-4" />
+          Historial de recorrido
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 px-4 pb-4">
+        {!rider ? (
+          <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
+            Selecciona un repartidor para consultar y reproducir su ruta.
+          </div>
+        ) : (
+          <>
+            <div className="rounded-lg border bg-slate-50 px-3 py-2">
+              <div className="text-sm font-semibold">
+                {rider.first_name} {rider.last_name}
+              </div>
+              <div className="text-xs text-muted-foreground">{rider.phone_e164}</div>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-2">
+                <Label>Rango</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={preset === 'today' ? 'default' : 'outline'}
+                    onClick={() => onPresetChange('today')}
+                  >
+                    Hoy
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={preset === 'yesterday' ? 'default' : 'outline'}
+                    onClick={() => onPresetChange('yesterday')}
+                  >
+                    Ayer
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={preset === 'custom' ? 'default' : 'outline'}
+                    onClick={() => onPresetChange('custom')}
+                  >
+                    Personalizado
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Desde</Label>
+                  <Input type="datetime-local" value={startAt} onChange={(e) => onStartChange(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Hasta</Label>
+                  <Input type="datetime-local" value={endAt} onChange={(e) => onEndChange(e.target.value)} />
+                </div>
+              </div>
+              <Button type="button" onClick={onLoad} disabled={isLoading}>
+                {isLoading ? 'Consultando...' : 'Consultar recorrido'}
+              </Button>
+            </div>
+
+            {error ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            ) : null}
+
+            {points.length > 0 ? (
+              <div className="space-y-3 rounded-lg border px-3 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">{points.length} puntos capturados</div>
+                  <Badge variant="outline">
+                    {activePoint
+                      ? format(new Date(activePoint.recorded_at), "dd MMM HH:mm:ss", { locale: es })
+                      : 'Sin punto activo'}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                  <div>
+                    Inicio
+                    <div className="font-medium text-foreground">
+                      {format(new Date(points[0].recorded_at), "dd MMM HH:mm", { locale: es })}
+                    </div>
+                  </div>
+                  <div>
+                    Fin
+                    <div className="font-medium text-foreground">
+                      {format(new Date(points[points.length - 1].recorded_at), "dd MMM HH:mm", { locale: es })}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Reproducción</span>
+                    <span>{Math.min(playbackIndex + 1, points.length)}/{points.length}</span>
+                  </div>
+                  <Slider
+                    value={[Math.min(playbackIndex, Math.max(points.length - 1, 0))]}
+                    max={Math.max(points.length - 1, 0)}
+                    step={1}
+                    onValueChange={(value) => onPlaybackIndexChange(value[0] ?? 0)}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" onClick={onTogglePlayback}>
+                    {isPlaying ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                    {isPlaying ? 'Pausar' : 'Reproducir'}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={onResetPlayback}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reiniciar
+                  </Button>
+                  <Select value={String(playbackSpeed)} onValueChange={(value) => onPlaybackSpeedChange(Number(value))}>
+                    <SelectTrigger className="h-9 w-[120px] text-xs">
+                      <SelectValue placeholder="Velocidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1x</SelectItem>
+                      <SelectItem value="2">2x</SelectItem>
+                      <SelectItem value="4">4x</SelectItem>
+                      <SelectItem value="8">8x</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : rider && !isLoading ? (
+              <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
+                No hay puntos guardados para ese rango.
+              </div>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MonitoringPage() {
   const supabase = React.useMemo(() => createClient(), []);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedZoneId, setSelectedZoneId] = React.useState('all');
   const [selectedRiderId, setSelectedRiderId] = React.useState<string | null>(null);
+  const [historyPreset, setHistoryPreset] = React.useState<HistoryPreset>('today');
+  const initialTodayRange = React.useMemo(() => getRangeForPreset('today'), []);
+  const [historyStartAt, setHistoryStartAt] = React.useState(initialTodayRange.start);
+  const [historyEndAt, setHistoryEndAt] = React.useState(initialTodayRange.end);
+  const [historyPoints, setHistoryPoints] = React.useState<RiderHistoryPoint[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
+  const [historyError, setHistoryError] = React.useState<string | null>(null);
+  const [playbackIndex, setPlaybackIndex] = React.useState(0);
+  const [isPlayingHistory, setIsPlayingHistory] = React.useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = React.useState(1);
   const [realtimeRiders, setRealtimeRiders] = React.useState<Rider[]>([]);
   const [realtimeOrders, setRealtimeOrders] = React.useState<any[]>([]);
   const { data: allRiders, isLoading: isLoadingRiders } = api.riders.useGetAll();
@@ -322,6 +565,82 @@ export default function MonitoringPage() {
       setSelectedRiderId(null);
     }
   }, [activeRidersForTable, selectedRiderId]);
+
+  const selectedRider = React.useMemo(
+    () => activeRidersForTable.find((rider) => rider.id === selectedRiderId) ?? null,
+    [activeRidersForTable, selectedRiderId],
+  );
+
+  const loadHistory = React.useCallback(async () => {
+    if (!selectedRiderId) {
+      setHistoryPoints([]);
+      setHistoryError('Selecciona un repartidor para consultar historial.');
+      return;
+    }
+
+    setIsLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA || 'public';
+      const { data, error } = await supabase
+        .schema(schema)
+        .from('rider_location_history')
+        .select('id, rider_id, latitude, longitude, speed, course, recorded_at, source')
+        .eq('rider_id', selectedRiderId)
+        .gte('recorded_at', new Date(historyStartAt).toISOString())
+        .lte('recorded_at', new Date(historyEndAt).toISOString())
+        .order('recorded_at', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      setHistoryPoints((data ?? []) as RiderHistoryPoint[]);
+      setPlaybackIndex(0);
+      setIsPlayingHistory(false);
+    } catch (error) {
+      setHistoryPoints([]);
+      setHistoryError(error instanceof Error ? error.message : 'No se pudo consultar el historial.');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [historyEndAt, historyStartAt, selectedRiderId, supabase]);
+
+  React.useEffect(() => {
+    if (!selectedRiderId) {
+      setHistoryPoints([]);
+      setHistoryError(null);
+      setIsPlayingHistory(false);
+      setPlaybackIndex(0);
+      return;
+    }
+    void loadHistory();
+  }, [selectedRiderId, loadHistory]);
+
+  React.useEffect(() => {
+    if (!isPlayingHistory || historyPoints.length < 2) {
+      return;
+    }
+
+    const frameMs = Math.max(180, Math.round(1200 / playbackSpeed));
+    const timer = window.setInterval(() => {
+      setPlaybackIndex((current) => {
+        if (current >= historyPoints.length - 1) {
+          setIsPlayingHistory(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, frameMs);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [historyPoints.length, isPlayingHistory, playbackSpeed]);
+
+  const playbackPoint = historyPoints.length
+    ? historyPoints[Math.min(playbackIndex, historyPoints.length - 1)]
+    : null;
   
   const isLoading = isLoadingRiders || isLoadingOrders;
 
@@ -358,6 +677,48 @@ export default function MonitoringPage() {
                 selectedRiderId={selectedRiderId}
                 onSelectRider={(rider) => setSelectedRiderId(rider.id)}
             />
+            <RiderHistoryPanel
+                rider={selectedRider}
+                points={historyPoints}
+                isLoading={isLoadingHistory}
+                error={historyError}
+                preset={historyPreset}
+                startAt={historyStartAt}
+                endAt={historyEndAt}
+                playbackIndex={playbackIndex}
+                isPlaying={isPlayingHistory}
+                playbackSpeed={playbackSpeed}
+                onPresetChange={(value) => {
+                  setHistoryPreset(value);
+                  if (value !== 'custom') {
+                    const range = getRangeForPreset(value);
+                    setHistoryStartAt(range.start);
+                    setHistoryEndAt(range.end);
+                  }
+                }}
+                onStartChange={(value) => {
+                  setHistoryPreset('custom');
+                  setHistoryStartAt(value);
+                }}
+                onEndChange={(value) => {
+                  setHistoryPreset('custom');
+                  setHistoryEndAt(value);
+                }}
+                onLoad={() => void loadHistory()}
+                onTogglePlayback={() => {
+                  if (historyPoints.length <= 1) return;
+                  setIsPlayingHistory((current) => !current);
+                }}
+                onResetPlayback={() => {
+                  setIsPlayingHistory(false);
+                  setPlaybackIndex(0);
+                }}
+                onPlaybackIndexChange={(value) => {
+                  setIsPlayingHistory(false);
+                  setPlaybackIndex(value);
+                }}
+                onPlaybackSpeedChange={setPlaybackSpeed}
+            />
         </div>
         <div className="h-[60vh] overflow-hidden rounded-lg lg:col-span-2 lg:h-full">
             <LiveMap
@@ -365,6 +726,8 @@ export default function MonitoringPage() {
                 activeOrderRiderIds={activeOrderRiderIds}
                 activeOrderByRiderId={activeOrderByRiderId}
                 selectedRiderId={selectedRiderId}
+                historyPath={historyPoints}
+                playbackPoint={playbackPoint}
                 onSelectRider={(rider) => setSelectedRiderId(rider?.id ?? null)}
             />
         </div>

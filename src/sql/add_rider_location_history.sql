@@ -18,3 +18,52 @@ create index if not exists rider_location_history_recorded_at_idx
 
 create unique index if not exists rider_location_history_dedupe_idx
   on grupohubs.rider_location_history (rider_id, recorded_at, latitude, longitude);
+
+create or replace function grupohubs.capture_rider_location_history()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.last_latitude is null
+     or new.last_longitude is null
+     or new.last_location_update is null then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and new.last_latitude is not distinct from old.last_latitude
+     and new.last_longitude is not distinct from old.last_longitude
+     and new.last_location_update is not distinct from old.last_location_update then
+    return new;
+  end if;
+
+  insert into grupohubs.rider_location_history (
+    rider_id,
+    latitude,
+    longitude,
+    speed,
+    course,
+    recorded_at,
+    source
+  ) values (
+    new.id,
+    new.last_latitude,
+    new.last_longitude,
+    new.last_speed,
+    new.last_course,
+    new.last_location_update,
+    'riders_trigger'
+  )
+  on conflict (rider_id, recorded_at, latitude, longitude) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists riders_capture_location_history on grupohubs.riders;
+
+create trigger riders_capture_location_history
+after insert or update of last_latitude, last_longitude, last_speed, last_course, last_location_update
+on grupohubs.riders
+for each row
+execute function grupohubs.capture_rider_location_history();
