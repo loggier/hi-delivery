@@ -823,3 +823,4 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - En `src/app/(admin)/monitoring/live-map.tsx`, cuando el mapa entra en modo historial/replay de un rider seleccionado, ahora sólo se renderiza esa moto en el mapa.
 - Se mantienen visibles la polilínea histórica, el marcador/popup de replay y la tarjeta del rider seleccionado, pero se ocultan los demás riders para que el seguimiento histórico quede limpio.
 - La tarjeta informativa del rider seleccionado ahora toma hora y velocidad del `playbackPoint` cuando hay reproducción activa, para que el panel corresponda al punto histórico visible y no al estado en vivo.
+- En `src/app/(admin)/monitoring/page.tsx`, el panel de historial ahora expone `Volver a vivo` para cerrar explícitamente el modo historial/replay sin depender de seleccionar otra unidad.

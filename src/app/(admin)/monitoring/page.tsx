@@ -274,6 +274,7 @@ function RiderHistoryPanel({
   onResetPlayback,
   onPlaybackIndexChange,
   onPlaybackSpeedChange,
+  onCloseHistory,
 }: {
   rider: Rider | null;
   points: RiderHistoryPoint[];
@@ -293,6 +294,7 @@ function RiderHistoryPanel({
   onResetPlayback: () => void;
   onPlaybackIndexChange: (value: number) => void;
   onPlaybackSpeedChange: (value: number) => void;
+  onCloseHistory: () => void;
 }) {
   const activePoint = points.length
     ? points[Math.min(playbackIndex, points.length - 1)]
@@ -301,10 +303,17 @@ function RiderHistoryPanel({
   return (
     <Card className="flex flex-col">
       <CardHeader className="px-4 py-3 pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <History className="h-4 w-4" />
-          Historial de recorrido
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <History className="h-4 w-4" />
+            Historial de recorrido
+          </CardTitle>
+          {rider ? (
+            <Button type="button" size="sm" variant="ghost" onClick={onCloseHistory}>
+              Volver a vivo
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 px-4 pb-4">
         {!rider ? (
@@ -641,7 +650,13 @@ export default function MonitoringPage() {
   const playbackPoint = historyPoints.length
     ? historyPoints[Math.min(playbackIndex, historyPoints.length - 1)]
     : null;
-  
+  const clearHistoryMode = React.useCallback(() => {
+    setIsPlayingHistory(false);
+    setPlaybackIndex(0);
+    setHistoryPoints([]);
+    setHistoryError(null);
+  }, []);
+
   const isLoading = isLoadingRiders || isLoadingOrders;
 
   return (
@@ -718,6 +733,7 @@ export default function MonitoringPage() {
                   setPlaybackIndex(value);
                 }}
                 onPlaybackSpeedChange={setPlaybackSpeed}
+                onCloseHistory={clearHistoryMode}
             />
         </div>
         <div className="h-[60vh] overflow-hidden rounded-lg lg:col-span-2 lg:h-full">
