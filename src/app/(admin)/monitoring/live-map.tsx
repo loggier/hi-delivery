@@ -230,6 +230,10 @@ export function LiveMap({
   const visibleRiders = isHistoryMode && selectedRiderId
     ? animatedRiders.filter((rider) => rider.id === selectedRiderId)
     : animatedRiders;
+  const selectedTimestamp = playbackPoint?.recorded_at ?? selectedRider?.last_location_update ?? null;
+  const selectedSpeed = typeof playbackPoint?.speed === 'number'
+    ? playbackPoint.speed
+    : selectedRider?.last_speed;
   
   const mapOptions = {
     disableDefaultUI: true,
@@ -452,11 +456,16 @@ export function LiveMap({
                   <User className="h-3.5 w-3.5"/>
                   {activeOrderRiderIds.has(selectedRider.id) ? 'Con pedido activo' : selectedRider.is_active_for_orders ? 'Disponible' : 'Inactivo'}
               </p>
-              {selectedRider.last_location_update && (
+              {selectedTimestamp && (
                   <p className="text-[11px] leading-none text-muted-foreground">
-                      Última act: {format(new Date(selectedRider.last_location_update), 'HH:mm:ss', {locale: es})}
+                      {playbackPoint ? 'Punto:' : 'Última act:'} {format(new Date(selectedTimestamp), 'HH:mm:ss', {locale: es})}
                   </p>
               )}
+              {typeof selectedSpeed === 'number' ? (
+                <p className="text-[11px] leading-none text-muted-foreground">
+                  Velocidad: {Math.round(selectedSpeed)} KPH
+                </p>
+              ) : null}
               {activeOrderByRiderId.has(selectedRider.id) ? (
                 <Link
                   href={`/orders/${activeOrderByRiderId.get(selectedRider.id)?.id}`}
