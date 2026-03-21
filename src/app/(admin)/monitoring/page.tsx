@@ -5,7 +5,7 @@ import React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bike, ClipboardList, Package, Search, History, Play, Pause, RotateCcw, MoreHorizontal, MapPinned } from 'lucide-react';
+import { Bike, ClipboardList, Package, Search, History, Play, Pause, RotateCcw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LiveMap } from './live-map';
 import { OrderStatus, type Rider, type Zone } from '@/types';
@@ -22,7 +22,6 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase();
@@ -92,6 +91,37 @@ type RiderHistoryPoint = {
   source?: string | null;
 };
 
+function MonitoringSideTabs({
+  mode,
+  onModeChange,
+}: {
+  mode: MonitoringPanelMode;
+  onModeChange: (mode: MonitoringPanelMode) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border bg-muted/30 p-1">
+      <Button
+        type="button"
+        size="sm"
+        variant={mode === 'live' ? 'default' : 'ghost'}
+        className="h-8"
+        onClick={() => onModeChange('live')}
+      >
+        En vivo
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={mode === 'history' ? 'default' : 'ghost'}
+        className="h-8"
+        onClick={() => onModeChange('history')}
+      >
+        Historial
+      </Button>
+    </div>
+  );
+}
+
 function formatDateTimeLocal(value: Date) {
   const year = value.getFullYear();
   const month = `${value.getMonth() + 1}`.padStart(2, '0');
@@ -132,8 +162,7 @@ const ActiveRidersTable = ({
     selectedZoneId,
     onZoneChange,
     selectedRiderId,
-    onMonitorRider,
-    onOpenHistory,
+    onSelectRider,
 }: {
     riders: Rider[],
     zones: Zone[],
@@ -143,8 +172,7 @@ const ActiveRidersTable = ({
     selectedZoneId: string,
     onZoneChange: (value: string) => void,
     selectedRiderId: string | null,
-    onMonitorRider: (rider: Rider) => void,
-    onOpenHistory: (rider: Rider) => void,
+    onSelectRider: (rider: Rider) => void,
 }) => {
     const filteredRiders = React.useMemo(() => {
         if (!searchTerm) return riders;
@@ -190,13 +218,12 @@ const ActiveRidersTable = ({
                             <TableHead className="px-4 py-2 text-[11px] uppercase tracking-wide">Repartidor</TableHead>
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Teléfono</TableHead>
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Pedido</TableHead>
-                            <TableHead className="w-[52px] px-2 py-2 text-right text-[11px] uppercase tracking-wide">Acción</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredRiders.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="h-20 text-center text-sm">
+                                <TableCell colSpan={3} className="h-20 text-center text-sm">
                                     No se encontraron repartidores.
                                 </TableCell>
                             </TableRow>
@@ -205,9 +232,10 @@ const ActiveRidersTable = ({
                             <TableRow
                                 key={rider.id}
                                 className={cn(
-                                    "transition-colors",
+                                    "cursor-pointer transition-colors",
                                     selectedRiderId === rider.id && "bg-primary/5",
                                 )}
+                                onClick={() => onSelectRider(rider)}
                             >
                                 <TableCell className="px-4 py-2.5">
                                     <div className="flex items-center gap-2.5">
@@ -250,35 +278,6 @@ const ActiveRidersTable = ({
                                         </Badge>
                                     )}
                                 </TableCell>
-                                <TableCell className="w-[52px] px-2 py-2.5 text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8"
-                                                onClick={(event) => event.stopPropagation()}
-                                            >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                                onClick={() => onMonitorRider(rider)}
-                                            >
-                                                <MapPinned className="mr-2 h-4 w-4" />
-                                                Monitorear
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onClick={() => onOpenHistory(rider)}
-                                            >
-                                                <History className="mr-2 h-4 w-4" />
-                                                Ver historial
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -289,8 +288,8 @@ const ActiveRidersTable = ({
 }
 
 function RiderHistoryPanel({
+  riders,
   rider,
-  mode,
   points,
   isLoading,
   error,
@@ -308,11 +307,11 @@ function RiderHistoryPanel({
   onResetPlayback,
   onPlaybackIndexChange,
   onPlaybackSpeedChange,
-  onCloseHistory,
-  onModeChange,
+  onSelectRider,
+  selectedRiderId,
 }: {
+  riders: Rider[];
   rider: Rider | null;
-  mode: MonitoringPanelMode;
   points: RiderHistoryPoint[];
   isLoading: boolean;
   error: string | null;
@@ -330,8 +329,8 @@ function RiderHistoryPanel({
   onResetPlayback: () => void;
   onPlaybackIndexChange: (value: number) => void;
   onPlaybackSpeedChange: (value: number) => void;
-  onCloseHistory: () => void;
-  onModeChange: (mode: MonitoringPanelMode) => void;
+  onSelectRider: (riderId: string) => void;
+  selectedRiderId: string | null;
 }) {
   const activePoint = points.length
     ? points[Math.min(playbackIndex, points.length - 1)]
@@ -340,62 +339,39 @@ function RiderHistoryPanel({
   return (
     <Card className="flex flex-col">
       <CardHeader className="px-4 py-3 pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <History className="h-4 w-4" />
-            {mode === 'history' ? 'Historial de recorrido' : 'Monitoreo del rider'}
-          </CardTitle>
-          {rider && mode === 'history' ? (
-            <Button type="button" size="sm" variant="ghost" onClick={onCloseHistory}>
-              Volver a vivo
-            </Button>
-          ) : null}
-        </div>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="h-4 w-4" />
+          Historial de recorrido
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 px-4 pb-4">
+        <div className="space-y-2">
+          <Label>Unidad</Label>
+          <Select value={selectedRiderId ?? ''} onValueChange={onSelectRider}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Selecciona un repartidor" />
+            </SelectTrigger>
+            <SelectContent>
+              {riders.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.first_name} {item.last_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {!rider ? (
           <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
-            Usa el menú de cada unidad para monitorear o abrir su historial.
+            Selecciona un repartidor para consultar y reproducir su ruta.
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="inline-flex rounded-lg border bg-muted/30 p-1">
-              <Button
-                type="button"
-                size="sm"
-                variant={mode === 'live' ? 'default' : 'ghost'}
-                className="h-8"
-                onClick={() => onModeChange('live')}
-              >
-                Monitoreo
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={mode === 'history' ? 'default' : 'ghost'}
-                className="h-8"
-                onClick={() => onModeChange('history')}
-              >
-                Historial
-              </Button>
-            </div>
             <div className="rounded-lg border bg-slate-50 px-3 py-2">
               <div className="text-sm font-semibold">
                 {rider.first_name} {rider.last_name}
               </div>
               <div className="text-xs text-muted-foreground">{rider.phone_e164}</div>
             </div>
-            {mode === 'live' ? (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">
-                  Vista en vivo activa. Usa el mapa para seguir la unidad actual y cambia a historial sólo cuando necesites reproducir recorrido.
-                </div>
-                <Button type="button" onClick={() => onModeChange('history')}>
-                  Abrir historial
-                </Button>
-              </div>
-            ) : (
-              <>
             <div className="grid grid-cols-1 gap-3">
               <div className="space-y-2">
                 <Label>Rango</Label>
@@ -510,8 +486,6 @@ function RiderHistoryPanel({
                 No hay puntos guardados para ese rango.
               </div>
             ) : null}
-              </>
-            )}
           </div>
         )}
       </CardContent>
@@ -525,7 +499,6 @@ export default function MonitoringPage() {
   const [selectedZoneId, setSelectedZoneId] = React.useState('all');
   const [selectedRiderId, setSelectedRiderId] = React.useState<string | null>(null);
   const [panelMode, setPanelMode] = React.useState<MonitoringPanelMode>('live');
-  const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
   const [historyPreset, setHistoryPreset] = React.useState<HistoryPreset>('today');
   const initialTodayRange = React.useMemo(() => getRangeForPreset('today'), []);
   const [historyStartAt, setHistoryStartAt] = React.useState(initialTodayRange.start);
@@ -690,14 +663,13 @@ export default function MonitoringPage() {
   React.useEffect(() => {
     if (!selectedRiderId) {
       setPanelMode('live');
-      setIsHistoryOpen(false);
       setHistoryPoints([]);
       setHistoryError(null);
       setIsPlayingHistory(false);
       setPlaybackIndex(0);
       return;
     }
-    if (!isHistoryOpen) {
+    if (panelMode !== 'history') {
       setHistoryPoints([]);
       setHistoryError(null);
       setIsPlayingHistory(false);
@@ -705,7 +677,7 @@ export default function MonitoringPage() {
       return;
     }
     void loadHistory();
-  }, [isHistoryOpen, selectedRiderId, loadHistory]);
+  }, [panelMode, selectedRiderId, loadHistory]);
 
   React.useEffect(() => {
     if (!isPlayingHistory || historyPoints.length < 2) {
@@ -732,8 +704,6 @@ export default function MonitoringPage() {
     ? historyPoints[Math.min(playbackIndex, historyPoints.length - 1)]
     : null;
   const clearHistoryMode = React.useCallback(() => {
-    setPanelMode('live');
-    setIsHistoryOpen(false);
     setIsPlayingHistory(false);
     setPlaybackIndex(0);
     setHistoryPoints([]);
@@ -764,82 +734,80 @@ export default function MonitoringPage() {
       </PageHeader>
       <div className="mt-3 grid flex-grow grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="flex h-[calc(100vh-150px)] flex-col gap-4 lg:col-span-1">
-            <ActiveRidersTable 
-                riders={activeRidersForTable} 
-                zones={zones || []}
-                activeOrderRiderIds={activeOrderRiderIds}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                selectedZoneId={selectedZoneId}
-                onZoneChange={setSelectedZoneId}
-                selectedRiderId={selectedRiderId}
-                onMonitorRider={(rider) => {
-                  setSelectedRiderId(rider.id);
-                  setPanelMode('live');
-                  setIsHistoryOpen(false);
-                }}
-                onOpenHistory={(rider) => {
-                  setSelectedRiderId(rider.id);
-                  setPanelMode('history');
-                  setIsHistoryOpen(true);
-                }}
+          <MonitoringSideTabs
+            mode={panelMode}
+            onModeChange={(mode) => {
+              setPanelMode(mode);
+              if (mode === 'live') {
+                clearHistoryMode();
+              }
+            }}
+          />
+          {panelMode === 'live' ? (
+            <ActiveRidersTable
+              riders={activeRidersForTable}
+              zones={zones || []}
+              activeOrderRiderIds={activeOrderRiderIds}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              selectedZoneId={selectedZoneId}
+              onZoneChange={setSelectedZoneId}
+              selectedRiderId={selectedRiderId}
+              onSelectRider={(rider) => {
+                setSelectedRiderId(rider.id);
+              }}
             />
+          ) : (
             <RiderHistoryPanel
-                rider={selectedRider}
-                mode={panelMode}
-                points={historyPoints}
-                isLoading={isLoadingHistory}
-                error={historyError}
-                preset={historyPreset}
-                startAt={historyStartAt}
-                endAt={historyEndAt}
-                playbackIndex={playbackIndex}
-                isPlaying={isPlayingHistory}
-                playbackSpeed={playbackSpeed}
-                onPresetChange={(value) => {
-                  setHistoryPreset(value);
-                  if (value !== 'custom') {
-                    const range = getRangeForPreset(value);
-                    setHistoryStartAt(range.start);
-                    setHistoryEndAt(range.end);
-                  }
-                }}
-                onStartChange={(value) => {
-                  setHistoryPreset('custom');
-                  setHistoryStartAt(value);
-                }}
-                onEndChange={(value) => {
-                  setHistoryPreset('custom');
-                  setHistoryEndAt(value);
-                }}
-                onLoad={() => {
-                  setPanelMode('history');
-                  setIsHistoryOpen(true);
-                  void loadHistory();
-                }}
-                onTogglePlayback={() => {
-                  if (historyPoints.length <= 1) return;
-                  setIsPlayingHistory((current) => !current);
-                }}
-                onResetPlayback={() => {
-                  setIsPlayingHistory(false);
-                  setPlaybackIndex(0);
-                }}
-                onPlaybackIndexChange={(value) => {
-                  setIsPlayingHistory(false);
-                  setPlaybackIndex(value);
-                }}
-                onPlaybackSpeedChange={setPlaybackSpeed}
-                onCloseHistory={clearHistoryMode}
-                onModeChange={(mode) => {
-                  setPanelMode(mode);
-                  if (mode === 'history') {
-                    setIsHistoryOpen(true);
-                    return;
-                  }
-                  clearHistoryMode();
-                }}
+              riders={activeRidersForTable}
+              rider={selectedRider}
+              points={historyPoints}
+              isLoading={isLoadingHistory}
+              error={historyError}
+              preset={historyPreset}
+              startAt={historyStartAt}
+              endAt={historyEndAt}
+              playbackIndex={playbackIndex}
+              isPlaying={isPlayingHistory}
+              playbackSpeed={playbackSpeed}
+              onPresetChange={(value) => {
+                setHistoryPreset(value);
+                if (value !== 'custom') {
+                  const range = getRangeForPreset(value);
+                  setHistoryStartAt(range.start);
+                  setHistoryEndAt(range.end);
+                }
+              }}
+              onStartChange={(value) => {
+                setHistoryPreset('custom');
+                setHistoryStartAt(value);
+              }}
+              onEndChange={(value) => {
+                setHistoryPreset('custom');
+                setHistoryEndAt(value);
+              }}
+              onLoad={() => {
+                void loadHistory();
+              }}
+              onTogglePlayback={() => {
+                if (historyPoints.length <= 1) return;
+                setIsPlayingHistory((current) => !current);
+              }}
+              onResetPlayback={() => {
+                setIsPlayingHistory(false);
+                setPlaybackIndex(0);
+              }}
+              onPlaybackIndexChange={(value) => {
+                setIsPlayingHistory(false);
+                setPlaybackIndex(value);
+              }}
+              onPlaybackSpeedChange={setPlaybackSpeed}
+              onSelectRider={(riderId) => {
+                setSelectedRiderId(riderId);
+              }}
+              selectedRiderId={selectedRiderId}
             />
+          )}
         </div>
         <div className="h-[60vh] overflow-hidden rounded-lg lg:col-span-2 lg:h-full">
             <LiveMap
@@ -853,7 +821,6 @@ export default function MonitoringPage() {
                   setSelectedRiderId(rider?.id ?? null);
                   if (rider) {
                     setPanelMode('live');
-                    setIsHistoryOpen(false);
                   }
                 }}
             />

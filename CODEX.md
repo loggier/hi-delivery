@@ -828,3 +828,8 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Seleccionar un rider en la tabla o en el mapa ya no abre historial automáticamente; el recorrido sólo se consulta al accionar explícitamente `Abrir historial` o `Consultar recorrido` desde el panel lateral.
 - La lista de riders en monitoreo ahora usa menú desplegable por unidad con acciones explícitas `Monitorear` y `Ver historial`, pensando en escala alta.
 - El panel lateral del rider seleccionado se reorganizó como una vista con modos tipo pestaña: `Monitoreo` e `Historial`, para evitar saturar el layout cuando sólo se quiere seguimiento en vivo.
+- Ajuste posterior de UX en monitoreo:
+  - se eliminó el menú por unidad;
+  - la columna lateral ahora tiene tabs globales `En vivo` e `Historial`;
+  - `En vivo` muestra el listado completo de unidades;
+  - `Historial` tiene su propio selector de rider y concentra la consulta/reproducción de recorrido sin mezclarlo con la lista operativa.
