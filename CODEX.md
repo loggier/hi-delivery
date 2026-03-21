@@ -826,3 +826,5 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - En `src/app/(admin)/monitoring/page.tsx`, el panel de historial ahora expone `Volver a vivo` para cerrar explícitamente el modo historial/replay sin depender de seleccionar otra unidad.
 - El cierre de historial ahora separa `rider seleccionado` de `historial abierto`: al volver a vivo se limpia el replay, se evita la recarga automática del historial y el panel pasa a una vista compacta con CTA `Abrir historial`.
 - Seleccionar un rider en la tabla o en el mapa ya no abre historial automáticamente; el recorrido sólo se consulta al accionar explícitamente `Abrir historial` o `Consultar recorrido` desde el panel lateral.
+- La lista de riders en monitoreo ahora usa menú desplegable por unidad con acciones explícitas `Monitorear` y `Ver historial`, pensando en escala alta.
+- El panel lateral del rider seleccionado se reorganizó como una vista con modos tipo pestaña: `Monitoreo` e `Historial`, para evitar saturar el layout cuando sólo se quiere seguimiento en vivo.
