@@ -824,3 +824,5 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Se mantienen visibles la polilínea histórica, el marcador/popup de replay y la tarjeta del rider seleccionado, pero se ocultan los demás riders para que el seguimiento histórico quede limpio.
 - La tarjeta informativa del rider seleccionado ahora toma hora y velocidad del `playbackPoint` cuando hay reproducción activa, para que el panel corresponda al punto histórico visible y no al estado en vivo.
 - En `src/app/(admin)/monitoring/page.tsx`, el panel de historial ahora expone `Volver a vivo` para cerrar explícitamente el modo historial/replay sin depender de seleccionar otra unidad.
+- El cierre de historial ahora separa `rider seleccionado` de `historial abierto`: al volver a vivo se limpia el replay, se evita la recarga automática del historial y el panel pasa a una vista compacta con CTA `Abrir historial`.
+- Seleccionar un rider en la tabla o en el mapa ya no abre historial automáticamente; el recorrido sólo se consulta al accionar explícitamente `Abrir historial` o `Consultar recorrido` desde el panel lateral.

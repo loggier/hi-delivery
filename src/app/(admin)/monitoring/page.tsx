@@ -260,6 +260,7 @@ function RiderHistoryPanel({
   points,
   isLoading,
   error,
+  isOpen,
   preset,
   startAt,
   endAt,
@@ -280,6 +281,7 @@ function RiderHistoryPanel({
   points: RiderHistoryPoint[];
   isLoading: boolean;
   error: string | null;
+  isOpen: boolean;
   preset: HistoryPreset;
   startAt: string;
   endAt: string;
@@ -319,6 +321,21 @@ function RiderHistoryPanel({
         {!rider ? (
           <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">
             Selecciona un repartidor para consultar y reproducir su ruta.
+          </div>
+        ) : !isOpen ? (
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-slate-50 px-3 py-2">
+              <div className="text-sm font-semibold">
+                {rider.first_name} {rider.last_name}
+              </div>
+              <div className="text-xs text-muted-foreground">{rider.phone_e164}</div>
+            </div>
+            <div className="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">
+              Estás en vista en vivo. Abre el historial cuando quieras consultar y reproducir su recorrido.
+            </div>
+            <Button type="button" onClick={onLoad} disabled={isLoading}>
+              {isLoading ? 'Consultando...' : 'Abrir historial'}
+            </Button>
           </div>
         ) : (
           <>
@@ -454,6 +471,7 @@ export default function MonitoringPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedZoneId, setSelectedZoneId] = React.useState('all');
   const [selectedRiderId, setSelectedRiderId] = React.useState<string | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
   const [historyPreset, setHistoryPreset] = React.useState<HistoryPreset>('today');
   const initialTodayRange = React.useMemo(() => getRangeForPreset('today'), []);
   const [historyStartAt, setHistoryStartAt] = React.useState(initialTodayRange.start);
@@ -617,6 +635,14 @@ export default function MonitoringPage() {
 
   React.useEffect(() => {
     if (!selectedRiderId) {
+      setIsHistoryOpen(false);
+      setHistoryPoints([]);
+      setHistoryError(null);
+      setIsPlayingHistory(false);
+      setPlaybackIndex(0);
+      return;
+    }
+    if (!isHistoryOpen) {
       setHistoryPoints([]);
       setHistoryError(null);
       setIsPlayingHistory(false);
@@ -624,7 +650,7 @@ export default function MonitoringPage() {
       return;
     }
     void loadHistory();
-  }, [selectedRiderId, loadHistory]);
+  }, [isHistoryOpen, selectedRiderId, loadHistory]);
 
   React.useEffect(() => {
     if (!isPlayingHistory || historyPoints.length < 2) {
@@ -651,6 +677,7 @@ export default function MonitoringPage() {
     ? historyPoints[Math.min(playbackIndex, historyPoints.length - 1)]
     : null;
   const clearHistoryMode = React.useCallback(() => {
+    setIsHistoryOpen(false);
     setIsPlayingHistory(false);
     setPlaybackIndex(0);
     setHistoryPoints([]);
@@ -690,13 +717,16 @@ export default function MonitoringPage() {
                 selectedZoneId={selectedZoneId}
                 onZoneChange={setSelectedZoneId}
                 selectedRiderId={selectedRiderId}
-                onSelectRider={(rider) => setSelectedRiderId(rider.id)}
+                onSelectRider={(rider) => {
+                  setSelectedRiderId(rider.id);
+                }}
             />
             <RiderHistoryPanel
                 rider={selectedRider}
                 points={historyPoints}
                 isLoading={isLoadingHistory}
                 error={historyError}
+                isOpen={isHistoryOpen}
                 preset={historyPreset}
                 startAt={historyStartAt}
                 endAt={historyEndAt}
@@ -719,7 +749,10 @@ export default function MonitoringPage() {
                   setHistoryPreset('custom');
                   setHistoryEndAt(value);
                 }}
-                onLoad={() => void loadHistory()}
+                onLoad={() => {
+                  setIsHistoryOpen(true);
+                  void loadHistory();
+                }}
                 onTogglePlayback={() => {
                   if (historyPoints.length <= 1) return;
                   setIsPlayingHistory((current) => !current);
@@ -744,7 +777,9 @@ export default function MonitoringPage() {
                 selectedRiderId={selectedRiderId}
                 historyPath={historyPoints}
                 playbackPoint={playbackPoint}
-                onSelectRider={(rider) => setSelectedRiderId(rider?.id ?? null)}
+                onSelectRider={(rider) => {
+                  setSelectedRiderId(rider?.id ?? null);
+                }}
             />
         </div>
       </div>
