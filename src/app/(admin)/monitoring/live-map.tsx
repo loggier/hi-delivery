@@ -219,25 +219,8 @@ export function LiveMap({
   }, [animatedRiders, historyPath, selectedRiderId]);
 
   useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!selectedRider) {
-        return;
-      }
-
-      const target = event.target as Node | null;
-      if (containerRef.current?.contains(target)) {
-        return;
-      }
-
-      setSelectedRider(null);
-      onSelectRider?.(null);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [selectedRider, onSelectRider]);
+    return undefined;
+  }, []);
 
 
   if (loadError) return <div>Error al cargar el mapa</div>;
