@@ -66,6 +66,7 @@ export function LiveMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const previousRidersRef = useRef<Rider[]>(riders);
+  const isHistoryMode = Boolean(selectedRiderId && historyPath.length > 0);
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -225,6 +226,10 @@ export function LiveMap({
 
   if (loadError) return <div>Error al cargar el mapa</div>;
   if (!isLoaded) return <Skeleton className="w-full h-full rounded-lg" />;
+
+  const visibleRiders = isHistoryMode && selectedRiderId
+    ? animatedRiders.filter((rider) => rider.id === selectedRiderId)
+    : animatedRiders;
   
   const mapOptions = {
     disableDefaultUI: true,
@@ -269,19 +274,29 @@ export function LiveMap({
       <MarkerClustererF options={clusterOptions}>
         {(clusterer) => (
           <>
-            {animatedRiders.map((rider) =>
+            {visibleRiders.map((rider) =>
               rider.last_latitude && rider.last_longitude ? (
                 (() => {
                   const hasActiveOrder = activeOrderRiderIds.has(rider.id);
                   const labelText = `${rider.first_name} ${rider.last_name}`;
                   const statusColorClass = hasActiveOrder ? "bg-amber-500" : "bg-green-600";
                   const isSelected = selectedRider?.id === rider.id;
+                  const effectiveLatitude =
+                    isSelected && playbackPoint ? playbackPoint.latitude : rider.last_latitude;
+                  const effectiveLongitude =
+                    isSelected && playbackPoint ? playbackPoint.longitude : rider.last_longitude;
+                  const effectiveCourse =
+                    isSelected && typeof playbackPoint?.course === 'number'
+                      ? playbackPoint.course
+                      : typeof rider.last_course === 'number'
+                        ? rider.last_course
+                        : 0;
 
                   return (
                     <React.Fragment key={rider.id}>
                       <MarkerF
                         clusterer={clusterer}
-                        position={{ lat: rider.last_latitude, lng: rider.last_longitude }}
+                        position={{ lat: effectiveLatitude, lng: effectiveLongitude }}
                         title={labelText}
                         onClick={() => {
                           setSelectedRider(rider);
@@ -295,7 +310,7 @@ export function LiveMap({
                         zIndex={isSelected ? 1000 : undefined}
                       />
                       <OverlayViewF
-                        position={{ lat: rider.last_latitude, lng: rider.last_longitude }}
+                        position={{ lat: effectiveLatitude, lng: effectiveLongitude }}
                         mapPaneName="overlayMouseTarget"
                         getPixelPositionOffset={() => ({
                           x: isSelected ? -24 : -20,
@@ -317,7 +332,7 @@ export function LiveMap({
                             style={{
                               width: isSelected ? 48 : 40,
                               height: isSelected ? 48 : 40,
-                              transform: `rotate(${typeof rider.last_course === 'number' ? rider.last_course : 0}deg)`,
+                              transform: `rotate(${effectiveCourse}deg)`,
                               transformOrigin: 'center center',
                               opacity: rider.is_active_for_orders ? 1 : 0.5,
                             }}
@@ -325,7 +340,7 @@ export function LiveMap({
                         </button>
                       </OverlayViewF>
                       <OverlayViewF
-                        position={{ lat: rider.last_latitude, lng: rider.last_longitude }}
+                        position={{ lat: effectiveLatitude, lng: effectiveLongitude }}
                         mapPaneName="overlayMouseTarget"
                         getPixelPositionOffset={(width, height) => ({
                           x: -(width / 2),

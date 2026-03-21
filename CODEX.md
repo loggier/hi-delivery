@@ -817,3 +817,8 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
     - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`
     - `FIREBASE_ADMIN_CREDENTIALS_PATH`
   - `NEXT_PUBLIC_FIREBASE_VAPID_KEY` quedó pendiente de llenar desde Firebase Console, porque no viene en los JSON locales.
+
+## 2026-03-20 - Monitoring replay: ocultar otros riders en modo historial
+
+- En `src/app/(admin)/monitoring/live-map.tsx`, cuando el mapa entra en modo historial/replay de un rider seleccionado, ahora sólo se renderiza esa moto en el mapa.
+- Se mantienen visibles la polilínea histórica, el marcador/popup de replay y la tarjeta del rider seleccionado, pero se ocultan los demás riders para que el seguimiento histórico quede limpio.
