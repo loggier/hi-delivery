@@ -33,17 +33,37 @@ import { User } from "@/types";
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
+function isRiderRole(user?: User | null) {
+  return Boolean(
+    user &&
+    (
+      user.role_id === 'role-rider' ||
+      /repartidor|rider|delivery/i.test(user.role?.name ?? '')
+    ),
+  );
+}
+
 export default function SignInPage() {
   const router = useRouter();
-  const { login, isLoading, isAuthenticated } = useAuthStore();
+  const { login, logout, user, isLoading, isAuthenticated } = useAuthStore();
   const { toast } = useToast();
 
   // Redirige si el usuario ya está autenticado
   useEffect(() => {
+    if (!isLoading && isAuthenticated && isRiderRole(user)) {
+      logout();
+      toast({
+        variant: "destructive",
+        title: "Acceso no permitido",
+        description: "Los repartidores sólo pueden ingresar desde la app móvil.",
+      });
+      return;
+    }
+
     if (!isLoading && isAuthenticated) {
       router.replace('/dashboard');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, logout, router, toast, user]);
 
 
   const form = useForm<SignInFormValues>({
@@ -68,6 +88,10 @@ export default function SignInPage() {
         throw new Error(result.message || 'Credenciales inválidas.');
       }
 
+      if (isRiderRole(result.user as User)) {
+        throw new Error('El acceso web no está habilitado para repartidores. Usa la app móvil.');
+      }
+
       login(result.user as User);
       
       toast({
@@ -89,6 +113,18 @@ export default function SignInPage() {
 
   // Muestra un loader general mientras se verifica el estado de autenticación inicial.
   if (isLoading || isAuthenticated) {
+     if (isAuthenticated && isRiderRole(user)) {
+       return (
+         <div className="flex h-screen w-full items-center justify-center bg-background">
+           <div className="rounded-lg border bg-card px-6 py-5 shadow-sm">
+             <p className="text-sm font-semibold">Acceso restringido</p>
+             <p className="mt-1 text-sm text-muted-foreground">
+               Los repartidores sólo pueden ingresar desde la app móvil.
+             </p>
+           </div>
+         </div>
+       );
+     }
      return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <Loader2 className="h-8 w-8 animate-spin" />

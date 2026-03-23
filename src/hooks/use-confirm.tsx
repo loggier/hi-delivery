@@ -46,9 +46,20 @@ export const useConfirm = () => {
     setPromise(null);
   };
 
-  const ConfirmationDialog = () => (
-    <AlertDialog open={!!dialog}>
-      {dialog && (
+  const ConfirmationDialog = () => {
+    if (!dialog) {
+      return null;
+    }
+
+    return (
+      <AlertDialog
+        open
+        onOpenChange={(open) => {
+          if (!open) {
+            handleClose();
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{dialog.title}</AlertDialogTitle>
@@ -66,9 +77,9 @@ export const useConfirm = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      )}
-    </AlertDialog>
-  );
+      </AlertDialog>
+    );
+  };
 
   return [ConfirmationDialog, confirm] as const;
 };

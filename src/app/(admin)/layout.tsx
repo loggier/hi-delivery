@@ -90,6 +90,13 @@ export default function AdminLayout({
   const [searchQuery, setSearchQuery] = useState("");
 
   const isSuperAdmin = user?.role_id === 'role-admin';
+  const isRiderRole = Boolean(
+    user &&
+    (
+      user.role_id === 'role-rider' ||
+      /repartidor|rider|delivery/i.test(user.role?.name ?? '')
+    ),
+  );
 
   const { data: pendingBusinesses } = api.businesses.useGetAll({ status: 'PENDING_REVIEW' }, { enabled: isSuperAdmin });
   const { data: pendingRiders } = api.riders.useGetAll({ status: 'pending_review' }, { enabled: isSuperAdmin });
@@ -121,6 +128,17 @@ export default function AdminLayout({
       router.replace('/sign-in');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) {
+      return;
+    }
+
+    if (isRiderRole) {
+      useAuthStore.getState().logout();
+      router.replace('/sign-in?restricted=1');
+    }
+  }, [isAuthenticated, isLoading, isRiderRole, router]);
   
   useEffect(() => {
     if (pathname === '/pos' || pathname === '/shipping' || pathname === '/monitoring') {
@@ -128,6 +146,16 @@ export default function AdminLayout({
     } else {
       setSidebarCollapsed(false);
     }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.body.style.pointerEvents = '';
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
   }, [pathname]);
 
   const toggleSidebar = () => setSidebarCollapsed(!isSidebarCollapsed);
@@ -143,6 +171,19 @@ export default function AdminLayout({
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (isRiderRole) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="rounded-lg border bg-card px-6 py-5 text-center shadow-sm">
+          <p className="text-sm font-semibold">Acceso restringido</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Los repartidores sólo pueden ingresar desde la app móvil.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const SidebarContent = ({ isMobile = false }) => (

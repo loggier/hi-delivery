@@ -14,6 +14,15 @@ type UserData = {
   role_id: string;
 };
 
+function isRiderRole(user: { role_id?: string; role?: { name?: string } | null }) {
+  const roleId = user.role_id ?? '';
+  const roleName = user.role?.name ?? '';
+  return (
+    roleId === 'role-rider' ||
+    /repartidor|rider|delivery/i.test(roleName)
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -78,6 +87,13 @@ export async function POST(request: Request) {
     
     if(fullUserError || !fullUser) {
         return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.' }, { status: 500 });
+    }
+
+    if (isRiderRole(fullUser as { role_id?: string; role?: { name?: string } | null })) {
+      return NextResponse.json(
+        { message: 'El acceso web no está habilitado para repartidores. Usa la app móvil.' },
+        { status: 403 },
+      );
     }
     
     // If user is a Business Owner, attach their business ID to the session user object

@@ -833,3 +833,32 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
   - la columna lateral ahora tiene tabs globales `En vivo` e `Historial`;
   - `En vivo` muestra el listado completo de unidades;
   - `Historial` tiene su propio selector de rider y concentra la consulta/reproducción de recorrido sin mezclarlo con la lista operativa.
+
+## 2026-03-23 - Web admin: bloquear acceso de repartidores
+
+- Se bloqueó explícitamente el acceso web para cuentas de repartidor en:
+  - `src/app/api/auth/sign-in/route.ts`
+  - `src/app/(admin)/layout.tsx`
+  - `src/app/(auth)/sign-in/page.tsx`
+- El criterio usa `role_id === 'role-rider'` y también detecta roles cuyo nombre contenga `repartidor`, `rider` o `delivery`.
+- Si una sesión de repartidor llega al admin web, se cierra la sesión y se redirige a `sign-in` con estado restringido.
+
+## 2026-03-23 - Web admin: fix de modales/alerts que bloqueaban interacción
+
+- Se corrigió `src/hooks/use-confirm.tsx` para que `AlertDialog` sea controlado con `onOpenChange`.
+- Esto evita que el estado del overlay quede pegado después de cerrar alertas de confirmación y deja que la página recupere interacción normal sin refrescar.
+- Se reforzó `src/hooks/use-confirm.tsx` para desmontar por completo el diálogo al cerrar, y `src/app/(admin)/layout.tsx` limpia estilos residuales de `body` (`pointer-events`, `overflow`, `paddingRight`) al cambiar de ruta como fallback defensivo.
+- Se agregó un `BodyLockResetter` global en `src/app/providers.tsx` que observa diálogos/alertas abiertos y limpia `body.pointerEvents`/`overflow`/`paddingRight` cuando ya no existe ningún modal abierto en el DOM, para evitar que la interfaz quede bloqueada tras cerrar modales en cualquier pantalla.
+
+## 2026-03-23 - Rider app: login por teléfono
+
+- `src/screens/login_screen.dart` ahora autentica con `phone_e164` + contraseña en lugar de email.
+- El login acepta tanto el teléfono con prefijo `+52` como sin prefijo, normalizando candidatos antes de consultar `riders`.
+- La verificación sigue usando `bcrypt` contra `riders.password_hash`.
+
+## 2026-03-23 - Rider app: push tap handling y bootstrap seguro
+
+- `lib/services/rider_notification_service.dart` ahora separa la inicialización de `flutter_local_notifications` entre foreground y background para no pedir permisos desde el handler de background.
+- `lib/services/rider_push_service.dart` usa `initialize(requestPermission: false)` en el background handler de FCM.
+- `lib/main.dart` consulta `getNotificationAppLaunchDetails()` y procesa el payload de la notificación al arranque frío para abrir la app y llevarla al pedido o mapa correspondiente.
+- `lib/screens/home_screen.dart` resolvió `riderId` priorizando el `id` guardado en sesión y sólo cae a `user_id` si hace falta, alineando la sesión actual con el login por teléfono.
