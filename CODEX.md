@@ -862,3 +862,22 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - `lib/services/rider_push_service.dart` usa `initialize(requestPermission: false)` en el background handler de FCM.
 - `lib/main.dart` consulta `getNotificationAppLaunchDetails()` y procesa el payload de la notificación al arranque frío para abrir la app y llevarla al pedido o mapa correspondiente.
 - `lib/screens/home_screen.dart` resolvió `riderId` priorizando el `id` guardado en sesión y sólo cae a `user_id` si hace falta, alineando la sesión actual con el login por teléfono.
+
+## 2026-03-23 - Rider profile: seguridad de cuenta y cambio de contraseña
+
+- La sección `Configuración de la cuenta` en `ProfileScreen` se renombró a `Seguridad de la cuenta` para no prometer edición de datos personales que todavía no está habilitada.
+- Se agregó un flujo modal de cambio de contraseña con validación de contraseña actual, longitud mínima, complejidad básica y confirmación.
+- El cambio de contraseña actualiza `riders.password_hash` usando bcrypt y no modifica otros datos del perfil.
+
+## 2026-03-23 - Rider app: unificación de resolución de sesión/rider
+
+- Se agregó `lib/services/current_rider_service.dart` para resolver de forma consistente el `rider.id` y `user_id` a partir de la sesión guardada tras el login por teléfono.
+- `OrderAssignmentService`, `RiderAvailabilityService`, `RiderPushService`, `HomeScreen`, `OrdersScreen`, `DashboardScreen` y `HistoryScreen` ahora usan ese resolver único en lugar de asumir que `SessionManager.user.id` es siempre `user_id`.
+- Se limpia el cache del resolver al iniciar/cerrar sesión para evitar arrastrar ids viejos entre pruebas.
+- Con esto se realineó el acceso a perfil, pedidos asignados, dashboard, historial y disponibilidad después del cambio de login de correo a teléfono.
+
+## 2026-03-23 - Orders admin: rechazo no bloquea asignación manual
+
+- En `src/app/(admin)/orders/[id]/page.tsx`, la lista de `Asignar rider manualmente` sigue mostrando riders que hayan rechazado previamente la solicitud, siempre que sigan activos para órdenes, en la misma zona y con carga menor a 2 pedidos activos.
+- El rechazo se mantiene como exclusión sólo para el redispatch automático/manual de notificación (`handleRedispatchFallback`), no para la selección manual desde admin.
+- La UI del diálogo ahora marca explícitamente con badge `Rechazó esta solicitud` a esos riders para que el operador sepa el contexto antes de asignar.

@@ -53,6 +53,7 @@ type AvailableRider = Pick<Rider, "id" | "first_name" | "last_name" | "phone_e16
     last_longitude?: number;
     zoneName?: string;
     areaName?: string;
+    rejectedThisOrder?: boolean;
 };
 
 function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -369,7 +370,7 @@ export default function ViewOrderPage() {
   const [ConfirmationDialog, confirm] = useConfirm();
 
   const availableRidersQuery = useQuery<AvailableRider[]>({
-    queryKey: ['orders', 'available-riders', order?.id],
+    queryKey: ['orders', 'available-riders', order?.id, ...(order?.rejected_riders ?? [])],
     enabled: isAssignDialogOpen,
     queryFn: async () => {
       const { data: businessZoneRow, error: businessZoneError } = await supabase
@@ -386,6 +387,8 @@ export default function ViewOrderPage() {
       if (!businessZoneId) {
         return [];
       }
+
+      const rejectedRiderIds = new Set(order?.rejected_riders ?? []);
 
       const { data: riders, error: riderError } = await supabase
         .from('riders')
@@ -457,9 +460,20 @@ export default function ViewOrderPage() {
                 ?.find((area) => isPointInsidePolygon({ lat: rider.last_latitude as number, lng: rider.last_longitude as number }, area.geofence))
                 ?.name
             : undefined,
+          rejectedThisOrder: rejectedRiderIds.has(rider.id),
         }))
         .filter((rider) => rider.activeOrderCount < 2)
-        .sort((a, b) => a.activeOrderCount - b.activeOrderCount);
+        .sort((a, b) => {
+          if (a.activeOrderCount !== b.activeOrderCount) {
+            return a.activeOrderCount - b.activeOrderCount;
+          }
+
+          if ((a.rejectedThisOrder ? 1 : 0) !== (b.rejectedThisOrder ? 1 : 0)) {
+            return (a.rejectedThisOrder ? 1 : 0) - (b.rejectedThisOrder ? 1 : 0);
+          }
+
+          return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'es');
+        });
     },
   });
 
@@ -806,7 +820,7 @@ export default function ViewOrderPage() {
           <DialogHeader>
             <DialogTitle>Asignar rider manualmente</DialogTitle>
             <DialogDescription>
-              Se muestran riders activos para órdenes. La carga actual se calcula con pedidos en curso.
+              Se muestran riders activos para órdenes en la misma zona. Si un rider rechazó esta solicitud, igual puede asignarse manualmente mientras siga disponible y con carga permitida.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
@@ -835,6 +849,9 @@ export default function ViewOrderPage() {
                       <Badge variant={rider.activeOrderCount === 0 ? "outline" : "default"}>
                         {rider.activeOrderCount} pedido{rider.activeOrderCount === 1 ? '' : 's'} activo{rider.activeOrderCount === 1 ? '' : 's'}
                       </Badge>
+                      {rider.rejectedThisOrder ? (
+                        <Badge variant="warning">Rechazó esta solicitud</Badge>
+                      ) : null}
                       {rider.last_location_update ? (
                         <Badge variant="outline">
                           <Clock3 className="mr-1 h-3 w-3" />
