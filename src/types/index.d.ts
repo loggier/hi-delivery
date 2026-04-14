@@ -160,6 +160,9 @@ export type CustomerAddress = {
   id: string;
   customer_id: string;
   address: string;
+  street?: string;
+  house_number?: string;
+  reference?: string;
   neighborhood?: string;
   city?: string;
   state?: string;

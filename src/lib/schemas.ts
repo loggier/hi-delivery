@@ -392,8 +392,8 @@ export const productSchema = z.object({
   sku: z.string().optional(),
   price: z.coerce.number().min(0, { message: "El precio debe ser positivo." }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
-  business_id: z.string({ required_error: "Debe seleccionar un negocio."}),
-  category_id: z.string({ required_error: "Debe seleccionar una categoría."}),
+  business_id: z.string({ required_error: "Debe seleccionar un negocio." }).min(1, { message: "Debe seleccionar un negocio." }),
+  category_id: z.string({ required_error: "Debe seleccionar una categoría." }).min(1, { message: "Debe seleccionar una categoría." }),
   image_url: imageFileSchema("La imagen del producto es opcional.").optional(),
 });
 
@@ -408,6 +408,9 @@ export const customerAddressSchema = z.object({
   id: z.string().optional(),
   customer_id: z.string(),
   address: z.string().min(5, "La dirección completa es requerida."),
+  street: z.string().optional(),
+  house_number: z.string().optional(),
+  reference: z.string().max(500, "La referencia no puede exceder los 500 caracteres.").optional(),
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),

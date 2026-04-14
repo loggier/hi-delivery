@@ -370,6 +370,7 @@ export default function POSPage() {
                     onClose={() => setIsAddressModalOpen(false)}
                     customerId={selectedCustomer.id}
                     addressToEdit={editingAddress}
+                    businessLocation={selectedPickupLocation}
                 />
             )}
             

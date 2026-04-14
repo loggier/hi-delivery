@@ -7,7 +7,7 @@ import { notFound, useParams } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useLoadScript, GoogleMap, MarkerF, DirectionsRenderer } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, Polyline } from '@react-google-maps/api';
 
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -33,7 +33,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const libraries: ('places' | 'directions')[] = ['places', 'directions'];
+const libraries: ('places')[] = ['places'];
+const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nominatim.vemontech.com/route/v1/driving';
 const activeDeliveryStatuses: OrderStatus[] = [
     'accepted',
     'cooking',
@@ -93,6 +94,40 @@ function isPointInsidePolygon(
   }
 
   return inside;
+}
+
+function decodePolyline(encoded: string) {
+  const points: Array<{ lat: number; lng: number }> = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte: number;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    const deltaLat = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += deltaLat;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    const deltaLng = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lng += deltaLng;
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+
+  return points;
 }
 
 async function triggerOrderPushEvent(
@@ -283,7 +318,8 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
     });
-    const [directions, setDirections] = React.useState<google.maps.DirectionsResult | null>(null);
+    const [woosmapRoutePoints, setWoosmapRoutePoints] = React.useState<Array<{ lat: number; lng: number }> | null>(null);
+    const mapRef = React.useRef<google.maps.Map | null>(null);
 
     const businessLocation = order?.pickup_address?.coordinates;
     const customerLocation = order?.delivery_address?.coordinates;
@@ -293,33 +329,66 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
         if (customerLocation) return customerLocation;
         return { lat: 19.4326, lng: -99.1332 };
     }, [businessLocation, customerLocation]);
+
+    const mapBounds = useMemo(() => {
+        if (!isLoaded || typeof window === 'undefined') return undefined;
+
+        const bounds = new window.google.maps.LatLngBounds();
+        if (woosmapRoutePoints?.length) {
+            woosmapRoutePoints.forEach((point) => bounds.extend(point));
+            return bounds;
+        }
+
+        if (businessLocation) bounds.extend(businessLocation);
+        if (customerLocation) bounds.extend(customerLocation);
+
+        if (bounds.isEmpty()) return undefined;
+        return bounds;
+    }, [isLoaded, woosmapRoutePoints, businessLocation, customerLocation]);
     
     React.useEffect(() => {
         // Si la ruta ya está guardada en la orden, la usamos directamente.
         if (order?.route_path) {
-            setDirections(order.route_path);
-            return;
+            const routePath = order.route_path as any;
+            if (Array.isArray(routePath?.points) && routePath.points.length > 0) {
+                setWoosmapRoutePoints(routePath.points);
+                return;
+            }
         }
 
-        // Si no, la calculamos (fallback para órdenes antiguas)
+        // Si no hay ruta guardada, la calculamos con OSRM.
         if (isLoaded && businessLocation && customerLocation) {
-            const directionsService = new google.maps.DirectionsService();
-            directionsService.route(
-                {
-                    origin: businessLocation,
-                    destination: customerLocation,
-                    travelMode: google.maps.TravelMode.DRIVING,
-                },
-                (result, status) => {
-                    if (status === google.maps.DirectionsStatus.OK) {
-                        setDirections(result);
-                    } else {
-                        console.error(`Error fetching directions ${result}`);
+            let cancelled = false;
+            (async () => {
+                try {
+                    const url = `${OSRM_ROUTE_URL}/${businessLocation.lng},${businessLocation.lat};${customerLocation.lng},${customerLocation.lat}?overview=full&geometries=polyline&steps=false`;
+                    const response = await fetch(url);
+                    const payload = await response.json();
+                    const polyline = payload?.routes?.[0]?.geometry as string | undefined;
+                    const points = polyline ? decodePolyline(polyline) : [businessLocation, customerLocation];
+                    if (!cancelled) {
+                        setWoosmapRoutePoints(points);
+                    }
+                } catch (error) {
+                    if (!cancelled) {
+                        setWoosmapRoutePoints([businessLocation, customerLocation]);
                     }
                 }
-            );
+            })();
+
+            return () => {
+                cancelled = true;
+            };
         }
+
+        setWoosmapRoutePoints(null);
     }, [isLoaded, businessLocation, customerLocation, order?.route_path]);
+
+    React.useEffect(() => {
+        if (mapRef.current && mapBounds) {
+            mapRef.current.fitBounds(mapBounds);
+        }
+    }, [mapBounds]);
 
 
     if (loadError) return <div className="text-red-500">Error al cargar el mapa.</div>;
@@ -330,16 +399,50 @@ const LocationMap = ({ order }: { order: Order | undefined }) => {
             mapContainerClassName="h-full w-full rounded-md"
             center={mapCenter}
             zoom={12}
+            onLoad={(map) => {
+                mapRef.current = map;
+                if (mapBounds) map.fitBounds(mapBounds);
+            }}
             options={{
                 disableDefaultUI: true,
                 zoomControl: true,
             }}
         >
-            {directions ? (
-                <DirectionsRenderer directions={directions} options={{
-                    suppressMarkers: false,
-                    polylineOptions: { strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 4 }
-                }}/>
+            {woosmapRoutePoints ? (
+                <>
+                    <Polyline
+                        path={woosmapRoutePoints}
+                        options={{ strokeColor: '#ffffff', strokeOpacity: 1, strokeWeight: 8, zIndex: 1 }}
+                    />
+                    <Polyline
+                        path={woosmapRoutePoints}
+                        options={{
+                            strokeColor: '#0b3a8f',
+                            strokeOpacity: 0,
+                            strokeWeight: 3,
+                            zIndex: 2,
+                            icons: [
+                                {
+                                    icon: {
+                                        path: 'M 0,-1 0,1',
+                                        strokeOpacity: 1,
+                                        strokeColor: '#0b3a8f',
+                                        strokeWeight: 3,
+                                        scale: 3,
+                                    },
+                                    offset: '0',
+                                    repeat: '14px',
+                                },
+                            ],
+                        }}
+                    />
+                    {businessLocation && (
+                        <MarkerF position={businessLocation} label={{ text: "N", color: 'white' }} title="Negocio"/>
+                    )}
+                    {customerLocation && (
+                        <MarkerF position={customerLocation} label={{ text: "C", color: 'white' }} title="Cliente"/>
+                    )}
+                </>
             ) : (
                 <>
                      {businessLocation && (

@@ -881,3 +881,11 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - En `src/app/(admin)/orders/[id]/page.tsx`, la lista de `Asignar rider manualmente` sigue mostrando riders que hayan rechazado previamente la solicitud, siempre que sigan activos para órdenes, en la misma zona y con carga menor a 2 pedidos activos.
 - El rechazo se mantiene como exclusión sólo para el redispatch automático/manual de notificación (`handleRedispatchFallback`), no para la selección manual desde admin.
 - La UI del diálogo ahora marca explícitamente con badge `Rechazó esta solicitud` a esos riders para que el operador sepa el contexto antes de asignar.
+
+## 2026-03-23 - Rider app: contraseña real en `users`, no en `riders`
+
+- `lib/screens/login_screen.dart` sigue buscando al repartidor por `phone_e164` en `riders`, pero la comparación bcrypt ahora se hace contra `users.password_hash` usando `riders.user_id`.
+- El payload guardado en sesión se compone con datos de `users` y `riders`, para mantener email/rol/estado del usuario sin perder el `rider.id`.
+- `lib/screens/profile_screen.dart` también dejó de cambiar `riders.password_hash`; el cambio de contraseña ahora valida y actualiza `users.password_hash`.
+- `lib/models/rider.dart` se limpió para dejar de modelar `password_hash` como parte del recurso `riders`, evitando que nuevas pantallas vuelvan a asumir que la contraseña vive en esa tabla.
+- Ajuste de esquema real: la columna correcta es `users.password`, no `users.password_hash`, así que login y cambio de contraseña en Flutter ahora leen/escriben `password` manteniendo bcrypt sobre ese campo.

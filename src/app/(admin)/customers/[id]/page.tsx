@@ -56,6 +56,7 @@ const LocationMap = ({ address }: { address: CustomerAddress | null }) => {
             options={{
                 disableDefaultUI: true,
                 zoomControl: true,
+                mapTypeControl: true,
             }}
         >
             {address && <MarkerF position={{ lat: address.latitude, lng: address.longitude }} />}
@@ -250,6 +251,13 @@ export default function ViewCustomerPage() {
                                     <div className="flex-grow">
                                         <p className="text-sm font-medium leading-tight">{addr.address}</p>
                                         <p className="text-xs text-muted-foreground">{addr.city}, {addr.state}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {[
+                                                addr.street ? `Calle: ${addr.street}` : null,
+                                                addr.house_number ? `Número: ${addr.house_number}` : null,
+                                                addr.reference ? `Referencia: ${addr.reference}` : null,
+                                            ].filter(Boolean).join(' · ') || 'Sin detalles adicionales'}
+                                        </p>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />}

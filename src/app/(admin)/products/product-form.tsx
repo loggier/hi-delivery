@@ -34,6 +34,7 @@ import { productSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { FormImageUpload } from "@/app/site/apply/_components/form-components";
 import { Loader2 } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
@@ -47,9 +48,12 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
   const router = useRouter();
   const createMutation = api.products.useCreateWithFormData();
   const updateMutation = api.products.useUpdateWithFormData();
+  const { user } = useAuthStore();
 
   const isEditing = !!initialData;
   const formAction = isEditing ? "Guardar cambios" : "Crear producto";
+  const scopedBusinessId = user?.business_id?.trim() || "";
+  const isBusinessScopedUser = scopedBusinessId.length > 0;
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -69,6 +73,11 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
       image_url: null,
     },
   });
+
+  React.useEffect(() => {
+    if (!isBusinessScopedUser) return;
+    form.setValue("business_id", scopedBusinessId, { shouldValidate: true });
+  }, [form, isBusinessScopedUser, scopedBusinessId]);
 
   const onSubmit = async (data: ProductFormValues) => {
     try {
@@ -166,26 +175,28 @@ export function ProductForm({ initialData, businesses, categories }: ProductForm
                     />
                 </div>
                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="business_id"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Negocio</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
-                            <FormControl>
-                                <SelectTrigger>
-                                <SelectValue placeholder="Selecciona un negocio" />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {businesses.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                            </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                    {!isBusinessScopedUser && (
+                      <FormField
+                          control={form.control}
+                          name="business_id"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Negocio</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
+                              <FormControl>
+                                  <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona un negocio" />
+                                  </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  {businesses.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                              </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                    )}
                      <FormField
                         control={form.control}
                         name="category_id"

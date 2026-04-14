@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
-import { CustomerSearch, AddressFormModal, CustomerDisplay, CustomerFormModal, ShippingMapModal, LocationSelector, PackageDetails, ShippingSummary } from './components';
+import { CustomerSearch, AddressFormModal, CustomerDisplay, CustomerFormModal, ShippingMapModal, LocationSelector, PackageDetails, ShippingSummary, type ShippingInfo } from './components';
 import { useAuthStore } from '@/store/auth-store';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,6 +40,7 @@ export default function ShippingPage() {
     const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
+    const [shippingInfoForMap, setShippingInfoForMap] = React.useState<ShippingInfo | null>(null);
 
     const createOrderMutation = api.orders.useCreate();
 
@@ -102,7 +103,7 @@ export default function ShippingPage() {
         setIsCustomerModalOpen(false);
     };
 
-    const handleCreateShipping = ({ shippingInfo }: { shippingInfo: { cost: number; distance: number; directions: google.maps.DirectionsResult | null } }) => {
+    const handleCreateShipping = ({ shippingInfo }: { shippingInfo: ShippingInfo }) => {
         if (!selectedBusiness || !selectedCustomer || !origin || !destination || !packageDescription.trim()) {
             return;
         }
@@ -127,7 +128,7 @@ export default function ShippingPage() {
             delivery_fee: shippingInfo.cost,
             order_total: shippingInfo.cost,
             distance: shippingInfo.distance,
-            route_path: shippingInfo.directions,
+            route_path: shippingInfo.routePath,
         };
 
         createOrderMutation.mutate(orderPayload, {
@@ -314,7 +315,10 @@ export default function ShippingPage() {
                     isMapsLoaded={isLoaded}
                     onCreateShipping={handleCreateShipping}
                     isCreating={createOrderMutation.isPending}
-                    onOpenMap={() => setIsMapModalOpen(true)}
+                    onOpenMap={(shippingInfo) => {
+                        setShippingInfoForMap(shippingInfo);
+                        setIsMapModalOpen(true);
+                    }}
                 />
             </div>
 
@@ -340,6 +344,7 @@ export default function ShippingPage() {
                 origin={origin}
                 destination={destination}
                 isMapsLoaded={isLoaded}
+                shippingInfo={shippingInfoForMap}
             />
         </div>
     );

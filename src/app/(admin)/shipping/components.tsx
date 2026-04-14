@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormLabel, FormMessage } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { GoogleMap, Autocomplete, DirectionsRenderer } from '@react-google-maps/api';
+import { GoogleMap, Autocomplete, MarkerF, Polyline } from '@react-google-maps/api';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,103 @@ import { LocationPoint } from './page';
 import { Textarea } from '@/components/ui/textarea';
 
 const libraries: ('places')[] = ['places'];
+const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nominatim.vemontech.com/route/v1/driving';
+
+type LatLng = { lat: number; lng: number };
+
+interface WoosmapRoutePath {
+    provider: 'osrm';
+    polyline: string;
+    points: LatLng[];
+    distance: number;
+    duration_seconds: number;
+}
+
+function decodePolyline(encoded: string): LatLng[] {
+    const points: LatLng[] = [];
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < encoded.length) {
+        let shift = 0;
+        let result = 0;
+        let byte: number;
+        do {
+            byte = encoded.charCodeAt(index++) - 63;
+            result |= (byte & 0x1f) << shift;
+            shift += 5;
+        } while (byte >= 0x20);
+        const deltaLat = (result & 1) ? ~(result >> 1) : (result >> 1);
+        lat += deltaLat;
+
+        shift = 0;
+        result = 0;
+        do {
+            byte = encoded.charCodeAt(index++) - 63;
+            result |= (byte & 0x1f) << shift;
+            shift += 5;
+        } while (byte >= 0x20);
+        const deltaLng = (result & 1) ? ~(result >> 1) : (result >> 1);
+        lng += deltaLng;
+
+        points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+    }
+
+    return points;
+}
+
+function formatDurationFromSeconds(totalSeconds: number) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.max(1, Math.round((totalSeconds % 3600) / 60));
+    if (hours > 0) return `${hours} h ${minutes} min`;
+    return `${minutes} min`;
+}
+
+function extractNumericValue(value: any): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (value && typeof value === 'object') {
+        return extractNumericValue(value.value ?? value.amount ?? value.distance ?? value.duration);
+    }
+    return 0;
+}
+
+function haversineDistanceMeters(a: LatLng, b: LatLng): number {
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const R = 6371000;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+
+    const h =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function fetchOsrmRoute(origin: LatLng, destination: LatLng) {
+    const url = `${OSRM_ROUTE_URL}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=polyline&steps=false`;
+    const response = await fetch(url);
+    const payload = await response.json();
+    if (!response.ok || payload?.code !== 'Ok' || !payload?.routes?.[0]) {
+        throw new Error(payload?.message || 'OSRM route unavailable');
+    }
+
+    const route = payload.routes[0];
+    const polyline = route.geometry || '';
+    const points = polyline ? decodePolyline(polyline) : [origin, destination];
+    return {
+        polyline,
+        points,
+        distance: extractNumericValue(route.distance),
+        durationSeconds: extractNumericValue(route.duration),
+    };
+}
 
 // --- Location Selector ---
 interface LocationSelectorProps {
@@ -496,12 +593,14 @@ interface ShippingMapModalProps {
     origin: LocationPoint | null;
     destination: LocationPoint | null;
     isMapsLoaded: boolean;
+    shippingInfo: ShippingInfo | null;
 }
 
-export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsLoaded }: ShippingMapModalProps) {
+export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsLoaded, shippingInfo }: ShippingMapModalProps) {
     
     const [isModalReady, setIsModalReady] = useState(false);
-    const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+    const mapRef = useRef<google.maps.Map | null>(null);
+    const [osrmRoutePoints, setOsrmRoutePoints] = useState<LatLng[]>([]);
 
     useEffect(() => {
         if (isOpen) {
@@ -514,25 +613,6 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
         }
     }, [isOpen]);
     
-    useEffect(() => {
-        if (isMapsLoaded && origin && destination) {
-            const directionsService = new google.maps.DirectionsService();
-            directionsService.route({
-                origin: new google.maps.LatLng(origin.lat, origin.lng),
-                destination: new google.maps.LatLng(destination.lat, destination.lng),
-                travelMode: google.maps.TravelMode.DRIVING
-            }, (result, status) => {
-                if (status === google.maps.DirectionsStatus.OK) {
-                    setDirections(result);
-                } else {
-                    console.error(`error fetching directions ${result}`);
-                }
-            });
-        } else {
-            setDirections(null);
-        }
-    }, [isMapsLoaded, origin, destination]);
-    
     const mapCenter = useMemo(() => {
         if (origin) return { lat: origin.lat, lng: origin.lng };
         if (destination) return { lat: destination.lat, lng: destination.lng };
@@ -540,13 +620,59 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
     }, [origin, destination]);
 
     const mapBounds = useMemo(() => {
-        if (!isMapsLoaded || !origin || !destination || typeof window === 'undefined') return undefined;
-        
+        if (!isMapsLoaded || typeof window === 'undefined') return undefined;
+
         const bounds = new window.google.maps.LatLngBounds();
-        bounds.extend({ lat: origin.lat, lng: origin.lng });
-        bounds.extend({ lat: destination.lat, lng: destination.lng });
+        const routePoints = shippingInfo?.routePath?.points?.length
+            ? shippingInfo.routePath.points
+            : osrmRoutePoints;
+
+        if (routePoints.length > 0) {
+            routePoints.forEach((point) => bounds.extend(point));
+            return bounds;
+        }
+
+        if (origin) bounds.extend({ lat: origin.lat, lng: origin.lng });
+        if (destination) bounds.extend({ lat: destination.lat, lng: destination.lng });
+
+        if (bounds.isEmpty()) return undefined;
         return bounds;
-    }, [origin, destination, isMapsLoaded]);
+    }, [origin, destination, shippingInfo?.routePath?.points, osrmRoutePoints, isMapsLoaded]);
+
+    useEffect(() => {
+        if (isModalReady && mapRef.current && mapBounds) {
+            mapRef.current.fitBounds(mapBounds);
+        }
+    }, [isModalReady, mapBounds]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setOsrmRoutePoints([]);
+            return;
+        }
+        if (shippingInfo?.routePath?.points?.length) return;
+        if (!origin || !destination) return;
+
+        let cancelled = false;
+        void (async () => {
+            try {
+                const osrm = await fetchOsrmRoute(origin, destination);
+                if (!cancelled) {
+                    setOsrmRoutePoints(osrm.points);
+                }
+            } catch {
+                if (!cancelled) {
+                    setOsrmRoutePoints([origin, destination]);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, shippingInfo?.routePath?.points, origin, destination]);
+
+    const displayedRoutePoints = shippingInfo?.routePath?.points?.length ? shippingInfo.routePath.points : osrmRoutePoints;
 
 
     return (
@@ -565,6 +691,7 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
                             mapContainerClassName="w-full h-full rounded-md"
                             center={mapCenter}
                             onLoad={map => {
+                                mapRef.current = map;
                                 if (mapBounds) map.fitBounds(mapBounds);
                             }}
                             options={{
@@ -572,7 +699,43 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
                                 zoomControl: true,
                             }}
                         >
-                            {directions && <DirectionsRenderer directions={directions} />}
+                            {displayedRoutePoints.length > 0 ? (
+                                <>
+                                    <Polyline
+                                        path={displayedRoutePoints}
+                                        options={{ strokeColor: '#ffffff', strokeOpacity: 1, strokeWeight: 8, zIndex: 1 }}
+                                    />
+                                    <Polyline
+                                        path={displayedRoutePoints}
+                                        options={{
+                                            strokeColor: '#0b3a8f',
+                                            strokeOpacity: 0,
+                                            strokeWeight: 3,
+                                            zIndex: 2,
+                                            icons: [
+                                                {
+                                                    icon: {
+                                                        path: 'M 0,-1 0,1',
+                                                        strokeOpacity: 1,
+                                                        strokeColor: '#0b3a8f',
+                                                        strokeWeight: 3,
+                                                        scale: 3,
+                                                    },
+                                                    offset: '0',
+                                                    repeat: '14px',
+                                                },
+                                            ],
+                                        }}
+                                    />
+                                    {origin && <MarkerF position={{ lat: origin.lat, lng: origin.lng }} label="O" />}
+                                    {destination && <MarkerF position={{ lat: destination.lat, lng: destination.lng }} label="D" />}
+                                </>
+                            ) : (
+                                <>
+                                    {origin && <MarkerF position={{ lat: origin.lat, lng: origin.lng }} label="O" />}
+                                    {destination && <MarkerF position={{ lat: destination.lat, lng: destination.lng }} label="D" />}
+                                </>
+                            )}
                         </GoogleMap>
                     )}
                 </div>
@@ -582,11 +745,13 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
 }
 
 // --- Shipping Summary ---
-interface ShippingInfo {
+export interface ShippingInfo {
     distance: number; // in meters
     duration: string;
+    durationSeconds: number;
     cost: number;
     directions: google.maps.DirectionsResult | null;
+    routePath: WoosmapRoutePath | null;
 }
 
 export const useShippingCalculation = (
@@ -607,41 +772,69 @@ export const useShippingCalculation = (
         if (isMapsLoaded && origin && destination && plan) {
             setIsLoading(true);
             setError(null);
-            
-            const directionsService = new google.maps.DirectionsService();
-            directionsService.route(
-                {
-                    origin: new google.maps.LatLng(origin.lat, origin.lng),
-                    destination: new google.maps.LatLng(destination.lat, destination.lng),
-                    travelMode: google.maps.TravelMode.DRIVING
-                },
-                (result, status) => {
-                    if (status === google.maps.DirectionsStatus.OK && result && result.routes[0]?.legs[0]) {
-                        const leg = result.routes[0].legs[0];
-                        const distanceInMeters = leg.distance?.value || 0;
-                        const distanceInKm = distanceInMeters / 1000;
-                        const durationText = leg.duration?.text || 'N/A';
-                        
-                        let cost = plan.rider_fee;
-                        if (distanceInKm > plan.min_distance) {
-                            const extraKm = distanceInKm - plan.min_distance;
-                            cost += extraKm * plan.fee_per_km;
-                        }
+            let isCancelled = false;
 
+            (async () => {
+                try {
+                    let distanceInMeters = 0;
+                    let durationSeconds = 0;
+                    let encodedPolyline = '';
+
+                    try {
+                        const osrm = await fetchOsrmRoute(origin, destination);
+                        encodedPolyline = osrm.polyline;
+                        distanceInMeters = osrm.distance;
+                        durationSeconds = osrm.durationSeconds;
+                    } catch (osrmError) {
+                        // Keep graceful fallback below
+                    }
+
+                    if (distanceInMeters <= 0) {
+                        distanceInMeters = haversineDistanceMeters(origin, destination);
+                    }
+                    if (durationSeconds <= 0) {
+                        const avgUrbanSpeedKmh = 28;
+                        durationSeconds = Math.max(60, Math.round((distanceInMeters / 1000 / avgUrbanSpeedKmh) * 3600));
+                    }
+
+                    const distanceInKm = distanceInMeters / 1000;
+                    let cost = plan.rider_fee;
+                    if (distanceInKm > plan.min_distance) {
+                        const extraKm = distanceInKm - plan.min_distance;
+                        cost += extraKm * plan.fee_per_km;
+                    }
+
+                    const routePath: WoosmapRoutePath = {
+                        provider: 'osrm',
+                        polyline: encodedPolyline,
+                        points: encodedPolyline ? decodePolyline(encodedPolyline) : [origin, destination],
+                        distance: distanceInMeters,
+                        duration_seconds: durationSeconds,
+                    };
+
+                    if (!isCancelled) {
                         setShippingInfo({
                             distance: distanceInMeters,
-                            duration: durationText,
+                            duration: formatDurationFromSeconds(durationSeconds),
+                            durationSeconds,
                             cost: Math.max(cost, plan.min_shipping_fee),
-                            directions: result,
+                            directions: null,
+                            routePath,
                         });
-                        
-                    } else {
+                    }
+                } catch (calcError) {
+                    if (!isCancelled) {
                         setError("No se pudo calcular la ruta.");
                         setShippingInfo(null);
                     }
-                    setIsLoading(false);
+                } finally {
+                    if (!isCancelled) setIsLoading(false);
                 }
-            );
+            })();
+
+            return () => {
+                isCancelled = true;
+            };
         } else {
             setShippingInfo(null);
             setError(
@@ -666,7 +859,7 @@ interface ShippingSummaryProps {
     isMapsLoaded: boolean;
     onCreateShipping: (payload: { shippingInfo: ShippingInfo }) => void;
     isCreating: boolean;
-    onOpenMap: () => void;
+    onOpenMap: (shippingInfo: ShippingInfo) => void;
 }
 
 export function ShippingSummary({
@@ -773,7 +966,7 @@ export function ShippingSummary({
                                         type="button"
                                         variant="outline"
                                         className="mt-3 w-full"
-                                        onClick={onOpenMap}
+                                        onClick={() => shippingInfo && onOpenMap(shippingInfo)}
                                     >
                                         <Route className="mr-2 h-4 w-4" />
                                         Ver ruta

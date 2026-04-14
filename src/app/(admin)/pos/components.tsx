@@ -13,12 +13,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormField, FormMessage, FormLabel, FormControl } from '@/components/ui/form';
+import { Form, FormField, FormMessage, FormLabel, FormControl, FormItem } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { LocationMap } from './map';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLoadScript, GoogleMap, MarkerF, DirectionsRenderer } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, Polyline } from '@react-google-maps/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
@@ -33,8 +33,43 @@ import html2canvas from 'html2canvas';
 import { type ShippingInfo, useShippingCalculation } from './use-shipping-calculation';
 
 const libraries: ('places')[] = ['places'];
+const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nominatim.vemontech.com/route/v1/driving';
 
 type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
+
+function decodeOsrmPolyline(encoded: string): Array<{ lat: number; lng: number }> {
+    const points: Array<{ lat: number; lng: number }> = [];
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < encoded.length) {
+        let shift = 0;
+        let result = 0;
+        let byte: number;
+        do {
+            byte = encoded.charCodeAt(index++) - 63;
+            result |= (byte & 0x1f) << shift;
+            shift += 5;
+        } while (byte >= 0x20);
+        const deltaLat = (result & 1) ? ~(result >> 1) : (result >> 1);
+        lat += deltaLat;
+
+        shift = 0;
+        result = 0;
+        do {
+            byte = encoded.charCodeAt(index++) - 63;
+            result |= (byte & 0x1f) << shift;
+            shift += 5;
+        } while (byte >= 0x20);
+        const deltaLng = (result & 1) ? ~(result >> 1) : (result >> 1);
+        lng += deltaLng;
+
+        points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+    }
+
+    return points;
+}
 
 // --- Customer Search & Display ---
 
@@ -100,7 +135,16 @@ export function CustomerDisplay({
                             >
                                 <div className="flex items-center gap-3">
                                     {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0"/>}
-                                    <p className="text-sm">{addr.address}</p>
+                                    <div>
+                                        <p className="text-sm">{addr.address}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {[
+                                                addr.street ? `Calle: ${addr.street}` : null,
+                                                addr.house_number ? `Número: ${addr.house_number}` : null,
+                                                addr.reference ? `Referencia: ${addr.reference}` : null,
+                                            ].filter(Boolean).join(' · ') || 'Sin detalles adicionales'}
+                                        </p>
+                                    </div>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
                                     <Edit className="h-4 w-4" />
@@ -255,9 +299,10 @@ interface AddressFormModalProps {
     onClose: () => void;
     customerId?: string;
     addressToEdit: CustomerAddress | null;
+    businessLocation?: PickupLocation | null;
 }
 
-export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }: AddressFormModalProps) {
+export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, businessLocation }: AddressFormModalProps) {
     const methods = useForm<AddressFormValues>({
         resolver: zodResolver(customerAddressSchema),
     });
@@ -265,13 +310,31 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
     const createAddressMutation = api.customer_addresses.useCreate();
     const updateAddressMutation = api.customer_addresses.useUpdate();
 
+    const initialMapCenter = useMemo(() => {
+        if (addressToEdit) {
+            return { lat: addressToEdit.latitude, lng: addressToEdit.longitude };
+        }
+        if (businessLocation?.latitude && businessLocation?.longitude) {
+            return { lat: businessLocation.latitude, lng: businessLocation.longitude };
+        }
+        return { lat: 19.4326, lng: -99.1332 };
+    }, [addressToEdit, businessLocation?.latitude, businessLocation?.longitude]);
+
     useEffect(() => {
         if (addressToEdit) {
             methods.reset({ ...addressToEdit, customer_id: addressToEdit.customer_id });
         } else if (customerId) {
-            methods.reset({ customer_id: customerId, address: '', latitude: 19.4326, longitude: -99.1332 });
+            methods.reset({
+                customer_id: customerId,
+                address: '',
+                street: '',
+                house_number: '',
+                reference: '',
+                latitude: initialMapCenter.lat,
+                longitude: initialMapCenter.lng,
+            });
         }
-    }, [addressToEdit, customerId, methods]);
+    }, [addressToEdit, customerId, methods, initialMapCenter.lat, initialMapCenter.lng]);
 
     const onSubmit = async (data: AddressFormValues) => {
         if (!data.customer_id) {
@@ -304,8 +367,11 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
                         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6 pt-4">
                             <div>
                                 <LocationMap
-                                    onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood }) => {
+                                    initialCenter={initialMapCenter}
+                                    onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
                                         methods.setValue('address', address, { shouldValidate: true });
+                                        methods.setValue('street', street || '');
+                                        methods.setValue('house_number', house_number || '');
                                         methods.setValue('latitude', lat, { shouldValidate: true });
                                         methods.setValue('longitude', lng, { shouldValidate: true });
                                         if (city) methods.setValue('city', city);
@@ -316,6 +382,28 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit }:
                                 />
                                 <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
                                 <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
+                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <FormInput name="street" label="Calle" placeholder="Ej. Av. Insurgentes Sur" />
+                                    <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
+                                </div>
+                                <FormField
+                                    control={methods.control}
+                                    name="reference"
+                                    render={({ field }) => (
+                                        <FormItem className="mt-4">
+                                            <FormLabel>Referencia</FormLabel>
+                                            <FormControl>
+                                                <Textarea
+                                                    placeholder="Ej. Portón negro, casa junto a la farmacia."
+                                                    className="resize-none"
+                                                    {...field}
+                                                    value={field.value ?? ''}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
                             <div className="flex justify-end gap-2">
                                 <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
@@ -600,7 +688,7 @@ interface OrderTicketProps {
 const OrderTicket = React.forwardRef<HTMLDivElement, OrderTicketProps>(({ order, shippingInfo, subtotal, total, preparationTime }, ref) => {
     
     const getTotalTime = () => {
-        const shippingMinutes = shippingInfo?.duration ? parseInt(shippingInfo.duration.split(' ')[0]) : 0;
+        const shippingMinutes = shippingInfo?.durationSeconds ? Math.ceil(shippingInfo.durationSeconds / 60) : 0;
         return preparationTime + shippingMinutes;
     };
     
@@ -715,7 +803,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 
     const getTotalTime = () => {
         if (!shippingInfo) return preparationTime;
-        const shippingMinutes = parseInt(shippingInfo.duration.split(' ')[0]) || 0;
+        const shippingMinutes = shippingInfo.durationSeconds ? Math.ceil(shippingInfo.durationSeconds / 60) : 0;
         return preparationTime + shippingMinutes;
     };
 
@@ -747,7 +835,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
             delivery_fee: shippingInfo.cost,
             order_total: total,
             distance: shippingInfo.distance,
-            route_path: shippingInfo.directions, // Save the route path
+            route_path: shippingInfo.routePath, // Save OSRM route payload
         };
 
         createOrderMutation.mutate(orderPayload as any, {
@@ -981,6 +1069,8 @@ interface ShippingMapModalProps {
 export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoaded, shippingInfo }: ShippingMapModalProps) {
     
     const [isModalReady, setIsModalReady] = useState(false);
+    const mapRef = useRef<google.maps.Map | null>(null);
+    const [osrmRoutePoints, setOsrmRoutePoints] = useState<Array<{ lat: number; lng: number }>>([]);
 
     useEffect(() => {
         if (isOpen) {
@@ -1003,6 +1093,71 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
         return { lat: 19.4326, lng: -99.1332 }; // Default fallback
     }, [business, address]);
 
+    const mapBounds = useMemo(() => {
+        if (!isMapsLoaded || typeof window === 'undefined') return undefined;
+
+        const bounds = new window.google.maps.LatLngBounds();
+        const routePoints = shippingInfo?.routePath?.points?.length
+            ? shippingInfo.routePath.points
+            : osrmRoutePoints;
+
+        if (routePoints.length > 0) {
+            routePoints.forEach((point) => bounds.extend(point));
+            return bounds;
+        }
+
+        if (business?.latitude && business?.longitude) {
+            bounds.extend({ lat: business.latitude, lng: business.longitude });
+        }
+        if (address?.latitude && address?.longitude) {
+            bounds.extend({ lat: address.latitude, lng: address.longitude });
+        }
+
+        if (bounds.isEmpty()) return undefined;
+        return bounds;
+    }, [isMapsLoaded, shippingInfo?.routePath?.points, osrmRoutePoints, business?.latitude, business?.longitude, address?.latitude, address?.longitude]);
+
+    useEffect(() => {
+        if (isModalReady && mapRef.current && mapBounds) {
+            mapRef.current.fitBounds(mapBounds);
+        }
+    }, [isModalReady, mapBounds]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setOsrmRoutePoints([]);
+            return;
+        }
+        if (shippingInfo?.routePath?.points?.length) return;
+        if (!business?.latitude || !business?.longitude || !address?.latitude || !address?.longitude) return;
+
+        let cancelled = false;
+        void (async () => {
+            try {
+                const url = `${OSRM_ROUTE_URL}/${business.longitude},${business.latitude};${address.longitude},${address.latitude}?overview=full&geometries=polyline&steps=false`;
+                const response = await fetch(url);
+                const payload = await response.json();
+                const polyline = payload?.routes?.[0]?.geometry as string | undefined;
+                if (!cancelled && polyline) {
+                    setOsrmRoutePoints(decodeOsrmPolyline(polyline));
+                }
+            } catch {
+                if (!cancelled) {
+                    setOsrmRoutePoints([
+                        { lat: business.latitude!, lng: business.longitude! },
+                        { lat: address.latitude, lng: address.longitude },
+                    ]);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, shippingInfo?.routePath?.points, business?.latitude, business?.longitude, address?.latitude, address?.longitude]);
+
+    const displayedRoutePoints = shippingInfo?.routePath?.points?.length ? shippingInfo.routePath.points : osrmRoutePoints;
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-4xl">
@@ -1019,13 +1174,50 @@ export function ShippingMapModal({ isOpen, onClose, business, address, isMapsLoa
                             mapContainerClassName="w-full h-full rounded-md"
                             center={mapCenter}
                             zoom={12}
+                            onLoad={(map) => {
+                                mapRef.current = map;
+                                if (mapBounds) map.fitBounds(mapBounds);
+                            }}
                             options={{
                                 disableDefaultUI: true,
                                 zoomControl: true,
                             }}
                         >
-                           {shippingInfo?.directions ? (
-                                <DirectionsRenderer directions={shippingInfo.directions} options={{ suppressMarkers: false, polylineOptions: { strokeColor: 'hsl(var(--hid-primary))', strokeWeight: 4 } }}/>
+                           {displayedRoutePoints.length > 0 ? (
+                                <>
+                                    <Polyline
+                                        path={displayedRoutePoints}
+                                        options={{ strokeColor: '#ffffff', strokeOpacity: 1, strokeWeight: 8, zIndex: 1 }}
+                                    />
+                                    <Polyline
+                                        path={displayedRoutePoints}
+                                        options={{
+                                            strokeColor: '#0b3a8f',
+                                            strokeOpacity: 0,
+                                            strokeWeight: 3,
+                                            zIndex: 2,
+                                            icons: [
+                                                {
+                                                    icon: {
+                                                        path: 'M 0,-1 0,1',
+                                                        strokeOpacity: 1,
+                                                        strokeColor: '#0b3a8f',
+                                                        strokeWeight: 3,
+                                                        scale: 3,
+                                                    },
+                                                    offset: '0',
+                                                    repeat: '14px',
+                                                },
+                                            ],
+                                        }}
+                                    />
+                                    {business?.latitude && business?.longitude && (
+                                        <MarkerF position={{ lat: business.latitude, lng: business.longitude }} label="N" title={business.name || ''}/>
+                                    )}
+                                    {address?.latitude && address?.longitude && (
+                                        <MarkerF position={{ lat: address.latitude, lng: address.longitude }} label="C" title={address.address}/>
+                                    )}
+                                </>
                            ) : (
                                 <>
                                  {business?.latitude && business?.longitude && (

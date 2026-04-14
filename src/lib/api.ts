@@ -49,6 +49,28 @@ const entityIdPrefixes: Partial<Record<keyof typeof entityTranslations, string>>
     modules: "module",
 };
 
+function extractApiErrorMessage(result: any, fallback: string) {
+    if (!result || typeof result !== 'object') return fallback;
+
+    const parts: string[] = [];
+    if (typeof result.message === 'string' && result.message.trim().length > 0) {
+        parts.push(result.message.trim());
+    }
+    if (typeof result.error === 'string' && result.error.trim().length > 0) {
+        parts.push(`Detalle: ${result.error.trim()}`);
+    }
+    if (result.errors && typeof result.errors === 'object') {
+        const fieldErrors = Object.values(result.errors as Record<string, unknown>)
+          .flat()
+          .filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+        if (fieldErrors.length > 0) {
+          parts.push(`Validación: ${fieldErrors[0]}`);
+        }
+    }
+
+    return parts.length > 0 ? parts.join(' ') : fallback;
+}
+
 function ensureEntityId<T_DTO extends Record<string, unknown>>(
     entity: keyof typeof entityTranslations,
     dto: T_DTO,
@@ -181,7 +203,9 @@ function createApi<T extends { id: string | number }>(
             body: formData,
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || `Error al crear ${translatedEntity}`);
+        if (!response.ok) {
+          throw new Error(extractApiErrorMessage(result, `Error al crear ${translatedEntity}`));
+        }
         return result;
       },
       onSuccess: (result: any) => {
@@ -210,7 +234,9 @@ function createApi<T extends { id: string | number }>(
           body: formData,
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || `Error al actualizar ${translatedEntity}`);
+        if (!response.ok) {
+          throw new Error(extractApiErrorMessage(result, `Error al actualizar ${translatedEntity}`));
+        }
         return result.business || result.product || result.rider || result;
       },
       onSuccess: (data) => {

@@ -3,9 +3,14 @@ import { ProductForm } from "../product-form";
 import { PageHeader } from "@/components/page-header";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/store/auth-store";
 
 export default function NewProductPage() {
-    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
+    const { user } = useAuthStore();
+    const scopedBusinessId = user?.business_id?.trim() || "";
+    const businessFilters = scopedBusinessId ? { id: scopedBusinessId } : {};
+
+    const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll(businessFilters);
     const { data: categories, isLoading: isLoadingCategories } = api.product_categories.useGetAll();
 
     if(isLoadingBusinesses || isLoadingCategories) {

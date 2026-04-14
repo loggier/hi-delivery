@@ -14,6 +14,15 @@ type UserData = {
   role_id: string;
 };
 
+function isBusinessRole(user: { role_id?: string; role?: { name?: string } | null }) {
+  const roleId = user.role_id ?? '';
+  const roleName = (user.role?.name ?? '').toLowerCase();
+  return (
+    roleId === 'role-owner' ||
+    /dueño de negocio|negocio|merchant|business/.test(roleName)
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -80,8 +89,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Error interno: no se pudo encontrar el perfil del usuario.' }, { status: 500 });
     }
     
-    // If user is a Business Owner, attach their business ID to the session user object
-    if (fullUser.role?.name === 'Dueño de Negocio') {
+    // If user belongs to a business role, attach their business ID to the session user object
+    if (isBusinessRole(fullUser as { role_id?: string; role?: { name?: string } | null })) {
       const { data: businessData, error: businessError } = await supabaseAdmin
         .from('businesses')
         .select('id')

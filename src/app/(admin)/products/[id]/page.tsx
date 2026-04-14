@@ -6,12 +6,17 @@ import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from 'react';
 import { useParams } from "next/navigation";
+import { useAuthStore } from "@/store/auth-store";
 
 export default function EditProductPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { user } = useAuthStore();
+  const scopedBusinessId = user?.business_id?.trim() || "";
+  const businessFilters = scopedBusinessId ? { id: scopedBusinessId } : {};
+
   const { data: product, isLoading: isLoadingProduct } = api.products.useGetOne(id);
-  const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll();
+  const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll(businessFilters);
   const { data: categories, isLoading: isLoadingCategories } = api.product_categories.useGetAll();
 
   const isLoading = isLoadingProduct || isLoadingBusinesses || isLoadingCategories;
