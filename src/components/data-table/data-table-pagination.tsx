@@ -19,38 +19,51 @@ import {
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>;
+  showSelectionSummary?: boolean;
 }
 
 export function DataTablePagination<TData>({
   table,
+  showSelectionSummary = true,
 }: DataTablePaginationProps<TData>) {
+  const filteredRowCount = table.getFilteredRowModel().rows.length;
+  const shouldShowPageSize = filteredRowCount > 10;
+
   return (
-    <div className="flex items-center justify-between px-2">
-      <div className="flex-1 text-sm text-muted-foreground">
-        {table.getFilteredSelectedRowModel().rows.length} de{" "}
-        {table.getFilteredRowModel().rows.length} fila(s) seleccionada(s).
-      </div>
-      <div className="flex items-center space-x-6 lg:space-x-8">
-        <div className="flex items-center space-x-2">
-          <p className="text-sm font-medium">Filas por página</p>
-          <Select
-            value={`${table.getState().pagination.pageSize}`}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value));
-            }}
-          >
-            <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              {[10, 20, 30, 40, 50].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
+      {showSelectionSummary ? (
+        <div className="flex-1 text-sm text-muted-foreground">
+          {table.getFilteredSelectedRowModel().rows.length} de{" "}
+          {filteredRowCount} fila(s) seleccionada(s).
         </div>
+      ) : (
+        <div className="flex-1 text-sm text-muted-foreground">
+          {filteredRowCount} registro(s).
+        </div>
+      )}
+      <div className="flex items-center space-x-6 lg:space-x-8">
+        {shouldShowPageSize ? (
+          <div className="flex items-center space-x-2">
+            <p className="text-sm font-medium">Filas por página</p>
+            <Select
+              value={`${table.getState().pagination.pageSize}`}
+              onValueChange={(value) => {
+                table.setPageSize(Number(value));
+              }}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={table.getState().pagination.pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 20, 30, 40, 50].map((pageSize) => (
+                  <SelectItem key={pageSize} value={`${pageSize}`}>
+                    {pageSize}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         <div className="flex w-[100px] items-center justify-center text-sm font-medium">
           Página {table.getState().pagination.pageIndex + 1} de{" "}
           {table.getPageCount()}

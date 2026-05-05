@@ -22,9 +22,15 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        month_caption: "flex justify-center pt-1 relative items-center",
+        month_caption: "flex justify-center px-6 pt-1 relative items-center",
         caption_label: "text-sm font-medium",
-        dropdowns: "flex justify-center gap-1",
+        dropdowns: "flex w-full items-center justify-center gap-2",
+        dropdown_root:
+          "relative inline-flex h-9 min-w-28 items-center justify-between rounded-md border border-input bg-background shadow-sm",
+        dropdown:
+          "absolute inset-0 h-full w-full cursor-pointer opacity-0 outline-none",
+        months_dropdown: "cursor-pointer",
+        years_dropdown: "cursor-pointer",
         nav: "space-x-1 flex items-center",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
@@ -32,7 +38,7 @@ function Calendar({
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute right-1 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "absolute right-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
         month_grid: "w-full border-collapse space-y-1",
         weekdays: "flex",
@@ -55,6 +61,10 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         hidden: "invisible",
         ...classNames,
+        caption_label: cn(
+          "flex h-full w-full items-center justify-between gap-2 px-3 text-sm font-medium",
+          classNames?.caption_label
+        ),
       }}
       components={{
         Chevron: ({ orientation }) =>

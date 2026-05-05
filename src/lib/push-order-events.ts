@@ -240,6 +240,10 @@ function mapStatusToTitle(status: string) {
       return 'Pedido aceptado';
     case 'at_store':
       return 'Rider en negocio';
+    case 'cooking':
+      return 'Pedido en preparación';
+    case 'ready_for_pickup':
+      return 'Pedido listo para recoger';
     case 'picked_up':
       return 'Pedido recogido';
     case 'on_the_way':
@@ -252,6 +256,10 @@ function mapStatusToTitle(status: string) {
       return 'Pedido entregado';
     case 'cancelled':
       return 'Pedido cancelado';
+    case 'refunded':
+      return 'Pedido reembolsado';
+    case 'failed':
+      return 'Pedido fallido';
     default:
       return 'Actualización de pedido';
   }

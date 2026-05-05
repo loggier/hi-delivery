@@ -19,9 +19,15 @@ const defaultResponse = {
   orderStatusSummary: {
     pending_acceptance: 0,
     accepted: 0,
+    at_store: 0,
     cooking: 0,
+    ready_for_pickup: 0,
+    picked_up: 0,
     out_for_delivery: 0,
+    on_the_way: 0,
+    arrived_at_destination: 0,
     delivered: 0,
+    completed: 0,
     cancelled: 0,
     refunded: 0,
     failed: 0,
@@ -33,7 +39,18 @@ const defaultResponse = {
   ordersLast7Days: [],
 };
 
-const ACTIVE_ORDER_STATUSES = new Set(['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery']);
+const ACTIVE_ORDER_STATUSES = new Set([
+  'pending_acceptance',
+  'accepted',
+  'at_store',
+  'cooking',
+  'ready_for_pickup',
+  'picked_up',
+  'out_for_delivery',
+  'on_the_way',
+  'arrived_at_destination',
+]);
+const SUCCESSFUL_ORDER_STATUSES = new Set(['completed', 'delivered']);
 
 const startOfDay = (date: Date) => {
   const value = new Date(date);
@@ -153,7 +170,7 @@ async function buildDashboardStats(
 
   const ordersToday = todayOrders || [];
   const ordersLast7Days = last7DaysOrders || [];
-  const deliveredToday = ordersToday.filter((order: any) => order.status === 'delivered');
+  const deliveredToday = ordersToday.filter((order: any) => SUCCESSFUL_ORDER_STATUSES.has(order.status));
 
   const topBusinessesMap = new Map<string, { count: number; name: string }>();
   const topRidersMap = new Map<string, { count: number; name: string }>();
@@ -200,7 +217,7 @@ async function buildDashboardStats(
   for (const order of ordersLast7Days) {
     const key = formatDateKey(new Date(order.created_at));
     ordersByDate.set(key, (ordersByDate.get(key) || 0) + 1);
-    if (order.status === 'delivered') {
+    if (SUCCESSFUL_ORDER_STATUSES.has(order.status)) {
       revenueByDate.set(key, (revenueByDate.get(key) || 0) + Number(order.order_total || 0));
     }
   }

@@ -3,6 +3,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { notFound, useParams } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -17,13 +18,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from "@/components/ui/badge";
 import { type Order, type OrderAssignmentAttempt, OrderStatus, type Rider } from '@/types';
-import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, MoreVertical, MessageSquare, BellRing, GaugeCircle, Users, RefreshCw, UserPlus, Clock3 } from 'lucide-react';
+import { Building, Phone, User, Home, Bike, CheckCircle, CookingPot, Eye, Package, XCircle, MoreVertical, MessageSquare, BellRing, GaugeCircle, Users, RefreshCw, UserPlus, Clock3, ReceiptText, Image as ImageIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/store/auth-store";
 import {
   Dialog,
   DialogContent,
@@ -36,16 +38,26 @@ import {
 const libraries: ('places')[] = ['places'];
 const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nominatim.vemontech.com/route/v1/driving';
 const activeDeliveryStatuses: OrderStatus[] = [
-    'accepted',
-    'cooking',
-    'out_for_delivery',
     'pending_acceptance',
+    'accepted',
+    'at_store',
+    'cooking',
+    'ready_for_pickup',
+    'picked_up',
+    'out_for_delivery',
+    'on_the_way',
+    'arrived_at_destination',
 ];
 const manuallyAssignableStatuses: OrderStatus[] = [
     'pending_acceptance',
     'accepted',
+    'at_store',
     'cooking',
+    'ready_for_pickup',
+    'picked_up',
     'out_for_delivery',
+    'on_the_way',
+    'arrived_at_destination',
 ];
 
 type AvailableRider = Pick<Rider, "id" | "first_name" | "last_name" | "phone_e164" | "zone_id" | "is_active_for_orders" | "last_location_update"> & {
@@ -153,10 +165,18 @@ async function triggerOrderPushEvent(
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
     accepted: { label: "Aceptado", variant: "default", icon: CheckCircle },
+    at_store: { label: "En negocio", variant: "default", icon: Building },
     cooking: { label: "En preparación", variant: "default", icon: CookingPot },
-    out_for_delivery: { label: "En Camino", variant: "default", icon: Bike },
+    ready_for_pickup: { label: "Listo para recoger", variant: "default", icon: Package },
+    picked_up: { label: "Recogido", variant: "default", icon: Package },
+    out_for_delivery: { label: "En ruta", variant: "default", icon: Bike },
+    on_the_way: { label: "En ruta", variant: "default", icon: Bike },
+    arrived_at_destination: { label: "En destino", variant: "default", icon: Home },
     delivered: { label: "Entregado", variant: "success", icon: Package },
+    completed: { label: "Completado", variant: "success", icon: CheckCircle },
     cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
+    refunded: { label: "Reembolsado", variant: "outline", icon: ReceiptText },
+    failed: { label: "Fallido", variant: "destructive", icon: XCircle },
 };
 
 const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string, value?: string, children?: React.ReactNode }) => (
@@ -463,7 +483,11 @@ export default function ViewOrderPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const supabase = createClient();
+  const { user, isLoading: isAuthLoading } = useAuthStore();
+  const isBusinessOwner = user?.role_id === 'role-owner' || user?.role?.name === 'Dueño de Negocio';
+  const canUseOperationsTools = !isAuthLoading && !isBusinessOwner;
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
   const [reDispatching, setReDispatching] = useState(false);
   const [assigningRiderId, setAssigningRiderId] = useState<string | null>(null);
   const [testingPush, setTestingPush] = useState(false);
@@ -474,7 +498,7 @@ export default function ViewOrderPage() {
 
   const availableRidersQuery = useQuery<AvailableRider[]>({
     queryKey: ['orders', 'available-riders', order?.id, ...(order?.rejected_riders ?? [])],
-    enabled: isAssignDialogOpen,
+    enabled: canUseOperationsTools && isAssignDialogOpen,
     queryFn: async () => {
       const { data: businessZoneRow, error: businessZoneError } = await supabase
         .from('businesses')
@@ -581,7 +605,26 @@ export default function ViewOrderPage() {
   });
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
-    if (!order) return;
+    if (!order || !canUseOperationsTools) return;
+    let deliveryFailureReason: string | undefined;
+
+    if (
+      order.status === 'arrived_at_destination' &&
+      ['failed', 'cancelled'].includes(newStatus)
+    ) {
+      const reason = window.prompt('Motivo de la incidencia en destino:');
+      if (reason === null) return;
+      deliveryFailureReason = reason.trim();
+      if (!deliveryFailureReason) {
+        toast({
+          variant: 'destructive',
+          title: 'Motivo requerido',
+          description: 'Debes capturar un motivo para cerrar una incidencia en destino.',
+        });
+        return;
+      }
+    }
+
     const ok = await confirm({
       title: `¿Confirmar cambio de estado?`,
       description: `El pedido se marcará como "${statusConfig[newStatus].label}".`,
@@ -589,7 +632,16 @@ export default function ViewOrderPage() {
     });
 
     if (ok) {
-        updateStatusMutation.mutate({ id: order.id, status: newStatus }, {
+        updateStatusMutation.mutate({
+          id: order.id,
+          status: newStatus,
+          ...(deliveryFailureReason
+            ? {
+                delivery_failure_reason: deliveryFailureReason,
+                delivery_failure_reported_at: new Date().toISOString(),
+              }
+            : {}),
+        }, {
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: ['orders'] });
                 queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -731,7 +783,7 @@ export default function ViewOrderPage() {
   };
 
   const handleRedispatch = async () => {
-    if (!order) return;
+    if (!order || !canUseOperationsTools) return;
     const ok = await confirm({
       title: '¿Reenviar notificación?',
       description: 'Se intentará lanzar otra vez el dispatch de esta orden a riders disponibles.',
@@ -784,7 +836,7 @@ export default function ViewOrderPage() {
   };
 
   const handleManualAssign = async (rider: AvailableRider) => {
-    if (!order) return;
+    if (!order || !canUseOperationsTools) return;
     const ok = await confirm({
       title: '¿Asignar rider manualmente?',
       description: `La orden se asignará directamente a ${rider.first_name} ${rider.last_name}.`,
@@ -863,7 +915,7 @@ export default function ViewOrderPage() {
   };
 
   const handleTestPush = async () => {
-    if (!order) return;
+    if (!order || !canUseOperationsTools) return;
     setTestingPush(true);
     try {
       await triggerOrderPushEvent(
@@ -914,110 +966,158 @@ export default function ViewOrderPage() {
 
   const statusInfo = statusConfig[order.status as OrderStatus] || { label: "Desconocido", variant: "outline", icon: Eye };
   const displayId = `ORD-${order.id.substring(4, 12).toUpperCase()}`;
+  const hasOrderItems = (order.order_items?.length ?? 0) > 0;
+  const isShippingOrder = !hasOrderItems;
+  const ticketPhotoUrls = (order.ticket_photo_urls?.length ? order.ticket_photo_urls : order.ticket_photo_url ? [order.ticket_photo_url] : []).filter(Boolean);
   
   return (
     <div className="space-y-6">
       <ConfirmationDialog />
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={isTicketDialogOpen} onOpenChange={setIsTicketDialogOpen}>
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Asignar rider manualmente</DialogTitle>
+            <DialogTitle>Ticket del pedido</DialogTitle>
             <DialogDescription>
-              Se muestran riders activos para órdenes en la misma zona. Si un rider rechazó esta solicitud, igual puede asignarse manualmente mientras siga disponible y con carga permitida.
+              Vista ampliada de la factura o ticket adjunto a esta orden.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-            {availableRidersQuery.isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-            ) : availableRidersQuery.data?.length ? (
-              availableRidersQuery.data.map((rider) => (
-                <div key={rider.id} className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-1">
-                    <div className="font-medium">
-                      {rider.first_name} {rider.last_name}
-                    </div>
-                    <div className="text-sm text-slate-500">
-                      {[
-                        rider.phone_e164 || 'Sin teléfono',
-                        rider.zoneName ? `Zona ${rider.zoneName}` : rider.zone_id ? 'Zona asignada' : null,
-                        rider.areaName ? `Área ${rider.areaName}` : null,
-                      ].filter(Boolean).join(' · ')}
-                    </div>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <Badge variant="success">Activo para órdenes</Badge>
-                      <Badge variant={rider.activeOrderCount === 0 ? "outline" : "default"}>
-                        {rider.activeOrderCount} pedido{rider.activeOrderCount === 1 ? '' : 's'} activo{rider.activeOrderCount === 1 ? '' : 's'}
-                      </Badge>
-                      {rider.rejectedThisOrder ? (
-                        <Badge variant="warning">Rechazó esta solicitud</Badge>
-                      ) : null}
-                      {rider.last_location_update ? (
-                        <Badge variant="outline">
-                          <Clock3 className="mr-1 h-3 w-3" />
-                          {format(new Date(rider.last_location_update), "d MMM, h:mm a", { locale: es })}
-                        </Badge>
-                      ) : null}
-                    </div>
+          {ticketPhotoUrls.length > 0 ? (
+            <div className="max-h-[75vh] space-y-3 overflow-auto rounded-md border bg-slate-50 p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {ticketPhotoUrls.map((photoUrl, index) => (
+                  <div key={`${photoUrl}-${index}`} className="rounded-md border bg-white p-2">
+                    <Image
+                      src={photoUrl}
+                      alt={`Ticket ${index + 1} del pedido ${displayId}`}
+                      width={1600}
+                      height={1200}
+                      unoptimized
+                      className="h-auto w-full rounded-md object-contain"
+                    />
                   </div>
-                  <Button
-                    onClick={() => handleManualAssign(rider)}
-                    disabled={assigningRiderId === rider.id}
-                  >
-                    {assigningRiderId === rider.id ? 'Asignando...' : 'Asignar'}
-                  </Button>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">
-                No hay riders activos y disponibles en la misma zona de este negocio.
+                ))}
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
+              <p className="text-xs text-muted-foreground">
+                {ticketPhotoUrls.length} imagen{ticketPhotoUrls.length === 1 ? '' : 'es'} adjunta{ticketPhotoUrls.length === 1 ? '' : 's'}.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-slate-500">
+              Este pedido no tiene ticket adjunto.
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+      {canUseOperationsTools ? (
+        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Asignar rider manualmente</DialogTitle>
+              <DialogDescription>
+                Se muestran riders activos para órdenes en la misma zona. Si un rider rechazó esta solicitud, igual puede asignarse manualmente mientras siga disponible y con carga permitida.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+              {availableRidersQuery.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              ) : availableRidersQuery.data?.length ? (
+                availableRidersQuery.data.map((rider) => (
+                  <div key={rider.id} className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-1">
+                      <div className="font-medium">
+                        {rider.first_name} {rider.last_name}
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        {[
+                          rider.phone_e164 || 'Sin teléfono',
+                          rider.zoneName ? `Zona ${rider.zoneName}` : rider.zone_id ? 'Zona asignada' : null,
+                          rider.areaName ? `Área ${rider.areaName}` : null,
+                        ].filter(Boolean).join(' · ')}
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Badge variant="success">Activo para órdenes</Badge>
+                        <Badge variant={rider.activeOrderCount === 0 ? "outline" : "default"}>
+                          {rider.activeOrderCount} pedido{rider.activeOrderCount === 1 ? '' : 's'} activo{rider.activeOrderCount === 1 ? '' : 's'}
+                        </Badge>
+                        {rider.rejectedThisOrder ? (
+                          <Badge variant="warning">Rechazó esta solicitud</Badge>
+                        ) : null}
+                        {rider.last_location_update ? (
+                          <Badge variant="outline">
+                            <Clock3 className="mr-1 h-3 w-3" />
+                            {format(new Date(rider.last_location_update), "d MMM, h:mm a", { locale: es })}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleManualAssign(rider)}
+                      disabled={assigningRiderId === rider.id}
+                    >
+                      {assigningRiderId === rider.id ? 'Asignando...' : 'Asignar'}
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-slate-500">
+                  No hay riders activos y disponibles en la misma zona de este negocio.
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
       <PageHeader title={`Pedido #${displayId}`}>
          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleTestPush}
-              disabled={testingPush}
-            >
-              <BellRing className="mr-2 h-4 w-4" />
-              {testingPush ? 'Enviando push...' : 'Probar push'}
-            </Button>
-            {!order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
+            {canUseOperationsTools ? (
               <>
+                <Badge variant={isShippingOrder ? "default" : "outline"} className="text-base py-1 px-3">
+                  {isShippingOrder ? "Shipping" : "POS"}
+                </Badge>
                 <Button
                   variant="outline"
-                  onClick={handleRedispatch}
-                  disabled={reDispatching}
+                  onClick={handleTestPush}
+                  disabled={testingPush}
                 >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  {reDispatching ? 'Reenviando...' : 'Reenviar notificación'}
+                  <BellRing className="mr-2 h-4 w-4" />
+                  {testingPush ? 'Enviando push...' : 'Probar push'}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAssignDialogOpen(true)}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Asignar rider
-                </Button>
+                {!order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={handleRedispatch}
+                      disabled={reDispatching}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      {reDispatching ? 'Reenviando...' : 'Reenviar notificación'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAssignDialogOpen(true)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Asignar rider
+                    </Button>
+                  </>
+                ) : null}
               </>
             ) : null}
             <Badge variant={statusInfo.variant} className="capitalize text-base py-1 px-3">
                 <statusInfo.icon className="mr-2 h-4 w-4" />
                 {statusInfo.label}
             </Badge>
-            <DropdownMenu>
+            {canUseOperationsTools ? (
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="icon"><MoreVertical className="h-4 w-4"/></Button>
                 </DropdownMenuTrigger>
@@ -1035,48 +1135,96 @@ export default function ViewOrderPage() {
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenu>
+            ) : null}
          </div>
       </PageHeader>
       
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-6">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Resumen de Artículos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Producto</TableHead>
-                                <TableHead className="text-center">Cantidad</TableHead>
-                                <TableHead className="text-right">Precio Unit.</TableHead>
-                                <TableHead className="text-right">Subtotal</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {order.order_items?.map((item: any) => (
-                                <TableRow key={item.id}>
-                                    <TableCell>
-                                      <div className="font-medium">{item.products?.name || 'Producto no encontrado'}</div>
-                                      {item.item_description && (
-                                        <div className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
-                                          <MessageSquare className="h-3 w-3" />
-                                          {item.item_description}
-                                        </div>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="text-center">{item.quantity}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
-                                    <TableCell className="text-right font-medium">{formatCurrency(item.price * item.quantity)}</TableCell>
+             {hasOrderItems ? (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Resumen de Artículos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Producto</TableHead>
+                                    <TableHead className="text-center">Cantidad</TableHead>
+                                    <TableHead className="text-right">Precio Unit.</TableHead>
+                                    <TableHead className="text-right">Subtotal</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-             </Card>
-             {order.items_description && (
+                            </TableHeader>
+                            <TableBody>
+                                {order.order_items?.map((item: any) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell>
+                                          <div className="font-medium">{item.products?.name || 'Producto no encontrado'}</div>
+                                          {item.item_description && (
+                                            <div className="text-xs text-muted-foreground italic flex items-center gap-1 mt-1">
+                                              <MessageSquare className="h-3 w-3" />
+                                              {item.item_description}
+                                            </div>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(item.price * item.quantity)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+             ) : (
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between gap-3">
+                            <CardTitle>{canUseOperationsTools ? "Detalle del Pedido Shipping" : "Detalle del pedido"}</CardTitle>
+                            {canUseOperationsTools ? <Badge variant="default">Shipping</Badge> : null}
+                        </div>
+                        {canUseOperationsTools ? (
+                            <CardDescription>Pedido creado desde envío express, sin productos de catálogo.</CardDescription>
+                        ) : null}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <DetailItem icon={ReceiptText} label="Detalle del pedido" value={order.items_description || "No descrito"} />
+                        <DetailItem
+                            icon={Clock3}
+                            label="Listo para recorrer en"
+                            value={order.ready_in_minutes ? `${order.ready_in_minutes} min` : "No disponible"}
+                        />
+                        <DetailItem icon={ImageIcon} label="Fotos del ticket">
+                            {ticketPhotoUrls.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsTicketDialogOpen(true)}
+                                  className="block w-full text-left"
+                                >
+                                    <Image
+                                        src={ticketPhotoUrls[0]}
+                                        alt={`Ticket del pedido ${displayId}`}
+                                        width={720}
+                                        height={480}
+                                        unoptimized
+                                        className="mt-2 max-h-80 w-full rounded-md border object-contain transition hover:opacity-90"
+                                    />
+                                    {ticketPhotoUrls.length > 1 ? (
+                                      <div className="mt-2 inline-flex rounded-full bg-slate-900/80 px-2 py-1 text-xs font-medium text-white">
+                                        +{ticketPhotoUrls.length - 1} imagen{ticketPhotoUrls.length === 2 ? '' : 'es'}
+                                      </div>
+                                    ) : null}
+                                </button>
+                            ) : (
+                                <p className="font-medium text-sm">No disponible</p>
+                            )}
+                        </DetailItem>
+                    </CardContent>
+                </Card>
+             )}
+             {hasOrderItems && order.items_description && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Nota General del Pedido</CardTitle>
@@ -1086,10 +1234,12 @@ export default function ViewOrderPage() {
                     </CardContent>
                 </Card>
              )}
-             <DispatchSummaryCard order={order} />
+             {canUseOperationsTools ? (
+                <DispatchSummaryCard order={order} />
+             ) : null}
              <Card>
                 <CardHeader>
-                    <CardTitle>Mapa de la Ruta</CardTitle>
+                    <CardTitle>{canUseOperationsTools ? "Mapa de la Ruta" : "Mapa de entrega"}</CardTitle>
                 </CardHeader>
                 <CardContent className="h-96">
                    <LocationMap order={order} />
@@ -1103,26 +1253,46 @@ export default function ViewOrderPage() {
                     <CardDescription>{format(new Date(order.created_at), "d 'de' MMMM, yyyy, h:mm a", {locale: es})}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <DetailItem icon={Building} label="Negocio">
-                        <Link href={`/businesses/${order.business_id}`} className="font-medium text-sm text-primary hover:underline">
-                            {order.business?.name || 'No disponible'}
-                        </Link>
-                    </DetailItem>
+                    {canUseOperationsTools ? (
+                        <DetailItem icon={Package} label="Tipo de orden">
+                            <Badge variant={isShippingOrder ? "default" : "outline"}>{isShippingOrder ? "Shipping" : "POS"}</Badge>
+                        </DetailItem>
+                    ) : null}
+                    {order.delivery_failure_reason ? (
+                      <DetailItem
+                        icon={XCircle}
+                        label="Motivo de incidencia en destino"
+                        value={order.delivery_failure_reason}
+                      />
+                    ) : null}
+                    {canUseOperationsTools ? (
+                        <DetailItem icon={Building} label="Negocio">
+                            <Link href={`/businesses/${order.business_id}`} className="font-medium text-sm text-primary hover:underline">
+                                {order.business?.name || 'No disponible'}
+                            </Link>
+                        </DetailItem>
+                    ) : null}
                     <DetailItem icon={User} label="Cliente">
-                         <Link href={`/customers/${order.customer_id}`} className="font-medium text-sm text-primary hover:underline">
-                            {order.customer_name}
-                        </Link>
+                        {canUseOperationsTools ? (
+                            <Link href={`/customers/${order.customer_id}`} className="font-medium text-sm text-primary hover:underline">
+                                {order.customer_name}
+                            </Link>
+                        ) : (
+                            <p className="font-medium text-sm">{order.customer_name}</p>
+                        )}
                     </DetailItem>
                     <DetailItem icon={Phone} label="Teléfono Cliente" value={order.customer_phone} />
                     <DetailItem icon={Home} label="Dirección de Entrega" value={order.delivery_address.text} />
-                    <DetailItem icon={Bike} label="Repartidor">
-                       {order.rider_id ? (
-                           <Link href={`/riders/${order.rider_id}`} className="font-medium text-sm text-primary hover:underline">
-                                {order.rider?.first_name} {order.rider?.last_name}
-                           </Link>
-                        ) : 'Sin asignar'}
-                    </DetailItem>
-                    {!order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
+                    {canUseOperationsTools ? (
+                        <DetailItem icon={Bike} label="Repartidor">
+                           {order.rider_id ? (
+                               <Link href={`/riders/${order.rider_id}`} className="font-medium text-sm text-primary hover:underline">
+                                    {order.rider?.first_name} {order.rider?.last_name}
+                               </Link>
+                            ) : 'Sin asignar'}
+                        </DetailItem>
+                    ) : null}
+                    {canUseOperationsTools && !order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
                       <div className="rounded-lg border border-dashed px-3 py-3">
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -1153,7 +1323,7 @@ export default function ViewOrderPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm">
-                        <span>Subtotal</span>
+                        <span>{isShippingOrder ? "Monto del pedido" : "Subtotal"}</span>
                         <span>{formatCurrency(order.subtotal)}</span>
                     </div>
                      <div className="flex justify-between text-sm">

@@ -39,6 +39,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const formData = await request.formData();
   const updateData: Record<string, any> = {};
   const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
+  const avatarFields = new Set(['avatar1x1Url', 'avatar1x1_url', 'avatar_1x1_url']);
 
   try {
     const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
@@ -60,7 +61,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
                     motoPhotos.push(url);
                 }
             } else {
-                 updateData[dbKey] = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+                 const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
+                 if (avatarFields.has(key)) {
+                    updateData.avatar1x1_url = url;
+                    updateData.avatar_1x1_url = url;
+                 } else {
+                    updateData[dbKey] = url;
+                 }
             }
         }
     }
@@ -75,6 +82,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
             updateData[dbKey] = value === 'true';
+        } else if (avatarFields.has(key)) {
+            updateData.avatar1x1_url = value;
+            updateData.avatar_1x1_url = value;
         } else if (dateFields.includes(dbKey)) {
             updateData[dbKey] = new Date(value as string).toISOString();
         } else if (key !== 'brandOther') {

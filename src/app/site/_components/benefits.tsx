@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Clock, Wallet, Zap, Smartphone, Bike } from "lucide-react";
+import { MotionCard, MotionSection } from "@/components/site-motion";
 
 const benefits = [
   {
@@ -30,23 +32,35 @@ export function Benefits() {
   return (
     <section id="benefits" className="py-12 lg:py-24 bg-slate-50 dark:bg-slate-900">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
+        <MotionSection className="text-center mb-12">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ventajas de ser un Repartidor Asociado</h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
             Descubre por qué Hi! Delivery es la mejor opción para ti.
           </p>
-        </div>
+        </MotionSection>
+        <MotionSection className="mb-12 overflow-hidden rounded-2xl border bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
+          <Image
+            src="/benefits-hid.png"
+            alt="Repartidor usando la app de Hi! Delivery"
+            width={1672}
+            height={941}
+            sizes="(max-width: 1024px) 100vw, 80vw"
+            className="h-auto w-full object-cover"
+          />
+        </MotionSection>
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {benefits.map((benefit, index) => (
-            <Card key={index} className="text-center hover:shadow-lg transition-shadow duration-300">
-              <CardHeader>
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-                  {benefit.icon}
-                </div>
-                <CardTitle>{benefit.title}</CardTitle>
-                <CardDescription className="pt-2">{benefit.description}</CardDescription>
-              </CardHeader>
-            </Card>
+            <MotionCard key={index}>
+              <Card className="text-center transition-shadow duration-300 hover:shadow-lg">
+                <CardHeader>
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                    {benefit.icon}
+                  </div>
+                  <CardTitle>{benefit.title}</CardTitle>
+                  <CardDescription className="pt-2">{benefit.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            </MotionCard>
           ))}
         </div>
       </div>

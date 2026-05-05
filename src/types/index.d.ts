@@ -28,7 +28,21 @@ export type BusinessBranch = {
   updated_at: string;
 };
 
-export type OrderStatus = 'pending_acceptance' | 'accepted' | 'cooking' | 'out_for_delivery' | 'delivered' | 'cancelled';
+export type OrderStatus =
+  | 'pending_acceptance'
+  | 'accepted'
+  | 'at_store'
+  | 'cooking'
+  | 'ready_for_pickup'
+  | 'picked_up'
+  | 'out_for_delivery'
+  | 'on_the_way'
+  | 'arrived_at_destination'
+  | 'delivered'
+  | 'completed'
+  | 'cancelled'
+  | 'refunded'
+  | 'failed';
 
 export type OrderItem = {
   id: string;
@@ -63,7 +77,7 @@ export type OrderAssignmentAttempt = {
 export type OrderPayload = {
   business_id: string;
   customer_id: string;
-  status: OrderStatus | 'refunded' | 'failed';
+  status: OrderStatus;
   pickup_address: {
     text: string;
     coordinates: {
@@ -86,6 +100,11 @@ export type OrderPayload = {
   distance: number;
   items_description?: string;
   route_path?: any; // To store Google Maps DirectionsResult
+  ticket_photo?: File | string | null;
+  ticket_photos?: File[] | string[] | null;
+  ticket_photo_url?: string | null;
+  ticket_photo_urls?: string[] | null;
+  ready_in_minutes?: number | null;
 };
 
 
@@ -176,6 +195,7 @@ export type CustomerAddress = {
 
 export type Customer = {
   id: string;
+  business_id: string;
   first_name: string;
   last_name: string;
   phone: string;
@@ -207,6 +227,11 @@ export type Order = {
   distance: number;
   order_items: OrderItem[];
   route_path?: any; // To store Google Maps DirectionsResult
+  ticket_photo_url?: string | null;
+  ticket_photo_urls?: string[] | null;
+  ready_in_minutes?: number | null;
+  delivery_failure_reason?: string | null;
+  delivery_failure_reported_at?: string | null;
   notified_riders?: string[];
   active_notified_riders?: string[];
   rejected_riders?: string[];
@@ -316,6 +341,7 @@ export type Rider = {
   proof_of_address_url?: string;
   license_front_url?: string;
   license_back_url?: string;
+  avatar_1x1_url?: string;
   avatar1x1_url?: string;
 
   // Vehículo

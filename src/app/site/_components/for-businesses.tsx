@@ -3,13 +3,14 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
+import { MotionSection } from "@/components/site-motion";
 
 export function ForBusinesses() {
   return (
     <section id="for-businesses" className="py-12 lg:py-24 bg-slate-50 dark:bg-slate-900">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
-          <div className="order-2 md:order-1">
+          <MotionSection className="order-2 md:order-1">
             <span className="mb-2 inline-block rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
               Para Negocios
             </span>
@@ -27,16 +28,17 @@ export function ForBusinesses() {
             <Button asChild size="lg" className="mt-8">
               <Link href="/site/store/apply">Registra tu Negocio</Link>
             </Button>
-          </div>
-          <div className="order-1 md:order-2">
-             <Image
-              src="/potencia.png"
+          </MotionSection>
+          <MotionSection className="order-1 md:order-2">
+            <Image
+              src="/businesses-hid.png"
               alt="Negocio potenciando sus entregas con Hi! Delivery"
-              width={600}
-              height={450}
-              className="rounded-lg shadow-xl"
+              width={1536}
+              height={1024}
+              sizes="(max-width: 768px) 100vw, 42vw"
+              className="h-auto w-full rounded-2xl object-cover shadow-xl"
             />
-          </div>
+          </MotionSection>
         </div>
       </div>
     </section>

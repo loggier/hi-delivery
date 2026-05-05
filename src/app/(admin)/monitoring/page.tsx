@@ -76,7 +76,17 @@ function KPICardSkeleton() {
   );
 }
 
-const activeOrderStatuses: OrderStatus[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
+const activeOrderStatuses: OrderStatus[] = [
+  'pending_acceptance',
+  'accepted',
+  'at_store',
+  'cooking',
+  'ready_for_pickup',
+  'picked_up',
+  'out_for_delivery',
+  'on_the_way',
+  'arrived_at_destination',
+];
 type HistoryPreset = 'today' | 'yesterday' | 'custom';
 type MonitoringPanelMode = 'live' | 'history';
 
@@ -240,7 +250,7 @@ const ActiveRidersTable = ({
                                 <TableCell className="px-4 py-2.5">
                                     <div className="flex items-center gap-2.5">
                                         <Avatar className="h-9 w-9 border">
-                                            <AvatarImage src={sanitizeImageUrl(rider.avatar1x1_url)} alt={`${rider.first_name} ${rider.last_name}`} />
+                                            <AvatarImage src={sanitizeImageUrl(rider.avatar1x1_url || rider.avatar_1x1_url)} alt={`${rider.first_name} ${rider.last_name}`} />
                                             <AvatarFallback className="bg-slate-100 text-xs font-semibold text-slate-700">
                                                 {getInitials(rider.first_name, rider.last_name)}
                                             </AvatarFallback>

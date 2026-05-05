@@ -82,7 +82,7 @@ export default function POSPage() {
     }, [isBusinessOwner, businessesData, selectedBusiness]);
 
     const { data: products, isLoading: isLoadingProducts } = api.products.useGetAll({ business_id: selectedBusiness?.id, status: 'ACTIVE' });
-    const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
+    const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll({ business_id: selectedBusiness?.id });
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
     
     // Use the selectedPickupLocation for shipping calculation now
@@ -377,6 +377,7 @@ export default function POSPage() {
              <CustomerFormModal
                 isOpen={isCustomerModalOpen}
                 onClose={() => setIsCustomerModalOpen(false)}
+                businessId={selectedBusiness?.id || ''}
                 onCustomerCreated={handleCustomerCreated}
              />
 

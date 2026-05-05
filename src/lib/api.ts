@@ -108,7 +108,7 @@ function createApi<T extends { id: string | number }>(
         let query = supabase.from(entity).select(select).order('created_at', { ascending: false });;
         for (const key in filters) {
             if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
-                if (key === 'name_search' && entity === 'customers_with_stats') {
+                if (key === 'name_search' && (entity === 'customers_with_stats' || entity === 'customers')) {
                      query = query.or(`first_name.ilike.%${filters[key]}%,last_name.ilike.%${filters[key]}%,email.ilike.%${filters[key]}%,phone.ilike.%${filters[key]}%`);
                 }
                 else if (key.includes('search')) {
@@ -331,13 +331,59 @@ const useCreateOrder = () => {
 
     return useMutation<Order, Error, { items: Omit<OrderItem, 'id' | 'order_id' | 'products'>[] } & OrderPayload>({
       mutationFn: async (orderData) => {
+         const hasTicketFile =
+           typeof File !== 'undefined' && orderData.ticket_photo instanceof File;
+         const hasTicketFiles =
+           typeof File !== 'undefined' &&
+           Array.isArray(orderData.ticket_photos) &&
+           orderData.ticket_photos.some((photo) => photo instanceof File);
+         if (!hasTicketFile && !hasTicketFiles) {
+           const response = await fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(orderData),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(extractApiErrorMessage(result, `Error al crear el pedido`));
+          return result;
+         }
+
+         const formData = new FormData();
+         const appendValue = (key: string, value: unknown) => {
+           if (value === undefined || value === null) return;
+           if (value instanceof File) {
+             formData.append(key, value);
+             return;
+           }
+           if (Array.isArray(value)) {
+             if (value.length > 0 && value.every((item) => item instanceof File)) {
+               value.forEach((file) => formData.append(key, file as File));
+               return;
+             }
+             formData.append(key, JSON.stringify(value));
+             return;
+           }
+           if (typeof value === 'object') {
+             formData.append(key, JSON.stringify(value));
+             return;
+           }
+           formData.append(key, String(value));
+         };
+
+         Object.entries(orderData).forEach(([key, value]) => {
+           if (key === 'ticket_photo' && value instanceof File) {
+             formData.append(key, value);
+             return;
+           }
+           appendValue(key, value);
+         });
+
          const response = await fetch('/api/orders', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderData),
+            body: formData,
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || `Error al crear el pedido`);
+        if (!response.ok) throw new Error(extractApiErrorMessage(result, `Error al crear el pedido`));
         return result;
       },
       onSuccess: () => {
@@ -409,6 +455,41 @@ const useUpdateUser = () => {
             toast({
                 variant: "destructive",
                 title: "Error al actualizar",
+                description: error.message,
+            });
+        },
+    });
+};
+
+const useDeleteCustomer = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation<void, Error, string>({
+        mutationFn: async (id) => {
+            const response = await fetch(`/api/customers/${id}`, {
+                method: 'DELETE',
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error(extractApiErrorMessage(result, 'No se pudo eliminar el cliente.'));
+            }
+        },
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: ['customers'] });
+            queryClient.invalidateQueries({ queryKey: ['customer_addresses', { customer_id: id }] });
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+            toast({
+                title: "Éxito",
+                description: "Cliente eliminado exitosamente.",
+                variant: 'success',
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "No se pudo eliminar",
                 description: error.message,
             });
         },
@@ -506,9 +587,10 @@ export const api = {
     },
     areas: createApi<Area>('areas'),
     customers: {
-      ...createApi<Customer>('customers_with_stats'),
+      ...createApi<Customer>('customers'),
       useGetOne: createApi<Customer>('customers').useGetOne,
       useCreate: createApi<Customer>('customers').useCreate,
+      useDelete: useDeleteCustomer,
     },
     customer_addresses: createApi<CustomerAddress>('customer_addresses'),
     orders: {

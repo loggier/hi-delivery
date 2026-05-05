@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { UserPlus, ClipboardList, Bike, PackageCheck } from "lucide-react";
+import { MotionCard, MotionSection } from "@/components/site-motion";
 
 const steps = [
     {
@@ -29,25 +31,35 @@ export function HowItWorks() {
   return (
     <section id="how-it-works" className="py-12 lg:py-24">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
+        <MotionSection className="text-center mb-12">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Empezar es muy Fácil</h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
             Sigue estos sencillos pasos para unirte a nuestra flota.
           </p>
-        </div>
+        </MotionSection>
+        <MotionSection className="mb-12 overflow-hidden rounded-2xl border bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
+          <Image
+            src="/how-it-works-hid.png"
+            alt="Flujo de entrega moderno de Hi! Delivery"
+            width={1672}
+            height={941}
+            sizes="(max-width: 1024px) 100vw, 80vw"
+            className="h-auto w-full object-cover"
+          />
+        </MotionSection>
         <div className="relative">
              {/* Desktop Line */}
             <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 dark:bg-slate-700 -translate-y-1/2" />
 
             <div className="grid grid-cols-1 gap-12 md:grid-cols-4">
                 {steps.map((step, index) => (
-                    <div key={index} className="relative flex flex-col items-center text-center">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 mb-6 z-10 bg-white dark:bg-slate-900">
+                    <MotionCard key={index} className="relative flex flex-col items-center text-center">
+                        <div className="z-10 mb-6 flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/20 bg-primary/10 bg-white dark:bg-slate-900">
                              {step.icon}
                         </div>
                         <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
                         <p className="text-slate-600 dark:text-slate-400">{step.description}</p>
-                    </div>
+                    </MotionCard>
                 ))}
             </div>
         </div>

@@ -68,7 +68,7 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
         circulationCardFrontUrl: initialData?.circulation_card_front_url || null,
         circulationCardBackUrl: initialData?.circulation_card_back_url || null,
         policyFirstPageUrl: initialData?.policy_first_page_url || null,
-        avatar1x1Url: initialData?.avatar1x1_url || null,
+        avatar1x1Url: initialData?.avatar1x1_url || initialData?.avatar_1x1_url || null,
 
         // Moto photos
         motoPhotoFront: initialData?.moto_photos?.[0] || null,
@@ -92,11 +92,13 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
         const value = data[fieldKey];
 
         // Skip motoPhoto fields that are not new files
-        if (motoPhotoKeys.includes(fieldKey) && !(value instanceof FileList)) {
+        if (motoPhotoKeys.includes(fieldKey) && !(value instanceof FileList) && !(value instanceof File)) {
             return;
         }
 
-        if (value instanceof FileList && value.length > 0) {
+        if (value instanceof File) {
+          formData.append(fieldKey, value);
+        } else if (value instanceof FileList && value.length > 0) {
           formData.append(fieldKey, value[0]);
         } else if (value instanceof Date) {
           formData.append(key, value.toISOString());

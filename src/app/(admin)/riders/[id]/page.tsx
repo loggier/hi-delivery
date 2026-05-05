@@ -100,6 +100,7 @@ export default function ViewRiderPage() {
 
   const statusInfo = statusConfig[rider.status];
   const fullName = `${rider.first_name} ${rider.last_name}`;
+  const avatarUrl = rider.avatar1x1_url || rider.avatar_1x1_url;
 
   return (
     <div className="space-y-4">
@@ -109,7 +110,7 @@ export default function ViewRiderPage() {
 
         <Card>
             <CardHeader className="flex-row items-start gap-4 space-y-0">
-                <ProfileImage url={rider.avatar1x1_url} name={fullName} />
+                <ProfileImage url={avatarUrl} name={fullName} />
                 <div className="flex-1">
                     <div className="flex flex-wrap justify-between items-start gap-4">
                          <div>

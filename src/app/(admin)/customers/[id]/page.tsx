@@ -1,11 +1,11 @@
 
 "use client";
 
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Mail, Phone, Home, MapPin, Package, Bike, Building, Calendar, Hash, CheckCircle, Eye, Trash2 } from "lucide-react";
+import { Mail, Phone, Home, Package, Bike, Building, CheckCircle, Eye, Trash2, CookingPot, ReceiptText, XCircle, Pencil, PlusCircle, Loader2 } from "lucide-react";
 import { useLoadScript, GoogleMap, MarkerF } from '@react-google-maps/api';
 import Link from 'next/link';
 
@@ -19,6 +19,12 @@ import { Badge } from '@/components/ui/badge';
 import { type Order, type CustomerAddress, OrderStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/hooks/use-confirm';
+import { useAuthStore } from '@/store/auth-store';
+import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AddressFormModal } from '@/app/(admin)/pos/components';
 
 const libraries: ('places')[] = ['places'];
 
@@ -68,16 +74,22 @@ const LocationMap = ({ address }: { address: CustomerAddress | null }) => {
 const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline", icon: React.ElementType }> = {
     pending_acceptance: { label: "Pendiente", variant: "warning", icon: Eye },
     accepted: { label: "Aceptado", variant: "default", icon: CheckCircle },
-    cooking: { label: "En preparación", variant: "default", icon: CheckCircle },
-    out_for_delivery: { label: "En Camino", variant: "default", icon: Bike },
+    at_store: { label: "En negocio", variant: "default", icon: Building },
+    cooking: { label: "En preparación", variant: "default", icon: CookingPot },
+    ready_for_pickup: { label: "Listo para recoger", variant: "default", icon: Package },
+    picked_up: { label: "Recogido", variant: "default", icon: Package },
+    out_for_delivery: { label: "En ruta", variant: "default", icon: Bike },
+    on_the_way: { label: "En ruta", variant: "default", icon: Bike },
+    arrived_at_destination: { label: "En destino", variant: "default", icon: Home },
     delivered: { label: "Entregado", variant: "success", icon: Package },
-    cancelled: { label: "Cancelado", variant: "destructive", icon: Home },
+    completed: { label: "Completado", variant: "success", icon: CheckCircle },
+    cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
+    refunded: { label: "Reembolsado", variant: "outline", icon: ReceiptText },
+    failed: { label: "Fallido", variant: "destructive", icon: XCircle },
 };
 
 
-const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
-    const { data: orders, isLoading } = useCustomerOrders(customerId);
-
+const OrderHistoryTable = ({ orders, isLoading }: { orders: Order[]; isLoading: boolean }) => {
     if (isLoading) {
         return (
             <div className="space-y-2">
@@ -143,14 +155,53 @@ const OrderHistoryTable = ({ customerId }: { customerId: string }) => {
 
 export default function ViewCustomerPage() {
   const params = useParams();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const searchParams = useSearchParams();
+  const id = (Array.isArray(params.id) ? params.id[0] : params.id) ?? '';
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user, isLoading: isAuthLoading } = useAuthStore();
+  const isBusinessOwner = user?.role_id === 'role-owner' || user?.role?.name === 'Dueño de Negocio';
   
   const { data: customer, isLoading, isError } = api.customers.useGetOne(id);
   const { data: addresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: id });
+  const { data: customerOrders = [], isLoading: isLoadingOrders } = useCustomerOrders(id);
   const deleteAddressMutation = api.customer_addresses.useDelete();
+  const updateCustomerMutation = api.customers.useUpdate<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string;
+    email: string | null;
+  }>();
+  const deleteCustomerMutation = api.customers.useDelete();
   
   const [selectedAddress, setSelectedAddress] = useState<CustomerAddress | null>(null);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(null);
+  const [customerForm, setCustomerForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+  });
   const [ConfirmationDialog, confirm] = useConfirm();
+
+  React.useEffect(() => {
+    if (!customer) return;
+    setCustomerForm({
+      first_name: customer.first_name || '',
+      last_name: customer.last_name || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+    });
+  }, [customer]);
+
+  React.useEffect(() => {
+    if (searchParams.get('edit') === '1') {
+      setIsCustomerDialogOpen(true);
+    }
+  }, [searchParams]);
 
   React.useEffect(() => {
     if (addresses && addresses.length > 0) {
@@ -160,6 +211,67 @@ export default function ViewCustomerPage() {
         setSelectedAddress(null);
     }
   }, [addresses]);
+
+  const handleSaveCustomer = async () => {
+    if (!customer) return;
+
+    const firstName = customerForm.first_name.trim();
+    const lastName = customerForm.last_name.trim();
+    const phone = customerForm.phone.trim();
+    const email = customerForm.email.trim();
+
+    if (firstName.length < 2 || lastName.length < 2 || phone.length < 10) {
+      toast({
+        variant: 'destructive',
+        title: 'Datos incompletos',
+        description: 'Nombre, apellido y teléfono son obligatorios.',
+      });
+      return;
+    }
+
+    await updateCustomerMutation.mutateAsync({
+      id: customer.id,
+      first_name: firstName,
+      last_name: lastName,
+      phone,
+      email: email || null,
+    });
+    setIsCustomerDialogOpen(false);
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!customer) return;
+
+    const ok = await confirm({
+      title: "¿Eliminar cliente?",
+      description: "Solo se eliminará si no tiene pedidos relacionados. Si ya tiene historial, se conservará para no romper sus pedidos.",
+      confirmText: "Eliminar",
+      confirmVariant: "destructive",
+    });
+
+    if (!ok) return;
+
+    deleteCustomerMutation.mutate(customer.id, {
+      onSuccess: () => {
+        router.push('/customers');
+      },
+    });
+  };
+
+  const handleOpenNewAddress = () => {
+    setEditingAddress(null);
+    setIsAddressDialogOpen(true);
+  };
+
+  const handleOpenEditAddress = (address: CustomerAddress) => {
+    setEditingAddress(address);
+    setIsAddressDialogOpen(true);
+  };
+
+  const handleCloseAddressDialog = () => {
+    setIsAddressDialogOpen(false);
+    setEditingAddress(null);
+  };
 
   const handleDeleteAddress = async (address: CustomerAddress) => {
     const ok = await confirm({
@@ -185,7 +297,7 @@ export default function ViewCustomerPage() {
   if (isLoading) {
     return (
         <div className="space-y-4">
-            <PageHeader title={<Skeleton className="h-8 w-64" />} />
+            <PageHeader title="Cargando cliente" />
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6">
                     <Skeleton className="h-48 w-full" />
@@ -204,10 +316,101 @@ export default function ViewCustomerPage() {
       notFound();
   }
 
+  if (
+    !isAuthLoading &&
+    isBusinessOwner &&
+    user?.business_id &&
+    customer.business_id !== user.business_id
+  ) {
+    notFound();
+  }
+
+  const orderCount = customerOrders.length;
+  const totalSpent = customerOrders.reduce((total, order) => total + (Number(order.order_total) || 0), 0);
+
   return (
     <div className="space-y-6">
       <ConfirmationDialog />
-      <PageHeader title={`${customer.first_name} ${customer.last_name}`} />
+      <AddressFormModal
+        isOpen={isAddressDialogOpen}
+        onClose={handleCloseAddressDialog}
+        customerId={customer.id}
+        addressToEdit={editingAddress}
+      />
+      <Dialog open={isCustomerDialogOpen} onOpenChange={setIsCustomerDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar cliente</DialogTitle>
+            <DialogDescription>
+              Actualiza los datos de contacto de este cliente para este negocio.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="first_name">Nombre</Label>
+              <Input
+                id="first_name"
+                value={customerForm.first_name}
+                onChange={(event) => setCustomerForm((current) => ({ ...current, first_name: event.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="last_name">Apellido</Label>
+              <Input
+                id="last_name"
+                value={customerForm.last_name}
+                onChange={(event) => setCustomerForm((current) => ({ ...current, last_name: event.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Teléfono</Label>
+              <Input
+                id="phone"
+                value={customerForm.phone}
+                onChange={(event) => setCustomerForm((current) => ({ ...current, phone: event.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={customerForm.email}
+                onChange={(event) => setCustomerForm((current) => ({ ...current, email: event.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCustomerDialogOpen(false)} disabled={updateCustomerMutation.isPending}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveCustomer} disabled={updateCustomerMutation.isPending}>
+              {updateCustomerMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <PageHeader title={`${customer.first_name} ${customer.last_name}`}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsCustomerDialogOpen(true)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDeleteCustomer}
+            disabled={deleteCustomerMutation.isPending}
+          >
+            {deleteCustomerMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Eliminar
+          </Button>
+        </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1 space-y-6">
@@ -222,8 +425,16 @@ export default function ViewCustomerPage() {
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle>Direcciones Guardadas</CardTitle>
-                     <CardDescription>Selecciona una dirección para verla en el mapa.</CardDescription>
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <CardTitle>Direcciones Guardadas</CardTitle>
+                            <CardDescription>Selecciona una dirección para verla en el mapa.</CardDescription>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={handleOpenNewAddress}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Agregar
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {isLoadingAddresses ? (
@@ -265,6 +476,18 @@ export default function ViewCustomerPage() {
                                             type="button"
                                             variant="ghost"
                                             size="icon"
+                                            className="h-8 w-8 text-slate-500 hover:text-primary"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleOpenEditAddress(addr);
+                                            }}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
                                             className="h-8 w-8 text-slate-500 hover:text-red-600"
                                             onClick={(event) => {
                                                 event.stopPropagation();
@@ -302,11 +525,11 @@ export default function ViewCustomerPage() {
             <CardHeader>
                 <CardTitle>Historial de Pedidos</CardTitle>
                 <CardDescription>
-                    Un total de {customer.order_count || 0} pedidos con un gasto de {formatCurrency(customer.total_spent || 0)}.
+                    Un total de {orderCount} pedido{orderCount === 1 ? '' : 's'} con un gasto de {formatCurrency(totalSpent)}.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <OrderHistoryTable customerId={customer.id} />
+                <OrderHistoryTable orders={customerOrders} isLoading={isLoadingOrders} />
             </CardContent>
         </Card>
     </div>

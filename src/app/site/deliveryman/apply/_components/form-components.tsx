@@ -111,57 +111,66 @@ interface FormDatePickerProps {
   description?: string;
 }
 
-export const FormDatePicker = ({ name, label, description }: FormDatePickerProps) => (
-  <FormField
-    name={name}
-    render={({ field }) => (
-      <FormItem className="flex flex-col">
-        <FormLabel>{label}</FormLabel>
-        <Popover>
-          <PopoverTrigger asChild>
-            <FormControl>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "pl-3 text-left font-normal",
-                  !field.value && "text-muted-foreground"
-                )}
-              >
-                {field.value ? (
-                  format(field.value, "PPP", { locale: es })
-                ) : (
-                  <span>Selecciona una fecha</span>
-                )}
-                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-              </Button>
-            </FormControl>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              captionLayout="dropdown"
-              startMonth={new Date(1950, 0)}
-              endMonth={new Date(new Date().getFullYear() - 18, 11)}
-              mode="single"
-              selected={field.value}
-              onSelect={field.onChange}
-              disabled={(date) =>
-                date > new Date() || date < new Date("1900-01-01")
-              }
-              initialFocus
-              locale={es}
-              labels={{
-                labelMonthDropdown: () => "Mes",
-                labelYearDropdown: () => "Año",
-              }}
-            />
-          </PopoverContent>
-        </Popover>
-        {description && <FormDescription>{description}</FormDescription>}
-        <FormMessage />
-      </FormItem>
-    )}
-  />
-);
+export const FormDatePicker = ({ name, label, description }: FormDatePickerProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const minDate = new Date(1900, 0, 1);
+  const today = new Date();
+  const maxBirthDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+
+  return (
+    <FormField
+      name={name}
+      render={({ field }) => (
+        <FormItem className="flex flex-col">
+          <FormLabel>{label}</FormLabel>
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+              <FormControl>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "pl-3 text-left font-normal",
+                    !field.value && "text-muted-foreground"
+                  )}
+                >
+                  {field.value ? (
+                    format(field.value, "PPP", { locale: es })
+                  ) : (
+                    <span>Selecciona día, mes y año</span>
+                  )}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
+              </FormControl>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                captionLayout="dropdown"
+                startMonth={minDate}
+                endMonth={maxBirthDate}
+                defaultMonth={field.value ?? maxBirthDate}
+                selected={field.value}
+                onSelect={(date) => {
+                  field.onChange(date);
+                  if (date) setIsOpen(false);
+                }}
+                disabled={(date) => date > maxBirthDate || date < minDate}
+                initialFocus
+                locale={es}
+                labels={{
+                  labelMonthDropdown: () => "Mes",
+                  labelYearDropdown: () => "Año",
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+          {description && <FormDescription>{description}</FormDescription>}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
 
 export const FormFutureDatePicker = ({ name, label, description }: FormDatePickerProps) => (
   <FormField
@@ -193,6 +202,7 @@ export const FormFutureDatePicker = ({ name, label, description }: FormDatePicke
               captionLayout="dropdown"
               startMonth={new Date(new Date().getFullYear(), 0)}
               endMonth={new Date(new Date().getFullYear() + 10, 11)}
+              defaultMonth={field.value ?? new Date()}
               mode="single"
               selected={field.value}
               onSelect={field.onChange}

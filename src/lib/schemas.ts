@@ -398,6 +398,7 @@ export const productSchema = z.object({
 });
 
 export const newCustomerSchema = z.object({
+  business_id: z.string({ required_error: "Debe seleccionar un negocio." }).min(1, "Debe seleccionar un negocio."),
   first_name: z.string().min(2, "El nombre es requerido."),
   last_name: z.string().min(2, "El apellido es requerido."),
   phone: z.string().min(10, "El teléfono debe tener al menos 10 dígitos."),

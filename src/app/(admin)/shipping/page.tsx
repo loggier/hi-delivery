@@ -4,21 +4,21 @@
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { type Business, type Customer, type CustomerAddress, type OrderPayload } from '@/types';
+import { type Business, type BusinessBranch, type Customer, type CustomerAddress, type OrderPayload } from '@/types';
 import { api } from '@/lib/api';
-import { Building, ChevronDown, ChevronUp, User, Home, Package, Store } from 'lucide-react';
+import { ChevronDown, ChevronUp, User, Home, Package, Store } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLoadScript } from '@react-google-maps/api';
-import { CustomerSearch, AddressFormModal, CustomerDisplay, CustomerFormModal, ShippingMapModal, LocationSelector, PackageDetails, ShippingSummary, type ShippingInfo } from './components';
+import { CustomerSearch, AddressFormModal, CustomerDisplay, CustomerFormModal, ShippingMapModal, PackageDetails, ShippingSummary, type ShippingInfo } from './components';
 import { useAuthStore } from '@/store/auth-store';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 
-const libraries: ('places')[] = ['places'];
 export type LocationPoint = { address: string; lat: number; lng: number };
+type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
 
 export default function ShippingPage() {
     const router = useRouter();
@@ -26,14 +26,17 @@ export default function ShippingPage() {
     const isBusinessOwner = user?.role_id === 'role-owner' || user?.role?.name === 'Dueño de Negocio';
 
     const [selectedBusiness, setSelectedBusiness] = React.useState<Business | null>(null);
-    const [origin, setOrigin] = React.useState<LocationPoint | null>(null);
-    const [destination, setDestination] = React.useState<LocationPoint | null>(null);
+    const [selectedPickupLocation, setSelectedPickupLocation] = React.useState<PickupLocation | null>(null);
     const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null);
+    const [selectedAddress, setSelectedAddress] = React.useState<CustomerAddress | null>(null);
     const [packageDescription, setPackageDescription] = React.useState('');
+    const [orderAmount, setOrderAmount] = React.useState('');
+    const [readyInMinutes, setReadyInMinutes] = React.useState('');
+    const [ticketPhotos, setTicketPhotos] = React.useState<File[]>([]);
+    const [isTicketPhotoProcessing, setIsTicketPhotoProcessing] = React.useState(false);
     
     const [isBusinessOpen, setIsBusinessOpen] = React.useState(!isBusinessOwner);
-    const [isOriginOpen, setIsOriginOpen] = React.useState(isBusinessOwner);
-    const [isDestinationOpen, setIsDestinationOpen] = React.useState(false);
+    const [isCustomerOpen, setIsCustomerOpen] = React.useState(isBusinessOwner);
     const [isPackageOpen, setIsPackageOpen] = React.useState(false);
 
     const [isAddressModalOpen, setIsAddressModalOpen] = React.useState(false);
@@ -47,49 +50,114 @@ export default function ShippingPage() {
     const { isLoaded } = useLoadScript({
         id: "hi-delivery-shipping-google-maps",
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries,
     });
 
     const { data: businessesData, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({
         status: 'ACTIVE',
         id: isBusinessOwner ? user?.business_id : undefined,
     });
-    const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll();
+    const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll({ business_id: selectedBusiness?.id });
     const { data: customerAddresses, isLoading: isLoadingAddresses } = api.customer_addresses.useGetAll({ customer_id: selectedCustomer?.id });
 
     React.useEffect(() => {
+        if (!selectedCustomer) {
+            setSelectedAddress(null);
+            return;
+        }
+
+        if (!customerAddresses || customerAddresses.length === 0) {
+            setSelectedAddress(null);
+            return;
+        }
+
+        if (customerAddresses[0]?.customer_id !== selectedCustomer.id) {
+            return;
+        }
+
+        const currentAddressId = selectedAddress?.id;
+        const currentAddressExists = currentAddressId ? customerAddresses.some((address) => address.id === currentAddressId) : false;
+
+        if (!currentAddressExists) {
+            setSelectedAddress(customerAddresses[0]);
+            setIsCustomerOpen(false);
+        }
+    }, [customerAddresses, selectedAddress?.id, selectedCustomer]);
+
+    const origin = React.useMemo<LocationPoint | null>(() => {
+        if (!selectedPickupLocation) return null;
+        return {
+            address: selectedPickupLocation.address_line,
+            lat: selectedPickupLocation.latitude,
+            lng: selectedPickupLocation.longitude,
+        };
+    }, [selectedPickupLocation]);
+
+    const destination = React.useMemo<LocationPoint | null>(() => {
+        if (!selectedAddress) return null;
+        return {
+            address: selectedAddress.address,
+            lat: selectedAddress.latitude,
+            lng: selectedAddress.longitude,
+        };
+    }, [selectedAddress]);
+
+    React.useEffect(() => {
         if (isBusinessOwner && businessesData && businessesData.length > 0 && !selectedBusiness) {
-            setSelectedBusiness(businessesData[0]);
+            const business = businessesData[0];
+            setSelectedBusiness(business);
+            setSelectedPickupLocation({
+                id: business.id,
+                name: `${business.name} (Matriz)`,
+                address_line: business.address_line,
+                latitude: business.latitude,
+                longitude: business.longitude,
+            });
             setIsBusinessOpen(false);
-            setIsOriginOpen(true);
+            setIsCustomerOpen(true);
         }
     }, [isBusinessOwner, businessesData, selectedBusiness]);
 
     const handleSelectBusiness = (businessId: string) => {
         const business = businessesData?.find((item) => item.id === businessId) || null;
         setSelectedBusiness(business);
-        setOrigin(null);
-        setDestination(null);
+        setSelectedPickupLocation(
+            business
+                ? {
+                    id: business.id,
+                    name: `${business.name} (Matriz)`,
+                    address_line: business.address_line,
+                    latitude: business.latitude,
+                    longitude: business.longitude,
+                }
+                : null
+        );
         setSelectedCustomer(null);
+        setSelectedAddress(null);
         setPackageDescription('');
+        setOrderAmount('');
+        setReadyInMinutes('');
+        setTicketPhotos([]);
+        setIsTicketPhotoProcessing(false);
         setIsBusinessOpen(false);
-        setIsOriginOpen(true);
-        setIsDestinationOpen(false);
+        setIsCustomerOpen(true);
         setIsPackageOpen(false);
     };
     
     const handleSelectCustomer = (customer: Customer | null) => {
         setSelectedCustomer(customer);
-        setDestination(null);
+        setSelectedAddress(null);
+        setPackageDescription('');
+        setOrderAmount('');
+        setReadyInMinutes('');
+        setTicketPhotos([]);
+        setIsTicketPhotoProcessing(false);
+        setIsPackageOpen(false);
+        setIsCustomerOpen(true);
     }
 
     const handleSelectAddress = (address: CustomerAddress) => {
-        setDestination({
-            address: address.address,
-            lat: address.latitude,
-            lng: address.longitude,
-        });
-        setIsDestinationOpen(false);
+        setSelectedAddress(address);
+        setIsCustomerOpen(false);
         setIsPackageOpen(true);
     }
     
@@ -100,11 +168,33 @@ export default function ShippingPage() {
     
     const handleCustomerCreated = (newCustomer: Customer) => {
         setSelectedCustomer(newCustomer);
+        setSelectedAddress(null);
+        setPackageDescription('');
+        setOrderAmount('');
+        setReadyInMinutes('');
+        setTicketPhotos([]);
+        setIsTicketPhotoProcessing(false);
+        setIsPackageOpen(false);
         setIsCustomerModalOpen(false);
+        setIsCustomerOpen(true);
+        setIsAddressModalOpen(true);
     };
 
     const handleCreateShipping = ({ shippingInfo }: { shippingInfo: ShippingInfo }) => {
-        if (!selectedBusiness || !selectedCustomer || !origin || !destination || !packageDescription.trim()) {
+        const parsedReadyInMinutes = Number(readyInMinutes);
+        const parsedOrderAmount = Number(orderAmount || 0);
+
+        if (
+            !selectedBusiness ||
+            !selectedCustomer ||
+            !origin ||
+            !destination ||
+            !packageDescription.trim() ||
+            parsedOrderAmount < 0 ||
+            isTicketPhotoProcessing ||
+            !Number.isFinite(parsedReadyInMinutes) ||
+            parsedReadyInMinutes <= 0
+        ) {
             return;
         }
 
@@ -124,11 +214,13 @@ export default function ShippingPage() {
             },
             customer_name: `${selectedCustomer.first_name} ${selectedCustomer.last_name}`.trim(),
             customer_phone: selectedCustomer.phone,
-            subtotal: 0,
+            subtotal: Number.isFinite(parsedOrderAmount) ? parsedOrderAmount : 0,
             delivery_fee: shippingInfo.cost,
-            order_total: shippingInfo.cost,
+            order_total: (Number.isFinite(parsedOrderAmount) ? parsedOrderAmount : 0) + shippingInfo.cost,
             distance: shippingInfo.distance,
             route_path: shippingInfo.routePath,
+            ready_in_minutes: parsedReadyInMinutes,
+            ticket_photos: ticketPhotos,
         };
 
         createOrderMutation.mutate(orderPayload, {
@@ -185,52 +277,18 @@ export default function ShippingPage() {
                 </Card>
                 
                 <Card>
-                    <Collapsible open={isOriginOpen} onOpenChange={setIsOriginOpen} disabled={!selectedBusiness}>
-                        <CollapsibleTrigger asChild>
-                            <div className={cn("flex justify-between items-center p-4 cursor-pointer rounded-t-lg", isOriginOpen && "border-b", !selectedBusiness && "opacity-50 cursor-not-allowed")}>
-                                <div className="flex items-center gap-3">
-                                    <Building className="h-6 w-6" />
-                                    <div className="flex flex-col text-left">
-                                        <h3 className="font-semibold text-xl">
-                                            Paso 2: Origen del Envío
-                                        </h3>
-                                        {origin && <span className="text-primary font-medium truncate max-w-xs sm:max-w-md">{origin.address}</span>}
-                                    </div>
-                                </div>
-                                <Button variant="ghost" size="icon">
-                                    {isOriginOpen ? <ChevronUp /> : <ChevronDown />}
-                                </Button>
-                            </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                             <CardContent className="pt-4">
-                                <LocationSelector 
-                                    isLoaded={isLoaded}
-                                    onLocationSelect={(loc) => {
-                                        setOrigin(loc);
-                                        setIsOriginOpen(false);
-                                        setIsDestinationOpen(true);
-                                    }}
-                                    title="Buscar dirección de origen"
-                                />
-                            </CardContent>
-                        </CollapsibleContent>
-                    </Collapsible>
-                </Card>
-
-                <Card>
-                    <Collapsible open={isDestinationOpen} onOpenChange={setIsDestinationOpen} disabled={!selectedBusiness || !origin}>
-                         <CollapsibleTrigger asChild disabled={!selectedBusiness || !origin}>
+                    <Collapsible open={isCustomerOpen} onOpenChange={setIsCustomerOpen} disabled={!selectedBusiness}>
+                         <CollapsibleTrigger asChild disabled={!selectedBusiness}>
                            <div className={cn(
                                 "flex justify-between items-center p-4 cursor-pointer rounded-t-lg", 
-                                isDestinationOpen && "border-b",
-                                (!selectedBusiness || !origin) && "opacity-50 cursor-not-allowed"
+                                isCustomerOpen && "border-b",
+                                !selectedBusiness && "opacity-50 cursor-not-allowed"
                             )}>
                                 <div className="flex items-center gap-3">
                                     <User className="h-6 w-6" />
                                     <div className="flex flex-col text-left">
                                          <h3 className="font-semibold text-xl">
-                                            Paso 3: Destino del Envío
+                                            Paso 2: Cliente y Dirección
                                         </h3>
                                         {destination && selectedCustomer && (
                                             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 text-sm">
@@ -243,19 +301,21 @@ export default function ShippingPage() {
                                         )}
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" disabled={!selectedBusiness || !origin}>
-                                     {isDestinationOpen ? <ChevronUp /> : <ChevronDown />}
+                                <Button variant="ghost" size="icon" disabled={!selectedBusiness}>
+                                     {isCustomerOpen ? <ChevronUp /> : <ChevronDown />}
                                 </Button>
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
-                           <CardContent className="pt-4">
+                            <CardContent className="pt-4">
                                 {selectedCustomer ? (
                                     <CustomerDisplay 
                                         customer={selectedCustomer} 
                                         addresses={customerAddresses || []}
+                                        selectedAddress={selectedAddress}
                                         onSelectAddress={handleSelectAddress}
                                         onClearCustomer={() => handleSelectCustomer(null)}
+                                        onShowMap={() => setIsMapModalOpen(true)}
                                         onAddAddress={() => handleOpenAddressModal(null)}
                                         onEditAddress={(addr) => handleOpenAddressModal(addr)}
                                         isLoadingAddresses={isLoadingAddresses}
@@ -284,7 +344,7 @@ export default function ShippingPage() {
                                  <div className="flex items-center gap-3">
                                     <Package className="h-6 w-6" />
                                     <div className="flex flex-col text-left">
-                                        <h3 className="font-semibold text-xl">Paso 4: Detalles del Paquete</h3>
+                                        <h3 className="font-semibold text-xl">Paso 3: Detalle del pedido</h3>
                                         {packageDescription && <span className="text-primary font-medium truncate max-w-xs sm:max-w-md">{packageDescription}</span>}
                                     </div>
                                 </div>
@@ -298,6 +358,13 @@ export default function ShippingPage() {
                                 <PackageDetails 
                                     value={packageDescription}
                                     onValueChange={setPackageDescription}
+                                    orderAmount={orderAmount}
+                                    onOrderAmountChange={setOrderAmount}
+                                    readyInMinutes={readyInMinutes}
+                                    onReadyInMinutesChange={setReadyInMinutes}
+                                    ticketPhotos={ticketPhotos}
+                                    onTicketPhotosChange={setTicketPhotos}
+                                    onTicketPhotoProcessingChange={setIsTicketPhotoProcessing}
                                 />
                             </CardContent>
                         </CollapsibleContent>
@@ -312,6 +379,9 @@ export default function ShippingPage() {
                     origin={origin}
                     destination={destination}
                     packageDescription={packageDescription}
+                    orderAmount={Number(orderAmount || 0)}
+                    readyInMinutes={Number.isFinite(Number(readyInMinutes)) && Number(readyInMinutes) > 0 ? Number(readyInMinutes) : null}
+                    isTicketPhotoProcessing={isTicketPhotoProcessing}
                     isMapsLoaded={isLoaded}
                     onCreateShipping={handleCreateShipping}
                     isCreating={createOrderMutation.isPending}
@@ -329,12 +399,14 @@ export default function ShippingPage() {
                     customerId={selectedCustomer.id}
                     addressToEdit={editingAddress}
                     isMapsLoaded={isLoaded}
+                    onSaved={() => setSelectedAddress(null)}
                 />
             )}
             
              <CustomerFormModal
                 isOpen={isCustomerModalOpen}
                 onClose={() => setIsCustomerModalOpen(false)}
+                businessId={selectedBusiness?.id || ''}
                 onCustomerCreated={handleCustomerCreated}
              />
 

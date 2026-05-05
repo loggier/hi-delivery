@@ -13,8 +13,62 @@ import { DollarSign, Wallet } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { OrderStatus, type Business, type Customer } from '@/types';
+import { type Order, OrderStatus } from '@/types';
 import { useAuthStore } from '@/store/auth-store';
+
+type OrderTab = {
+  value: string;
+  label: string;
+  statuses: OrderStatus[];
+};
+
+const orderTabs: OrderTab[] = [
+  {
+    value: 'pending_acceptance',
+    label: 'Pendientes',
+    statuses: ['pending_acceptance'],
+  },
+  {
+    value: 'accepted',
+    label: 'Aceptados',
+    statuses: ['accepted'],
+  },
+  {
+    value: 'at_store',
+    label: 'En negocio',
+    statuses: ['at_store'],
+  },
+  {
+    value: 'cooking',
+    label: 'Preparación',
+    statuses: ['cooking'],
+  },
+  {
+    value: 'ready_for_pickup',
+    label: 'Listos',
+    statuses: ['ready_for_pickup'],
+  },
+  {
+    value: 'picked_up',
+    label: 'Recogidos',
+    statuses: ['picked_up'],
+  },
+  {
+    value: 'in_route',
+    label: 'En ruta',
+    statuses: ['out_for_delivery', 'on_the_way'],
+  },
+  {
+    value: 'arrived_at_destination',
+    label: 'En destino',
+    statuses: ['arrived_at_destination'],
+  },
+  {
+    value: 'history',
+    label: 'Historial',
+    statuses: ['delivered', 'completed', 'cancelled', 'refunded', 'failed'],
+  },
+];
 
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
@@ -67,25 +121,15 @@ export default function OrdersPage() {
     enabled: canLoadScopedData,
   });
 
-  const { data: businesses, isLoading: isLoadingBusinesses } = api.businesses.useGetAll({}, {
-    enabled: canLoadScopedData,
-  });
-  const { data: customers, isLoading: isLoadingCustomers } = api.customers.useGetAll({}, {
-    enabled: canLoadScopedData,
-  });
+  const isLoading = isAuthLoading || isLoadingOrders || isLoadingStats;
 
-  const isLoading = isAuthLoading || isLoadingOrders || isLoadingBusinesses || isLoadingCustomers || isLoadingStats;
-
-  const columns = React.useMemo(() => getColumns((businesses || []) as Business[], (customers || []) as Customer[]), [businesses, customers]);
-  
-  const filterOrdersByStatus = (statuses: OrderStatus[]): any[] => {
-    return orders?.filter(o => statuses.includes(o.status)) || [];
-  };
-
-  const pendingOrders = React.useMemo(() => filterOrdersByStatus(['pending_acceptance']), [orders]);
-  const preparingOrders = React.useMemo(() => filterOrdersByStatus(['accepted', 'cooking']), [orders]);
-  const inTransitOrders = React.useMemo(() => filterOrdersByStatus(['out_for_delivery']), [orders]);
-  const historyOrders = React.useMemo(() => filterOrdersByStatus(['delivered', 'cancelled']), [orders]);
+  const columns = React.useMemo(() => getColumns(), []);
+  const ordersByTab = React.useMemo(() => {
+    return orderTabs.reduce<Record<string, Order[]>>((acc, tab) => {
+      acc[tab.value] = orders?.filter((order) => tab.statuses.includes(order.status)) || [];
+      return acc;
+    }, {});
+  }, [orders]);
 
   return (
     <div className="space-y-6">
@@ -109,50 +153,28 @@ export default function OrdersPage() {
         
         <OrderStatusGrid data={dashboardStats?.orderStatusSummary as any} isLoading={isLoadingStats} />
       
-      <Tabs defaultValue="pending">
-        <TabsList>
-          <TabsTrigger value="pending">
-            Pendientes
-            <OrderCountBadge count={pendingOrders.length} isLoading={isLoadingOrders} />
-          </TabsTrigger>
-          <TabsTrigger value="preparing">
-            En Preparación
-            <OrderCountBadge count={preparingOrders.length} isLoading={isLoadingOrders} />
-          </TabsTrigger>
-          <TabsTrigger value="in_transit">
-            En Camino
-            <OrderCountBadge count={inTransitOrders.length} isLoading={isLoadingOrders} />
-          </TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
-        </TabsList>
-        <TabsContent value="pending">
-           <DataTable
-            columns={columns}
-            data={pendingOrders}
-            isLoading={isLoading}
-          />
-        </TabsContent>
-        <TabsContent value="preparing">
-           <DataTable
-            columns={columns}
-            data={preparingOrders}
-            isLoading={isLoading}
-          />
-        </TabsContent>
-        <TabsContent value="in_transit">
-           <DataTable
-            columns={columns}
-            data={inTransitOrders}
-            isLoading={isLoading}
-          />
-        </TabsContent>
-        <TabsContent value="history">
-           <DataTable
-            columns={columns}
-            data={historyOrders}
-            isLoading={isLoading}
-          />
-        </TabsContent>
+      <Tabs defaultValue="pending_acceptance" className="space-y-4">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="inline-flex h-auto min-w-max flex-nowrap gap-1 p-1">
+            {orderTabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="h-9 whitespace-nowrap">
+                {tab.label}
+                <OrderCountBadge count={(ordersByTab[tab.value] || []).length} isLoading={isLoadingOrders} />
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        {orderTabs.map((tab) => (
+          <TabsContent key={tab.value} value={tab.value}>
+            <DataTable
+              columns={columns}
+              data={ordersByTab[tab.value] || []}
+              isLoading={isLoading}
+              searchKey="cliente"
+              enableRowSelection={false}
+            />
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

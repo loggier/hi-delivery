@@ -202,7 +202,7 @@ export function CustomerSearch({ customers, onSelectCustomer, onAddNewCustomer, 
                         disabled={disabled}
                     />
                 </div>
-                 <Button variant="outline" onClick={onAddNewCustomer}>
+                 <Button variant="outline" onClick={onAddNewCustomer} disabled={disabled}>
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Nuevo Cliente
                 </Button>
@@ -232,15 +232,17 @@ type NewCustomerFormValues = z.infer<typeof newCustomerSchema>;
 interface CustomerFormModalProps {
     isOpen: boolean;
     onClose: () => void;
+    businessId: string;
     onCustomerCreated: (customer: Customer) => void;
 }
 
-export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: CustomerFormModalProps) {
-    const createCustomerMutation = api.customers.useCreate();
+export function CustomerFormModal({ isOpen, onClose, businessId, onCustomerCreated }: CustomerFormModalProps) {
+    const createCustomerMutation = api.customers.useCreate<NewCustomerFormValues>();
     
     const methods = useForm<NewCustomerFormValues>({
         resolver: zodResolver(newCustomerSchema),
         defaultValues: {
+            business_id: businessId,
             first_name: '',
             last_name: '',
             phone: '',
@@ -248,9 +250,13 @@ export function CustomerFormModal({ isOpen, onClose, onCustomerCreated }: Custom
         },
     });
 
+    useEffect(() => {
+        methods.setValue('business_id', businessId);
+    }, [businessId, methods]);
+
     const onSubmit = async (data: NewCustomerFormValues) => {
         try {
-            const newCustomer = await createCustomerMutation.mutateAsync(data);
+            const newCustomer = await createCustomerMutation.mutateAsync({ ...data, business_id: businessId });
             if(newCustomer) {
                 methods.reset();
                 onCustomerCreated(newCustomer);

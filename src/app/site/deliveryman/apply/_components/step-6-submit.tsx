@@ -18,6 +18,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const submitSchema = riderApplicationBaseSchema.pick({
   avatar1x1Url: true,
+}).refine((data) => {
+  const avatar = data.avatar1x1Url;
+  if (typeof avatar === 'string') {
+    return avatar.trim().length > 0;
+  }
+  if (typeof File !== 'undefined' && avatar instanceof File) {
+    return avatar.size > 0;
+  }
+  return typeof FileList !== 'undefined' && avatar instanceof FileList && avatar.length > 0;
+}, {
+  message: "La foto de perfil es requerida.",
+  path: ["avatar1x1Url"],
 });
 
 type SubmitFormValues = z.infer<typeof submitSchema>;
@@ -56,7 +68,9 @@ export function Step6_Submit() {
     
     try {
       const formData = new FormData();
-      if(data.avatar1x1Url && data.avatar1x1Url.length > 0) {
+      if (data.avatar1x1Url instanceof File) {
+        formData.append('avatar1x1Url', data.avatar1x1Url);
+      } else if(data.avatar1x1Url instanceof FileList && data.avatar1x1Url.length > 0) {
         formData.append('avatar1x1Url', data.avatar1x1Url[0]);
       }
       formData.append('status', 'pending_review');

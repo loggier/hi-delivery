@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import placeholderImages from "@/lib/placeholder-images.json";
+import { MotionSection } from "@/components/site-motion";
 
 const requirementsList = [
     "Ser mayor de 18 años",
@@ -22,7 +22,7 @@ export function Requirements() {
     <section id="requirements" className="py-12 lg:py-24 bg-white dark:bg-slate-950">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 items-center gap-12 md:grid-cols-2">
-          <div>
+          <MotionSection>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               ¿Qué necesitas para empezar?
             </h2>
@@ -39,19 +39,20 @@ export function Requirements() {
                 </li>
               ))}
             </ul>
-             <Button asChild size="lg" className="mt-8">
+            <Button asChild size="lg" className="mt-8">
               <Link href="/site/deliveryman/apply">Comenzar mi Solicitud</Link>
             </Button>
-          </div>
-          <div className="flex justify-center">
+          </MotionSection>
+          <MotionSection className="flex justify-center">
             <Image
-              src="/empieza.png"
+              src="/requirements-hid.png"
               alt="Repartidor de Hi! Delivery listo para empezar"
-              width={500}
-              height={500}
-              className="rounded-lg shadow-xl object-cover"
+              width={1122}
+              height={1402}
+              sizes="(max-width: 768px) 100vw, 40vw"
+              className="h-auto w-full max-w-md rounded-2xl object-cover shadow-xl"
             />
-          </div>
+          </MotionSection>
         </div>
       </div>
     </section>

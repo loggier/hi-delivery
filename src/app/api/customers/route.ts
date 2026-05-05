@@ -23,10 +23,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Datos de cliente inválidos.", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const { first_name, last_name, phone, email } = parsed.data;
+    const { business_id, first_name, last_name, phone, email } = parsed.data;
 
     const newCustomerData = {
       id: `cust-${faker.string.uuid()}`,
+      business_id,
       first_name,
       last_name,
       phone: phone,

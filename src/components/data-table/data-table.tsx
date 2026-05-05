@@ -37,6 +37,7 @@ interface DataTableProps<TData, TValue> {
   toolbar?: React.ReactNode | ((table: ReactTable<TData>) => React.ReactNode);
   isLoading?: boolean;
   searchKey?: string;
+  enableRowSelection?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -45,6 +46,7 @@ export function DataTable<TData, TValue>({
   toolbar,
   isLoading,
   searchKey,
+  enableRowSelection = true,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -65,7 +67,7 @@ export function DataTable<TData, TValue>({
       columnFilters,
       globalFilter,
     },
-    enableRowSelection: true,
+    enableRowSelection,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -162,7 +164,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePagination table={table} showSelectionSummary={enableRowSelection} />
     </div>
   );
 }

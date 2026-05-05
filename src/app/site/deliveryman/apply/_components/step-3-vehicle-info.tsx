@@ -141,7 +141,9 @@ export function Step3_VehicleInfo() {
     try {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]: [string, any]) => {
-          if (value instanceof FileList && value.length > 0) {
+          if (value instanceof File) {
+            formData.append(key, value);
+          } else if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
           } else if (value instanceof Date) {
             formData.append(key, value.toISOString().split('T')[0]);

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { motion, useScroll, useSpring } from "framer-motion";
 
 const navLinks = [
   { href: "#benefits", label: "Beneficios" },
@@ -19,6 +20,8 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
+  const { scrollYProgress } = useScroll();
+  const progressX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.2 });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -38,10 +41,16 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full transition-all duration-300",
-        isScrolled ? "bg-white/80 shadow-md backdrop-blur-sm dark:bg-slate-900/80" : "bg-transparent"
+        "sticky top-0 z-50 w-full border-b border-white/60 transition-all duration-300 dark:border-slate-800/70",
+        isScrolled
+          ? "bg-white/95 shadow-md backdrop-blur-xl dark:bg-slate-950/92"
+          : "bg-white/90 shadow-sm backdrop-blur-xl dark:bg-slate-950/88"
       )}
     >
+      <motion.div
+        className="h-0.5 origin-left bg-primary"
+        style={{ scaleX: progressX }}
+      />
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link href="/site" className="flex items-center gap-2">
@@ -79,7 +88,7 @@ export function Header() {
         </div>
       </div>
       {isMenuOpen && (
-        <div className="bg-white dark:bg-slate-900 md:hidden">
+        <div className="border-t border-slate-200 bg-white/95 dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
           <nav className="flex flex-col items-center gap-4 p-4">
             {navLinks.map((link) => (
               <Link

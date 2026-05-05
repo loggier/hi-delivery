@@ -8,11 +8,17 @@ import { useAuthStore } from '@/store/auth-store';
 const INTERESTING_STATUSES = new Set([
   'accepted',
   'at_store',
+  'cooking',
+  'ready_for_pickup',
   'picked_up',
+  'out_for_delivery',
   'on_the_way',
   'arrived_at_destination',
   'delivered',
+  'completed',
   'cancelled',
+  'refunded',
+  'failed',
 ]);
 
 function getStatusLabel(status: string) {
@@ -21,16 +27,26 @@ function getStatusLabel(status: string) {
       return 'Pedido aceptado';
     case 'at_store':
       return 'Rider en el negocio';
+    case 'cooking':
+      return 'Pedido en preparación';
+    case 'ready_for_pickup':
+      return 'Pedido listo para recoger';
     case 'picked_up':
       return 'Pedido recogido';
+    case 'out_for_delivery':
     case 'on_the_way':
       return 'Pedido en camino';
     case 'arrived_at_destination':
       return 'Rider en destino';
+    case 'completed':
     case 'delivered':
       return 'Pedido entregado';
     case 'cancelled':
       return 'Pedido cancelado';
+    case 'refunded':
+      return 'Pedido reembolsado';
+    case 'failed':
+      return 'Pedido fallido';
     default:
       return 'Actualización de pedido';
   }

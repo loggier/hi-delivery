@@ -6,23 +6,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Package,
-  Check,
   ClipboardList,
   CookingPot,
   Bike,
   Ban,
-  CircleDollarSign,
-  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type OrderStatusSummary = {
   pending_acceptance: number;
   accepted: number;
+  at_store: number;
   cooking: number;
+  ready_for_pickup: number;
+  picked_up: number;
   out_for_delivery: number;
+  on_the_way: number;
+  arrived_at_destination: number;
   delivered: number;
+  completed: number;
   cancelled: number;
+  refunded: number;
+  failed: number;
 };
 
 interface OrderStatusGridProps {
@@ -32,10 +37,9 @@ interface OrderStatusGridProps {
 
 const statusConfig = {
   pending_acceptance: { label: 'Pedidos Sin Asignar', icon: ClipboardList, color: 'text-slate-500', bgColor: 'bg-slate-50' },
-  accepted: { label: 'Aceptado', icon: Check, color: 'text-blue-500', bgColor: 'bg-blue-50' },
-  cooking: { label: 'En preparación', icon: CookingPot, color: 'text-orange-500', bgColor: 'bg-orange-50' },
-  out_for_delivery: { label: 'En Camino Para Entrega', icon: Bike, color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
-  delivered: { label: 'Entregado', icon: Package, color: 'text-green-500', bgColor: 'bg-green-50' },
+  preparing: { label: 'En negocio/preparación', icon: CookingPot, color: 'text-orange-500', bgColor: 'bg-orange-50' },
+  in_transit: { label: 'En ruta', icon: Bike, color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
+  completed: { label: 'Completados', icon: Package, color: 'text-green-500', bgColor: 'bg-green-50' },
   cancelled: { label: 'Cancelado', icon: Ban, color: 'text-red-500', bgColor: 'bg-red-50' },
 };
 
@@ -78,7 +82,7 @@ const StatusCardSkeleton = () => (
 )
 
 export function OrderStatusGrid({ data, isLoading }: OrderStatusGridProps) {
-    const displayStatuses: (keyof typeof statusConfig)[] = ['pending_acceptance', 'accepted', 'cooking', 'out_for_delivery'];
+    const displayStatuses: (keyof typeof statusConfig)[] = ['pending_acceptance', 'preparing', 'in_transit', 'completed'];
     
     if (isLoading) {
         return (
@@ -96,11 +100,19 @@ export function OrderStatusGrid({ data, isLoading }: OrderStatusGridProps) {
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {displayStatuses.map((key) => {
             const config = statusConfig[key];
+            const value =
+                key === 'preparing'
+                    ? (data.accepted || 0) + (data.at_store || 0) + (data.cooking || 0) + (data.ready_for_pickup || 0)
+                    : key === 'in_transit'
+                        ? (data.picked_up || 0) + (data.out_for_delivery || 0) + (data.on_the_way || 0) + (data.arrived_at_destination || 0)
+                        : key === 'completed'
+                            ? (data.completed || 0) + (data.delivered || 0)
+                            : data[key as keyof OrderStatusSummary] || 0;
             return (
                  <StatusCard 
                     key={key}
                     label={config.label}
-                    value={data[key as keyof OrderStatusSummary] || 0}
+                    value={value}
                     icon={config.icon}
                     color={config.color}
                     bgColor={config.bgColor}
