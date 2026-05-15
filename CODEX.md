@@ -889,3 +889,8 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - `lib/screens/profile_screen.dart` también dejó de cambiar `riders.password_hash`; el cambio de contraseña ahora valida y actualiza `users.password_hash`.
 - `lib/models/rider.dart` se limpió para dejar de modelar `password_hash` como parte del recurso `riders`, evitando que nuevas pantallas vuelvan a asumir que la contraseña vive en esa tabla.
 - Ajuste de esquema real: la columna correcta es `users.password`, no `users.password_hash`, así que login y cambio de contraseña en Flutter ahora leen/escriben `password` manteniendo bcrypt sobre ese campo.
+
+## 2026-05-15 - Shipping POS: modales aptas para mobile
+
+- En `src/app/(admin)/shipping/components.tsx`, las modales de `AddressFormModal` y `ShippingMapModal` ahora tienen `max-height` relativo al viewport y `overflow-y-auto`, para que en móvil se pueda hacer scroll hasta el botón de guardar o el footer.
+- `src/app/(admin)/shipping/page.tsx` usa `useLoadScript` con `id` estable para evitar que Google Maps se inserte dos veces al abrir el flujo de envío.

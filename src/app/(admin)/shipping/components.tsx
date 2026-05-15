@@ -904,7 +904,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[800px]">
+            <DialogContent className="sm:max-w-[800px] max-h-[calc(100vh-1rem)] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
                 </DialogHeader>
@@ -1221,7 +1221,7 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl">
+            <DialogContent className="sm:max-w-4xl max-h-[calc(100vh-1rem)] overflow-y-auto p-4 sm:p-6">
                  <DialogHeader>
                     <DialogTitle className="text-2xl">Visualización de Ruta</DialogTitle>
                     <DialogDescription>
