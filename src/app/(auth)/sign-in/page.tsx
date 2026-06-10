@@ -185,7 +185,7 @@ export default function SignInPage() {
                       <div className="flex items-center">
                         <FormLabel>Contraseña</FormLabel>
                         <Link
-                          href="#"
+                          href="/forgot-password"
                           className="ml-auto inline-block text-xs underline"
                         >
                           ¿Olvidaste tu contraseña?
