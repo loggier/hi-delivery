@@ -6,7 +6,6 @@ import { useLoadScript, GoogleMap } from '@react-google-maps/api';
 import { MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FormLabel } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
 
 const libraries: ('places')[] = ['places'];
@@ -105,9 +104,10 @@ async function searchCoordinatesNominatim(query: string) {
 interface LocationMapProps {
     onLocationSelect: (location: { address: string, lat: number, lng: number, city: string, state: string, zip_code: string, neighborhood: string, street?: string, house_number?: string }) => void;
     initialCenter?: { lat: number; lng: number };
+    initialQuery?: string;
 }
 
-export function LocationMap({ onLocationSelect, initialCenter }: LocationMapProps) {
+export function LocationMap({ onLocationSelect, initialCenter, initialQuery = '' }: LocationMapProps) {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
         libraries,
@@ -116,7 +116,7 @@ export function LocationMap({ onLocationSelect, initialCenter }: LocationMapProp
     const [location, setLocation] = React.useState<{ lat: number, lng: number }>(
         initialCenter || { lat: 19.4326, lng: -99.1332 }
     );
-    const [query, setQuery] = React.useState('');
+    const [query, setQuery] = React.useState(initialQuery);
     const [suggestions, setSuggestions] = React.useState<WoosmapSuggestion[]>([]);
     const [isSearching, setIsSearching] = React.useState(false);
     const [activeSuggestionId, setActiveSuggestionId] = React.useState<string | null>(null);
@@ -134,11 +134,12 @@ export function LocationMap({ onLocationSelect, initialCenter }: LocationMapProp
     React.useEffect(() => {
         if (!initialCenter) return;
         setLocation(initialCenter);
+        setQuery(initialQuery);
         if (mapRef.current) {
             mapRef.current.panTo(initialCenter);
             mapRef.current.setZoom(15);
         }
-    }, [initialCenter]);
+    }, [initialCenter, initialQuery]);
 
     React.useEffect(() => {
         const handleDocumentClick = (event: MouseEvent) => {
@@ -296,7 +297,7 @@ export function LocationMap({ onLocationSelect, initialCenter }: LocationMapProp
 
     return (
         <div className="space-y-4">
-            <FormLabel>Buscar Dirección</FormLabel>
+            <label className="text-sm font-medium leading-none">Buscar Dirección</label>
             <div className="relative" ref={searchContainerRef}>
                 <Input
                     type="text"

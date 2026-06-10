@@ -90,7 +90,7 @@ export function CustomerDisplay({
 }: CustomerDisplayProps) {
     return (
         <div className="space-y-4">
-            <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start text-base">
+            <div className="flex items-start justify-between rounded-xl border bg-slate-50 p-4 text-base dark:bg-slate-800/50">
                 <div className="space-y-1">
                     <p className="font-semibold text-lg">{customer.first_name} {customer.last_name}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -106,9 +106,9 @@ export function CustomerDisplay({
             </div>
 
             <div className="space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <h4 className="font-medium text-base">Direcciones Guardadas</h4>
-                    <Button variant="outline" size="sm" onClick={onAddAddress}>
+                    <Button variant="outline" size="sm" onClick={onAddAddress} className="w-full sm:w-auto">
                         <PlusCircle className="h-4 w-4 mr-2" />
                         Añadir Dirección
                     </Button>
@@ -117,26 +117,32 @@ export function CustomerDisplay({
                 {isLoadingAddresses ? (
                     <Skeleton className="h-20 w-full" />
                 ) : addresses.length === 0 ? (
-                    <div className="text-center text-sm text-muted-foreground border-2 border-dashed rounded-lg p-4">
-                        Este cliente no tiene direcciones guardadas.
+                    <div className="rounded-xl border-2 border-dashed p-5 text-center text-sm text-muted-foreground">
+                        <Home className="mx-auto mb-2 h-5 w-5" />
+                        Este cliente no tiene direcciones guardadas. Añade una para continuar.
                     </div>
                 ) : (
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                         {addresses.map(addr => (
                             <div
                                 key={addr.id}
                                 onClick={() => onSelectAddress(addr)}
                                 className={cn(
-                                    "w-full text-left p-3 border rounded-lg flex justify-between items-center transition-colors cursor-pointer",
+                                    "flex w-full cursor-pointer items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors",
                                     selectedAddress?.id === addr.id
-                                        ? "bg-primary/10 border-primary"
+                                        ? "border-primary bg-primary/10 shadow-sm"
                                         : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                                 )}
                             >
-                                <div className="flex items-center gap-3">
-                                    {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0"/>}
-                                    <div>
-                                        <p className="text-sm">{addr.address}</p>
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <div className={cn(
+                                        "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border",
+                                        selectedAddress?.id === addr.id ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                                    )}>
+                                        {selectedAddress?.id === addr.id ? <CheckCircle className="h-4 w-4"/> : <Home className="h-3.5 w-3.5 text-muted-foreground" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="line-clamp-2 text-sm font-medium">{addr.address}</p>
                                         <p className="text-xs text-muted-foreground">
                                             {[
                                                 addr.street ? `Calle: ${addr.street}` : null,
@@ -146,7 +152,7 @@ export function CustomerDisplay({
                                         </p>
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -154,7 +160,7 @@ export function CustomerDisplay({
                     </div>
                 )}
             </div>
-             <Button variant="outline" size="sm" onClick={onShowMap} disabled={!selectedAddress}>
+             <Button variant="outline" size="sm" onClick={onShowMap} disabled={!selectedAddress} className="w-full sm:w-auto">
                 <Map className="h-4 w-4 mr-2" />
                 Ver Ruta en Mapa
             </Button>
@@ -364,56 +370,76 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, b
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[800px]">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
+                    <div className="border-b px-4 py-4 sm:px-6">
+                        <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
+                        <DialogDescription>
+                            Busca la dirección, ajusta el pin si hace falta y completa los detalles para el repartidor.
+                        </DialogDescription>
+                    </div>
                 </DialogHeader>
                 <FormProvider {...methods}>
                     <Form {...methods}>
-                        <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6 pt-4">
-                            <div>
-                                <LocationMap
-                                    initialCenter={initialMapCenter}
-                                    onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
-                                        methods.setValue('address', address, { shouldValidate: true });
-                                        methods.setValue('street', street || '');
-                                        methods.setValue('house_number', house_number || '');
-                                        methods.setValue('latitude', lat, { shouldValidate: true });
-                                        methods.setValue('longitude', lng, { shouldValidate: true });
-                                        if (city) methods.setValue('city', city);
-                                        if (state) methods.setValue('state', state);
-                                        if (zip_code) methods.setValue('zip_code', zip_code);
-                                        if (neighborhood) methods.setValue('neighborhood', neighborhood);
-                                    }}
-                                />
-                                <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
-                                <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
-                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <FormInput name="street" label="Calle" placeholder="Ej. Av. Insurgentes Sur" />
-                                    <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
+                        <form onSubmit={methods.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                                <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+                                    <div className="space-y-3">
+                                        <LocationMap
+                                            initialCenter={initialMapCenter}
+                                            initialQuery={addressToEdit?.address || ''}
+                                            onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
+                                                methods.setValue('address', address, { shouldValidate: true });
+                                                methods.setValue('street', street || '', { shouldValidate: true });
+                                                methods.setValue('house_number', house_number || '', { shouldValidate: true });
+                                                methods.setValue('latitude', lat, { shouldValidate: true });
+                                                methods.setValue('longitude', lng, { shouldValidate: true });
+                                                if (city) methods.setValue('city', city, { shouldValidate: true });
+                                                if (state) methods.setValue('state', state, { shouldValidate: true });
+                                                if (zip_code) methods.setValue('zip_code', zip_code, { shouldValidate: true });
+                                                if (neighborhood) methods.setValue('neighborhood', neighborhood, { shouldValidate: true });
+                                            }}
+                                        />
+                                        <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
+                                        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+                                            Tip: haz click en el mapa para corregir la ubicación exacta del pin.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+                                        <div>
+                                            <h3 className="font-semibold">Detalles de entrega</h3>
+                                            <p className="text-sm text-muted-foreground">Estos datos ayudan al repartidor a encontrar la entrada correcta.</p>
+                                        </div>
+                                        <FormInput name="address" label="Dirección completa" placeholder="Calle, número, colonia, ciudad" />
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                                            <FormInput name="street" label="Calle" placeholder="Ej. Av. Insurgentes Sur" />
+                                            <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
+                                        </div>
+                                        <FormField
+                                            control={methods.control}
+                                            name="reference"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Referencia</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            placeholder="Ej. Portón negro, casa junto a la farmacia."
+                                                            className="min-h-24 resize-none"
+                                                            {...field}
+                                                            value={field.value ?? ''}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                 </div>
-                                <FormField
-                                    control={methods.control}
-                                    name="reference"
-                                    render={({ field }) => (
-                                        <FormItem className="mt-4">
-                                            <FormLabel>Referencia</FormLabel>
-                                            <FormControl>
-                                                <Textarea
-                                                    placeholder="Ej. Portón negro, casa junto a la farmacia."
-                                                    className="resize-none"
-                                                    {...field}
-                                                    value={field.value ?? ''}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </div>
-                            <div className="flex justify-end gap-2">
-                                <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-                                <Button type="submit" disabled={isSubmitting}>
+                            <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:flex-row sm:justify-end sm:px-6">
+                                <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting} className="w-full sm:w-auto">Cancelar</Button>
+                                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                     Guardar Dirección
                                 </Button>
@@ -561,26 +587,26 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <Card className="h-full flex flex-col">
+        <Card className="h-full flex flex-col lg:sticky lg:top-6">
             <CardHeader>
                 <CardTitle className="text-xl">4. Resumen del Pedido</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 flex-grow overflow-y-auto">
+            <CardContent className="max-h-[45dvh] flex-grow space-y-4 overflow-y-auto lg:max-h-none lg:space-y-6">
                 {items.length === 0 ? (
-                     <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                     <div className="rounded-xl border-2 border-dashed py-8 text-center text-muted-foreground">
                         <p>Aún no has agregado productos al pedido.</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
                         {items.map(item => (
-                            <div key={item.id} className="p-2 rounded-md border bg-slate-50 dark:bg-slate-800/50">
-                                <div className="flex items-center gap-3">
+                            <div key={item.id} className="rounded-xl border bg-slate-50 p-3 dark:bg-slate-800/50">
+                                <div className="flex items-start gap-3">
                                     <Image src={item.image_url || 'https://placehold.co/48x48'} alt={item.name} width={48} height={48} className="rounded-md object-cover" />
-                                    <div className="flex-1">
-                                        <p className="font-semibold text-sm truncate">{item.name}</p>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-semibold">{item.name}</p>
                                         <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex shrink-0 items-center gap-1">
                                         <Input
                                             type="number"
                                             value={item.quantity}
@@ -607,7 +633,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                     </div>
                 )}
             </CardContent>
-            <div className="p-6 border-t mt-auto space-y-6">
+            <div className="mt-auto space-y-5 border-t bg-background/95 p-4 sm:p-6 lg:space-y-6">
                  <div className="space-y-2">
                     <label htmlFor="order-note" className="text-sm font-medium">Nota General del Pedido</label>
                     <Textarea 
@@ -622,7 +648,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                     <Separator />
                     <h4 className="font-semibold text-base">Costo de Envío</h4>
                     {pickupLocation && customer && address ? (
-                        <div className="p-3 border rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
+                        <div className="rounded-xl border bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
                              {isLoadingShipping ? (
                                  <div className="flex items-center text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Calculando...</div>
                              ) : shippingError ? (
@@ -650,7 +676,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                         </div>
                     )}
                 </div>
-                 <div className="space-y-2 text-lg">
+                 <div className="space-y-2 text-base sm:text-lg">
                     <Separator />
                     <div className="flex justify-between">
                         <span>Subtotal ({totalItems} productos)</span>
@@ -661,7 +687,7 @@ export function OrderCart({ items, onUpdateQuantity, onUpdateItemNote, orderNote
                         <span>{formatCurrency(shippingInfo?.cost || 0)}</span>
                     </div>
                     <Separator />
-                    <div className="flex justify-between text-2xl font-bold text-primary">
+                    <div className="flex justify-between text-xl font-bold text-primary sm:text-2xl">
                         <span>Total</span>
                         <span>{formatCurrency(total)}</span>
                     </div>
@@ -868,14 +894,16 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !createOrderMutation.isPending && onClose()}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl">Confirmar Pedido</DialogTitle>
-                    <DialogDescription>Revisa los detalles antes de crear el pedido.</DialogDescription>
+                    <div className="border-b px-4 py-4 sm:px-6">
+                        <DialogTitle className="text-2xl">Confirmar Pedido</DialogTitle>
+                        <DialogDescription>Revisa los detalles antes de crear el pedido.</DialogDescription>
+                    </div>
                 </DialogHeader>
 
-                <div className="max-h-[60vh] overflow-y-auto p-1 pr-4 -mr-2">
-                     <div className="font-mono text-xs text-black bg-white p-4 border rounded-md">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                     <div className="rounded-xl border bg-white p-4 font-mono text-xs text-black shadow-sm">
                         <div className="text-center space-y-1">
                             <h3 className="font-bold text-base">{order.pickupLocation.name}</h3>
                             <p>{order.pickupLocation.address_line}</p>
@@ -887,7 +915,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                             <p><span className="font-bold">Dirección:</span> {order.address.address}</p>
                         </div>
                         <Separator className="my-2 border-dashed border-black"/>
-                        <table className="w-full">
+                        <table className="w-full table-fixed">
                             <thead>
                                 <tr>
                                     <th className="text-left">Cant.</th>
@@ -900,7 +928,7 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                                     <React.Fragment key={item.id}>
                                         <tr>
                                             <td>{item.quantity}x</td>
-                                            <td>{item.name}</td>
+                                            <td className="break-words pr-2">{item.name}</td>
                                             <td className="text-right">{formatCurrency(item.price * item.quantity)}</td>
                                         </tr>
                                         {item.item_description && (
@@ -928,27 +956,26 @@ export function OrderConfirmationDialog({ isOpen, onClose, onOrderCreated, order
                             <p className="font-bold">¡Gracias por su preferencia!</p>
                         </div>
                     </div>
+                    <div className="mt-4 flex flex-col gap-2 rounded-xl border bg-slate-50 p-3 dark:bg-slate-800 sm:flex-row sm:items-center sm:gap-4">
+                        <Label htmlFor="prep-time" className="flex-1 font-medium">Tiempo de Preparación (min)</Label>
+                        <Input
+                            id="prep-time"
+                            type="number"
+                            className="h-9 w-full sm:w-24"
+                            value={preparationTime}
+                            onChange={(e) => setPreparationTime(Number(e.target.value))}
+                        />
+                    </div>
                 </div>
-                
-                 <div className="flex items-center gap-4 rounded-lg border bg-slate-50 p-3 dark:bg-slate-800">
-                     <Label htmlFor="prep-time" className="font-medium flex-1">Tiempo de Preparación (min)</Label>
-                     <Input 
-                        id="prep-time"
-                        type="number"
-                        className="w-24 h-9"
-                        value={preparationTime}
-                        onChange={(e) => setPreparationTime(Number(e.target.value))}
-                     />
-                 </div>
-                
-                <DialogFooter className="sm:justify-between gap-4">
+
+                <DialogFooter className="flex shrink-0 flex-col gap-3 border-t bg-background/95 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <div className="flex items-center space-x-2">
                         <Checkbox id="print-ticket" checked={shouldPrint} onCheckedChange={(checked) => setShouldPrint(Boolean(checked))} />
                         <Label htmlFor="print-ticket">Imprimir ticket</Label>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="ghost" onClick={onClose} disabled={createOrderMutation.isPending}>Cancelar</Button>
-                        <Button onClick={handleCreateOrder} disabled={createOrderMutation.isPending}>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                        <Button variant="ghost" onClick={onClose} disabled={createOrderMutation.isPending} className="w-full sm:w-auto">Cancelar</Button>
+                        <Button onClick={handleCreateOrder} disabled={createOrderMutation.isPending} className="w-full sm:w-auto">
                              {createOrderMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Confirmar y Crear
                         </Button>
