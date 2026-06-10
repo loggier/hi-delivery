@@ -4,9 +4,9 @@
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { type Business, type BusinessBranch, type Customer, type CustomerAddress, type OrderPayload } from '@/types';
+import { type Business, type BusinessBranch, type Customer, type CustomerAddress, type Order, type OrderPayload } from '@/types';
 import { api } from '@/lib/api';
-import { ChevronDown, ChevronUp, User, Home, Package, Store } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronUp, User, Home, Package, Store, X } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,52 @@ import { useRouter } from 'next/navigation';
 
 export type LocationPoint = { address: string; lat: number; lng: number };
 type PickupLocation = Pick<Business | BusinessBranch, 'id' | 'name' | 'address_line' | 'latitude' | 'longitude'>;
+type CreatedOrderNotice = Pick<Order, 'id'>;
+
+const ORDER_SUCCESS_NOTICE_SECONDS = 15;
+
+function ShippingCreatedNotice({
+    order,
+    secondsLeft,
+    onView,
+    onClose,
+}: {
+    order: CreatedOrderNotice;
+    secondsLeft: number;
+    onView: () => void;
+    onClose: () => void;
+}) {
+    const progress = Math.max(0, Math.min(100, (secondsLeft / ORDER_SUCCESS_NOTICE_SECONDS) * 100));
+    const orderLabel = order.id.slice(0, 8).toUpperCase();
+
+    return (
+        <div className="fixed inset-x-3 bottom-3 z-50 sm:left-auto sm:right-6 sm:w-[420px]">
+            <div className="overflow-hidden rounded-2xl border border-green-200 bg-white shadow-2xl dark:border-green-900 dark:bg-slate-950">
+                <div className="flex items-start gap-3 p-4">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+                        <CheckCircle className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-950 dark:text-slate-50">Orden #{orderLabel} creada correctamente</p>
+                        <p className="text-sm text-muted-foreground">El formulario quedó listo para capturar el siguiente envío.</p>
+                        <div className="mt-3 flex items-center gap-2">
+                            <Button type="button" size="sm" onClick={onView}>
+                                Ver
+                            </Button>
+                            <span className="text-xs text-muted-foreground">Se cerrará en {secondsLeft}s</span>
+                        </div>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+                <div className="h-1 bg-green-100 dark:bg-green-950">
+                    <div className="h-full bg-green-600 transition-all duration-1000 ease-linear" style={{ width: `${progress}%` }} />
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function ShippingPage() {
     const router = useRouter();
@@ -44,6 +90,8 @@ export default function ShippingPage() {
     const [editingAddress, setEditingAddress] = React.useState<CustomerAddress | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = React.useState(false);
     const [shippingInfoForMap, setShippingInfoForMap] = React.useState<ShippingInfo | null>(null);
+    const [createdOrderNotice, setCreatedOrderNotice] = React.useState<CreatedOrderNotice | null>(null);
+    const [createdOrderNoticeSecondsLeft, setCreatedOrderNoticeSecondsLeft] = React.useState(ORDER_SUCCESS_NOTICE_SECONDS);
 
     const createOrderMutation = api.orders.useCreate();
 
@@ -125,6 +173,28 @@ export default function ShippingPage() {
             setIsCustomerOpen(true);
         }
     }, [isBusinessOwner, businessesData, selectedBusiness]);
+
+    React.useEffect(() => {
+        if (!createdOrderNotice) return;
+
+        const startedAt = Date.now();
+        setCreatedOrderNoticeSecondsLeft(ORDER_SUCCESS_NOTICE_SECONDS);
+
+        const interval = window.setInterval(() => {
+            const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+            const nextSecondsLeft = ORDER_SUCCESS_NOTICE_SECONDS - elapsedSeconds;
+
+            if (nextSecondsLeft <= 0) {
+                window.clearInterval(interval);
+                setCreatedOrderNotice(null);
+                return;
+            }
+
+            setCreatedOrderNoticeSecondsLeft(nextSecondsLeft);
+        }, 1000);
+
+        return () => window.clearInterval(interval);
+    }, [createdOrderNotice]);
 
     const handleSelectBusiness = (businessId: string) => {
         const business = businessesData?.find((item) => item.id === businessId) || null;
@@ -234,7 +304,18 @@ export default function ShippingPage() {
 
         createOrderMutation.mutate(orderPayload, {
             onSuccess: (createdOrder) => {
-                router.push(`/orders/${createdOrder.id}`);
+                setCreatedOrderNotice({ id: createdOrder.id });
+                setSelectedCustomer(null);
+                setSelectedAddress(null);
+                setPackageDescription('');
+                setOrderAmount('');
+                setReadyInMinutes('');
+                setTicketPhotos([]);
+                setIsTicketPhotoProcessing(false);
+                setIsBusinessOpen(false);
+                setIsCustomerOpen(true);
+                setIsPackageOpen(false);
+                setShippingInfoForMap(null);
             },
         });
     };
@@ -428,6 +509,15 @@ export default function ShippingPage() {
                 isMapsLoaded={isLoaded}
                 shippingInfo={shippingInfoForMap}
             />
+
+            {createdOrderNotice && (
+                <ShippingCreatedNotice
+                    order={createdOrderNotice}
+                    secondsLeft={createdOrderNoticeSecondsLeft}
+                    onView={() => router.push(`/orders/${createdOrderNotice.id}`)}
+                    onClose={() => setCreatedOrderNotice(null)}
+                />
+            )}
         </div>
     );
 }
