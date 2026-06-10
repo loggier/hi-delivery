@@ -46,7 +46,7 @@ export function Testimonials() {
               transition={{ delay: index * 0.08, duration: 0.45 }}
               className="rounded-[2rem] border border-blue-100 bg-gradient-to-b from-white to-sky-50/70 p-7 shadow-xl shadow-blue-950/6"
             >
-              <Quote className="h-10 w-10 text-orange-400" />
+              <Quote className="h-10 w-10 text-blue-500" />
               <p className="mt-6 text-lg font-semibold leading-8 text-blue-950">“{testimonial.quote}”</p>
               <div className="mt-8 flex items-center gap-4">
                 <Image src={testimonial.avatar} alt={testimonial.name} width={64} height={64} className="h-16 w-16 rounded-full object-cover ring-4 ring-white" />

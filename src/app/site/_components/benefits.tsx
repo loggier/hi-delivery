@@ -88,7 +88,7 @@ export function Benefits() {
                   transition={{ delay: index * 0.06, duration: 0.45 }}
                   className="rounded-3xl border border-blue-100 bg-white p-6 shadow-lg shadow-blue-950/5 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-950/10"
                 >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-blue-600">
                     <benefit.icon className="h-6 w-6" />
                   </div>
                   <h3 className="text-lg font-black text-blue-950">{benefit.title}</h3>

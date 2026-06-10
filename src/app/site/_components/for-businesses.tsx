@@ -15,7 +15,7 @@ const businessBenefits = [
 export function ForBusinesses() {
   return (
     <section id="for-businesses" className="relative overflow-hidden bg-gradient-to-b from-white via-sky-50 to-white py-20 lg:py-28">
-      <div className="absolute -right-24 top-28 h-80 w-80 rounded-full bg-orange-100 blur-3xl" />
+      <div className="absolute -right-24 top-28 h-80 w-80 rounded-full bg-sky-100 blur-3xl" />
       <div className="container relative mx-auto px-4">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <motion.div
@@ -24,7 +24,7 @@ export function ForBusinesses() {
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.55 }}
           >
-            <span className="inline-flex rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-600">
+            <span className="inline-flex rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-blue-700">
               Para negocios
             </span>
             <h2 className="mt-5 text-4xl font-black tracking-tight text-blue-950 sm:text-5xl">

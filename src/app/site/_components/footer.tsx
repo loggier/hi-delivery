@@ -23,7 +23,7 @@ export function Footer() {
 
   return (
     <footer className="relative overflow-hidden bg-blue-950 py-16 text-white">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-sky-300 to-orange-400" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-800 via-blue-500 to-sky-300" />
       <div className="absolute -right-28 top-16 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
       <div className="container relative mx-auto px-4">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
@@ -66,7 +66,7 @@ export function Footer() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <Button type="submit" className="bg-orange-500 font-bold text-white hover:bg-orange-600">Enviar</Button>
+              <Button type="submit" className="bg-sky-400 font-bold text-blue-950 hover:bg-sky-300">Enviar</Button>
             </form>
           </div>
         </div>

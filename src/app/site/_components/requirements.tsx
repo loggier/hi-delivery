@@ -20,7 +20,7 @@ const requirementsList = [
 export function Requirements() {
   return (
     <section id="requirements" className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-sky-900 py-20 text-white lg:py-28">
-      <div className="absolute -right-24 top-24 h-96 w-96 rounded-full bg-orange-400/20 blur-3xl" />
+      <div className="absolute -right-24 top-24 h-96 w-96 rounded-full bg-sky-300/20 blur-3xl" />
       <div className="absolute bottom-0 left-0 h-64 w-full bg-gradient-to-t from-blue-950/70 to-transparent" />
       <div className="container relative mx-auto px-4">
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
@@ -29,7 +29,7 @@ export function Requirements() {
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="inline-flex rounded-full bg-white/12 px-4 py-2 text-sm font-bold text-orange-200 ring-1 ring-white/15"
+              className="inline-flex rounded-full bg-white/12 px-4 py-2 text-sm font-bold text-sky-100 ring-1 ring-white/15"
             >
               Requisitos
             </motion.span>
@@ -63,7 +63,7 @@ export function Requirements() {
               ))}
             </div>
 
-            <Button asChild size="lg" className="mt-9 h-14 rounded-full bg-orange-500 px-8 font-bold text-white shadow-xl shadow-orange-600/25 hover:bg-orange-600">
+            <Button asChild size="lg" className="mt-9 h-14 rounded-full bg-sky-500 px-8 font-bold text-blue-950 shadow-xl shadow-sky-600/25 hover:bg-sky-400">
               <Link href="/site/deliveryman/apply">Comenzar mi Solicitud</Link>
             </Button>
           </div>

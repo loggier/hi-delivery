@@ -20,7 +20,7 @@ export function HowItWorks() {
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="inline-flex rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-600"
+            className="inline-flex rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-blue-700"
           >
             Cómo funciona
           </motion.span>
@@ -37,7 +37,7 @@ export function HowItWorks() {
 
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.9fr]">
           <div className="relative grid gap-5">
-            <div className="absolute left-6 top-8 hidden h-[calc(100%-4rem)] w-1 rounded-full bg-gradient-to-b from-blue-500 via-sky-400 to-orange-400 sm:block" />
+            <div className="absolute left-6 top-8 hidden h-[calc(100%-4rem)] w-1 rounded-full bg-gradient-to-b from-blue-700 via-blue-500 to-sky-300 sm:block" />
             {steps.map((step, index) => (
               <motion.div
                 key={step.title}
@@ -50,7 +50,7 @@ export function HowItWorks() {
                 <div className="absolute left-0 top-6 hidden h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/25 sm:flex">
                   <step.icon className="h-6 w-6" />
                 </div>
-                <span className="text-sm font-black text-orange-500">0{index + 1}</span>
+                <span className="text-sm font-black text-blue-600">0{index + 1}</span>
                 <h3 className="mt-1 text-xl font-black text-blue-950">{step.title}</h3>
                 <p className="mt-2 text-slate-600">{step.description}</p>
               </motion.div>

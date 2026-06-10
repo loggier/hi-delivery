@@ -36,7 +36,7 @@ export function Hero() {
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,18,42,0.92)_0%,rgba(5,35,79,0.82)_42%,rgba(5,35,79,0.42)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white via-white/70 to-transparent" />
       <div className="absolute -left-24 top-24 h-80 w-80 rounded-full bg-sky-400/25 blur-3xl" />
-      <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-orange-400/15 blur-3xl" />
+      <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-sky-300/18 blur-3xl" />
 
       <div className="relative z-10 flex min-h-[88vh] items-center pt-10">
         <motion.div
@@ -80,7 +80,7 @@ export function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.65, ease: "easeOut" }}
             >
-              <Button asChild size="lg" className="h-14 rounded-full bg-orange-500 px-8 text-base font-bold text-white shadow-2xl shadow-orange-600/30 hover:bg-orange-600">
+              <Button asChild size="lg" className="h-14 rounded-full bg-blue-600 px-8 text-base font-bold text-white shadow-2xl shadow-blue-700/30 hover:bg-blue-700">
                 <Link href="/site/deliveryman/apply">
                   Regístrate como Repartidor
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -102,7 +102,7 @@ export function Hero() {
             >
               {heroStats.map((item) => (
                 <div key={item.label} className="rounded-2xl border border-white/15 bg-white/12 p-4 shadow-xl shadow-blue-950/20 backdrop-blur-md">
-                  <item.icon className="mb-3 h-5 w-5 text-orange-300" />
+                  <item.icon className="mb-3 h-5 w-5 text-sky-200" />
                   <p className="text-sm font-semibold text-white">{item.label}</p>
                 </div>
               ))}
@@ -115,15 +115,50 @@ export function Hero() {
             animate={{ opacity: 1, x: 0, rotate: 0 }}
             transition={{ delay: 0.35, duration: 0.75, ease: "easeOut" }}
           >
-            <div className="rounded-[2rem] border border-white/20 bg-white/14 p-4 shadow-2xl shadow-blue-950/30 backdrop-blur-xl">
-              <Image
-                src="/repartidor.png"
-                alt="Repartidor Hi! Delivery"
-                width={600}
-                height={600}
-                className="h-auto w-full rounded-[1.5rem] object-cover"
-                priority
-              />
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-white/14 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl">
+              <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl" />
+              <div className="relative rounded-[1.5rem] bg-white p-5 text-blue-950">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Image src="/logo-hid.png" alt="Hi! Delivery" width={44} height={44} className="h-11 w-11" />
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-500">Rider App</p>
+                      <p className="text-lg font-black">Pedido cercano</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-blue-700">Nuevo</span>
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-900 p-5 text-white shadow-xl shadow-blue-900/20">
+                  <p className="text-sm text-sky-100">Ganancia estimada</p>
+                  <p className="mt-1 text-4xl font-black">$72.00</p>
+                  <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-xl bg-white/12 p-3">
+                      <p className="text-sky-100">Recoger</p>
+                      <p className="font-bold">Restaurante</p>
+                    </div>
+                    <div className="rounded-xl bg-white/12 p-3">
+                      <p className="text-sky-100">Entregar</p>
+                      <p className="font-bold">Cliente</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl bg-sky-50 p-3 text-center">
+                    <p className="text-lg font-black">8 min</p>
+                    <p className="text-xs text-slate-500">pickup</p>
+                  </div>
+                  <div className="rounded-2xl bg-sky-50 p-3 text-center">
+                    <p className="text-lg font-black">3.2 km</p>
+                    <p className="text-xs text-slate-500">ruta</p>
+                  </div>
+                  <div className="rounded-2xl bg-sky-50 p-3 text-center">
+                    <p className="text-lg font-black">1 tap</p>
+                    <p className="text-xs text-slate-500">aceptar</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         </motion.div>

@@ -35,7 +35,7 @@ export function Faq() {
     <section id="faq" className="bg-gradient-to-b from-sky-50 to-white py-20 lg:py-28">
       <div className="container mx-auto max-w-4xl px-4">
         <div className="mb-12 text-center">
-          <span className="inline-flex rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-600">FAQ</span>
+          <span className="inline-flex rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-blue-700">FAQ</span>
           <h2 className="mt-5 text-4xl font-black tracking-tight text-blue-950 sm:text-5xl">Preguntas frecuentes</h2>
           <p className="mt-4 text-lg text-slate-600">Resolvemos tus dudas para que te unas con total confianza.</p>
         </div>
