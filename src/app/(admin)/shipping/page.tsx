@@ -102,6 +102,14 @@ export default function ShippingPage() {
         };
     }, [selectedAddress]);
 
+    const selectedAddressId = selectedAddress?.id;
+
+    React.useEffect(() => {
+        if (!selectedAddressId) return;
+        setIsCustomerOpen(false);
+        setIsPackageOpen(true);
+    }, [selectedAddressId]);
+
     React.useEffect(() => {
         if (isBusinessOwner && businessesData && businessesData.length > 0 && !selectedBusiness) {
             const business = businessesData[0];
