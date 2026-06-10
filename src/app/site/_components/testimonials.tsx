@@ -1,171 +1,225 @@
 "use client";
 
-import * as React from "react"
-import { AnimatePresence, motion } from "framer-motion";
-import Autoplay from "embla-carousel-autoplay"
-
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import * as React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Quote } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const testimonials = [
   {
     name: "Carlos M.",
     role: "Repartidor en Culiacán",
-    quote: "Con Hi! Delivery, realmente soy dueño de mi tiempo. Puedo trabajar en mis horas libres y ganar un buen dinero extra para mis estudios. La app es súper fácil de usar.",
-    avatar: "/testimonial-1.png",
+    quote:
+      "Con Hi! Delivery, realmente soy dueño de mi tiempo. Puedo trabajar en mis horas libres y ganar un buen dinero extra.",
+    tags: ["Culiacán", "Entregas confiables", "Soporte rápido"],
   },
   {
     name: "Luis A.",
     role: "Repartidor en Culiacán",
-    quote: "Lo que más me gusta es la transparencia en las ganancias. Sé exactamente cuánto voy a ganar por cada pedido antes de aceptarlo. El soporte también es muy rápido.",
-    avatar: "/testimonial-2.png",
+    quote:
+      "Lo que más me gusta es la transparencia en las ganancias. Sé exactamente cuánto voy a ganar por cada pedido.",
+    tags: ["Culiacán", "Entregas confiables", "Soporte rápido"],
   },
   {
     name: "Javier L.",
     role: "Repartidor en Culiacán",
-    quote: "Empecé hace 3 meses y ha sido una gran experiencia. La comunidad de repartidores es muy unida y la empresa realmente se preocupa por nosotros. ¡Lo recomiendo!",
-    avatar: "/testimonial-3.png",
+    quote:
+      "Empecé hace 3 meses y ha sido una gran experiencia. La comunidad de repartidores es muy unida.",
+    tags: ["Culiacán", "Entregas confiables", "Soporte rápido"],
   },
 ];
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15, delayChildren: 0.1 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: "easeOut" },
+  },
+};
 
 export function Testimonials() {
-  const plugin = React.useRef(
-    Autoplay({ delay: 5000, stopOnInteraction: true })
-  )
-  const [api, setApi] = React.useState<any>(null)
-  const [selectedIndex, setSelectedIndex] = React.useState(0)
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const [isMobile, setIsMobile] = React.useState(false);
+  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   React.useEffect(() => {
-    if (!api) {
-      return
-    }
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-    const onSelect = () => setSelectedIndex(api.selectedScrollSnap())
-
-    onSelect()
-    api.on("select", onSelect)
-    api.on("reInit", onSelect)
-
+  React.useEffect(() => {
+    if (!isMobile) return;
+    intervalRef.current = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % testimonials.length);
+    }, 5000);
     return () => {
-      api.off("select", onSelect)
-      api.off("reInit", onSelect)
-    }
-  }, [api])
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isMobile]);
 
   return (
-    <section id="testimonials" className="bg-slate-50 py-12 dark:bg-slate-900 lg:py-24">
-      <div className="container mx-auto px-4">
-        <div className="mb-10 text-center">
-          <span className="mb-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+    <section
+      id="testimonials"
+      className="relative overflow-hidden py-20 lg:py-28"
+      style={{ background: "#0a0a0f" }}
+    >
+      {/* Subtle top gradient */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4ff]/30 to-transparent" />
+
+      <div className="container relative z-10 mx-auto px-4">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5 }}
+          className="mb-12 text-center md:mb-16"
+        >
+          <span className="mb-4 inline-flex items-center rounded-full border border-[#00d4ff]/20 bg-[#00d4ff]/10 px-4 py-1.5 text-sm font-semibold text-[#00d4ff]">
             Testimonios
           </span>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Lo que dicen nuestros repartidores
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+            <span className="text-gradient">Lo que dicen nuestros</span>
+            <br className="hidden sm:block" />
+            <span className="text-white"> repartidores</span>
           </h2>
+        </motion.div>
+
+        {/* Desktop Grid / Mobile Carousel */}
+        <div className="relative">
+          {/* Desktop: 3-col grid */}
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-60px" }}
+            variants={containerVariants}
+            className="hidden grid-cols-1 gap-6 md:grid md:grid-cols-3"
+          >
+            {testimonials.map((t, i) => (
+              <motion.div
+                key={i}
+                variants={cardVariants}
+                className="group relative rounded-2xl border border-white/5 bg-white/[0.03] p-6 backdrop-blur-xl transition-all duration-300 hover:border-[#00d4ff]/20 hover:shadow-glow lg:p-8"
+              >
+                {/* Gradient border on hover */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#00d4ff]/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                <div className="relative z-10">
+                  <Quote className="mb-4 h-10 w-10 text-[#00d4ff] opacity-30" />
+
+                  <p className="text-lg italic leading-relaxed text-white">
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+
+                  <div className="mt-6 flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border border-white/10 bg-[#1a1a2e]">
+                      <AvatarFallback className="text-sm font-semibold text-[#00d4ff]">
+                        {t.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{t.name}</p>
+                      <p className="text-xs text-[#64748b]">{t.role}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {t.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-white/5 bg-white/5 px-2.5 py-1 text-xs font-medium text-[#94a3b8]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* Mobile: single card with auto-rotation */}
+          <div className="md:hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeIndex}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="relative rounded-2xl border border-white/5 bg-white/[0.03] p-6 backdrop-blur-xl"
+              >
+                <div className="relative z-10">
+                  <Quote className="mb-4 h-10 w-10 text-[#00d4ff] opacity-30" />
+
+                  <p className="text-lg italic leading-relaxed text-white">
+                    &ldquo;{testimonials[activeIndex].quote}&rdquo;
+                  </p>
+
+                  <div className="mt-6 flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border border-white/10 bg-[#1a1a2e]">
+                      <AvatarFallback className="text-sm font-semibold text-[#00d4ff]">
+                        {testimonials[activeIndex].name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {testimonials[activeIndex].name}
+                      </p>
+                      <p className="text-xs text-[#64748b]">
+                        {testimonials[activeIndex].role}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {testimonials[activeIndex].tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-white/5 bg-white/5 px-2.5 py-1 text-xs font-medium text-[#94a3b8]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
-        <div className="relative mx-auto max-w-6xl">
-          <Carousel
-            plugins={[plugin.current]}
-            className="w-full"
-            setApi={setApi}
-            onMouseEnter={plugin.current.stop}
-            onMouseLeave={plugin.current.reset}
-          >
-            <CarouselContent>
-              {testimonials.map((testimonial, index) => (
-                <CarouselItem key={index}>
-                  <motion.div
-                    className="p-1"
-                    animate={
-                      selectedIndex === index
-                        ? { opacity: 1, scale: 1, y: 0 }
-                        : { opacity: 0.55, scale: 0.98, y: 10 }
-                    }
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                  >
-                    <Card className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
-                      <CardContent className="grid gap-0 p-0 md:grid-cols-[280px_1fr]">
-                        <div className="relative flex min-h-[280px] items-end overflow-hidden bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(239,246,255,0.92))] p-6 md:min-h-[360px]">
-                          <div className="absolute inset-0 bg-[linear-gradient(135deg,_rgba(59,130,246,0.08),_transparent_45%),linear-gradient(180deg,_rgba(255,255,255,0.18),_rgba(255,255,255,0.82))]" />
-                          <div className="relative w-full">
-                            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm">
-                              <Quote className="h-3.5 w-3.5" />
-                              Repartidor activo
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <Avatar className="h-20 w-20 border-2 border-white shadow-xl ring-4 ring-slate-100">
-                                <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
-                                <AvatarFallback>{testimonial.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div className="text-slate-900">
-                                <p className="text-2xl font-semibold">{testimonial.name}</p>
-                                <p className="text-sm text-slate-500">{testimonial.role}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col justify-between gap-6 p-8 md:p-10">
-                          <AnimatePresence mode="wait">
-                            <motion.p
-                              key={testimonial.quote}
-                              initial={{ opacity: 0, y: 16 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{ duration: 0.3, ease: "easeOut" }}
-                              className="max-w-3xl text-xl leading-relaxed text-slate-700 dark:text-slate-200 md:text-2xl"
-                            >
-                              "{testimonial.quote}"
-                            </motion.p>
-                          </AnimatePresence>
-
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                              Culiacán
-                            </div>
-                            <div className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                              Entregas confiables
-                            </div>
-                            <div className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                              Soporte rápido
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="-left-3 hidden h-11 w-11 border-slate-200 bg-white shadow-lg md:flex dark:border-slate-700 dark:bg-slate-950" />
-            <CarouselNext className="-right-3 hidden h-11 w-11 border-slate-200 bg-white shadow-lg md:flex dark:border-slate-700 dark:bg-slate-950" />
-          </Carousel>
-
-          <div className="mt-6 flex items-center justify-center gap-2">
-            {testimonials.map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                aria-label={`Ir al testimonio ${index + 1}`}
-                onClick={() => api?.scrollTo(index)}
-                className={`h-2.5 rounded-full transition-all ${
-                  selectedIndex === index
-                    ? "w-8 bg-primary"
-                    : "w-2.5 bg-slate-300 hover:bg-slate-400 dark:bg-slate-700 dark:hover:bg-slate-600"
-                }`}
-              />
-            ))}
-          </div>
+        {/* Dots indicator */}
+        <div className="mt-8 flex items-center justify-center gap-2">
+          {testimonials.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Ver testimonio ${i + 1}`}
+              onClick={() => setActiveIndex(i)}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                activeIndex === i
+                  ? "w-8 bg-[#00d4ff]"
+                  : "w-2.5 bg-[#64748b]/40 hover:bg-[#64748b]/60"
+              }`}
+            />
+          ))}
         </div>
       </div>
     </section>

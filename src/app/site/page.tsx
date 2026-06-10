@@ -1,4 +1,5 @@
 import { Hero } from "./_components/hero";
+import { StatsBar } from "./_components/stats-bar";
 import { Benefits } from "./_components/benefits";
 import { HowItWorks } from "./_components/how-it-works";
 import { Requirements } from "./_components/requirements";
@@ -10,6 +11,7 @@ export default function SitePage() {
   return (
     <>
       <Hero />
+      <StatsBar />
       <Benefits />
       <HowItWorks />
       <Requirements />

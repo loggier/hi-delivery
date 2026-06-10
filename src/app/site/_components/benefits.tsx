@@ -1,68 +1,151 @@
 "use client";
 
-import Image from "next/image";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Clock, Wallet, Zap, Smartphone, Bike } from "lucide-react";
-import { MotionCard, MotionSection } from "@/components/site-motion";
+import { motion } from "framer-motion";
+import { Wallet, Clock, Bike, Smartphone } from "lucide-react";
 
 const benefits = [
   {
-    icon: <Wallet className="h-8 w-8 text-primary" />,
+    icon: Wallet,
     title: "Gana Dinero Extra",
-    description: "Genera ingresos semanales con tarifas competitivas y transparentes. Tus ganancias se depositan directamente en tu cuenta.",
+    description:
+      "Genera ingresos semanales con tarifas competitivas y transparentes.",
+    iconBg: "bg-[#00d4ff]/20",
+    iconColor: "text-[#00d4ff]",
   },
   {
-    icon: <Clock className="h-8 w-8 text-primary" />,
+    icon: Clock,
     title: "Horarios Flexibles",
-    description: "Tú decides cuándo y cuánto tiempo conectarte. Adapta los horarios de entrega a tu vida, no al revés.",
+    description:
+      "Tú decides cuándo y cuánto tiempo conectar. Adapta los horarios a tu vida.",
+    iconBg: "bg-[#ff6b00]/20",
+    iconColor: "text-[#ff6b00]",
   },
   {
-    icon: <Bike className="h-8 w-8 text-primary" />,
+    icon: Bike,
     title: "Tú Eres Tu Propio Jefe",
-    description: "Disfruta de la libertad de ser un contratista independiente. Acepta los pedidos que quieras y gestiona tu tiempo.",
+    description:
+      "Disfruta de la libertad de ser un contratista independiente.",
+    iconBg: "bg-[#00ff88]/20",
+    iconColor: "text-[#00ff88]",
   },
   {
-    icon: <Smartphone className="h-8 w-8 text-primary" />,
+    icon: Smartphone,
     title: "Tecnología Fácil de Usar",
-    description: "Nuestra app para repartidores es intuitiva y te guía en cada paso, desde la aceptación del pedido hasta la entrega final.",
+    description:
+      "Nuestra app te guía en cada paso, desde la aceptación hasta la entrega.",
+    iconBg: "bg-[#8b5cf6]/20",
+    iconColor: "text-[#8b5cf6]",
   },
 ];
 
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15 },
+  },
+};
+
+const cardVariant = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
 export function Benefits() {
   return (
-    <section id="benefits" className="py-12 lg:py-24 bg-slate-50 dark:bg-slate-900">
-      <div className="container mx-auto px-4">
-        <MotionSection className="text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ventajas de ser un Repartidor Asociado</h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
+    <section id="benefits" className="relative py-24 lg:py-32 bg-[#0a0a0f] overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-radial opacity-50 pointer-events-none" />
+
+      <div className="container mx-auto px-4 relative">
+        {/* Placeholder image area */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="rounded-2xl p-[1px] bg-gradient-to-r from-[#00d4ff]/30 to-[#ff6b00]/30 mb-16"
+        >
+          <div className="w-full h-64 md:h-80 rounded-2xl bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center">
+            <span className="text-[#64748b] text-lg font-medium">
+              Imagen de repartidor sonriente — próximamente
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Title */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-gradient">
+            Ventajas de ser un Repartidor Asociado
+          </h2>
+          <p className="mt-4 text-lg text-[#94a3b8]">
             Descubre por qué Hi! Delivery es la mejor opción para ti.
           </p>
-        </MotionSection>
-        <MotionSection className="mb-12 overflow-hidden rounded-2xl border bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
-          <Image
-            src="/benefits-hid.png"
-            alt="Repartidor usando la app de Hi! Delivery"
-            width={1672}
-            height={941}
-            sizes="(max-width: 1024px) 100vw, 80vw"
-            className="h-auto w-full object-cover"
-          />
-        </MotionSection>
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-          {benefits.map((benefit, index) => (
-            <MotionCard key={index}>
-              <Card className="text-center transition-shadow duration-300 hover:shadow-lg">
-                <CardHeader>
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                    {benefit.icon}
+        </motion.div>
+
+        {/* Bento grid */}
+        <motion.div
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.2 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-3 gap-6"
+        >
+          {/* Top 2 large cards */}
+          {benefits.slice(0, 2).map((benefit, index) => (
+            <motion.div
+              key={index}
+              variants={cardVariant}
+              className="lg:col-span-2 lg:row-span-2"
+            >
+              <div className="glass-dark rounded-2xl p-6 lg:p-8 h-full min-h-[280px] lg:min-h-[320px] border border-transparent hover:border-[#00d4ff]/30 hover:shadow-glow hover-lift transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div
+                    className={`mb-6 flex h-14 w-14 items-center justify-center rounded-full ${benefit.iconBg}`}
+                  >
+                    <benefit.icon className={`h-7 w-7 ${benefit.iconColor}`} />
                   </div>
-                  <CardTitle>{benefit.title}</CardTitle>
-                  <CardDescription className="pt-2">{benefit.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            </MotionCard>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    {benefit.title}
+                  </h3>
+                  <p className="text-[#94a3b8] text-lg leading-relaxed">
+                    {benefit.description}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           ))}
-        </div>
+
+          {/* Bottom 2 smaller cards */}
+          {benefits.slice(2, 4).map((benefit, index) => (
+            <motion.div
+              key={index + 2}
+              variants={cardVariant}
+              className="lg:col-span-2 lg:row-span-1"
+            >
+              <div className="glass-dark rounded-2xl p-6 lg:p-8 h-full min-h-[200px] border border-transparent hover:border-[#00d4ff]/30 hover:shadow-glow hover-lift transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div
+                    className={`mb-4 flex h-12 w-12 items-center justify-center rounded-full ${benefit.iconBg}`}
+                  >
+                    <benefit.icon className={`h-6 w-6 ${benefit.iconColor}`} />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    {benefit.title}
+                  </h3>
+                  <p className="text-[#94a3b8] leading-relaxed">
+                    {benefit.description}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );
