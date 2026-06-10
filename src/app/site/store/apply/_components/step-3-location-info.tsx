@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
@@ -48,12 +48,13 @@ export function Step3_LocationInfo() {
         longitude: -99.1332,
     }
   });
-  
+
+  const latitude = useWatch({ control: methods.control, name: 'latitude' });
+  const longitude = useWatch({ control: methods.control, name: 'longitude' });
+
   const mapCenter = useMemo(() => {
-    const lat = methods.watch('latitude');
-    const lng = methods.watch('longitude');
-    return lat && lng ? { lat, lng } : { lat: 19.4326, lng: -99.1332 };
-  }, [methods.watch('latitude'), methods.watch('longitude')]);
+    return latitude && longitude ? { lat: latitude, lng: longitude } : { lat: 19.4326, lng: -99.1332 };
+  }, [latitude, longitude]);
 
   useEffect(() => {
     async function fetchBusinessData() {

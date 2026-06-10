@@ -2,6 +2,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import React, { useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, MarkerClustererF, MarkerF, OverlayViewF, PolylineF, useLoadScript } from '@react-google-maps/api';
 import { Rider } from '@/types';
@@ -329,9 +330,12 @@ export function LiveMap({
                             onSelectRider?.(rider);
                           }}
                         >
-                          <img
+                          <Image
                             src="/repartidor.png"
                             alt={labelText}
+                            width={48}
+                            height={48}
+                            unoptimized
                             className="block object-contain drop-shadow-sm"
                             style={{
                               width: isSelected ? 48 : 40,
