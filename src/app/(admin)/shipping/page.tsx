@@ -85,6 +85,7 @@ export default function ShippingPage() {
 
     const origin = React.useMemo<LocationPoint | null>(() => {
         if (!selectedPickupLocation) return null;
+        if (!selectedPickupLocation.address_line || selectedPickupLocation.latitude === undefined || selectedPickupLocation.longitude === undefined) return null;
         return {
             address: selectedPickupLocation.address_line,
             lat: selectedPickupLocation.latitude,
@@ -399,6 +400,7 @@ export default function ShippingPage() {
                     customerId={selectedCustomer.id}
                     addressToEdit={editingAddress}
                     isMapsLoaded={isLoaded}
+                    origin={origin}
                     onSaved={() => setSelectedAddress(null)}
                 />
             )}

@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GoogleMap, MarkerF, Polyline } from '@react-google-maps/api';
@@ -651,7 +651,7 @@ export function CustomerDisplay({
 }: CustomerDisplayProps) {
     return (
         <div className="space-y-4">
-            <div className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 flex justify-between items-start text-base">
+            <div className="flex items-start justify-between rounded-xl border bg-slate-50 p-4 text-base dark:bg-slate-800/50">
                 <div className="space-y-1">
                     <p className="font-semibold text-lg">{customer.first_name} {customer.last_name}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -667,9 +667,9 @@ export function CustomerDisplay({
             </div>
 
             <div className="space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <h4 className="font-medium text-base">Direcciones Guardadas</h4>
-                    <Button variant="outline" size="sm" onClick={onAddAddress}>
+                    <Button variant="outline" size="sm" onClick={onAddAddress} className="w-full sm:w-auto">
                         <PlusCircle className="h-4 w-4 mr-2" />
                         Añadir Dirección
                     </Button>
@@ -678,26 +678,32 @@ export function CustomerDisplay({
                 {isLoadingAddresses ? (
                     <Skeleton className="h-20 w-full" />
                 ) : addresses.length === 0 ? (
-                    <div className="text-center text-sm text-muted-foreground border-2 border-dashed rounded-lg p-4">
-                        Este cliente no tiene direcciones guardadas.
+                    <div className="rounded-xl border-2 border-dashed p-5 text-center text-sm text-muted-foreground">
+                        <Home className="mx-auto mb-2 h-5 w-5" />
+                        Este cliente no tiene direcciones guardadas. Añade una para continuar.
                     </div>
                 ) : (
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                         {addresses.map(addr => (
                             <div
                                 key={addr.id}
                                 onClick={() => onSelectAddress(addr)}
                                 className={cn(
-                                    "w-full text-left p-3 border rounded-lg flex justify-between items-center transition-colors cursor-pointer",
+                                    "flex w-full cursor-pointer items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors",
                                     selectedAddress?.id === addr.id
-                                        ? "bg-primary/10 border-primary"
+                                        ? "border-primary bg-primary/10 shadow-sm"
                                         : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                                 )}
                             >
-                                <div className="flex items-center gap-3">
-                                    {selectedAddress?.id === addr.id && <CheckCircle className="h-5 w-5 text-primary flex-shrink-0"/>}
-                                    <div>
-                                        <p className="text-sm">{addr.address}</p>
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <div className={cn(
+                                        "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border",
+                                        selectedAddress?.id === addr.id ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                                    )}>
+                                        {selectedAddress?.id === addr.id ? <CheckCircle className="h-4 w-4"/> : <Home className="h-3.5 w-3.5 text-muted-foreground" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="line-clamp-2 text-sm font-medium">{addr.address}</p>
                                         <p className="text-xs text-muted-foreground">
                                             {[
                                                 addr.street ? `Calle: ${addr.street}` : null,
@@ -707,7 +713,7 @@ export function CustomerDisplay({
                                         </p>
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={(e) => {e.stopPropagation(); onEditAddress(addr)}}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -715,7 +721,7 @@ export function CustomerDisplay({
                     </div>
                 )}
             </div>
-            <Button variant="outline" size="sm" onClick={onShowMap} disabled={!selectedAddress}>
+            <Button variant="outline" size="sm" onClick={onShowMap} disabled={!selectedAddress} className="w-full sm:w-auto">
                 <Map className="h-4 w-4 mr-2" />
                 Ver Ruta en Mapa
             </Button>
@@ -867,10 +873,11 @@ interface AddressFormModalProps {
     customerId: string;
     addressToEdit: CustomerAddress | null;
     isMapsLoaded: boolean;
+    origin?: LocationPoint | null;
     onSaved?: () => void;
 }
 
-export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, isMapsLoaded, onSaved }: AddressFormModalProps) {
+export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, isMapsLoaded, origin, onSaved }: AddressFormModalProps) {
     const methods = useForm<AddressFormValues>({
         resolver: zodResolver(customerAddressSchema),
     });
@@ -878,13 +885,31 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
     const createAddressMutation = api.customer_addresses.useCreate();
     const updateAddressMutation = api.customer_addresses.useUpdate();
 
+    const initialMapCenter = useMemo(() => {
+        if (addressToEdit) {
+            return { lat: addressToEdit.latitude, lng: addressToEdit.longitude };
+        }
+        if (origin) {
+            return { lat: origin.lat, lng: origin.lng };
+        }
+        return { lat: 19.4326, lng: -99.1332 };
+    }, [addressToEdit, origin]);
+
     useEffect(() => {
         if (addressToEdit) {
-            methods.reset(addressToEdit);
+            methods.reset({ ...addressToEdit, customer_id: addressToEdit.customer_id });
         } else {
-            methods.reset({ customer_id: customerId, address: '', latitude: 19.4326, longitude: -99.1332 });
+            methods.reset({
+                customer_id: customerId,
+                address: '',
+                street: '',
+                house_number: '',
+                reference: '',
+                latitude: initialMapCenter.lat,
+                longitude: initialMapCenter.lng,
+            });
         }
-    }, [addressToEdit, customerId, methods]);
+    }, [addressToEdit, customerId, initialMapCenter.lat, initialMapCenter.lng, methods]);
 
     const onSubmit = async (data: AddressFormValues) => {
         try {
@@ -904,38 +929,77 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-[800px] max-h-[calc(100dvh-1rem)] overflow-hidden p-4 sm:p-6">
+            <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
+                    <div className="border-b px-4 py-4 sm:px-6">
+                        <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
+                        <DialogDescription>
+                            Busca la dirección, ajusta el pin si hace falta y completa los detalles para el repartidor.
+                        </DialogDescription>
+                    </div>
                 </DialogHeader>
                 <FormProvider {...methods}>
                     <Form {...methods}>
-                        <form onSubmit={methods.handleSubmit(onSubmit)} className="flex min-h-0 flex-col gap-4 pt-2">
-                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-                                <LocationMap
-                                    isMapsLoaded={isMapsLoaded}
-                                    onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
-                                        methods.setValue('address', address, { shouldValidate: true });
-                                        methods.setValue('street', street || '', { shouldValidate: true });
-                                        methods.setValue('house_number', house_number || '', { shouldValidate: true });
-                                        methods.setValue('latitude', lat, { shouldValidate: true });
-                                        methods.setValue('longitude', lng, { shouldValidate: true });
-                                        if (city) methods.setValue('city', city, { shouldValidate: true });
-                                        if (state) methods.setValue('state', state, { shouldValidate: true });
-                                        if (zip_code) methods.setValue('zip_code', zip_code, { shouldValidate: true });
-                                        if (neighborhood) methods.setValue('neighborhood', neighborhood, { shouldValidate: true });
-                                    }}
-                                />
-                                <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
-                                <FormInput name="address" label="Dirección Completa" placeholder="Calle, número, colonia, etc." className="mt-4" />
-                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <FormInput name="street" label="Calle" placeholder="Ej. Av. Insurgentes Sur" />
-                                    <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
+                        <form onSubmit={methods.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                                <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+                                    <div className="space-y-3">
+                                        <LocationMap
+                                            isMapsLoaded={isMapsLoaded}
+                                            initialCenter={initialMapCenter}
+                                            initialQuery={addressToEdit?.address || ''}
+                                            onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
+                                                methods.setValue('address', address, { shouldValidate: true });
+                                                methods.setValue('street', street || '', { shouldValidate: true });
+                                                methods.setValue('house_number', house_number || '', { shouldValidate: true });
+                                                methods.setValue('latitude', lat, { shouldValidate: true });
+                                                methods.setValue('longitude', lng, { shouldValidate: true });
+                                                if (city) methods.setValue('city', city, { shouldValidate: true });
+                                                if (state) methods.setValue('state', state, { shouldValidate: true });
+                                                if (zip_code) methods.setValue('zip_code', zip_code, { shouldValidate: true });
+                                                if (neighborhood) methods.setValue('neighborhood', neighborhood, { shouldValidate: true });
+                                            }}
+                                        />
+                                        <FormField control={methods.control} name="latitude" render={() => <FormMessage/>} />
+                                        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+                                            Tip: haz click en el mapa para corregir la ubicación exacta del pin.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+                                        <div>
+                                            <h3 className="font-semibold">Detalles de entrega</h3>
+                                            <p className="text-sm text-muted-foreground">Estos datos ayudan al repartidor a encontrar la entrada correcta.</p>
+                                        </div>
+                                        <FormInput name="address" label="Dirección completa" placeholder="Calle, número, colonia, ciudad" />
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                                            <FormInput name="street" label="Calle" placeholder="Ej. Av. Insurgentes Sur" />
+                                            <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
+                                        </div>
+                                        <FormField
+                                            control={methods.control}
+                                            name="reference"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Referencia</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            placeholder="Ej. Portón negro, casa junto a la farmacia."
+                                                            className="min-h-24 resize-none"
+                                                            {...field}
+                                                            value={field.value ?? ''}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex shrink-0 justify-end gap-2 border-t pt-4">
-                                <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-                                <Button type="submit" disabled={isSubmitting}>
+                            <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:flex-row sm:justify-end sm:px-6">
+                                <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting} className="w-full sm:w-auto">Cancelar</Button>
+                                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                     Guardar Dirección
                                 </Button>
@@ -951,11 +1015,13 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
 interface LocationMapProps {
     isMapsLoaded: boolean;
     onLocationSelect: (location: ParsedAddress) => void;
+    initialCenter?: { lat: number; lng: number };
+    initialQuery?: string;
 }
 
-export function LocationMap({ isMapsLoaded, onLocationSelect }: LocationMapProps) {
-    const [location, setLocation] = React.useState<{ lat: number, lng: number }>({ lat: 19.4326, lng: -99.1332 });
-    const [query, setQuery] = React.useState('');
+export function LocationMap({ isMapsLoaded, onLocationSelect, initialCenter, initialQuery = '' }: LocationMapProps) {
+    const [location, setLocation] = React.useState<{ lat: number, lng: number }>(initialCenter || { lat: 19.4326, lng: -99.1332 });
+    const [query, setQuery] = React.useState(initialQuery);
     const [suggestions, setSuggestions] = React.useState<NominatimSuggestion[]>([]);
     const [isSearching, setIsSearching] = React.useState(false);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = React.useState(false);
@@ -965,6 +1031,16 @@ export function LocationMap({ isMapsLoaded, onLocationSelect }: LocationMapProps
     const mapRef = React.useRef<google.maps.Map | null>(null);
 
     const mapCenter = useMemo(() => location, [location]);
+
+    React.useEffect(() => {
+        if (!initialCenter) return;
+        setLocation(initialCenter);
+        setQuery(initialQuery);
+        if (mapRef.current) {
+            mapRef.current.panTo(initialCenter);
+            mapRef.current.setZoom(15);
+        }
+    }, [initialCenter, initialQuery]);
 
     React.useEffect(() => {
         const handleDocumentClick = (event: MouseEvent) => {
@@ -1066,7 +1142,7 @@ export function LocationMap({ isMapsLoaded, onLocationSelect }: LocationMapProps
 
     return (
         <div className="space-y-4">
-             <FormLabel>Buscar Dirección</FormLabel>
+            <label className="text-sm font-medium leading-none">Buscar Dirección</label>
             <div className="relative" ref={searchContainerRef}>
                 <Input
                     type="text"
