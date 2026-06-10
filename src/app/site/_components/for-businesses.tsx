@@ -71,7 +71,7 @@ export function ForBusinesses() {
               width={1536}
               height={1024}
               sizes="(max-width: 1024px) 100vw, 44vw"
-              className="h-auto w-full rounded-[1.5rem] object-cover"
+              className="h-auto w-full rounded-[1.5rem] object-cover transition-transform duration-700 hover:scale-[1.025]"
             />
           </motion.div>
         </div>

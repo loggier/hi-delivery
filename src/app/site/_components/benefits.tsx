@@ -35,7 +35,7 @@ export function Benefits() {
         <div className="grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
           <motion.div
             initial={{ opacity: 0, x: -24 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            whileInView={{ opacity: 1, x: 0, scale: 1 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.55, ease: "easeOut" }}
             className="overflow-hidden rounded-[2rem] bg-white p-3 shadow-2xl shadow-blue-950/10"
@@ -46,7 +46,7 @@ export function Benefits() {
               width={1672}
               height={941}
               sizes="(max-width: 1024px) 100vw, 46vw"
-              className="h-auto w-full rounded-[1.5rem] object-cover"
+              className="h-auto w-full rounded-[1.5rem] object-cover transition-transform duration-700 hover:scale-[1.025]"
             />
           </motion.div>
 

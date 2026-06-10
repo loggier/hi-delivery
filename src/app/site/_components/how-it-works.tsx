@@ -37,7 +37,13 @@ export function HowItWorks() {
 
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.9fr]">
           <div className="relative grid gap-5">
-            <div className="absolute left-6 top-8 hidden h-[calc(100%-4rem)] w-1 rounded-full bg-gradient-to-b from-blue-700 via-blue-500 to-sky-300 sm:block" />
+            <motion.div
+              className="absolute left-6 top-8 hidden h-[calc(100%-4rem)] w-1 origin-top rounded-full bg-gradient-to-b from-blue-700 via-blue-500 to-sky-300 sm:block"
+              initial={{ scaleY: 0 }}
+              whileInView={{ scaleY: 1 }}
+              viewport={{ once: true, amount: 0.25 }}
+              transition={{ duration: 0.9, ease: "easeOut" }}
+            />
             {steps.map((step, index) => (
               <motion.div
                 key={step.title}

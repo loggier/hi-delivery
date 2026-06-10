@@ -34,7 +34,14 @@ export function Hero() {
       </motion.video>
 
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,18,42,0.92)_0%,rgba(5,35,79,0.82)_42%,rgba(5,35,79,0.42)_100%)]" />
+      <motion.div
+        aria-hidden="true"
+        className="absolute left-[8%] top-[18%] h-[34rem] w-[34rem] rounded-full bg-sky-300/12 blur-3xl"
+        animate={{ opacity: [0.35, 0.65, 0.35], scale: [1, 1.08, 1] }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+      />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white via-white/70 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-24 bg-[radial-gradient(70%_120%_at_50%_100%,rgba(255,255,255,0.96)_0%,rgba(255,255,255,0.74)_42%,transparent_76%)]" />
       <div className="absolute -left-24 top-24 h-80 w-80 rounded-full bg-sky-400/25 blur-3xl" />
       <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-sky-300/18 blur-3xl" />
 
@@ -117,7 +124,11 @@ export function Hero() {
           >
             <div className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-white/14 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl">
               <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl" />
-              <div className="relative rounded-[1.5rem] bg-white p-5 text-blue-950">
+              <motion.div
+                className="relative rounded-[1.5rem] bg-white p-5 text-blue-950"
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Image src="/logo-hid.png" alt="Hi! Delivery" width={44} height={44} className="h-11 w-11" />
@@ -126,12 +137,29 @@ export function Hero() {
                       <p className="text-lg font-black">Pedido cercano</p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-blue-700">Nuevo</span>
+                  <motion.span
+                    className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-blue-700"
+                    animate={{ boxShadow: ["0 0 0 rgba(14,165,233,0)", "0 0 24px rgba(14,165,233,0.35)", "0 0 0 rgba(14,165,233,0)"] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    Nuevo
+                  </motion.span>
                 </div>
 
-                <div className="mt-5 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-900 p-5 text-white shadow-xl shadow-blue-900/20">
+                <motion.div
+                  className="mt-5 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-900 p-5 text-white shadow-xl shadow-blue-900/20"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.75, duration: 0.55, ease: "easeOut" }}
+                >
                   <p className="text-sm text-sky-100">Ganancia estimada</p>
-                  <p className="mt-1 text-4xl font-black">$72.00</p>
+                  <motion.p
+                    className="mt-1 text-4xl font-black"
+                    animate={{ scale: [1, 1.035, 1] }}
+                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
+                  >
+                    $72.00
+                  </motion.p>
                   <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl bg-white/12 p-3">
                       <p className="text-sky-100">Recoger</p>
@@ -142,7 +170,7 @@ export function Hero() {
                       <p className="font-bold">Cliente</p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
 
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   <div className="rounded-2xl bg-sky-50 p-3 text-center">
@@ -158,7 +186,7 @@ export function Hero() {
                     <p className="text-xs text-slate-500">aceptar</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
         </motion.div>

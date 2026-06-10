@@ -81,7 +81,7 @@ export function Requirements() {
               width={1122}
               height={1402}
               sizes="(max-width: 1024px) 100vw, 38vw"
-              className="h-auto w-full rounded-[1.5rem] object-cover"
+              className="h-auto w-full rounded-[1.5rem] object-cover transition-transform duration-700 hover:scale-[1.02]"
             />
           </motion.div>
         </div>
