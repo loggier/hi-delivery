@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordShell />}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const token = searchParams.get("token") || "";
@@ -61,6 +69,68 @@ export default function ResetPasswordPage() {
   }
 
   return (
+    <ResetPasswordShell>
+      {!token ? (
+        <div className="space-y-4 text-center">
+          <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">
+            Este enlace no tiene token de recuperación. Solicita uno nuevo.
+          </div>
+          <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
+            <Link href="/forgot-password">Solicitar nuevo enlace</Link>
+          </Button>
+        </div>
+      ) : completed ? (
+        <div className="space-y-4 text-center">
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            Tu contraseña se actualizó correctamente.
+          </div>
+          <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
+            <Link href="/sign-in">Iniciar sesión</Link>
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="password">Nueva contraseña</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Mínimo 8 caracteres"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              disabled={isSubmitting}
+              minLength={8}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Repite tu contraseña"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              disabled={isSubmitting}
+              minLength={8}
+              required
+            />
+          </div>
+          <Button type="submit" className="w-full bg-sky-700 hover:bg-sky-800" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Actualizar contraseña
+          </Button>
+          <Button asChild type="button" variant="ghost" className="w-full">
+            <Link href="/forgot-password">Solicitar otro enlace</Link>
+          </Button>
+        </form>
+      )}
+    </ResetPasswordShell>
+  );
+}
+
+function ResetPasswordShell({ children }: { children?: ReactNode }) {
+  return (
     <div className="relative min-h-screen w-screen">
       <Image src="/banner-site-hid.png" alt="Fondo Hi Delivery" fill className="object-cover" />
       <div className="absolute inset-0 bg-slate-950/70" />
@@ -80,61 +150,7 @@ export default function ResetPasswordPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!token ? (
-              <div className="space-y-4 text-center">
-                <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">
-                  Este enlace no tiene token de recuperación. Solicita uno nuevo.
-                </div>
-                <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
-                  <Link href="/forgot-password">Solicitar nuevo enlace</Link>
-                </Button>
-              </div>
-            ) : completed ? (
-              <div className="space-y-4 text-center">
-                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                  Tu contraseña se actualizó correctamente.
-                </div>
-                <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
-                  <Link href="/sign-in">Iniciar sesión</Link>
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={onSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Nueva contraseña</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Mínimo 8 caracteres"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    disabled={isSubmitting}
-                    minLength={8}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Repite tu contraseña"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    disabled={isSubmitting}
-                    minLength={8}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-sky-700 hover:bg-sky-800" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Actualizar contraseña
-                </Button>
-                <Button asChild type="button" variant="ghost" className="w-full">
-                  <Link href="/forgot-password">Solicitar otro enlace</Link>
-                </Button>
-              </form>
-            )}
+            {children ?? <div className="h-28" />}
           </CardContent>
         </Card>
       </div>
