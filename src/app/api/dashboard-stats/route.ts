@@ -118,11 +118,15 @@ async function buildDashboardStats(
     last7DaysOrdersQuery = last7DaysOrdersQuery.eq('business_id', businessId);
   }
 
-  const monthOrdersQuery = supabase
+  let monthOrdersQuery = supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .gte('created_at', monthStart.toISOString())
     .lt('created_at', tomorrowStart.toISOString());
+
+  if (businessId) {
+    monthOrdersQuery = monthOrdersQuery.eq('business_id', businessId);
+  }
 
   const totalRidersQuery = supabase
     .from('riders')
@@ -281,14 +285,16 @@ export async function GET(request: Request) {
   const business_id = searchParams.get('business_id') || null;
 
   try {
-    try {
-      const rpcName = business_id ? 'get_business_dashboard_stats' : 'get_daily_dashboard_stats';
-      const rpcParams = business_id ? { p_business_id: business_id } : {};
-      const { data: statsData, error: statsError } = await supabase.rpc(rpcName, rpcParams);
+    if (!business_id) {
+      return NextResponse.json(await buildDashboardStats(supabase, null));
+    }
 
-      if (statsError) {
-        throw statsError;
-      }
+    try {
+      const { data: statsData, error: statsError } = await supabase.rpc('get_business_dashboard_stats', {
+        p_business_id: business_id,
+      });
+
+      if (statsError) throw statsError;
 
       const stats = Array.isArray(statsData) ? statsData[0] : statsData;
       if (stats) {
@@ -312,7 +318,7 @@ export async function GET(request: Request) {
         });
       }
     } catch (rpcError) {
-      console.error('Dashboard RPC fallback activated:', rpcError);
+      console.error('Dashboard RPC fallback activated for business:', rpcError);
     }
 
     return NextResponse.json(await buildDashboardStats(supabase, business_id));

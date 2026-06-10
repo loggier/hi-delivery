@@ -451,6 +451,8 @@ export type SystemSettings = {
     dispatch_candidate_radius_km: number;
     dispatch_batch_size: number;
     dispatch_decision_window_seconds: number;
+    evolution_instance_name?: string | null;
+    evolution_phone_number?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -472,4 +474,62 @@ export type DashboardStats = {
   topCustomers: { customer_id: string; customer_name: string; order_count: number }[];
   revenueLast7Days?: { date: string; ingresos: number }[];
   ordersLast7Days?: { date: string; pedidos: number }[];
+};
+
+export type NotificationChannel = 'whatsapp' | 'push' | 'email' | 'sms';
+export type NotificationAudience = 'partner' | 'rider' | 'customer' | 'admin' | 'system';
+export type NotificationTemplateStatus = 'ACTIVE' | 'INACTIVE';
+
+export type NotificationTemplateVariable = {
+  id: string;
+  key: string;
+  label: string;
+  description?: string;
+  sample_value?: string;
+  audience: NotificationAudience;
+  source: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NotificationConstant = {
+  key: string;
+  label: string;
+  value: string;
+  description?: string;
+  is_secret: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NotificationTemplate = {
+  id: string;
+  template_key: string;
+  name: string;
+  description?: string;
+  audience: NotificationAudience;
+  channel: NotificationChannel;
+  subject?: string | null;
+  body: string;
+  variables: string[];
+  status: NotificationTemplateStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NotificationLog = {
+  id: string;
+  template_key: string;
+  template_id?: string | null;
+  channel: NotificationChannel;
+  audience?: NotificationAudience | null;
+  recipient: string;
+  variables: Record<string, unknown>;
+  rendered_subject?: string | null;
+  rendered_body: string;
+  status: 'pending' | 'sent' | 'failed';
+  provider?: string | null;
+  provider_response?: Record<string, unknown> | null;
+  error_message?: string | null;
+  created_at: string;
 };

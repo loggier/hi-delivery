@@ -178,7 +178,7 @@ const BusinessOwnerDashboard = ({ data, isLoading }: { data: any, isLoading: boo
 
 export default function DashboardPage() {
   const { user, isLoading: isAuthLoading } = useAuthStore();
-  const isBusinessOwner = user?.role?.name === 'Dueño de Negocio';
+  const isBusinessOwner = user?.role_id === 'role-owner' || user?.role_id === 'owen-business' || user?.role?.name === 'Dueño de Negocio';
   const canLoadStats = !isAuthLoading && (!isBusinessOwner || Boolean(user?.business_id));
   
   const { data, isLoading } = api.dashboard.useGetStats({ 

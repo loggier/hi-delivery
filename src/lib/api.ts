@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission, BusinessBranch } from "@/types";
+import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission, BusinessBranch, NotificationTemplate, NotificationTemplateVariable, NotificationLog, NotificationConstant } from "@/types";
 import { createClient } from "./supabase/client";
 import { faker } from "@faker-js/faker";
 
@@ -28,6 +28,10 @@ const entityTranslations: { [key: string]: string } = {
     "orders": "Pedido",
     "dashboard-stats": "Estadísticas del Panel",
     "modules": "Módulo",
+    "notification_templates": "Plantilla de Notificación",
+    "notification_template_variables": "Variable de Notificación",
+    "notification_constants": "Constante de Notificación",
+    "notification_logs": "Registro de Notificación",
 }
 
 const entityIdPrefixes: Partial<Record<keyof typeof entityTranslations, string>> = {
@@ -461,6 +465,37 @@ const useUpdateUser = () => {
     });
 };
 
+const useUpdateNotificationConstant = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const supabase = createClient();
+
+    return useMutation<NotificationConstant, Error, Partial<NotificationConstant> & { key: string }>({
+        mutationFn: async ({ key, ...updateData }) => {
+            const { data, error } = await supabase
+                .from('notification_constants')
+                .update(updateData)
+                .eq('key', key)
+                .select()
+                .single();
+            if (error) throw error;
+            return data as NotificationConstant;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['notification_constants'] });
+            queryClient.setQueryData(['notification_constants', data.key], data);
+            toast({
+                title: "Éxito",
+                description: "Constante actualizada exitosamente.",
+                variant: 'success',
+            });
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error al actualizar", description: error.message });
+        },
+    });
+};
+
 const useDeleteCustomer = () => {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -608,6 +643,13 @@ export const api = {
     plans: createApi<Plan>('plans'),
     payments: createApi<Payment>('payments'),
     modules: createApi<Module>('modules'),
+    notificationTemplates: createApi<NotificationTemplate>('notification_templates'),
+    notificationTemplateVariables: createApi<NotificationTemplateVariable>('notification_template_variables'),
+    notificationConstants: {
+      ...createApi<NotificationConstant>('notification_constants'),
+      useUpdate: useUpdateNotificationConstant,
+    },
+    notificationLogs: createApi<NotificationLog>('notification_logs'),
     dashboard: {
       useGetStats: useGetDashboardStats
     },

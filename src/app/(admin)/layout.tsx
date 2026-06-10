@@ -25,6 +25,7 @@ import {
   Loader2,
   Box,
   Monitor,
+  Bell,
 } from "lucide-react";
 
 import {
@@ -70,6 +71,7 @@ const allNavItems: NavItem[] = [
     { href: "/product-categories", icon: List, label: "Cat. de Productos", module_id: "product-categories" },
     { href: "/plans", icon: Tags, label: "Planes", module_id: "plans" },
     { href: "/users", icon: Users, label: "Usuarios", module_id: "users" },
+    { href: "/notification-templates", icon: Bell, label: "Plantillas", module_id: "settings" },
     { href: "/roles", icon: Shield, label: "Roles y Permisos", module_id: "roles" },
     { href: "/modules", icon: Box, label: "Módulos", module_id: "modules" },
     { href: "/settings", icon: Settings, label: "Configuración", module_id: "settings" },

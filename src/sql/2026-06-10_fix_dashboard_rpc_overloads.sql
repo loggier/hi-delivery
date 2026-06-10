@@ -1,0 +1,39 @@
+-- Fix: Elimina la sobrecarga de get_daily_dashboard_stats que causa ambigüedad en PostgREST.
+-- La versión sin parámetros (para admin) se conserva.
+-- La versión con p_business_id text colisionaba porque PostgREST no resuelve sobrecarga
+-- cuando se llama sin argumentos.
+-- Ahora admin usa buildDashboardStats() directo en API route, y negocio usa
+-- grupohubs.get_business_dashboard_stats(p_business_id text).
+
+-- Elimina solo la función sobrecargada con parámetro, sin CASCADE para no afectar otras funciones
+DROP FUNCTION IF EXISTS grupohubs.get_daily_dashboard_stats(p_business_id text);
+
+-- La función original sin parámetros se conserva:
+--   grupohubs.get_daily_dashboard_stats()
+-- El admin ya no la llama desde route.ts; se usa buildDashboardStats() en su lugar.
+-- Negocio debe usar:
+--   grupohubs.get_business_dashboard_stats(p_business_id text)
+-- Si esa función no existe, crear una RPC que reciba p_business_id text y devuelva
+-- las mismas columnas que get_daily_dashboard_stats pero filtradas por business_id.
+-- Ejemplo de firma esperada:
+--   CREATE OR REPLACE FUNCTION grupohubs.get_business_dashboard_stats(p_business_id text)
+--   RETURNS TABLE(
+--     daily_revenue numeric,
+--     daily_rider_earnings numeric,
+--     daily_orders bigint,
+--     monthly_orders bigint,
+--     average_ticket_today numeric,
+--     active_orders bigint,
+--     total_riders bigint,
+--     active_riders bigint,
+--     total_businesses bigint,
+--     active_businesses bigint,
+--     order_status_summary_json jsonb,
+--     top_businesses_json jsonb,
+--     top_riders_json jsonb,
+--     top_customers_json jsonb,
+--     revenue_last_7_days_json jsonb,
+--     orders_last_7_days_json jsonb
+--   )
+--   LANGUAGE plpgsql SECURITY DEFINER
+--   AS $$ ... $$;

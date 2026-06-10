@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const libraries: ('places')[] = ['places'];
 const WOOSMAP_AUTOCOMPLETE_URL = 'https://api.woosmap.com/localities/autocomplete/';
 const WOOSMAP_DETAILS_URL = 'https://api.woosmap.com/localities/details';
-const WOOSMAP_API_KEY = process.env.NEXT_PUBLIC_WOOSMAP_KEY || 'woos-369dbc44-cd3f-3db1-a113-4d5aeb968f3e';
+const WOOSMAP_API_KEY = process.env.NEXT_PUBLIC_WOOSMAP_KEY || '';
 const NOMINATIM_BASE_URL = process.env.NEXT_PUBLIC_NOMINATIM_BASE_URL || 'https://nominatim.vemontech.com';
 const NOMINATIM_SEARCH_URL = `${NOMINATIM_BASE_URL}/search`;
 const NOMINATIM_REVERSE_URL = `${NOMINATIM_BASE_URL}/reverse`;

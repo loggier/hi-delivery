@@ -22,7 +22,6 @@ export function Footer() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Aquí iría la lógica para enviar el email
-    console.log("Email suscrito:", email);
     setEmail("");
   };
 

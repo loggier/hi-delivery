@@ -904,14 +904,14 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[800px] max-h-[calc(100vh-1rem)] overflow-y-auto p-4 sm:p-6">
+            <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-[800px] max-h-[calc(100dvh-1rem)] overflow-hidden p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="text-2xl">{addressToEdit ? "Editar Dirección" : "Nueva Dirección"}</DialogTitle>
                 </DialogHeader>
                 <FormProvider {...methods}>
                     <Form {...methods}>
-                        <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6 pt-4">
-                            <div>
+                        <form onSubmit={methods.handleSubmit(onSubmit)} className="flex min-h-0 flex-col gap-4 pt-2">
+                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                                 <LocationMap
                                     isMapsLoaded={isMapsLoaded}
                                     onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
@@ -933,7 +933,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
                                     <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2">
+                            <div className="flex shrink-0 justify-end gap-2 border-t pt-4">
                                 <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
@@ -1062,7 +1062,7 @@ export function LocationMap({ isMapsLoaded, onLocationSelect }: LocationMapProps
         }
     };
 
-    if (!isMapsLoaded) return <Skeleton className="h-96 w-full" />;
+    if (!isMapsLoaded) return <Skeleton className="h-72 w-full" />;
 
     return (
         <div className="space-y-4">
@@ -1103,7 +1103,7 @@ export function LocationMap({ isMapsLoaded, onLocationSelect }: LocationMapProps
                     </div>
                 )}
             </div>
-            <div className="relative h-80 w-full">
+            <div className="relative h-64 w-full md:h-80">
                 <GoogleMap
                     mapContainerClassName="h-full w-full rounded-md"
                     center={mapCenter}
@@ -1221,14 +1221,14 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl max-h-[calc(100vh-1rem)] overflow-y-auto p-4 sm:p-6">
+            <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-4xl max-h-[calc(100dvh-1rem)] overflow-hidden p-4 sm:p-6">
                  <DialogHeader>
                     <DialogTitle className="text-2xl">Visualización de Ruta</DialogTitle>
                     <DialogDescription>
                         Ubicación de origen y destino del envío.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="h-[60vh] mt-4">
+                <div className="mt-4 h-[56dvh] md:h-[60vh]">
                     {(!isMapsLoaded || !isModalReady) && <Skeleton className="h-full w-full rounded-md" />}
                     {isMapsLoaded && isModalReady && (
                         <GoogleMap
