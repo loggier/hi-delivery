@@ -12,7 +12,8 @@ const stats = [
 ];
 
 function StatCard({ value, suffix, label, icon: Icon, index }: (typeof stats)[number] & { index: number }) {
-  const { count, ref } = useCountUp(value, 1600 + index * 120);
+  const { count, ref } = useCountUp({ target: value, duration: 1600 + index * 120 });
+  const safeCount = Number.isFinite(count) ? count : 0;
 
   return (
     <motion.div
@@ -27,7 +28,7 @@ function StatCard({ value, suffix, label, icon: Icon, index }: (typeof stats)[nu
         <Icon className="h-6 w-6" />
       </div>
       <p className="text-4xl font-black tracking-tight text-blue-950">
-        {count.toLocaleString("es-MX")}{suffix}
+        {safeCount.toLocaleString("es-MX")}{suffix}
       </p>
       <p className="mt-2 text-sm font-semibold text-slate-500">{label}</p>
     </motion.div>
