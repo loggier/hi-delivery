@@ -182,9 +182,9 @@ const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "w
 const DetailItem = ({ icon: Icon, label, value, children }: { icon: React.ElementType, label: string, value?: string, children?: React.ReactNode }) => (
     <div className="flex items-start gap-3">
         <Icon className="h-5 w-5 text-slate-500 mt-0.5 flex-shrink-0" />
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
             <p className="text-sm text-slate-500">{label}</p>
-            {children || <p className="font-medium text-sm">{value || 'No disponible'}</p>}
+            {children || <p className="break-words text-sm font-medium">{value || 'No disponible'}</p>}
         </div>
     </div>
 );
@@ -974,7 +974,7 @@ export default function ViewOrderPage() {
     <div className="space-y-6">
       <ConfirmationDialog />
       <Dialog open={isTicketDialogOpen} onOpenChange={setIsTicketDialogOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Ticket del pedido</DialogTitle>
             <DialogDescription>
@@ -1010,7 +1010,7 @@ export default function ViewOrderPage() {
       </Dialog>
       {canUseOperationsTools ? (
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Asignar rider manualmente</DialogTitle>
               <DialogDescription>
@@ -1026,8 +1026,8 @@ export default function ViewOrderPage() {
                 </div>
               ) : availableRidersQuery.data?.length ? (
                 availableRidersQuery.data.map((rider) => (
-                  <div key={rider.id} className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-1">
+                  <div key={rider.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-1">
                       <div className="font-medium">
                         {rider.first_name} {rider.last_name}
                       </div>
@@ -1057,6 +1057,7 @@ export default function ViewOrderPage() {
                     <Button
                       onClick={() => handleManualAssign(rider)}
                       disabled={assigningRiderId === rider.id}
+                      className="w-full sm:w-auto"
                     >
                       {assigningRiderId === rider.id ? 'Asignando...' : 'Asignar'}
                     </Button>
@@ -1076,17 +1077,19 @@ export default function ViewOrderPage() {
           </DialogContent>
         </Dialog>
       ) : null}
-      <PageHeader title={`Pedido #${displayId}`}>
-         <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+         <h2 className="break-words text-2xl font-bold tracking-tight">Pedido #{displayId}</h2>
+         <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center sm:justify-end">
             {canUseOperationsTools ? (
               <>
-                <Badge variant={isShippingOrder ? "default" : "outline"} className="text-base py-1 px-3">
+                <Badge variant={isShippingOrder ? "default" : "outline"} className="px-3 py-1 text-base">
                   {isShippingOrder ? "Shipping" : "POS"}
                 </Badge>
                 <Button
                   variant="outline"
                   onClick={handleTestPush}
                   disabled={testingPush}
+                  className="flex-1 sm:flex-none"
                 >
                   <BellRing className="mr-2 h-4 w-4" />
                   {testingPush ? 'Enviando push...' : 'Probar push'}
@@ -1097,6 +1100,7 @@ export default function ViewOrderPage() {
                       variant="outline"
                       onClick={handleRedispatch}
                       disabled={reDispatching}
+                      className="flex-1 sm:flex-none"
                     >
                       <RefreshCw className="mr-2 h-4 w-4" />
                       {reDispatching ? 'Reenviando...' : 'Reenviar notificación'}
@@ -1104,6 +1108,7 @@ export default function ViewOrderPage() {
                     <Button
                       variant="outline"
                       onClick={() => setIsAssignDialogOpen(true)}
+                      className="flex-1 sm:flex-none"
                     >
                       <UserPlus className="mr-2 h-4 w-4" />
                       Asignar rider
@@ -1112,7 +1117,7 @@ export default function ViewOrderPage() {
                 ) : null}
               </>
             ) : null}
-            <Badge variant={statusInfo.variant} className="capitalize text-base py-1 px-3">
+            <Badge variant={statusInfo.variant} className="px-3 py-1 text-base capitalize">
                 <statusInfo.icon className="mr-2 h-4 w-4" />
                 {statusInfo.label}
             </Badge>
@@ -1137,18 +1142,19 @@ export default function ViewOrderPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
-         </div>
-      </PageHeader>
+          </div>
+      </div>
       
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <div className="lg:col-span-2 space-y-6">
+       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+        <div className="order-2 space-y-6 lg:order-1 lg:col-span-2">
              {hasOrderItems ? (
                 <Card>
                     <CardHeader>
                         <CardTitle>Resumen de Artículos</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Table>
+                        <div className="overflow-x-auto">
+                        <Table className="min-w-[560px]">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Producto</TableHead>
@@ -1176,12 +1182,13 @@ export default function ViewOrderPage() {
                                 ))}
                             </TableBody>
                         </Table>
+                        </div>
                     </CardContent>
                 </Card>
              ) : (
                 <Card>
                     <CardHeader>
-                        <div className="flex items-center justify-between gap-3">
+                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <CardTitle>{canUseOperationsTools ? "Detalle del Pedido Shipping" : "Detalle del pedido"}</CardTitle>
                             {canUseOperationsTools ? <Badge variant="default">Shipping</Badge> : null}
                         </div>
@@ -1241,12 +1248,12 @@ export default function ViewOrderPage() {
                 <CardHeader>
                     <CardTitle>{canUseOperationsTools ? "Mapa de la Ruta" : "Mapa de entrega"}</CardTitle>
                 </CardHeader>
-                <CardContent className="h-96">
-                   <LocationMap order={order} />
-                </CardContent>
-             </Card>
+                 <CardContent className="h-72 sm:h-96">
+                    <LocationMap order={order} />
+                 </CardContent>
+              </Card>
         </div>
-        <div className="lg:col-span-1 space-y-6">
+        <div className="order-1 space-y-6 lg:order-2 lg:col-span-1">
              <Card>
                 <CardHeader>
                     <CardTitle>Detalles del Pedido</CardTitle>
