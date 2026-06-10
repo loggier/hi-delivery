@@ -1,103 +1,47 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Users, Package, Store, MapPin } from "lucide-react";
+import { MapPin, PackageCheck, Store, Users } from "lucide-react";
 import { useCountUp } from "@/hooks/use-count-up";
 
 const stats = [
-  {
-    target: 500,
-    suffix: "+",
-    label: "Repartidores Activos",
-    icon: Users,
-    color: "bg-[#00d4ff]/15 text-[#00d4ff]",
-    gradient: "from-[#00d4ff] to-[#00ff88]",
-  },
-  {
-    target: 10000,
-    suffix: "+",
-    label: "Entregas Este Mes",
-    icon: Package,
-    color: "bg-[#ff6b00]/15 text-[#ff6b00]",
-    gradient: "from-[#ff6b00] to-[#ffcc00]",
-  },
-  {
-    target: 200,
-    suffix: "+",
-    label: "Negocios Asociados",
-    icon: Store,
-    color: "bg-[#00ff88]/15 text-[#00ff88]",
-    gradient: "from-[#00ff88] to-[#00d4ff]",
-  },
-  {
-    target: 15,
-    suffix: "",
-    label: "Zonas de Cobertura",
-    icon: MapPin,
-    color: "bg-purple-500/15 text-purple-400",
-    gradient: "from-purple-400 to-pink-400",
-  },
+  { value: 500, suffix: "+", label: "Repartidores activos", icon: Users },
+  { value: 10000, suffix: "+", label: "Entregas al mes", icon: PackageCheck },
+  { value: 200, suffix: "+", label: "Negocios aliados", icon: Store },
+  { value: 15, suffix: "+", label: "Zonas de cobertura", icon: MapPin },
 ];
 
-function StatCard({
-  stat,
-  index,
-}: {
-  stat: (typeof stats)[0];
-  index: number;
-}) {
-  const { count, ref, display } = useCountUp({
-    target: stat.target,
-    suffix: stat.suffix,
-    duration: 2500,
-  });
-
-  const Icon = stat.icon;
+function StatCard({ value, suffix, label, icon: Icon, index }: (typeof stats)[number] & { index: number }) {
+  const { count, ref } = useCountUp(value, 1600 + index * 120);
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.6, delay: index * 0.15, ease: "easeOut" }}
-      className="glass-dark hover-lift rounded-2xl p-6 md:p-8 flex flex-col items-center text-center"
+      viewport={{ once: true, amount: 0.4 }}
+      transition={{ duration: 0.45, delay: index * 0.08, ease: "easeOut" }}
+      className="rounded-3xl border border-blue-100 bg-white p-6 shadow-xl shadow-blue-900/5 transition-transform hover:-translate-y-1"
     >
-      {/* Icon */}
-      <div
-        className={`mb-4 flex h-14 w-14 items-center justify-center rounded-xl ${stat.color}`}
-      >
-        <Icon className="h-7 w-7" />
+      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+        <Icon className="h-6 w-6" />
       </div>
-
-      {/* Number */}
-      <div
-        className={`text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}
-      >
-        {display}
-      </div>
-
-      {/* Label */}
-      <p className="mt-2 text-sm md:text-base font-medium text-[#94a3b8]">
-        {stat.label}
+      <p className="text-4xl font-black tracking-tight text-blue-950">
+        {count.toLocaleString("es-MX")}{suffix}
       </p>
+      <p className="mt-2 text-sm font-semibold text-slate-500">{label}</p>
     </motion.div>
   );
 }
 
 export function StatsBar() {
   return (
-    <section className="relative w-full bg-[#0a0a0f] py-16 md:py-24">
-      {/* Top border glow */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00d4ff]/30 to-transparent" />
-      
-      {/* Subtle background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#00d4ff]/3 via-transparent to-transparent pointer-events-none" />
-
+    <section className="relative bg-white py-12 sm:py-16">
+      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white to-transparent" />
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, index) => (
-            <StatCard key={stat.label} stat={stat} index={index} />
+            <StatCard key={stat.label} {...stat} index={index} />
           ))}
         </div>
       </div>

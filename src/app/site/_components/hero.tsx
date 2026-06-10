@@ -1,192 +1,132 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Store } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, BadgeCheck, Bike, Store, Wallet } from "lucide-react";
+
+const heroStats = [
+  { label: "Pagos semanales", icon: Wallet },
+  { label: "Rutas en tu zona", icon: Bike },
+  { label: "Soporte operativo", icon: BadgeCheck },
+];
 
 export function Hero() {
+  const { scrollYProgress } = useScroll();
+  const videoY = useTransform(scrollYProgress, [0, 0.25], [0, 36]);
+  const contentY = useTransform(scrollYProgress, [0, 0.25], [0, -16]);
+
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#0a0a0f]">
-      {/* Animated gradient mesh background */}
-      <div className="absolute inset-0 bg-gradient-mesh animate-gradient-mesh" />
-      
-      {/* Radial glow overlay */}
-      <div className="absolute inset-0 bg-gradient-radial" />
-      
-      {/* Floating particles / orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Orb 1 - top left */}
+    <section className="relative min-h-[88vh] overflow-hidden bg-[#071a33] text-white">
+      <motion.video
+        className="absolute inset-0 h-full w-full scale-[1.04] object-cover object-center"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        poster="/banner-site-hid.png"
+        aria-hidden="true"
+        style={{ y: videoY }}
+      >
+        <source src="/banner-site-hid.mp4" type="video/mp4" />
+      </motion.video>
+
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,18,42,0.92)_0%,rgba(5,35,79,0.82)_42%,rgba(5,35,79,0.42)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white via-white/70 to-transparent" />
+      <div className="absolute -left-24 top-24 h-80 w-80 rounded-full bg-sky-400/25 blur-3xl" />
+      <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-orange-400/15 blur-3xl" />
+
+      <div className="relative z-10 flex min-h-[88vh] items-center pt-10">
         <motion.div
-          className="absolute top-[15%] left-[10%] w-72 h-72 rounded-full bg-[#00d4ff]/10 blur-[80px]"
-          animate={{
-            x: [0, 30, 0],
-            y: [0, -20, 0],
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        {/* Orb 2 - bottom right */}
-        <motion.div
-          className="absolute bottom-[20%] right-[15%] w-96 h-96 rounded-full bg-[#00ff88]/5 blur-[100px]"
-          animate={{
-            x: [0, -20, 0],
-            y: [0, 30, 0],
-            scale: [1, 1.15, 1],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        {/* Orb 3 - center */}
-        <motion.div
-          className="absolute top-[40%] left-[50%] w-64 h-64 rounded-full bg-[#ff6b00]/5 blur-[60px]"
-          animate={{
-            x: [0, 40, 0],
-            y: [0, -30, 0],
-          }}
-          transition={{
-            duration: 12,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        {/* Small floating circles */}
-        {[...Array(6)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-[#00d4ff]/20 blur-sm"
-            style={{
-              width: `${Math.random() * 6 + 2}px`,
-              height: `${Math.random() * 6 + 2}px`,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [0, -30, 0],
-              opacity: [0.2, 0.6, 0.2],
-            }}
-            transition={{
-              duration: Math.random() * 4 + 3,
-              repeat: Infinity,
-              delay: Math.random() * 2,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex h-full min-h-[100dvh] items-center">
-        <div className="container mx-auto px-4 py-20">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            {/* Left side - Text content */}
-            <div className="flex flex-col items-start">
-              <motion.h1
-                className="text-5xl font-bold tracking-tight text-white md:text-6xl lg:text-7xl"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-              >
-                <span className="text-gradient">
-                  Conviértete en Repartidor
-                </span>
-                <br />
-                <span className="text-white">y Gana a tu Ritmo</span>
-              </motion.h1>
-
-              <motion.p
-                className="mt-6 max-w-2xl text-lg text-[#94a3b8]"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              >
-                Únete a la red de repartidores de Hi! Delivery en Culiacán.
-                Disfruta de horarios flexibles, ganancias competitivas y la
-                libertad de ser tu propio jefe.
-              </motion.p>
-
-              <motion.div
-                className="mt-10 flex flex-col gap-4 sm:flex-row"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-              >
-                <Button
-                  asChild
-                  size="lg"
-                  className="bg-gradient-to-r from-[#00d4ff] to-[#0066cc] text-white font-semibold text-lg px-8 py-6 hover:opacity-90 transition-all shadow-glow hover:shadow-[0_0_40px_rgba(0,212,255,0.3)]"
-                >
-                  <Link href="/site/deliveryman/apply">
-                    Regístrate como Repartidor
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="glass-dark text-white font-semibold text-lg px-8 py-6 border-white/20 hover:bg-white/10 hover:border-white/30 transition-all"
-                >
-                  <Link href="/site/store/apply">
-                    <Store className="mr-2 h-5 w-5 text-[#00d4ff]" />
-                    Soy un Negocio
-                  </Link>
-                </Button>
-              </motion.div>
-            </div>
-
-            {/* Right side - Phone mockup */}
+          className="container mx-auto grid items-center gap-10 px-4 py-20 lg:grid-cols-[1fr_420px]"
+          style={{ y: contentY }}
+        >
+          <div className="max-w-4xl">
             <motion.div
-              className="hidden lg:flex justify-center items-center"
-              initial={{ opacity: 0, x: 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: "easeOut" }}
+              className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-semibold text-white shadow-xl shadow-blue-950/20 backdrop-blur-md"
             >
-              <div className="animate-float relative">
-                {/* Phone frame */}
-                <div className="relative w-64 h-[500px] rounded-[2.5rem] glass-dark border border-[#00d4ff]/30 shadow-glow overflow-hidden">
-                  {/* Inner glow */}
-                  <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-b from-[#00d4ff]/10 to-transparent" />
-                  
-                  {/* Notch */}
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-[#0a0a0f] rounded-full" />
-                  
-                  {/* Screen content */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00d4ff] to-[#0066cc] flex items-center justify-center mb-4 shadow-glow">
-                      <span className="text-2xl font-bold text-white">Hi!</span>
-                    </div>
-                    <p className="text-white font-semibold text-lg">App Preview</p>
-                    <p className="text-[#64748b] text-sm mt-2 text-center">
-                      Tu plataforma de entregas
-                    </p>
-                    
-                    {/* Mock UI elements */}
-                    <div className="mt-8 w-full space-y-3">
-                      <div className="h-12 w-full rounded-xl bg-white/5 border border-white/10" />
-                      <div className="h-12 w-full rounded-xl bg-white/5 border border-white/10" />
-                      <div className="h-12 w-full rounded-xl bg-gradient-to-r from-[#00d4ff]/20 to-[#00ff88]/20 border border-[#00d4ff]/20" />
-                    </div>
-                  </div>
-                  
-                  {/* Bottom home indicator */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/30 rounded-full" />
+              <Image src="/logo-hid.png" alt="Hi! Delivery" width={24} height={24} className="h-6 w-6" />
+              Repartidores asociados en Culiacán
+            </motion.div>
+
+            <motion.h1
+              className="max-w-4xl text-5xl font-black leading-[0.95] tracking-[-0.05em] text-white drop-shadow-2xl sm:text-6xl lg:text-7xl"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.65, ease: "easeOut" }}
+            >
+              Conviértete en repartidor y gana a tu ritmo.
+            </motion.h1>
+
+            <motion.p
+              className="mt-6 max-w-2xl text-lg leading-8 text-blue-50/90 sm:text-xl"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.65, ease: "easeOut" }}
+            >
+              Únete a la red de Hi! Delivery. Recibe pedidos cerca de ti,
+              administra tus horarios y entrega con una plataforma local hecha
+              para moverte mejor.
+            </motion.p>
+
+            <motion.div
+              className="mt-9 flex flex-col gap-4 sm:flex-row"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.65, ease: "easeOut" }}
+            >
+              <Button asChild size="lg" className="h-14 rounded-full bg-orange-500 px-8 text-base font-bold text-white shadow-2xl shadow-orange-600/30 hover:bg-orange-600">
+                <Link href="/site/deliveryman/apply">
+                  Regístrate como Repartidor
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="secondary" className="h-14 rounded-full bg-white px-8 text-base font-bold text-blue-950 shadow-2xl hover:bg-blue-50">
+                <Link href="/site/store/apply">
+                  <Store className="mr-2 h-5 w-5" />
+                  Soy un Negocio
+                </Link>
+              </Button>
+            </motion.div>
+
+            <motion.div
+              className="mt-10 grid max-w-3xl gap-3 sm:grid-cols-3"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.65, ease: "easeOut" }}
+            >
+              {heroStats.map((item) => (
+                <div key={item.label} className="rounded-2xl border border-white/15 bg-white/12 p-4 shadow-xl shadow-blue-950/20 backdrop-blur-md">
+                  <item.icon className="mb-3 h-5 w-5 text-orange-300" />
+                  <p className="text-sm font-semibold text-white">{item.label}</p>
                 </div>
-                
-                {/* Decorative ring behind phone */}
-                <div className="absolute -inset-4 rounded-[3rem] border border-[#00d4ff]/10 -z-10" />
-                <div className="absolute -inset-8 rounded-[3.5rem] border border-[#00d4ff]/5 -z-10" />
-              </div>
+              ))}
             </motion.div>
           </div>
-        </div>
+
+          <motion.div
+            className="hidden lg:block"
+            initial={{ opacity: 0, x: 40, rotate: 2 }}
+            animate={{ opacity: 1, x: 0, rotate: 0 }}
+            transition={{ delay: 0.35, duration: 0.75, ease: "easeOut" }}
+          >
+            <div className="rounded-[2rem] border border-white/20 bg-white/14 p-4 shadow-2xl shadow-blue-950/30 backdrop-blur-xl">
+              <Image
+                src="/repartidor.png"
+                alt="Repartidor Hi! Delivery"
+                width={600}
+                height={600}
+                className="h-auto w-full rounded-[1.5rem] object-cover"
+                priority
+              />
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );

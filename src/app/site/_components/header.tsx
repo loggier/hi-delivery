@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,26 +56,24 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full border-b border-white/10 transition-all duration-300",
-        "backdrop-blur-xl bg-white/5",
-        isScrolled && "bg-white/8 shadow-lg"
+        "sticky top-0 z-50 w-full border-b transition-all duration-300",
+        isScrolled
+          ? "border-slate-200/70 bg-white/95 shadow-lg shadow-blue-950/5 backdrop-blur-xl"
+          : "border-white/25 bg-white/75 shadow-sm backdrop-blur-xl"
       )}
     >
       {/* Scroll progress bar */}
       <motion.div
-        className="absolute top-0 left-0 right-0 h-0.5 origin-left bg-gradient-to-r from-[#00d4ff] to-[#00ff88]"
+        className="absolute left-0 right-0 top-0 h-0.5 origin-left bg-gradient-to-r from-blue-600 via-sky-400 to-orange-400"
         style={{ scaleX: progressX }}
       />
 
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/site" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-white">
-              Hi!{" "}
-              <span className="text-[#00d4ff] drop-shadow-[0_0_8px_rgba(0,212,255,0.6)]">
-                Delivery
-              </span>
+          <Link href="/site" className="flex items-center gap-3">
+            <Image src="/logo-hid.png" alt="Hi! Delivery" width={36} height={36} className="h-9 w-9" />
+            <span className="text-xl font-extrabold tracking-tight text-slate-950">
+              Hi! <span className="text-blue-600">Delivery</span>
             </span>
           </Link>
 
@@ -85,7 +84,7 @@ export function Header() {
                 key={link.href}
                 href={getLinkHref(link.href)}
                 onClick={(e) => handleNavClick(e, link.href)}
-                className="text-sm font-medium text-[#94a3b8] transition-colors hover:text-[#00d4ff]"
+                className="text-sm font-semibold text-slate-700 transition-colors hover:text-blue-600"
               >
                 {link.label}
               </Link>
@@ -97,13 +96,13 @@ export function Header() {
             <Button
               variant="ghost"
               asChild
-              className="text-[#94a3b8] hover:text-white hover:bg-white/10"
+              className="text-slate-700 hover:bg-blue-50 hover:text-blue-700"
             >
               <Link href="/sign-in">Iniciar Sesión</Link>
             </Button>
             <Button
               asChild
-              className="bg-gradient-to-r from-[#00d4ff] to-[#0066cc] text-white font-semibold hover:opacity-90 transition-opacity shadow-glow"
+              className="bg-gradient-to-r from-blue-600 to-sky-500 font-semibold text-white shadow-lg shadow-blue-600/20 transition-transform hover:-translate-y-0.5 hover:from-blue-700 hover:to-sky-600"
             >
               <Link href="/site/deliveryman/apply">
                 ¡Quiero ser Repartidor!
@@ -115,7 +114,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden text-white hover:bg-white/10"
+            className="text-slate-900 hover:bg-blue-50 md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -132,7 +131,7 @@ export function Header() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-white/10 backdrop-blur-xl bg-white/5 md:hidden"
+            className="overflow-hidden border-t border-slate-200 bg-white/95 shadow-lg backdrop-blur-xl md:hidden"
           >
             <nav className="flex flex-col items-center gap-4 p-6">
               {navLinks.map((link) => (
@@ -140,7 +139,7 @@ export function Header() {
                   key={link.href}
                   href={getLinkHref(link.href)}
                   onClick={(e) => handleNavClick(e, link.href)}
-                  className="text-lg font-medium text-[#94a3b8] transition-colors hover:text-[#00d4ff]"
+                  className="text-lg font-semibold text-slate-700 transition-colors hover:text-blue-600"
                 >
                   {link.label}
                 </Link>
@@ -149,13 +148,13 @@ export function Header() {
                 <Button
                   variant="outline"
                   asChild
-                  className="w-full border-white/20 text-white hover:bg-white/10"
+                  className="w-full border-blue-200 text-slate-800 hover:bg-blue-50"
                 >
                   <Link href="/sign-in">Iniciar Sesión</Link>
                 </Button>
                 <Button
                   asChild
-                  className="w-full bg-gradient-to-r from-[#00d4ff] to-[#0066cc] text-white font-semibold hover:opacity-90 shadow-glow"
+                  className="w-full bg-gradient-to-r from-blue-600 to-sky-500 font-semibold text-white shadow-lg shadow-blue-600/20 hover:from-blue-700 hover:to-sky-600"
                 >
                   <Link href="/site/deliveryman/apply">
                     ¡Quiero ser Repartidor!
