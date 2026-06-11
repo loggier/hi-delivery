@@ -1,5 +1,19 @@
 type EvolutionJson = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
 
+export class EvolutionApiError extends Error {
+  status: number;
+  path: string;
+  payload: EvolutionJson;
+
+  constructor(message: string, status: number, path: string, payload: EvolutionJson) {
+    super(message);
+    this.name = 'EvolutionApiError';
+    this.status = status;
+    this.path = path;
+    this.payload = payload;
+  }
+}
+
 export type EvolutionConnectionState = {
   instanceName: string;
   state: string;
@@ -45,15 +59,42 @@ function getEvolutionApiKey() {
   return apiKey;
 }
 
+function getEvolutionTimeoutMs() {
+  const configuredTimeout = Number(process.env.EVOLUTION_API_TIMEOUT_MS);
+  return Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : 15000;
+}
+
 async function evolutionRequest(path: string, init: RequestInit = {}) {
-  const response = await fetch(`${getEvolutionBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      apikey: getEvolutionApiKey(),
-      ...(init.headers ?? {}),
-    },
-    cache: 'no-store',
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getEvolutionTimeoutMs());
+
+  let response: Response;
+  try {
+    response = await fetch(`${getEvolutionBaseUrl()}${path}`, {
+      ...init,
+      headers: {
+        apikey: getEvolutionApiKey(),
+        ...(init.headers ?? {}),
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new EvolutionApiError(
+        `Evolution API no respondió antes de ${getEvolutionTimeoutMs()}ms.`,
+        504,
+        path,
+        null,
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const contentType = response.headers.get('content-type') ?? '';
   const payload = contentType.includes('application/json')
@@ -67,7 +108,7 @@ async function evolutionRequest(path: string, init: RequestInit = {}) {
         : (payload as { message?: string; error?: string } | null)?.message ||
           (payload as { message?: string; error?: string } | null)?.error ||
           `Evolution API respondió con estado ${response.status}.`;
-    throw new Error(message);
+    throw new EvolutionApiError(message, response.status, path, payload as EvolutionJson);
   }
 
   return payload as EvolutionJson;

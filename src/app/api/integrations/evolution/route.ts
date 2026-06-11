@@ -3,6 +3,7 @@ import {
   connectEvolutionInstance,
   createEvolutionInstance,
   deleteEvolutionInstance,
+  EvolutionApiError,
   getEvolutionConnectionState,
   getEvolutionInstanceSummary,
   logoutEvolutionInstance,
@@ -12,6 +13,17 @@ import {
 export const dynamic = 'force-dynamic';
 
 function buildErrorResponse(error: unknown, status = 500) {
+  if (error instanceof EvolutionApiError) {
+    return NextResponse.json(
+      {
+        message: error.message,
+        upstreamStatus: error.status,
+        upstreamPath: error.path,
+      },
+      { status: error.status },
+    );
+  }
+
   const message = error instanceof Error ? error.message : 'Error inesperado.';
   return NextResponse.json({ message }, { status });
 }
@@ -63,7 +75,9 @@ export async function GET(request: Request) {
     }
 
     const state = await getEvolutionConnectionState(instance);
-    const summary = await getEvolutionInstanceSummary(instance).catch(() => null);
+    const summary = mode === 'status'
+      ? null
+      : await getEvolutionInstanceSummary(instance).catch(() => null);
     let qrData: Awaited<ReturnType<typeof connectEvolutionInstance>> | null = null;
 
     if (mode === 'qr' || (mode === 'full' && state.state !== 'open')) {
