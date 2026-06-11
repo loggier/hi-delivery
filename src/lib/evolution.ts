@@ -4,13 +4,25 @@ export class EvolutionApiError extends Error {
   status: number;
   path: string;
   payload: EvolutionJson;
+  causeCode: string | null;
+  causeMessage: string | null;
+  upstreamHost: string | null;
 
-  constructor(message: string, status: number, path: string, payload: EvolutionJson) {
+  constructor(
+    message: string,
+    status: number,
+    path: string,
+    payload: EvolutionJson,
+    options: { causeCode?: string | null; causeMessage?: string | null; upstreamHost?: string | null } = {},
+  ) {
     super(message);
     this.name = 'EvolutionApiError';
     this.status = status;
     this.path = path;
     this.payload = payload;
+    this.causeCode = options.causeCode ?? null;
+    this.causeMessage = options.causeMessage ?? null;
+    this.upstreamHost = options.upstreamHost ?? null;
   }
 }
 
@@ -66,6 +78,30 @@ function getEvolutionTimeoutMs() {
     : 15000;
 }
 
+function getEvolutionHost() {
+  try {
+    return new URL(getEvolutionBaseUrl()).host;
+  } catch {
+    return null;
+  }
+}
+
+function getFetchErrorCause(error: unknown) {
+  const cause = error instanceof Error && 'cause' in error
+    ? (error as Error & { cause?: unknown }).cause
+    : null;
+
+  if (!cause || typeof cause !== 'object') {
+    return { code: null, message: null };
+  }
+
+  const record = cause as Record<string, unknown>;
+  return {
+    code: typeof record.code === 'string' ? record.code : null,
+    message: typeof record.message === 'string' ? record.message : null,
+  };
+}
+
 async function evolutionRequest(path: string, init: RequestInit = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), getEvolutionTimeoutMs());
@@ -88,10 +124,24 @@ async function evolutionRequest(path: string, init: RequestInit = {}) {
         504,
         path,
         null,
+        { causeCode: 'ABORT_TIMEOUT', upstreamHost: getEvolutionHost() },
       );
     }
 
-    throw error;
+    const cause = getFetchErrorCause(error);
+    throw new EvolutionApiError(
+      cause.code
+        ? `No se pudo conectar con Evolution API (${cause.code}).`
+        : 'No se pudo conectar con Evolution API.',
+      502,
+      path,
+      null,
+      {
+        causeCode: cause.code,
+        causeMessage: cause.message,
+        upstreamHost: getEvolutionHost(),
+      },
+    );
   } finally {
     clearTimeout(timeout);
   }

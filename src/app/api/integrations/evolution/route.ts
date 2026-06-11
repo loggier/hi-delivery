@@ -19,6 +19,9 @@ function buildErrorResponse(error: unknown, status = 500) {
         message: error.message,
         upstreamStatus: error.status,
         upstreamPath: error.path,
+        upstreamHost: error.upstreamHost,
+        causeCode: error.causeCode,
+        causeMessage: error.causeMessage,
       },
       { status: error.status },
     );
