@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { hashPassword } from '@/lib/auth-utils';
-import { hashResetSecret } from '@/lib/password-reset';
+import { hashResetSecret, sendPasswordChangedNotice } from '@/lib/password-reset';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const confirmSchema = z.object({
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const { data: resetRequest, error } = await supabase
       .from('password_reset_requests')
-      .select('id, user_id')
+      .select('id, user_id, recipient')
       .eq('token_hash', tokenHash)
       .is('consumed_at', null)
       .gt('expires_at', new Date().toISOString())
@@ -46,11 +46,26 @@ export async function POST(request: Request) {
 
     const { error: consumeError } = await supabase
       .from('password_reset_requests')
-      .update({ consumed_at: new Date().toISOString() })
+      .update({ consumed_at: new Date().toISOString(), token_hash: null, code_hash: null })
       .eq('user_id', resetRequest.user_id)
       .is('consumed_at', null);
 
     if (consumeError) throw consumeError;
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', resetRequest.user_id)
+      .maybeSingle();
+
+    try {
+      await sendPasswordChangedNotice({
+        recipient: resetRequest.recipient,
+        userName: user?.name || 'usuario',
+      });
+    } catch (notificationError) {
+      console.error('Password changed notification failed:', notificationError);
+    }
 
     return NextResponse.json({ message: 'Contraseña actualizada correctamente.' });
   } catch (error) {

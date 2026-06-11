@@ -207,3 +207,17 @@ export async function sendPasswordResetCode(input: {
     },
   });
 }
+
+export async function sendPasswordChangedNotice(input: {
+  recipient: string;
+  userName: string;
+}) {
+  return sendNotification({
+    templateKey: 'password.changed',
+    channel: 'whatsapp',
+    recipient: input.recipient,
+    variables: {
+      'user.name': input.userName,
+    },
+  });
+}
