@@ -127,6 +127,7 @@ export default function SettingsPage() {
   const [pushOrderId, setPushOrderId] = useState("");
   const [isSendingPush, setIsSendingPush] = useState(false);
   const [pushHistory, setPushHistory] = useState<PushTestHistoryItem[]>([]);
+  const [activeTab, setActiveTab] = useState("general");
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -331,7 +332,7 @@ export default function SettingsPage() {
         title="Configuración del Sistema"
         description="Ajusta los parámetros globales de la operación de envíos."
       />
-      <Tabs defaultValue="general" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="inline-flex h-auto min-w-max flex-nowrap gap-1 p-1">
           <TabsTrigger value="general" className="h-9 whitespace-nowrap">
             Ajustes
@@ -699,6 +700,7 @@ export default function SettingsPage() {
         <TabsContent value="integrations" className="space-y-4">
           <EvolutionIntegrationCard
             settings={currentSettings}
+            isActive={activeTab === "integrations"}
             isSavingSettings={updateMutation.isPending}
             onSaveSettings={(patch) => updateMutation.mutateAsync({ id: currentSettings!.id, ...patch })}
           />

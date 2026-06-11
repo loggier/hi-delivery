@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ type EvolutionStateResponse = {
 
 type EvolutionIntegrationCardProps = {
   settings?: SystemSettings;
+  isActive?: boolean;
   isSavingSettings?: boolean;
   onSaveSettings?: (patch: Pick<SystemSettings, "evolution_instance_name" | "evolution_phone_number">) => Promise<unknown>;
 };
@@ -60,8 +61,9 @@ function stateLabel(state: string) {
   return state || "Desconocido";
 }
 
-export function EvolutionIntegrationCard({ settings, isSavingSettings = false, onSaveSettings }: EvolutionIntegrationCardProps) {
+export function EvolutionIntegrationCard({ settings, isActive = false, isSavingSettings = false, onSaveSettings }: EvolutionIntegrationCardProps) {
   const { toast } = useToast();
+  const wasActiveRef = useRef(false);
   const [instanceName, setInstanceName] = useState(settings?.evolution_instance_name || "hi-delivery");
   const [phoneNumber, setPhoneNumber] = useState(settings?.evolution_phone_number || "");
   const [stateData, setStateData] = useState<EvolutionStateResponse | null>(null);
@@ -92,7 +94,7 @@ export function EvolutionIntegrationCard({ settings, isSavingSettings = false, o
     instanceName.trim() !== savedInstanceName ||
     phoneNumber.trim() !== savedPhoneNumber;
 
-  const saveConfig = async (showToast = true) => {
+  const saveConfig = useCallback(async (showToast = true) => {
     if (!onSaveSettings) return;
 
     const currentInstance = instanceName.trim();
@@ -120,15 +122,15 @@ export function EvolutionIntegrationCard({ settings, isSavingSettings = false, o
     } finally {
       setIsSavingConfig(false);
     }
-  };
+  }, [instanceName, onSaveSettings, phoneNumber, toast]);
 
-  const ensureConfigSaved = async () => {
+  const ensureConfigSaved = useCallback(async () => {
     if (hasConfigChanges) {
       await saveConfig(false);
     }
-  };
+  }, [hasConfigChanges, saveConfig]);
 
-  const refreshStatus = async (mode: "status" | "qr" | "full" = "full") => {
+  const refreshStatus = useCallback(async (mode: "status" | "qr" | "full" = "full") => {
     const currentInstance = instanceName.trim();
     if (!currentInstance) {
       toast({
@@ -172,7 +174,15 @@ export function EvolutionIntegrationCard({ settings, isSavingSettings = false, o
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [ensureConfigSaved, instanceName, phoneNumber, toast]);
+
+  useEffect(() => {
+    if (isActive && !wasActiveRef.current) {
+      void refreshStatus("status");
+    }
+
+    wasActiveRef.current = isActive;
+  }, [isActive, refreshStatus]);
 
   const createInstance = async () => {
     const currentInstance = instanceName.trim();
