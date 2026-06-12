@@ -70,6 +70,29 @@ const orderTabs: OrderTab[] = [
   },
 ];
 
+const businessOrderTabs: OrderTab[] = [
+  {
+    value: 'preparing',
+    label: 'En preparación',
+    statuses: ['pending_acceptance', 'accepted', 'at_store', 'cooking'],
+  },
+  {
+    value: 'ready_for_pickup',
+    label: 'Listo para recoger',
+    statuses: ['ready_for_pickup'],
+  },
+  {
+    value: 'in_transit',
+    label: 'En camino',
+    statuses: ['picked_up', 'out_for_delivery', 'on_the_way', 'arrived_at_destination'],
+  },
+  {
+    value: 'history',
+    label: 'Historial',
+    statuses: ['completed', 'delivered', 'cancelled', 'failed', 'refunded'],
+  },
+];
+
 function KPICard({ title, value, icon: Icon }: { title: string, value: string | number, icon: React.ElementType }) {
   return (
     <Card>
@@ -123,13 +146,15 @@ export default function OrdersPage() {
 
   const isLoading = isAuthLoading || isLoadingOrders || isLoadingStats;
 
-  const columns = React.useMemo(() => getColumns(), []);
+  const tabs = isBusinessOwner ? businessOrderTabs : orderTabs;
+
+  const columns = React.useMemo(() => getColumns({ isBusinessOwner }), [isBusinessOwner]);
   const ordersByTab = React.useMemo(() => {
-    return orderTabs.reduce<Record<string, Order[]>>((acc, tab) => {
+    return tabs.reduce<Record<string, Order[]>>((acc, tab) => {
       acc[tab.value] = orders?.filter((order) => tab.statuses.includes(order.status)) || [];
       return acc;
     }, {});
-  }, [orders]);
+  }, [orders, tabs]);
 
   return (
     <div className="space-y-6">
@@ -153,10 +178,10 @@ export default function OrdersPage() {
         
         <OrderStatusGrid data={dashboardStats?.orderStatusSummary as any} isLoading={isLoadingStats} />
       
-      <Tabs defaultValue="pending_acceptance" className="space-y-4">
+      <Tabs defaultValue={isBusinessOwner ? "preparing" : "pending_acceptance"} className="space-y-4">
         <div className="overflow-x-auto pb-1">
           <TabsList className="inline-flex h-auto min-w-max flex-nowrap gap-1 p-1">
-            {orderTabs.map((tab) => (
+            {tabs.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="h-9 whitespace-nowrap">
                 {tab.label}
                 <OrderCountBadge count={(ordersByTab[tab.value] || []).length} isLoading={isLoadingOrders} />
@@ -164,7 +189,7 @@ export default function OrdersPage() {
             ))}
           </TabsList>
         </div>
-        {orderTabs.map((tab) => (
+        {tabs.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <DataTable
               columns={columns}

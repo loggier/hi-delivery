@@ -650,6 +650,31 @@ export default function ViewOrderPage() {
     }
   }
 
+  const handleBusinessStatusChange = async (newStatus: OrderStatus) => {
+    if (!order || !isBusinessOwner) return;
+
+    const ok = await confirm({
+      title: `¿Confirmar cambio de estado?`,
+      description: newStatus === 'ready_for_pickup'
+        ? 'El pedido se marcará como "Listo para recoger".'
+        : 'El pedido será cancelado.',
+      confirmText: newStatus === 'ready_for_pickup' ? 'Marcar listo' : 'Cancelar pedido',
+      confirmVariant: newStatus === 'cancelled' ? 'destructive' : 'default',
+    });
+
+    if (ok) {
+      updateStatusMutation.mutate({
+        id: order.id,
+        status: newStatus,
+      }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        }
+      });
+    }
+  }
+
   const tryDispatchOrderRpc = async (orderId: string) => {
     const attempts = [
       { order_id_in: orderId },
@@ -1117,6 +1142,28 @@ export default function ViewOrderPage() {
                 ) : null}
               </>
             ) : null}
+            {isBusinessOwner ? (
+              <>
+                {['pending_acceptance', 'accepted', 'at_store', 'cooking'].includes(order.status) && (
+                  <Button
+                    variant="default"
+                    onClick={() => handleBusinessStatusChange('ready_for_pickup')}
+                  >
+                    <Package className="mr-2 h-4 w-4" />
+                    Listo para recoger
+                  </Button>
+                )}
+                {['pending_acceptance', 'accepted', 'at_store', 'cooking', 'ready_for_pickup'].includes(order.status) && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleBusinessStatusChange('cancelled')}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancelar
+                  </Button>
+                )}
+              </>
+            ) : null}
             <Badge variant={statusInfo.variant} className="px-3 py-1 text-base capitalize">
                 <statusInfo.icon className="mr-2 h-4 w-4" />
                 {statusInfo.label}
@@ -1290,13 +1337,21 @@ export default function ViewOrderPage() {
                     </DetailItem>
                     <DetailItem icon={Phone} label="Teléfono Cliente" value={order.customer_phone} />
                     <DetailItem icon={Home} label="Dirección de Entrega" value={order.delivery_address.text} />
-                    {canUseOperationsTools ? (
+                    {(canUseOperationsTools || isBusinessOwner) ? (
                         <DetailItem icon={Bike} label="Repartidor">
                            {order.rider_id ? (
-                               <Link href={`/riders/${order.rider_id}`} className="font-medium text-sm text-primary hover:underline">
-                                    {order.rider?.first_name} {order.rider?.last_name}
-                               </Link>
-                            ) : 'Sin asignar'}
+                               canUseOperationsTools ? (
+                                   <Link href={`/riders/${order.rider_id}`} className="font-medium text-sm text-primary hover:underline">
+                                        {order.rider?.first_name} {order.rider?.last_name}
+                                   </Link>
+                               ) : (
+                                   <span className="font-medium text-sm">
+                                       {order.rider?.first_name} {order.rider?.last_name}
+                                   </span>
+                               )
+                            ) : (
+                                <span className="text-sm text-muted-foreground">Pendiente de asignar</span>
+                            )}
                         </DetailItem>
                     ) : null}
                     {canUseOperationsTools && !order.rider_id && manuallyAssignableStatuses.includes(order.status as OrderStatus) ? (
@@ -1337,6 +1392,12 @@ export default function ViewOrderPage() {
                         <span>Costo de envío</span>
                         <span>{formatCurrency(order.delivery_fee)}</span>
                     </div>
+                    {isBusinessOwner && order.distance ? (
+                        <div className="flex justify-between text-sm">
+                            <span>Distancia</span>
+                            <span>{(order.distance / 1000).toFixed(2)} km</span>
+                        </div>
+                    ) : null}
                     <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
                         <span>Total</span>
                         <span>{formatCurrency(order.order_total)}</span>

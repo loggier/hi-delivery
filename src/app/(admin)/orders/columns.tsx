@@ -44,7 +44,25 @@ const statusConfig: Record<OrderStatus, { label: string; variant: "success" | "w
     failed: { label: "Fallido", variant: "destructive", icon: XCircle },
 }
 
-export const getColumns = (): ColumnDef<Order>[] => [
+function getBusinessStatusKey(status: OrderStatus): string {
+  if (['pending_acceptance', 'accepted', 'at_store', 'cooking'].includes(status)) return 'preparing';
+  if (status === 'ready_for_pickup') return 'ready_for_pickup';
+  if (['picked_up', 'out_for_delivery', 'on_the_way', 'arrived_at_destination'].includes(status)) return 'in_transit';
+  if (['completed', 'delivered'].includes(status)) return 'delivered';
+  return status;
+}
+
+const businessStatusConfig: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "default" | "outline"; icon: React.ElementType }> = {
+  preparing: { label: "En preparación", variant: "default", icon: CookingPot },
+  ready_for_pickup: { label: "Listo para recoger", variant: "warning", icon: Package },
+  in_transit: { label: "En camino", variant: "default", icon: Bike },
+  delivered: { label: "Entregado", variant: "success", icon: CheckCircle },
+  cancelled: { label: "Cancelado", variant: "destructive", icon: XCircle },
+  failed: { label: "Incidencia", variant: "destructive", icon: XCircle },
+  refunded: { label: "Reembolsado", variant: "outline", icon: ReceiptText },
+};
+
+export const getColumns = ({ isBusinessOwner }: { isBusinessOwner?: boolean } = {}): ColumnDef<Order>[] => [
   {
     accessorKey: "id",
     header: ({ column }) => (
@@ -75,7 +93,10 @@ export const getColumns = (): ColumnDef<Order>[] => [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as OrderStatus;
-      const config = statusConfig[status] || { label: "Desconocido", variant: "outline", icon: Eye };
+      const businessKey = isBusinessOwner ? getBusinessStatusKey(status) : status;
+      const config = isBusinessOwner
+        ? (businessStatusConfig[businessKey] || { label: "Desconocido", variant: "outline" as const, icon: Eye })
+        : (statusConfig[status] || { label: "Desconocido", variant: "outline" as const, icon: Eye });
 
       return <Badge variant={config.variant} className="capitalize">
         <config.icon className="mr-2 h-3 w-3" />
@@ -146,6 +167,10 @@ export const getColumns = (): ColumnDef<Order>[] => [
       };
 
       const isFinished = ['delivered', 'completed', 'cancelled', 'refunded', 'failed'].includes(order.status);
+      const canMarkReady = ['pending_acceptance', 'accepted', 'at_store', 'cooking'].includes(order.status);
+      const canCancel = ['pending_acceptance', 'accepted', 'at_store', 'cooking', 'ready_for_pickup'].includes(order.status);
+      const showBusinessActions = isBusinessOwner && !isFinished && (canMarkReady || canCancel);
+      const showAdminActions = !isBusinessOwner && !isFinished;
 
       return (
         <>
@@ -165,44 +190,59 @@ export const getColumns = (): ColumnDef<Order>[] => [
                       <Eye className="mr-2 h-4 w-4" /> Ver Detalles
                   </Link>
               </DropdownMenuItem>
-              {!isFinished && (
+              {showBusinessActions && (
                 <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Cambiar Estado</DropdownMenuLabel>
-                    {['accepted', 'pending_acceptance', 'at_store'].includes(order.status) && (
-                         <DropdownMenuItem onClick={() => handleStatusChange('cooking')}>
-                            <CookingPot className="mr-2 h-4 w-4" /> Marcar como "En preparación"
-                        </DropdownMenuItem>
-                    )}
-                    {['pending_acceptance', 'accepted', 'at_store', 'cooking'].includes(order.status) && (
-                         <DropdownMenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
-                            <Package className="mr-2 h-4 w-4" /> Marcar como "Listo para recoger"
-                        </DropdownMenuItem>
-                    )}
-                    {['accepted', 'at_store', 'cooking', 'ready_for_pickup'].includes(order.status) && (
-                         <DropdownMenuItem onClick={() => handleStatusChange('picked_up')}>
-                            <Package className="mr-2 h-4 w-4" /> Marcar como "Recogido"
-                        </DropdownMenuItem>
-                    )}
-                    {['picked_up', 'out_for_delivery', 'on_the_way'].includes(order.status) && (
-                         <DropdownMenuItem onClick={() => handleStatusChange('arrived_at_destination')}>
-                            <Home className="mr-2 h-4 w-4" /> Marcar como "En destino"
-                        </DropdownMenuItem>
-                    )}
-                    {order.status === 'arrived_at_destination' && (
-                         <DropdownMenuItem onClick={() => handleStatusChange('completed')}>
-                            <CheckCircle className="mr-2 h-4 w-4" /> Marcar como "Completado"
-                        </DropdownMenuItem>
-                    )}
-                    {order.status === 'arrived_at_destination' && (
-                         <DropdownMenuItem onClick={() => handleStatusChange('failed')}>
-                            <XCircle className="mr-2 h-4 w-4" /> Reportar incidencia
-                        </DropdownMenuItem>
-                    )}
-                     <DropdownMenuSeparator />
-                     <DropdownMenuItem onClick={() => handleStatusChange('cancelled')} className="text-red-600 focus:text-red-600">
-                        <XCircle className="mr-2 h-4 w-4" /> Cancelar Pedido
+                  <DropdownMenuSeparator />
+                  {canMarkReady && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
+                      <Package className="mr-2 h-4 w-4" /> Marcar como "Listo para recoger"
                     </DropdownMenuItem>
+                  )}
+                  {canCancel && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('cancelled')} className="text-red-600 focus:text-red-600">
+                      <XCircle className="mr-2 h-4 w-4" /> Cancelar Pedido
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
+              {showAdminActions && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Cambiar Estado</DropdownMenuLabel>
+                  {['accepted', 'pending_acceptance', 'at_store'].includes(order.status) && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('cooking')}>
+                      <CookingPot className="mr-2 h-4 w-4" /> Marcar como "En preparación"
+                    </DropdownMenuItem>
+                  )}
+                  {['pending_acceptance', 'accepted', 'at_store', 'cooking'].includes(order.status) && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
+                      <Package className="mr-2 h-4 w-4" /> Marcar como "Listo para recoger"
+                    </DropdownMenuItem>
+                  )}
+                  {['accepted', 'at_store', 'cooking', 'ready_for_pickup'].includes(order.status) && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('picked_up')}>
+                      <Package className="mr-2 h-4 w-4" /> Marcar como "Recogido"
+                    </DropdownMenuItem>
+                  )}
+                  {['picked_up', 'out_for_delivery', 'on_the_way'].includes(order.status) && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('arrived_at_destination')}>
+                      <Home className="mr-2 h-4 w-4" /> Marcar como "En destino"
+                    </DropdownMenuItem>
+                  )}
+                  {order.status === 'arrived_at_destination' && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('completed')}>
+                      <CheckCircle className="mr-2 h-4 w-4" /> Marcar como "Completado"
+                    </DropdownMenuItem>
+                  )}
+                  {order.status === 'arrived_at_destination' && (
+                    <DropdownMenuItem onClick={() => handleStatusChange('failed')}>
+                      <XCircle className="mr-2 h-4 w-4" /> Reportar incidencia
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleStatusChange('cancelled')} className="text-red-600 focus:text-red-600">
+                    <XCircle className="mr-2 h-4 w-4" /> Cancelar Pedido
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
