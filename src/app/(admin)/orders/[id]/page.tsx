@@ -1148,6 +1148,7 @@ export default function ViewOrderPage() {
                   <Button
                     variant="default"
                     onClick={() => handleBusinessStatusChange('ready_for_pickup')}
+                    className="flex-1 sm:flex-none"
                   >
                     <Package className="mr-2 h-4 w-4" />
                     Listo para recoger
@@ -1157,6 +1158,7 @@ export default function ViewOrderPage() {
                   <Button
                     variant="destructive"
                     onClick={() => handleBusinessStatusChange('cancelled')}
+                    className="flex-1 sm:flex-none"
                   >
                     <XCircle className="mr-2 h-4 w-4" />
                     Cancelar
