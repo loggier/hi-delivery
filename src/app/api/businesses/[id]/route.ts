@@ -4,7 +4,6 @@
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { businessSchema } from '@/lib/schemas';
 import { hashPassword } from '@/lib/auth-utils';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
@@ -112,33 +111,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const updateData = await parseBusinessFormData(formData, supabaseAdmin, businessId);
+    const password = updateData.password;
+    const passwordConfirmation = updateData.passwordConfirmation;
+    const ownerName = updateData.owner_name;
+    const email = updateData.email;
     delete updateData.password;
     delete updateData.passwordConfirmation;
-    
-    if (Object.keys(updateData).length === 0 && !formData.has('final_submission')) {
+    delete updateData.owner_name;
+    delete updateData.email;
+    delete updateData.id;
+
+    if (Object.keys(updateData).length === 0 && !formData.has('final_submission') && !password && !ownerName) {
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
     }
-
-    const validatedBusiness = businessSchema.safeParse({
-      ...updateData,
-      id: businessId,
-    });
-
-    if (!validatedBusiness.success) {
-      return NextResponse.json(
-        {
-          message: 'Datos del negocio inválidos.',
-          errors: validatedBusiness.error.flatten().fieldErrors,
-        },
-        { status: 400 },
-      );
-    }
-
-    const {
-      password,
-      passwordConfirmation: _passwordConfirmation,
-      ...businessOnlyData
-    } = validatedBusiness.data;
 
     const { data: businessRecord, error: businessRecordError } = await supabaseAdmin
       .from('businesses')
@@ -153,30 +138,30 @@ export async function POST(request: Request, { params }: { params: { id: string 
       );
     }
 
-    const userUpdateData: Record<string, any> = {
-      name: businessOnlyData.owner_name,
-      email: businessOnlyData.email,
-    };
+    const userUpdateData: Record<string, any> = {};
+    if (ownerName) userUpdateData.name = ownerName;
+    if (email) userUpdateData.email = email;
 
-    if (password && password.length > 0) {
-      userUpdateData.password = await hashPassword(password);
+    if ((password && password.length > 0) || Object.keys(userUpdateData).length > 0) {
+      if (password && password.length > 0) {
+        userUpdateData.password = await hashPassword(password);
+      }
+
+      const { error: userUpdateError } = await supabaseAdmin
+        .from('users')
+        .update(userUpdateData)
+        .eq('id', businessRecord.user_id);
+
+      if (userUpdateError) {
+        return NextResponse.json(
+          { message: userUpdateError.message || 'Error al actualizar el usuario asociado.' },
+          { status: 500 },
+        );
+      }
     }
 
-    const { error: userUpdateError } = await supabaseAdmin
-      .from('users')
-      .update(userUpdateData)
-      .eq('id', businessRecord.user_id);
-
-    if (userUpdateError) {
-      return NextResponse.json(
-        { message: userUpdateError.message || 'Error al actualizar el usuario asociado.' },
-        { status: 500 },
-      );
-    }
-
-    Object.assign(updateData, businessOnlyData);
     updateData.updated_at = new Date().toISOString();
-    
+
     if (formData.has('final_submission')) {
         updateData.status = 'PENDING_REVIEW';
     }

@@ -139,7 +139,7 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
       supabaseAdmin,
       businessId,
     );
-    const validatedBusiness = businessSchema.safeParse({
+    const validatedBusiness = businessSchema.partial().safeParse({
       ...parsedBusinessData,
       id: businessId,
       owner_name: data.owner_name,
@@ -169,7 +169,7 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
       ...businessOnlyData,
       id: businessId,
       user_id: createdUser.id,
-      status: validatedBusiness.data.status || 'PENDING_REVIEW',
+      status: validatedBusiness.data.status || 'INCOMPLETE',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

@@ -235,7 +235,7 @@ export const businessSchema = z.object({
       (value) => (value === null || value === undefined ? "" : value),
       z.string().max(500, { message: "Las notas no pueden exceder los 500 caracteres." }).optional(),
     ),
-    status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW"]),
+    status: z.enum(["ACTIVE", "INACTIVE", "PENDING_REVIEW", "INCOMPLETE"]),
     
     delivery_time_min: requiredNumberSchema("El tiempo mínimo de entrega es requerido.").min(0, "Debe ser un número positivo."),
     delivery_time_max: requiredNumberSchema("El tiempo máximo de entrega es requerido.").min(0, "Debe ser un número positivo."),
