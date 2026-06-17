@@ -134,42 +134,12 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
 
     const businessId = `biz-${faker.string.uuid()}`;
 
-    const parsedBusinessData = await parseBusinessFormData(
-      formData,
-      supabaseAdmin,
-      businessId,
-    );
-    const validatedBusiness = businessSchema.partial().safeParse({
-      ...parsedBusinessData,
-      id: businessId,
-      owner_name: data.owner_name,
-      email: data.email,
-    });
-
-    if (!validatedBusiness.success) {
-      if (createdUserId) {
-        await supabaseAdmin.from('users').delete().eq('id', createdUserId);
-      }
-      return NextResponse.json(
-        {
-          message: 'Datos del negocio inválidos.',
-          errors: validatedBusiness.error.flatten().fieldErrors,
-        },
-        { status: 400 },
-      );
-    }
-
-    const {
-      password: _password,
-      passwordConfirmation: _passwordConfirmation,
-      ...businessOnlyData
-    } = validatedBusiness.data;
-
-    const businessDataToInsert: Partial<Business> = {
-      ...businessOnlyData,
+    const businessDataToInsert = {
       id: businessId,
       user_id: createdUser.id,
-      status: validatedBusiness.data.status || 'INCOMPLETE',
+      owner_name: data.owner_name,
+      email: data.email,
+      status: 'INCOMPLETE' as const,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
