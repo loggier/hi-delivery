@@ -144,13 +144,15 @@ export default function SignInPage() {
       <div className="relative z-10 flex h-full w-full items-center justify-center px-4">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <Image
+            <Link href="/site" className="inline-block">
+              <Image
               src="/logo-hid.png"
               alt="Logo Hi! Delivery"
               width={60}
               height={60}
               className="mx-auto mb-4"
             />
+            </Link>
             <CardTitle className="text-2xl">Bienvenido de Nuevo</CardTitle>
             <CardDescription>
               Ingresa tus credenciales para acceder al panel.

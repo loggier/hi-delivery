@@ -63,13 +63,15 @@ export default function ForgotPasswordPage() {
       <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md border-sky-100/20 bg-white/95 shadow-2xl backdrop-blur">
           <CardHeader className="text-center">
-            <Image
+            <Link href="/site" className="inline-block">
+              <Image
               src="/logo-hid.png"
               alt="Logo Hi Delivery"
               width={64}
               height={64}
               className="mx-auto mb-4"
             />
+            </Link>
             <CardTitle className="text-2xl text-slate-950">Recuperar contraseña</CardTitle>
             <CardDescription>
               Escribe el WhatsApp registrado en tu negocio y te enviaremos un enlace temporal.
