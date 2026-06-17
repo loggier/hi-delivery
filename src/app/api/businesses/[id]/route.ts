@@ -120,6 +120,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     delete updateData.owner_name;
     delete updateData.email;
     delete updateData.id;
+    delete updateData.final_submission;
 
     if (Object.keys(updateData).length === 0 && !formData.has('final_submission') && !password && !ownerName) {
         return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 200 });
