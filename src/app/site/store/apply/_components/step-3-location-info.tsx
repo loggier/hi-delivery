@@ -5,7 +5,7 @@ import { useForm, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
-import { useLoadScript, GoogleMap, MarkerF } from '@react-google-maps/api';
+import { useLoadScript, GoogleMap, MarkerF, Autocomplete } from '@react-google-maps/api';
 
 import { Form, FormControl, FormField, FormMessage, FormLabel } from '@/components/ui/form';
 import { locationInfoSchema } from '@/lib/schemas';
@@ -15,6 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, MapPin } from 'lucide-react';
 import { FormInput } from '@/app/site/apply/_components/form-components';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+
+const libraries: ('places')[] = ['places'];
 
 type LocationInfoFormValues = z.infer<typeof locationInfoSchema>;
 
@@ -26,10 +29,12 @@ export function Step3_LocationInfo() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const { isLoaded, loadError } = useLoadScript({
     id: "hi-delivery-store-apply-google-maps",
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries,
   });
 
   const methods = useForm<LocationInfoFormValues>({
@@ -108,6 +113,42 @@ export function Step3_LocationInfo() {
     }
   };
 
+  const onAutocompleteLoad = (autocomplete: google.maps.places.Autocomplete) => {
+    autocompleteRef.current = autocomplete;
+  };
+
+  const onPlaceChanged = () => {
+    if (autocompleteRef.current) {
+      const place = autocompleteRef.current.getPlace();
+      if (place.geometry?.location) {
+        methods.setValue('latitude', place.geometry.location.lat(), { shouldValidate: true });
+        methods.setValue('longitude', place.geometry.location.lng(), { shouldValidate: true });
+
+        let address = '';
+        let neighborhood = '';
+        let city = '';
+        let state = '';
+        let postalCode = '';
+
+        place.address_components?.forEach((component) => {
+          const types = component.types;
+          if (types.includes('street_number')) address = `${address} ${component.long_name}`;
+          if (types.includes('route')) address = `${component.long_name}${address ? ' ' + address : ''}`;
+          if (types.includes('sublocality_level_1') || types.includes('neighborhood')) neighborhood = component.long_name;
+          if (types.includes('locality')) city = component.long_name;
+          if (types.includes('administrative_area_level_1')) state = component.short_name;
+          if (types.includes('postal_code')) postalCode = component.long_name;
+        });
+
+        methods.setValue('address_line', address.trim() || '');
+        methods.setValue('neighborhood', neighborhood || '');
+        methods.setValue('city', city || '');
+        methods.setValue('state', state || '');
+        methods.setValue('zip_code', postalCode || '');
+      }
+    }
+  };
+
   const onSubmit = async (data: LocationInfoFormValues) => {
     if (!businessId) {
       toast({ title: "Error de sesión", description: "Inicia sesión para continuar.", variant: "destructive" });
@@ -175,7 +216,18 @@ export function Step3_LocationInfo() {
               Haz clic en el mapa para ubicar tu negocio
             </p>
             {isLoaded ? (
-              <GoogleMap
+              <div className="space-y-3">
+                <Autocomplete
+                  onLoad={onAutocompleteLoad}
+                  onPlaceChanged={onPlaceChanged}
+                >
+                  <Input
+                    type="text"
+                    placeholder="Busca tu dirección o selecciona un punto en el mapa"
+                    className="w-full"
+                  />
+                </Autocomplete>
+                <GoogleMap
                 id="store-apply-location-map"
                 mapContainerClassName="h-96 w-full rounded-md"
                 center={mapCenter}
@@ -190,6 +242,7 @@ export function Step3_LocationInfo() {
               >
                 <MarkerF position={mapCenter} />
               </GoogleMap>
+              </div>
             ) : loadError ? (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-6 text-center text-sm text-destructive">
                 Error al cargar el mapa. Ingresa latitud y longitud manualmente.
