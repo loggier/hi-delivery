@@ -192,6 +192,8 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 
             if (value instanceof FileList && value.length > 0) {
                 formData.append(fieldKey, value[0]);
+            } else if (value instanceof File) {
+                formData.append(fieldKey, value);
             } else if (typeof value === 'boolean') {
                 formData.append(fieldKey, String(value));
             } else if (value !== null && value !== undefined && value !== '') {

@@ -84,6 +84,8 @@ export function Step4_Submit() {
       Object.entries(data).forEach(([key, value]) => {
          if (value instanceof FileList && value.length > 0) {
             formData.append(key, value[0]);
+        } else if (value instanceof File) {
+            formData.append(key, value);
         } else if (value) {
             formData.append(key, String(value));
         }

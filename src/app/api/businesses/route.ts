@@ -48,7 +48,7 @@ async function parseBusinessFormData(
         businessId,
         fieldName,
       );
-    } else if (typeof value === 'string' && value.length > 0) {
+    } else if (typeof value === 'string' && value.length > 0 && (value.startsWith('http://') || value.startsWith('https://'))) {
       parsedData[fieldName] = value;
     }
   }
