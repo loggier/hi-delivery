@@ -172,6 +172,114 @@ export const FormDatePicker = ({ name, label, description }: FormDatePickerProps
   );
 };
 
+export const FormBirthDateSelect = ({ name, label, description }: FormDatePickerProps) => {
+  const currentYear = new Date().getFullYear();
+  const months = [
+    { value: '0', label: 'Enero' },
+    { value: '1', label: 'Febrero' },
+    { value: '2', label: 'Marzo' },
+    { value: '3', label: 'Abril' },
+    { value: '4', label: 'Mayo' },
+    { value: '5', label: 'Junio' },
+    { value: '6', label: 'Julio' },
+    { value: '7', label: 'Agosto' },
+    { value: '8', label: 'Septiembre' },
+    { value: '9', label: 'Octubre' },
+    { value: '10', label: 'Noviembre' },
+    { value: '11', label: 'Diciembre' },
+  ];
+
+  return (
+    <FormField
+      name={name}
+      render={({ field }) => {
+        const value = field.value ? new Date(field.value) : null;
+        const [day, setDay] = useState(value?.getDate()?.toString() || '');
+        const [month, setMonth] = useState(value ? value.getMonth().toString() : '');
+        const [year, setYear] = useState(value?.getFullYear()?.toString() || '');
+
+        useEffect(() => {
+          if (day && month && year) {
+            const d = new Date(parseInt(year), parseInt(month), parseInt(day));
+            if (!isNaN(d.getTime())) {
+              field.onChange(d);
+            }
+          }
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [day, month, year]);
+
+        useEffect(() => {
+          if (!field.value) return;
+          const d = new Date(field.value);
+          setDay(d.getDate().toString());
+          setMonth(d.getMonth().toString());
+          setYear(d.getFullYear().toString());
+        }, [field.value]);
+
+        const daysInMonth = month !== ''
+          ? new Date(parseInt(year) || currentYear, parseInt(month) + 1, 0).getDate()
+          : 31;
+        const dayOptions = Array.from({ length: daysInMonth }, (_, i) => ({
+          value: String(i + 1),
+          label: String(i + 1),
+        }));
+
+        const startYear = 1940;
+        const years = [];
+        for (let y = currentYear - 18; y >= startYear; y--) {
+          years.push({ value: String(y), label: String(y) });
+        }
+
+        return (
+          <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <div className="flex gap-2">
+              <Select value={day} onValueChange={setDay}>
+                <FormControl>
+                  <SelectTrigger className="flex-1 min-w-0">
+                    <SelectValue placeholder="Día" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-[200px]">
+                  {dayOptions.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={month} onValueChange={setMonth}>
+                <FormControl>
+                  <SelectTrigger className="flex-[2] min-w-0">
+                    <SelectValue placeholder="Mes" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-[200px]">
+                  {months.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={year} onValueChange={setYear}>
+                <FormControl>
+                  <SelectTrigger className="flex-1 min-w-0">
+                    <SelectValue placeholder="Año" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="max-h-[200px]">
+                  {years.map((y) => (
+                    <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {description && <FormDescription>{description}</FormDescription>}
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
+  );
+};
+
 export const FormFutureDatePicker = ({ name, label, description }: FormDatePickerProps) => (
   <FormField
     name={name}
