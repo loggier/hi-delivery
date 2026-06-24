@@ -122,7 +122,7 @@ export const getColumns = (businessCategories: BusinessCategory[]): ColumnDef<Bu
       const handleDelete = async () => {
         const ok = await confirm({
           title: "¿Estás seguro?",
-          description: `Esto eliminará permanentemente el negocio "${business.name}".`,
+          description: `Esto eliminará permanentemente el negocio "${business.name}" y su usuario asociado.`,
           confirmText: "Eliminar",
           confirmVariant: "destructive",
         });

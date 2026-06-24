@@ -129,3 +129,60 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const riderId = params.id;
+
+  if (!riderId) {
+    return NextResponse.json({ message: 'Rider ID es requerido.' }, { status: 400 });
+  }
+
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+      db: { schema: process.env.SUPABASE_SCHEMA! }
+    }
+  );
+
+  try {
+    const { data: riderRecord, error: fetchError } = await supabaseAdmin
+      .from('riders')
+      .select('user_id')
+      .eq('id', riderId)
+      .single();
+
+    if (fetchError) {
+      return NextResponse.json({ message: fetchError.message || 'No se pudo encontrar el repartidor.' }, { status: 404 });
+    }
+
+    if (riderRecord?.user_id) {
+      const { error: deleteUserError } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', riderRecord.user_id);
+
+      if (deleteUserError) {
+        return NextResponse.json(
+          { message: deleteUserError.message || 'No se pudo eliminar el usuario asociado al repartidor.' },
+          { status: 500 }
+        );
+      }
+    }
+
+    const { error: deleteRiderError } = await supabaseAdmin
+      .from('riders')
+      .delete()
+      .eq('id', riderId);
+
+    if (deleteRiderError) {
+      return NextResponse.json({ message: deleteRiderError.message || 'Error al eliminar el repartidor.' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Repartidor y usuario asociado eliminados con éxito.' }, { status: 200 });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
+    return NextResponse.json({ message: errorMessage }, { status: 500 });
+  }
+}

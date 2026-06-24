@@ -117,7 +117,7 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
       const handleDelete = async () => {
         const ok = await confirm({
           title: "¿Estás seguro?",
-          description: `Esto eliminará permanentemente al repartidor "${rider.first_name} ${rider.last_name}".`,
+          description: `Esto eliminará permanentemente al repartidor "${rider.first_name} ${rider.last_name}" y su usuario asociado.`,
           confirmText: "Eliminar",
           confirmVariant: "destructive",
         });

@@ -187,3 +187,67 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ message: errorMessage }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const businessId = params.id;
+  if (!businessId) {
+    return NextResponse.json({ message: 'Business ID es requerido.' }, { status: 400 });
+  }
+
+  const supabaseAdmin = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+      db: { schema: process.env.SUPABASE_SCHEMA! },
+    }
+  );
+
+  try {
+    const { data: businessRecord, error: fetchError } = await supabaseAdmin
+      .from('businesses')
+      .select('user_id')
+      .eq('id', businessId)
+      .single();
+
+    if (fetchError) {
+      return NextResponse.json(
+        { message: fetchError.message || 'No se pudo encontrar el negocio.' },
+        { status: 404 }
+      );
+    }
+
+    if (businessRecord?.user_id) {
+      const { error: deleteUserError } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', businessRecord.user_id);
+
+      if (deleteUserError) {
+        return NextResponse.json(
+          {
+            message: deleteUserError.message || 'El negocio se eliminó, pero no se pudo eliminar el usuario asociado.',
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    const { error: deleteBusinessError } = await supabaseAdmin
+      .from('businesses')
+      .delete()
+      .eq('id', businessId);
+
+    if (deleteBusinessError) {
+      return NextResponse.json(
+        { message: deleteBusinessError.message || 'Error al eliminar el negocio.' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ message: 'Negocio y usuario asociado eliminados con éxito.' }, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error interno del servidor.';
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}

@@ -301,11 +301,23 @@ function createApi<T extends { id: string | number }>(
     const { toast } = useToast();
     return useMutation<void, Error, string>({
         mutationFn: async (id) => {
+            if (entity === 'businesses' || entity === 'riders') {
+                const response = await fetch(`/api/${entity}/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(extractApiErrorMessage(result, `Error al eliminar ${translatedEntity}`));
+                }
+                return;
+            }
+
             const { error } = await supabase.from(entity).delete().eq('id', id);
             if (error) throw error;
         },
         onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: entityKey });
+            if (entity === 'businesses' || entity === 'riders') {
+                queryClient.invalidateQueries({ queryKey: ['users'] });
+            }
             // This is a bit of a hack, but it works for now.
             // When an area is deleted, we need to invalidate the parent zone query
             // to update the area list. We don't know the zone ID here, so we invalidate all zones.
