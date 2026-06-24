@@ -172,105 +172,147 @@ export const FormDatePicker = ({ name, label, description }: FormDatePickerProps
   );
 };
 
-export const FormBirthDateSelect = ({ name, label, description }: FormDatePickerProps) => {
-  const currentYear = new Date().getFullYear();
-  const months = [
-    { value: '0', label: 'Enero' },
-    { value: '1', label: 'Febrero' },
-    { value: '2', label: 'Marzo' },
-    { value: '3', label: 'Abril' },
-    { value: '4', label: 'Mayo' },
-    { value: '5', label: 'Junio' },
-    { value: '6', label: 'Julio' },
-    { value: '7', label: 'Agosto' },
-    { value: '8', label: 'Septiembre' },
-    { value: '9', label: 'Octubre' },
-    { value: '10', label: 'Noviembre' },
-    { value: '11', label: 'Diciembre' },
-  ];
+export const FormBirthDatePicker = ({ name, label, description }: FormDatePickerProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const today = new Date();
+  const minDate = new Date(1940, 0, 1);
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    value: i.toString(),
+    label: new Date(2024, i, 1).toLocaleDateString("es", { month: "long" }),
+  }));
+
+  const yearOptions: { value: string; label: string }[] = [];
+  for (let y = todayYear - 18; y >= 1940; y--) {
+    yearOptions.push({ value: y.toString(), label: y.toString() });
+  }
 
   return (
     <FormField
       name={name}
       render={({ field }) => {
-        const value = field.value ? new Date(field.value) : null;
-        const [day, setDay] = useState(value?.getDate()?.toString() || '');
-        const [month, setMonth] = useState(value ? value.getMonth().toString() : '');
-        const [year, setYear] = useState(value?.getFullYear()?.toString() || '');
+        const initialMonth = field.value
+          ? (() => {
+              const d = new Date(field.value);
+              const max = new Date(todayYear - 18, todayMonth, todayDay);
+              return d > max ? max : d < minDate ? minDate : d;
+            })()
+          : new Date(todayYear - 18, todayMonth, todayDay);
 
-        useEffect(() => {
-          if (day && month && year) {
-            const d = new Date(parseInt(year), parseInt(month), parseInt(day));
-            if (!isNaN(d.getTime())) {
-              field.onChange(d);
-            }
-          }
-          // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [day, month, year]);
+        const [viewDate, setViewDate] = useState<Date>(initialMonth);
 
         useEffect(() => {
           if (!field.value) return;
           const d = new Date(field.value);
-          setDay(d.getDate().toString());
-          setMonth(d.getMonth().toString());
-          setYear(d.getFullYear().toString());
+          const max = new Date(todayYear - 18, todayMonth, todayDay);
+          if (d <= max && d >= minDate) {
+            setViewDate(d);
+          }
+          // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [field.value]);
 
-        const daysInMonth = month !== ''
-          ? new Date(parseInt(year) || currentYear, parseInt(month) + 1, 0).getDate()
-          : 31;
-        const dayOptions = Array.from({ length: daysInMonth }, (_, i) => ({
-          value: String(i + 1),
-          label: String(i + 1),
-        }));
+        const handleMonthChange = (v: string) => {
+          const m = parseInt(v);
+          let y = viewDate.getFullYear();
+          const candidate = new Date(y, m, 1);
+          const max = new Date(todayYear - 18, todayMonth, todayDay);
+          if (candidate > max) y = max.getFullYear();
+          else if (candidate < new Date(1940, 0, 1)) y = 1940;
+          setViewDate(new Date(y, m, 1));
+        };
 
-        const startYear = 1940;
-        const years = [];
-        for (let y = currentYear - 18; y >= startYear; y--) {
-          years.push({ value: String(y), label: String(y) });
-        }
+        const handleYearChange = (v: string) => {
+          const y = parseInt(v);
+          const max = new Date(todayYear - 18, todayMonth, todayDay);
+          const m = y === max.getFullYear() && viewDate.getMonth() > max.getMonth()
+            ? max.getMonth()
+            : viewDate.getMonth();
+          setViewDate(new Date(y, m, 1));
+        };
+
+        const maxBirth = new Date(todayYear - 18, todayMonth, todayDay);
 
         return (
-          <FormItem>
+          <FormItem className="flex flex-col">
             <FormLabel>{label}</FormLabel>
-            <div className="flex gap-2">
-              <Select value={day} onValueChange={setDay}>
+            <Popover open={isOpen} onOpenChange={(open) => {
+              if (open && field.value) {
+                const d = new Date(field.value);
+                const max = new Date(todayYear - 18, todayMonth, todayDay);
+                setViewDate(d > max ? max : d < minDate ? minDate : d);
+              }
+              setIsOpen(open);
+            }}>
+              <PopoverTrigger asChild>
                 <FormControl>
-                  <SelectTrigger className="flex-1 min-w-0">
-                    <SelectValue placeholder="Día" />
-                  </SelectTrigger>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "pl-3 text-left font-normal",
+                      !field.value && "text-muted-foreground"
+                    )}
+                  >
+                    {field.value ? (
+                      format(field.value, "dd 'de' MMMM, yyyy", { locale: es })
+                    ) : (
+                      <span>Selecciona tu fecha de nacimiento</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
                 </FormControl>
-                <SelectContent className="max-h-[200px]">
-                  {dayOptions.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={month} onValueChange={setMonth}>
-                <FormControl>
-                  <SelectTrigger className="flex-[2] min-w-0">
-                    <SelectValue placeholder="Mes" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent className="max-h-[200px]">
-                  {months.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={year} onValueChange={setYear}>
-                <FormControl>
-                  <SelectTrigger className="flex-1 min-w-0">
-                    <SelectValue placeholder="Año" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent className="max-h-[200px]">
-                  {years.map((y) => (
-                    <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="flex items-center gap-1 p-3 pb-0">
+                  <Select value={viewDate.getMonth().toString()} onValueChange={handleMonthChange}>
+                    <FormControl>
+                      <SelectTrigger className="h-9 flex-1 capitalize">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-[200px]">
+                      {months.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={viewDate.getFullYear().toString()} onValueChange={handleYearChange}>
+                    <FormControl>
+                      <SelectTrigger className="h-9 w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-[200px]">
+                      {yearOptions.map((y) => (
+                        <SelectItem key={y.value} value={y.value}>
+                          {y.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Calendar
+                  mode="single"
+                  month={viewDate}
+                  onMonthChange={setViewDate}
+                  startMonth={minDate}
+                  endMonth={maxBirth}
+                  selected={field.value}
+                  onSelect={(date) => {
+                    field.onChange(date);
+                    if (date) setIsOpen(false);
+                  }}
+                  disabled={(date) => date > maxBirth || date < minDate}
+                  initialFocus
+                  locale={es}
+                  classNames={{ caption_label: "hidden", nav: "px-3" }}
+                />
+              </PopoverContent>
+            </Popover>
             {description && <FormDescription>{description}</FormDescription>}
             <FormMessage />
           </FormItem>

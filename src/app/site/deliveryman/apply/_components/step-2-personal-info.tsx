@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import { FormInput, FormBirthDateSelect, FormSelect, FormFileUpload } from '@/app/site/apply/_components/form-components';
+import { FormInput, FormBirthDatePicker, FormSelect, FormFileUpload } from '@/app/site/apply/_components/form-components';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -156,7 +156,7 @@ export function Step2_PersonalInfo() {
         <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormInput name="motherLastName" label="Apellido Materno (Opcional)" placeholder="Ej. García" />
-            <FormBirthDateSelect name="birthDate" label="Fecha de Nacimiento" />
+            <FormBirthDatePicker name="birthDate" label="Fecha de Nacimiento" />
             <FormSelect
               name="zone_id"
               label="Zona de Operación"

@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { riderApplicationBaseSchema, riderAdminUpdateSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
 import { type Rider, type Zone, type RiderStatus } from "@/types";
-import { FormDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload, FormCheckbox } from "@/app/site/apply/_components/form-components";
+import { FormBirthDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload, FormCheckbox } from "@/app/site/apply/_components/form-components";
 import { vehicleBrands, vehicleYears } from "@/lib/constants";
 import { useWatch } from "react-hook-form";
 
@@ -138,7 +138,7 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
                         <FormInput name="mother_last_name" label="Apellido Materno" disabled={isPending}/>
                         <FormInput name="email" label="Email" disabled={isPending}/>
                         <FormInput name="phone_e164" label="Teléfono" disabled={isPending}/>
-                        <FormDatePicker name="birthDate" label="Fecha de Nacimiento"/>
+                        <FormBirthDatePicker name="birthDate" label="Fecha de Nacimiento"/>
                         <FormSelect name="zone_id" label="Zona de Operación" placeholder="Selecciona zona" options={zones.map(z => ({ value: z.id, label: z.name }))} />
                          <FormSelect name="status" label="Estado" placeholder="Selecciona estado" options={[
                             { value: 'approved', label: 'Aprobado' },
