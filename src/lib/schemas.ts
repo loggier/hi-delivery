@@ -347,15 +347,76 @@ export const riderApplicationSchema = riderApplicationBaseSchema.refine(data => 
     path: ["passwordConfirmation"],
 });
 
+const optionalEditValue = <T,>(schema: z.ZodType<T>) =>
+  z.preprocess((value) => (value === '' || value === null ? undefined : value), schema.optional());
+
+const optionalEditString = (message: string, min = 1) =>
+  optionalEditValue(z.string().min(min, { message }));
+
+const optionalEditEnum = <T extends [string, ...string[]]>(values: T) =>
+  optionalEditValue(z.enum(values));
+
+const optionalEditDate = (message: string) =>
+  z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    z.date({ required_error: message }).optional(),
+  );
+
+const optionalEditAdultDate = () =>
+  z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    z.date({ required_error: "La fecha de nacimiento es requerida." })
+      .refine(
+        (date) => !date || new Date().getFullYear() - date.getFullYear() >= 18,
+        { message: "Debes ser mayor de 18 años." }
+      )
+      .optional(),
+  );
+
+const optionalEditPhone = () =>
+  z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    mxPhoneSchema("El número de WhatsApp es requerido.").optional(),
+  );
+
 export const riderAdminUpdateSchema = riderApplicationBaseSchema
-  .omit({ password: true, passwordConfirmation: true, first_name: true, last_name: true })
+  .partial()
   .extend({
-    first_name: z.string().min(2, { message: "El nombre es requerido." }),
-    last_name: z.string().min(2, { message: "El apellido paterno es requerido." }),
-    status: z.enum(['pending_review', 'approved', 'rejected', 'inactive', 'incomplete']),
-    phone_e164: z.string()
-      .regex(phoneRegex, { message: "El número debe ser de 10 dígitos (u opcionalmente empezar con 52)." })
-      .transform(normalizePhone).optional(),
+    first_name: optionalEditString("El nombre debe tener al menos 2 caracteres.", 2),
+    last_name: optionalEditString("El apellido paterno debe tener al menos 2 caracteres.", 2),
+    motherLastName: optionalEditString("El apellido materno debe tener al menos 2 caracteres.", 2),
+    birthDate: optionalEditAdultDate(),
+    zone_id: optionalEditValue(z.string().optional()),
+    address: optionalEditString("La dirección debe tener al menos 5 caracteres.", 5),
+    ineFrontUrl: optionalEditValue(fileSchema("El frente del INE es requerido.")),
+    ineBackUrl: optionalEditValue(fileSchema("El reverso del INE es requerido.")),
+    proofOfAddressUrl: optionalEditValue(fileSchema("El comprobante de domicilio es requerido.")),
+    ownership: optionalEditEnum(['propia', 'rentada', 'prestada']),
+    brand: optionalEditEnum(['Italika', 'Yamaha', 'Honda', 'Vento', 'Veloci', 'Suzuki', 'Otra']),
+    brandOther: optionalEditString("La marca debe tener al menos 2 caracteres.", 2),
+    year: z.preprocess(
+      (value) => (value === '' || value === null ? undefined : value),
+      z.coerce.number().min(2010).max(new Date().getFullYear() + 1).optional(),
+    ),
+    model: optionalEditString("El modelo debe tener al menos 1 caracter."),
+    color: optionalEditString("El color debe tener al menos 2 caracteres.", 2),
+    plate: optionalEditString("La placa debe tener al menos 4 caracteres.", 4),
+    licenseFrontUrl: optionalEditValue(fileSchema("El frente de la licencia es requerido.")),
+    licenseBackUrl: optionalEditValue(fileSchema("El reverso de la licencia es requerido.")),
+    licenseValidUntil: optionalEditDate("La vigencia de la licencia es requerida."),
+    circulationCardFrontUrl: optionalEditValue(fileSchema("El frente de la tarjeta de circulación es requerido.")),
+    circulationCardBackUrl: optionalEditValue(fileSchema("El reverso de la tarjeta de circulación es requerido.")),
+    motoPhotoFront: optionalEditValue(imageFileSchema("La foto frontal de la moto es requerida.")),
+    motoPhotoBack: optionalEditValue(imageFileSchema("La foto trasera de la moto es requerida.")),
+    motoPhotoLeft: optionalEditValue(imageFileSchema("La foto del lado izquierdo es requerida.")),
+    motoPhotoRight: optionalEditValue(imageFileSchema("La foto del lado derecho es requerida.")),
+    insurer: optionalEditString("La aseguradora debe tener al menos 2 caracteres.", 2),
+    policyNumber: optionalEditString("El número de póliza debe tener al menos 5 caracteres.", 5),
+    policyValidUntil: optionalEditDate("La vigencia de la póliza es requerida."),
+    policyFirstPageUrl: optionalEditValue(fileSchema("La primera página de la póliza es requerida.")),
+    avatar1x1Url: optionalEditValue(imageFileSchema("La foto de perfil es requerida.")),
+    status: optionalEditEnum(['pending_review', 'approved', 'rejected', 'inactive', 'incomplete']),
+    phone_e164: optionalEditPhone(),
   });
 
 
