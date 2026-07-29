@@ -27,6 +27,15 @@ function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase();
 }
 
+function formatLocationDateTime(value?: string | null) {
+  if (!value) return 'Sin reporte';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Sin reporte';
+
+  return format(date, 'dd/MM/yyyy HH:mm:ss', { locale: es });
+}
+
 function sanitizeImageUrl(value?: string | null) {
   if (!value) {
     return undefined;
@@ -227,13 +236,14 @@ const ActiveRidersTable = ({
                         <TableRow>
                             <TableHead className="px-4 py-2 text-[11px] uppercase tracking-wide">Repartidor</TableHead>
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Teléfono</TableHead>
+                            <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Última ubicación</TableHead>
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Pedido</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredRiders.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={3} className="h-20 text-center text-sm">
+                                     <TableCell colSpan={4} className="h-20 text-center text-sm">
                                     No se encontraron repartidores.
                                 </TableCell>
                             </TableRow>
@@ -278,9 +288,12 @@ const ActiveRidersTable = ({
                                             </div>
                                         </div>
                                     </div>
-                                </TableCell>
-                                <TableCell className="px-3 py-2.5 text-xs">{rider.phone_e164}</TableCell>
-                                <TableCell className="px-3 py-2.5">
+                                 </TableCell>
+                                 <TableCell className="px-3 py-2.5 text-xs">{rider.phone_e164}</TableCell>
+                                 <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
+                                     {formatLocationDateTime(rider.last_location_update)}
+                                 </TableCell>
+                                 <TableCell className="px-3 py-2.5">
                                     {activeOrderRiderIds.has(rider.id) && (
                                         <Badge className="px-1.5 py-0 text-[10px]" variant="warning">
                                             <Package className="mr-1 h-3 w-3"/>

@@ -460,11 +460,11 @@ export function LiveMap({
                   <User className="h-3.5 w-3.5"/>
                   {activeOrderRiderIds.has(selectedRider.id) ? 'Con pedido activo' : selectedRider.is_active_for_orders ? 'Disponible' : 'Inactivo'}
               </p>
-              {selectedTimestamp && (
-                  <p className="text-[11px] leading-none text-muted-foreground">
-                      {playbackPoint ? 'Punto:' : 'Última act:'} {format(new Date(selectedTimestamp), 'HH:mm:ss', {locale: es})}
-                  </p>
-              )}
+               {selectedTimestamp && (
+                   <p className="text-[11px] leading-none text-muted-foreground">
+                       {playbackPoint ? 'Punto:' : 'Última act:'} {format(new Date(selectedTimestamp), 'dd/MM/yyyy HH:mm:ss', {locale: es})}
+                   </p>
+               )}
               {typeof selectedSpeed === 'number' ? (
                 <p className="text-[11px] leading-none text-muted-foreground">
                   Velocidad: {Math.round(selectedSpeed)} KPH
