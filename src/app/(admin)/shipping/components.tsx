@@ -1405,13 +1405,53 @@ export function ShippingMapModal({ isOpen, onClose, origin, destination, isMapsL
                                             ],
                                         }}
                                     />
-                                    {origin && <MarkerF position={{ lat: origin.lat, lng: origin.lng }} label="O" />}
-                                    {destination && <MarkerF position={{ lat: destination.lat, lng: destination.lng }} label="D" />}
+                                    {origin && (
+                                        <MarkerF
+                                            position={{ lat: origin.lat, lng: origin.lng }}
+                                            title="Negocio"
+                                            icon={{
+                                                url: '/bussines.png',
+                                                scaledSize: new window.google.maps.Size(44, 44),
+                                                anchor: new window.google.maps.Point(22, 40),
+                                            }}
+                                        />
+                                    )}
+                                    {destination && (
+                                        <MarkerF
+                                            position={{ lat: destination.lat, lng: destination.lng }}
+                                            title="Cliente"
+                                            icon={{
+                                                url: '/home.png',
+                                                scaledSize: new window.google.maps.Size(44, 44),
+                                                anchor: new window.google.maps.Point(22, 40),
+                                            }}
+                                        />
+                                    )}
                                 </>
                             ) : (
                                 <>
-                                    {origin && <MarkerF position={{ lat: origin.lat, lng: origin.lng }} label="O" />}
-                                    {destination && <MarkerF position={{ lat: destination.lat, lng: destination.lng }} label="D" />}
+                                    {origin && (
+                                        <MarkerF
+                                            position={{ lat: origin.lat, lng: origin.lng }}
+                                            title="Negocio"
+                                            icon={{
+                                                url: '/bussines.png',
+                                                scaledSize: new window.google.maps.Size(44, 44),
+                                                anchor: new window.google.maps.Point(22, 40),
+                                            }}
+                                        />
+                                    )}
+                                    {destination && (
+                                        <MarkerF
+                                            position={{ lat: destination.lat, lng: destination.lng }}
+                                            title="Cliente"
+                                            icon={{
+                                                url: '/home.png',
+                                                scaledSize: new window.google.maps.Size(44, 44),
+                                                anchor: new window.google.maps.Point(22, 40),
+                                            }}
+                                        />
+                                    )}
                                 </>
                             )}
                         </GoogleMap>
