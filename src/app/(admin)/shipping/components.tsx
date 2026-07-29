@@ -1249,13 +1249,13 @@ export function LocationMap({ isMapsLoaded, onLocationSelect, initialCenter, ini
                     <Image
                          src="/home.png"
                          alt="Ubicación del cliente"
-                         width={44}
-                         height={44}
+                         width={52}
+                         height={52}
                          unoptimized
                          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full object-contain"
                          style={{
-                             height: '44px',
-                             width: '44px',
+                             height: '52px',
+                             width: '52px',
                          }}
                      />
                 </GoogleMap>
