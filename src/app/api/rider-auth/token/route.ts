@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { verifyPassword } from '@/lib/auth-utils';
-import { createRiderLocationToken, TOKEN_TTL_SECONDS } from '@/lib/rider-location-token';
+import {
+  createRiderLocationRefreshToken,
+  createRiderLocationToken,
+  REFRESH_TOKEN_TTL_SECONDS,
+  TOKEN_TTL_SECONDS,
+} from '@/lib/rider-location-token';
 
 const tokenRequestSchema = z.object({
   phone: z.string().trim().min(10).max(20),
@@ -83,10 +88,17 @@ export async function POST(request: Request) {
       deviceId: parsed.data.deviceId,
       tokenId: crypto.randomUUID(),
     });
+    const refreshToken = createRiderLocationRefreshToken({
+      riderId: rider.id,
+      deviceId: parsed.data.deviceId,
+      tokenId: crypto.randomUUID(),
+    });
 
     return NextResponse.json({
       accessToken: token,
       expiresIn: TOKEN_TTL_SECONDS,
+      refreshToken,
+      refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
       riderId: rider.id,
       user: {
         id: user.id,

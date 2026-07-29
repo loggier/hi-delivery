@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       : '';
     const tokenPayload = verifyRiderLocationToken(token);
 
-    if (!tokenPayload) {
+    if (!tokenPayload || tokenPayload.tokenType === 'refresh') {
       return NextResponse.json({ message: 'Token de ubicación inválido o expirado.' }, { status: 401 });
     }
 

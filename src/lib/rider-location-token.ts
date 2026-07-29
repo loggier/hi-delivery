@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const TOKEN_VERSION = 'v1';
 const TOKEN_TTL_SECONDS = 60 * 60;
+const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export type RiderLocationTokenPayload = {
   riderId: string;
@@ -10,6 +11,7 @@ export type RiderLocationTokenPayload = {
   expiresAt: number;
   tokenId: string;
   scope: 'rider_location:write';
+  tokenType?: 'access' | 'refresh';
 };
 
 function getTokenSecret() {
@@ -41,6 +43,30 @@ export function createRiderLocationToken({ riderId, deviceId, tokenId }: {
     expiresAt: issuedAt + TOKEN_TTL_SECONDS,
     tokenId,
     scope: 'rider_location:write',
+    tokenType: 'access',
+  };
+  const content = `${TOKEN_VERSION}.${encode(payload)}`;
+  return `${content}.${signContent(content)}`;
+}
+
+export function createRiderLocationRefreshToken({
+  riderId,
+  deviceId,
+  tokenId,
+}: {
+  riderId: string;
+  deviceId: string;
+  tokenId: string;
+}) {
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const payload: RiderLocationTokenPayload = {
+    riderId,
+    deviceId,
+    issuedAt,
+    expiresAt: issuedAt + REFRESH_TOKEN_TTL_SECONDS,
+    tokenId,
+    scope: 'rider_location:write',
+    tokenType: 'refresh',
   };
   const content = `${TOKEN_VERSION}.${encode(payload)}`;
   return `${content}.${signContent(content)}`;
@@ -86,4 +112,11 @@ export function verifyRiderLocationToken(token: string): RiderLocationTokenPaylo
   }
 }
 
-export { TOKEN_TTL_SECONDS };
+export function verifyRiderLocationRefreshToken(
+  token: string,
+): RiderLocationTokenPayload | null {
+  const payload = verifyRiderLocationToken(token);
+  return payload?.tokenType === 'refresh' ? payload : null;
+}
+
+export { REFRESH_TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS };
