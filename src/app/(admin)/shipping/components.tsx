@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Search, PlusCircle, X, MapPin, User, Phone, Home, Loader2, Edit, AlertCircle, Timer, Building, Package, Route, Map, CheckCircle, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Search, PlusCircle, X, User, Phone, Home, Loader2, Edit, AlertCircle, Timer, Building, Package, Route, Map, CheckCircle, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { Customer, Business, CustomerAddress } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -1246,17 +1246,18 @@ export function LocationMap({ isMapsLoaded, onLocationSelect, initialCenter, ini
                     onClick={onMapClick}
                     options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' }}
                 >
-                    <MapPin
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -100%)',
-                            color: 'hsl(var(--hid-primary))',
-                            height: '40px',
-                            width: '40px'
-                        }}
-                    />
+                    <Image
+                         src="/home.png"
+                         alt="Ubicación del cliente"
+                         width={44}
+                         height={44}
+                         unoptimized
+                         className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full object-contain"
+                         style={{
+                             height: '44px',
+                             width: '44px',
+                         }}
+                     />
                 </GoogleMap>
             </div>
         </div>
