@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatSpeedKmh } from '@/lib/location-format';
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase();
@@ -277,9 +278,9 @@ const ActiveRidersTable = ({
                                                 <Badge className="px-1.5 py-0 text-[10px]" variant={rider.is_active_for_orders ? "success" : "outline"}>
                                                     {rider.is_active_for_orders ? "Disponible" : "No disponible"}
                                                 </Badge>
-                                                {typeof rider.last_speed === 'number' ? (
+                                                {formatSpeedKmh(rider.last_speed) ? (
                                                     <Badge className="px-1.5 py-0 text-[10px] font-bold" variant="outline">
-                                                        {Math.round(rider.last_speed)} KPH
+                                                        {formatSpeedKmh(rider.last_speed)}
                                                     </Badge>
                                                 ) : null}
                                                 {selectedRiderId === rider.id ? (

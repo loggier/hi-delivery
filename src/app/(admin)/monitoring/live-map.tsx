@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, User, History } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatSpeedKmh } from '@/lib/location-format';
 
 const libraries: ('places')[] = ['places'];
 
@@ -235,6 +236,7 @@ export function LiveMap({
   const selectedSpeed = typeof playbackPoint?.speed === 'number'
     ? playbackPoint.speed
     : selectedRider?.last_speed;
+  const selectedSpeedLabel = formatSpeedKmh(selectedSpeed);
   
   const mapOptions = {
     disableDefaultUI: true,
@@ -427,9 +429,9 @@ export function LiveMap({
                 <p className="text-[11px] text-slate-700">
                   {format(new Date(playbackPoint.recorded_at), 'dd MMM HH:mm:ss', { locale: es })}
                 </p>
-                {typeof playbackPoint.speed === 'number' ? (
+                {formatSpeedKmh(playbackPoint.speed) ? (
                   <p className="text-[11px] text-muted-foreground">
-                    {Math.round(playbackPoint.speed)} KPH
+                    {formatSpeedKmh(playbackPoint.speed)}
                   </p>
                 ) : null}
               </div>
@@ -465,9 +467,9 @@ export function LiveMap({
                        {playbackPoint ? 'Punto:' : 'Última act:'} {format(new Date(selectedTimestamp), 'dd/MM/yyyy HH:mm:ss', {locale: es})}
                    </p>
                )}
-              {typeof selectedSpeed === 'number' ? (
+              {selectedSpeedLabel ? (
                 <p className="text-[11px] leading-none text-muted-foreground">
-                  Velocidad: {Math.round(selectedSpeed)} KPH
+                  Velocidad: {selectedSpeedLabel}
                 </p>
               ) : null}
               {activeOrderByRiderId.has(selectedRider.id) ? (
