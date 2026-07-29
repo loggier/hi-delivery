@@ -33,10 +33,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Datos de acceso inválidos.' }, { status: 400 });
     }
 
-    const supabaseAdmin = createSupabaseAdminClient();
-    const { data: riders, error: riderError } = await supabaseAdmin
-      .from('riders')
-      .select('id, user_id, status, phone_e164')
+      const supabaseAdmin = createSupabaseAdminClient();
+      const { data: riders, error: riderError } = await supabaseAdmin
+        .from('riders')
+      .select('id, user_id, first_name, last_name, status, phone_e164, avatar1x1_url, zone_id')
       .in('phone_e164', phoneCandidates(parsed.data.phone))
       .limit(1);
 
@@ -44,7 +44,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Credenciales inválidas.' }, { status: 401 });
     }
 
-    const rider = riders[0] as { id: string; user_id: string; status: string; phone_e164: string };
+    const rider = riders[0] as {
+      id: string;
+      user_id: string;
+      first_name: string;
+      last_name: string;
+      status: string;
+      phone_e164: string;
+      avatar1x1_url?: string | null;
+      zone_id?: string | null;
+    };
     const allowedStatus = ['approved', 'active', 'aprobado', 'activo'].includes(
       rider.status.trim().toLowerCase(),
     );
@@ -55,9 +64,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: user, error: userError } = await supabaseAdmin
+      const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, password, status')
+      .select('id, password, email, name, status, role_id')
       .eq('id', rider.user_id)
       .single();
 
@@ -79,6 +88,23 @@ export async function POST(request: Request) {
       accessToken: token,
       expiresIn: TOKEN_TTL_SECONDS,
       riderId: rider.id,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        status: user.status,
+        role_id: user.role_id,
+      },
+      rider: {
+        id: rider.id,
+        user_id: rider.user_id,
+        first_name: rider.first_name,
+        last_name: rider.last_name,
+        phone_e164: rider.phone_e164,
+        status: rider.status,
+        avatar1x1_url: rider.avatar1x1_url,
+        zone_id: rider.zone_id,
+      },
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('RIDER_LOCATION_TOKEN_SECRET')) {
