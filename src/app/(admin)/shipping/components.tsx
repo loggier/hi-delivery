@@ -28,6 +28,8 @@ const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nomina
 const NOMINATIM_BASE_URL = process.env.NEXT_PUBLIC_NOMINATIM_BASE_URL || 'https://nominatim.vemontech.com';
 const NOMINATIM_SEARCH_URL = `${NOMINATIM_BASE_URL}/search`;
 const NOMINATIM_REVERSE_URL = `${NOMINATIM_BASE_URL}/reverse`;
+// Sinaloa bounds: west, north, east, south.
+const SINALOA_VIEWBOX = '-109.6,27.3,-105.3,22.3';
 
 type LatLng = { lat: number; lng: number };
 
@@ -184,13 +186,21 @@ async function searchNominatim(query: string, limit = 6): Promise<NominatimSugge
         format: 'jsonv2',
         addressdetails: '1',
         countrycodes: 'mx',
+        viewbox: SINALOA_VIEWBOX,
+        bounded: '1',
         limit: String(limit),
     });
 
     const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`);
     if (!response.ok) throw new Error('Nominatim search unavailable');
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+
+    return data.filter((suggestion: NominatimSuggestion) => {
+        const countryCode = suggestion.address?.country_code?.toLowerCase();
+        const state = suggestion.address?.state?.toLowerCase() || '';
+        return countryCode === 'mx' && state.includes('sinaloa');
+    });
 }
 
 async function reverseGeocodeNominatim(lat: number, lng: number): Promise<ParsedAddress> {
@@ -222,6 +232,8 @@ export function LocationSelector({ isLoaded, onLocationSelect, title }: Location
     const [isSearching, setIsSearching] = useState(false);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const [activeSuggestionId, setActiveSuggestionId] = useState<string | number | null>(null);
+    const [street, setStreet] = useState('');
+    const [houseNumber, setHouseNumber] = useState('');
     const searchContainerRef = useRef<HTMLDivElement | null>(null);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -274,12 +286,30 @@ export function LocationSelector({ isLoaded, onLocationSelect, title }: Location
         if (!parsed) return;
 
         setActiveSuggestionId(suggestion.place_id);
-        const location = { address: parsed.address, lat: parsed.lat, lng: parsed.lng };
+        const locationSummary = [parsed.neighborhood, parsed.city, parsed.state, parsed.zip_code]
+            .filter(Boolean)
+            .join(', ');
+        const location = {
+            address: locationSummary || parsed.address,
+            lat: parsed.lat,
+            lng: parsed.lng,
+        };
         setSelectedLocation(location);
         setQuery(parsed.address);
+        setStreet(parsed.street);
+        setHouseNumber(parsed.house_number);
         setSuggestions([]);
         setIsSuggestionsOpen(false);
         setActiveSuggestionId(null);
+    };
+
+    const handleConfirmLocation = () => {
+        if (!selectedLocation) return;
+
+        const address = [street.trim(), houseNumber.trim(), selectedLocation.address]
+            .filter(Boolean)
+            .join(', ');
+        onLocationSelect({ ...selectedLocation, address });
     };
     
     if (!isLoaded) return <Skeleton className="h-20 w-full" />
@@ -328,15 +358,43 @@ export function LocationSelector({ isLoaded, onLocationSelect, title }: Location
                         </div>
                     )}
                 </div>
-                <Button onClick={() => selectedLocation && onLocationSelect(selectedLocation)} disabled={!selectedLocation}>
+                 <Button onClick={handleConfirmLocation} disabled={!selectedLocation}>
                     Confirmar Origen
                 </Button>
             </div>
              {selectedLocation && (
-                <div className="p-2 border rounded-md bg-slate-50 text-sm text-slate-600">
-                    {selectedLocation.address}
-                </div>
-            )}
+                 <div className="space-y-3 rounded-md border bg-slate-50 p-3">
+                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                         <div className="space-y-1">
+                             <label htmlFor={`${title}-street`} className="text-xs font-medium text-slate-700">
+                                 Calle
+                             </label>
+                             <Input
+                                 id={`${title}-street`}
+                                 value={street}
+                                 onChange={(event) => setStreet(event.target.value)}
+                                 placeholder="Nombre de la calle"
+                                 className="h-10 bg-white"
+                             />
+                         </div>
+                         <div className="space-y-1">
+                             <label htmlFor={`${title}-house-number`} className="text-xs font-medium text-slate-700">
+                                 Número
+                             </label>
+                             <Input
+                                 id={`${title}-house-number`}
+                                 value={houseNumber}
+                                 onChange={(event) => setHouseNumber(event.target.value)}
+                                 placeholder="Número exterior"
+                                 className="h-10 bg-white"
+                             />
+                         </div>
+                     </div>
+                     <p className="text-sm text-slate-600">
+                         {[street, houseNumber, selectedLocation.address].filter(Boolean).join(', ')}
+                     </p>
+                 </div>
+             )}
         </div>
     );
 }
