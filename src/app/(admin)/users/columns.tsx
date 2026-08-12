@@ -56,6 +56,11 @@ export const getColumns = (roles: Role[]): ColumnDef<User>[] => [
     accessorKey: "email",
     header: "Email",
   },
+  {
+    accessorKey: "phone_e164",
+    header: "Teléfono",
+    cell: ({ row }) => row.original.phone_e164 || "—",
+  },
     {
     accessorKey: "role_id",
     header: "Rol",

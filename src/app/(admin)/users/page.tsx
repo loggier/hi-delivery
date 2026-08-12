@@ -12,10 +12,18 @@ import { getColumns } from "./columns";
 
 export default function UsersPage() {
   const { data: usersData, isLoading: isLoadingUsers } = api.users.useGetAll();
+  const { data: ridersData, isLoading: isLoadingRiders } = api.riders.useGetAll();
   const { data: rolesData, isLoading: isLoadingRoles } = api.roles.useGetAll();
 
   const columns = React.useMemo(() => getColumns(rolesData || []), [rolesData]);
-  const isLoading = isLoadingUsers || isLoadingRoles;
+  const usersWithRiderPhone = React.useMemo(
+    () => (usersData || []).map((user) => ({
+      ...user,
+      phone_e164: ridersData?.find((rider) => rider.user_id === user.id)?.phone_e164 ?? null,
+    })),
+    [ridersData, usersData],
+  );
+  const isLoading = isLoadingUsers || isLoadingRoles || isLoadingRiders;
 
   return (
     <div className="space-y-4">
@@ -29,7 +37,7 @@ export default function UsersPage() {
       </PageHeader>
       <DataTable 
         columns={columns} 
-        data={usersData || []} 
+        data={usersWithRiderPhone}
         isLoading={isLoading} 
         searchKey="name"
       />

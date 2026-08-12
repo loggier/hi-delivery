@@ -946,6 +946,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
     const [mapsUrl, setMapsUrl] = useState('');
     const [isResolvingMapsUrl, setIsResolvingMapsUrl] = useState(false);
     const [mapsUrlError, setMapsUrlError] = useState<string | null>(null);
+    const [mapsUrlLocation, setMapsUrlLocation] = useState<LatLng | null>(null);
 
     const initialMapCenter = useMemo(() => {
         if (addressToEdit) {
@@ -961,6 +962,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
         if (addressToEdit) {
             methods.reset({ ...addressToEdit, customer_id: addressToEdit.customer_id });
             setMapsUrl('');
+            setMapsUrlLocation(null);
         } else {
             methods.reset({
                 customer_id: customerId,
@@ -972,6 +974,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
                 longitude: initialMapCenter.lng,
             });
             setMapsUrl('');
+            setMapsUrlLocation(null);
         }
         setMapsUrlError(null);
     }, [addressToEdit, customerId, initialMapCenter.lat, initialMapCenter.lng, methods]);
@@ -988,6 +991,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
         setMapsUrlError(null);
         try {
             const parsed = await reverseGeocodeNominatim(coordinates.lat, coordinates.lng);
+            setMapsUrlLocation({ lat: parsed.lat, lng: parsed.lng });
             methods.setValue('address', parsed.address, { shouldValidate: true });
             methods.setValue('street', parsed.street, { shouldValidate: true });
             methods.setValue('house_number', parsed.house_number, { shouldValidate: true });
@@ -999,7 +1003,17 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
             methods.setValue('neighborhood', parsed.neighborhood, { shouldValidate: true });
             methods.setValue('reference', appendMapsReference(methods.getValues('reference') ?? '', trimmedUrl), { shouldValidate: true });
         } catch (error) {
-            setMapsUrlError(error instanceof Error ? error.message : 'No se pudo obtener la dirección.');
+            setMapsUrlLocation(coordinates);
+            methods.setValue('latitude', coordinates.lat, { shouldValidate: true });
+            methods.setValue('longitude', coordinates.lng, { shouldValidate: true });
+            methods.setValue(
+                'reference',
+                appendMapsReference(methods.getValues('reference') ?? '', trimmedUrl),
+                { shouldValidate: true },
+            );
+            setMapsUrlError(
+                `${error instanceof Error ? error.message : 'No se pudo obtener la dirección.'} Se guardaron las coordenadas; completa la dirección manualmente.`,
+            );
         } finally {
             setIsResolvingMapsUrl(false);
         }
@@ -1042,6 +1056,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
                                             isMapsLoaded={isMapsLoaded}
                                             initialCenter={initialMapCenter}
                                             initialQuery={addressToEdit?.address || ''}
+                                            externalLocation={mapsUrlLocation}
                                             onLocationSelect={({ address, lat, lng, city, state, zip_code, neighborhood, street, house_number }) => {
                                                 methods.setValue('address', address, { shouldValidate: true });
                                                 methods.setValue('street', street || '', { shouldValidate: true });
@@ -1128,9 +1143,10 @@ interface LocationMapProps {
     onLocationSelect: (location: ParsedAddress) => void;
     initialCenter?: { lat: number; lng: number };
     initialQuery?: string;
+    externalLocation?: LatLng | null;
 }
 
-export function LocationMap({ isMapsLoaded, onLocationSelect, initialCenter, initialQuery = '' }: LocationMapProps) {
+export function LocationMap({ isMapsLoaded, onLocationSelect, initialCenter, initialQuery = '', externalLocation }: LocationMapProps) {
     const [location, setLocation] = React.useState<{ lat: number, lng: number }>(initialCenter || { lat: 19.4326, lng: -99.1332 });
     const [query, setQuery] = React.useState(initialQuery);
     const [suggestions, setSuggestions] = React.useState<NominatimSuggestion[]>([]);
@@ -1152,6 +1168,15 @@ export function LocationMap({ isMapsLoaded, onLocationSelect, initialCenter, ini
             mapRef.current.setZoom(15);
         }
     }, [initialCenter, initialQuery]);
+
+    React.useEffect(() => {
+        if (!externalLocation) return;
+        setLocation(externalLocation);
+        if (mapRef.current) {
+            mapRef.current.panTo(externalLocation);
+            mapRef.current.setZoom(15);
+        }
+    }, [externalLocation]);
 
     React.useEffect(() => {
         const handleDocumentClick = (event: MouseEvent) => {

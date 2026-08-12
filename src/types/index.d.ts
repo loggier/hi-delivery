@@ -164,6 +164,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  phone_e164?: string | null;
   password?: string;
   avatar_url?: string;
   web_push_token?: string;
