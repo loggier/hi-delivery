@@ -23,6 +23,7 @@ import { newCustomerSchema, customerAddressSchema } from '@/lib/schemas';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LocationPoint } from './page';
 import { Textarea } from '@/components/ui/textarea';
+import { appendMapsReference, parseMapsCoordinateUrl } from '@/lib/shipping-address-url';
 
 const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nominatim.vemontech.com/route/v1/driving';
 const NOMINATIM_BASE_URL = process.env.NEXT_PUBLIC_NOMINATIM_BASE_URL || 'https://nominatim.vemontech.com';
@@ -942,6 +943,9 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
     
     const createAddressMutation = api.customer_addresses.useCreate();
     const updateAddressMutation = api.customer_addresses.useUpdate();
+    const [mapsUrl, setMapsUrl] = useState('');
+    const [isResolvingMapsUrl, setIsResolvingMapsUrl] = useState(false);
+    const [mapsUrlError, setMapsUrlError] = useState<string | null>(null);
 
     const initialMapCenter = useMemo(() => {
         if (addressToEdit) {
@@ -956,6 +960,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
     useEffect(() => {
         if (addressToEdit) {
             methods.reset({ ...addressToEdit, customer_id: addressToEdit.customer_id });
+            setMapsUrl('');
         } else {
             methods.reset({
                 customer_id: customerId,
@@ -966,8 +971,39 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
                 latitude: initialMapCenter.lat,
                 longitude: initialMapCenter.lng,
             });
+            setMapsUrl('');
         }
+        setMapsUrlError(null);
     }, [addressToEdit, customerId, initialMapCenter.lat, initialMapCenter.lng, methods]);
+
+    const handleMapsUrl = async () => {
+        const trimmedUrl = mapsUrl.trim();
+        const coordinates = parseMapsCoordinateUrl(trimmedUrl);
+        if (!coordinates) {
+            setMapsUrlError('Pega un enlace de Google Maps con coordenadas, por ejemplo: https://maps.google.com/?q=25.786736,-100.470116');
+            return;
+        }
+
+        setIsResolvingMapsUrl(true);
+        setMapsUrlError(null);
+        try {
+            const parsed = await reverseGeocodeNominatim(coordinates.lat, coordinates.lng);
+            methods.setValue('address', parsed.address, { shouldValidate: true });
+            methods.setValue('street', parsed.street, { shouldValidate: true });
+            methods.setValue('house_number', parsed.house_number, { shouldValidate: true });
+            methods.setValue('latitude', parsed.lat, { shouldValidate: true });
+            methods.setValue('longitude', parsed.lng, { shouldValidate: true });
+            methods.setValue('city', parsed.city, { shouldValidate: true });
+            methods.setValue('state', parsed.state, { shouldValidate: true });
+            methods.setValue('zip_code', parsed.zip_code, { shouldValidate: true });
+            methods.setValue('neighborhood', parsed.neighborhood, { shouldValidate: true });
+            methods.setValue('reference', appendMapsReference(methods.getValues('reference') ?? '', trimmedUrl), { shouldValidate: true });
+        } catch (error) {
+            setMapsUrlError(error instanceof Error ? error.message : 'No se pudo obtener la dirección.');
+        } finally {
+            setIsResolvingMapsUrl(false);
+        }
+    };
 
     const onSubmit = async (data: AddressFormValues) => {
         try {
@@ -1030,6 +1066,23 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
                                             <p className="text-sm text-muted-foreground">Estos datos ayudan al repartidor a encontrar la entrada correcta.</p>
                                         </div>
                                         <FormInput name="address" label="Dirección completa" placeholder="Calle, número, colonia, ciudad" />
+                                        <div className="space-y-2 rounded-lg border border-dashed bg-slate-50 p-3">
+                                            <FormLabel htmlFor="shipping-maps-url">URL Dirección</FormLabel>
+                                            <div className="flex flex-col gap-2 sm:flex-row">
+                                                <Input
+                                                    id="shipping-maps-url"
+                                                    value={mapsUrl}
+                                                    onChange={(event) => { setMapsUrl(event.target.value); setMapsUrlError(null); }}
+                                                    placeholder="https://maps.google.com/?q=lat,lng"
+                                                />
+                                                <Button type="button" variant="outline" onClick={handleMapsUrl} disabled={isResolvingMapsUrl || !mapsUrl.trim()}>
+                                                    {isResolvingMapsUrl && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    Usar ubicación
+                                                </Button>
+                                            </div>
+                                            {mapsUrlError && <p className="text-xs text-destructive">{mapsUrlError}</p>}
+                                            <p className="text-xs text-muted-foreground">Extrae las coordenadas y las guarda también en Referencia.</p>
+                                        </div>
                                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                                             <FormInput name="street" label="Calle" placeholder="Ej. Av. Insurgentes Sur" />
                                             <FormInput name="house_number" label="Número" placeholder="Ej. 123-A" />
