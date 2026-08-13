@@ -1571,7 +1571,16 @@ export const useShippingCalculation = (
     useEffect(() => {
         // Distance and pricing use OSRM/Haversine, so Google Maps script
         // loading must not block the shipping calculation.
-        if (origin && destination && plan) {
+        const hasValidCoordinates = (point: LocationPoint | null) =>
+            !!point &&
+            Number.isFinite(point.lat) &&
+            Number.isFinite(point.lng) &&
+            point.lat >= -90 &&
+            point.lat <= 90 &&
+            point.lng >= -180 &&
+            point.lng <= 180;
+
+        if (origin && destination && plan && hasValidCoordinates(origin) && hasValidCoordinates(destination)) {
             setIsLoading(true);
             setError(null);
             let isCancelled = false;
@@ -1640,8 +1649,13 @@ export const useShippingCalculation = (
         } else {
             setShippingInfo(null);
             setError(
-                !business
-                    ? "Debes seleccionar un negocio para calcular el envío."
+                    !business
+                        ? "Debes seleccionar un negocio para calcular el envío."
+                        : !business.plan_id
+                          ? "El negocio no tiene un plan de envío configurado."
+                          : origin && destination &&
+                              (!hasValidCoordinates(origin) || !hasValidCoordinates(destination))
+                            ? "El origen o destino no tiene coordenadas válidas. Edita la dirección y guarda sus coordenadas."
                     : !plan && !isLoadingPlan && business?.plan_id
                       ? "El negocio no tiene un plan válido para calcular el envío."
                       : null
