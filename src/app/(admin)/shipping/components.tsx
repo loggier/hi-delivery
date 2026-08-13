@@ -1569,7 +1569,9 @@ export const useShippingCalculation = (
     });
 
     useEffect(() => {
-        if (isMapsLoaded && origin && destination && plan) {
+        // Distance and pricing use OSRM/Haversine, so Google Maps script
+        // loading must not block the shipping calculation.
+        if (origin && destination && plan) {
             setIsLoading(true);
             setError(null);
             let isCancelled = false;
@@ -1645,7 +1647,7 @@ export const useShippingCalculation = (
                       : null
             );
         }
-    }, [business, origin, destination, plan, isMapsLoaded, isLoadingPlan]);
+    }, [business, origin, destination, plan, isLoadingPlan]);
 
     return { shippingInfo, isLoading: isLoading || isLoadingPlan, error };
 }
