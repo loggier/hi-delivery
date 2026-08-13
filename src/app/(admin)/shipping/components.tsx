@@ -1021,6 +1021,9 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
 
     const onSubmit = async (data: AddressFormValues) => {
         try {
+            if (!data.customer_id || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) {
+                throw new Error('La dirección debe tener cliente, latitud y longitud válidos.');
+            }
             if (addressToEdit) {
                 await updateAddressMutation.mutateAsync({ ...data, id: addressToEdit.id });
             } else {
@@ -1029,7 +1032,7 @@ export function AddressFormModal({ isOpen, onClose, customerId, addressToEdit, i
             onSaved?.();
             onClose();
         } catch (error) {
-            // Error is handled by useMutation hook
+            setMapsUrlError(error instanceof Error ? error.message : 'No se pudo guardar la dirección.');
         }
     };
     

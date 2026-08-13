@@ -472,7 +472,7 @@ export const customerAddressSchema = z.object({
   address: z.string().min(5, "La dirección completa es requerida."),
   street: z.string().optional(),
   house_number: z.string().optional(),
-  reference: z.string().max(500, "La referencia no puede exceder los 500 caracteres.").optional(),
+  reference: z.string().max(1000, "La referencia no puede exceder los 1000 caracteres.").optional(),
   neighborhood: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
