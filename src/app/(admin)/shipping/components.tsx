@@ -590,7 +590,7 @@ export function PackageDetails({
                     />
                 </div>
                 <div className="space-y-2">
-                    <label htmlFor="ready-in-minutes" className="text-sm font-medium leading-none">Listo para recorrer en</label>
+                    <label htmlFor="ready-in-minutes" className="text-sm font-medium leading-none">Listo para recoger en</label>
                     <Input
                         id="ready-in-minutes"
                         type="number"
@@ -1824,7 +1824,7 @@ export function ShippingSummary({
                         <span>{formatCurrency(shippingInfo?.cost || 0)}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span>Listo para recorrer en</span>
+                        <span>Listo para recoger en</span>
                         <span>{readyInMinutes ? `${readyInMinutes} min` : 'N/A'}</span>
                     </div>
                     <Separator />
