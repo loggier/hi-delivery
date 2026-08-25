@@ -5,7 +5,7 @@ import React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Bike, ClipboardList, Package, Search, History, Play, Pause, RotateCcw } from 'lucide-react';
+import { Bike, ClipboardList, Package, Search, History, Play, Pause, RotateCcw, BellRing } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LiveMap } from './live-map';
 import { OrderStatus, type Rider, type Zone } from '@/types';
@@ -23,6 +23,7 @@ import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatSpeedKmh } from '@/lib/location-format';
+import { useToast } from '@/hooks/use-toast';
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase();
@@ -223,6 +224,7 @@ const ActiveRidersTable = ({
     onZoneChange,
     selectedRiderId,
     onSelectRider,
+    onReportLocation,
 }: {
     riders: Rider[],
     zones: Zone[],
@@ -233,6 +235,7 @@ const ActiveRidersTable = ({
     onZoneChange: (value: string) => void,
     selectedRiderId: string | null,
     onSelectRider: (rider: Rider) => void,
+    onReportLocation: (rider: Rider) => void,
 }) => {
     const filteredRiders = React.useMemo(() => {
         const filtered = !searchTerm
@@ -290,6 +293,7 @@ const ActiveRidersTable = ({
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Teléfono</TableHead>
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Última ubicación</TableHead>
                             <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Pedido</TableHead>
+                            <TableHead className="px-3 py-2 text-[11px] uppercase tracking-wide">Acción</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -362,6 +366,21 @@ const ActiveRidersTable = ({
                                             En curso
                                         </Badge>
                                     )}
+                                </TableCell>
+                                <TableCell className="px-3 py-2.5">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-[11px]"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            onReportLocation(rider);
+                                        }}
+                                    >
+                                        <BellRing className="mr-1 h-3 w-3" />
+                                        Reportar ubicación
+                                    </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -580,6 +599,7 @@ function RiderHistoryPanel({
 
 export default function MonitoringPage() {
   const supabase = React.useMemo(() => createClient(), []);
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedZoneId, setSelectedZoneId] = React.useState('all');
   const [selectedRiderId, setSelectedRiderId] = React.useState<string | null>(null);
@@ -709,6 +729,31 @@ export default function MonitoringPage() {
     () => activeRidersForTable.find((rider) => rider.id === selectedRiderId) ?? null,
     [activeRidersForTable, selectedRiderId],
   );
+
+  const reportRiderLocation = React.useCallback(async (rider: Rider) => {
+    try {
+      const response = await fetch('/api/push/location-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ riderId: rider.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'No se pudo enviar la solicitud.');
+      }
+      toast({
+        title: 'Solicitud enviada',
+        description: `Se pidió a ${rider.first_name} ${rider.last_name} reportar su ubicación.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'No se pudo enviar la solicitud.',
+      });
+    }
+  }, [toast]);
 
   const loadHistory = React.useCallback(async () => {
     if (!selectedRiderId) {
@@ -841,6 +886,7 @@ export default function MonitoringPage() {
               onSelectRider={(rider) => {
                 setSelectedRiderId(rider.id);
               }}
+              onReportLocation={reportRiderLocation}
             />
           ) : (
             <RiderHistoryPanel
