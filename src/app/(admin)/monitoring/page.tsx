@@ -371,15 +371,16 @@ const ActiveRidersTable = ({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        size="sm"
-                                        className="h-7 px-2 text-[11px]"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        title="Reportar ubicación"
+                                        aria-label="Reportar ubicación"
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             onReportLocation(rider);
                                         }}
                                     >
-                                        <BellRing className="mr-1 h-3 w-3" />
-                                        Reportar ubicación
+                                        <BellRing className="h-3.5 w-3.5" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
