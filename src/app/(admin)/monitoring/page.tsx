@@ -37,6 +37,46 @@ function formatLocationDateTime(value?: string | null) {
   return format(date, 'dd/MM/yyyy HH:mm:ss', { locale: es });
 }
 
+type RiderLocationStatus = 'green' | 'yellow' | 'red';
+
+const riderStatusColors: Record<RiderLocationStatus, string> = {
+  green: 'bg-emerald-500',
+  yellow: 'bg-amber-400',
+  red: 'bg-red-500',
+};
+
+const riderStatusPriority: Record<RiderLocationStatus, number> = {
+  red: 0,
+  yellow: 1,
+  green: 2,
+};
+
+function riderLocationStatus(value?: string | null): RiderLocationStatus {
+  if (!value) return 'red';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'red';
+
+  const elapsedMs = Date.now() - date.getTime();
+  if (elapsedMs <= 10 * 60 * 1000) return 'green';
+  if (elapsedMs <= 24 * 60 * 60 * 1000) return 'yellow';
+  return 'red';
+}
+
+function formatRelativeLocationTime(value?: string | null): string {
+  if (!value) return 'Sin posición';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Sin posición';
+
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return 'hace <1 min';
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  return `hace ${Math.floor(hours / 24)} d`;
+}
+
 function sanitizeImageUrl(value?: string | null) {
   if (!value) {
     return undefined;
@@ -195,15 +235,21 @@ const ActiveRidersTable = ({
     onSelectRider: (rider: Rider) => void,
 }) => {
     const filteredRiders = React.useMemo(() => {
-        if (!searchTerm) return riders;
-        return riders.filter(rider => 
-            `${rider.first_name} ${rider.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            rider.phone_e164.includes(searchTerm)
+        const filtered = !searchTerm
+            ? riders
+            : riders.filter(rider =>
+                `${rider.first_name} ${rider.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                rider.phone_e164.includes(searchTerm)
+            );
+        return [...filtered].sort(
+            (a, b) =>
+                riderStatusPriority[riderLocationStatus(a.last_location_update)] -
+                riderStatusPriority[riderLocationStatus(b.last_location_update)]
         );
     }, [riders, searchTerm]);
 
     return (
-        <Card className="flex flex-col">
+        <Card className="flex min-h-0 flex-1 flex-col">
             <CardHeader className="px-4 py-3 pb-2">
                 <CardTitle className="text-base">Repartidores Activos</CardTitle>
                 <div className="mt-2 space-y-2">
@@ -229,9 +275,14 @@ const ActiveRidersTable = ({
                             className="h-9 pl-8 text-xs"
                         />
                     </div>
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Últimos 10 min</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" />10 min a 1 día</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" />Más de 1 día</span>
+                    </div>
                 </div>
             </CardHeader>
-            <CardContent className="flex-grow overflow-y-auto px-0 pb-0">
+            <CardContent className="min-h-0 flex-grow overflow-y-auto px-0 pb-0">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -291,8 +342,18 @@ const ActiveRidersTable = ({
                                     </div>
                                  </TableCell>
                                  <TableCell className="px-3 py-2.5 text-xs">{rider.phone_e164}</TableCell>
-                                 <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
-                                     {formatLocationDateTime(rider.last_location_update)}
+                                 <TableCell className="px-3 py-2.5">
+                                     <div className="flex items-start gap-2">
+                                         <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", riderStatusColors[riderLocationStatus(rider.last_location_update)])} />
+                                         <div className="text-xs leading-tight">
+                                             <div className="tabular-nums text-muted-foreground">
+                                                 {formatLocationDateTime(rider.last_location_update)}
+                                             </div>
+                                             <div className="font-medium text-foreground">
+                                                 {formatRelativeLocationTime(rider.last_location_update)}
+                                             </div>
+                                         </div>
+                                     </div>
                                  </TableCell>
                                  <TableCell className="px-3 py-2.5">
                                     {activeOrderRiderIds.has(rider.id) && (
