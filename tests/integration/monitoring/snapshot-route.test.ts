@@ -70,6 +70,15 @@ describe('POST /api/monitoring/snapshot', () => {
     expect(response.status).toBe(400);
   });
 
+  it.each([null, [], 'filters'])('rejects non-object JSON filter body: %s', async (body) => {
+    const response = await POST(new Request('http://localhost/api/monitoring/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }));
+    expect(response.status).toBe(400);
+  });
+
   it('runs the real parser and builder, returns configured thresholds, filters active data, and disables cache', async () => {
     const response = await POST(new Request('http://localhost/api/monitoring/snapshot?orderStatus=pending_acceptance&search=active', { method: 'POST' }));
     const body = await response.json();

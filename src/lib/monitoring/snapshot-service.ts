@@ -31,7 +31,8 @@ export const monitoringFilterSchema = z.object({
 }).strict();
 
 export function parseMonitoringFilter(input: URLSearchParams | unknown): MonitoringFilter {
-  const value = input instanceof URLSearchParams ? Object.fromEntries(input.entries()) : (input ?? {});
+  const value = input instanceof URLSearchParams ? Object.fromEntries(input.entries()) : input === undefined ? {} : input;
+  if (!(input instanceof URLSearchParams) && (value === null || typeof value !== 'object' || Array.isArray(value))) throw new Error('invalid filter');
   return monitoringFilterSchema.parse(value);
 }
 
@@ -87,7 +88,10 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
   const riders = riderResult.data.map(normalizeRider);
   const inTransitRiderIds = [...new Set(orders.filter((order) => order.riderId && isInTransitStatus(order.status)).map((order) => order.riderId!))];
   let movementByRiderId: Record<string, RiderMovementWindow | undefined> = {};
-  const evaluatedTypes = new Set<MonitoringConditionType>(['unassigned', 'gps-stale', 'dispatch-exhausted']);
+  const evaluatedTypes = new Set<MonitoringConditionType>(['unassigned', 'gps-stale']);
+  const dispatchColumnsAvailable = orderResult.data.some((row) => Object.prototype.hasOwnProperty.call(row, 'assignment_exhausted_at') || Object.prototype.hasOwnProperty.call(row, 'assignment_attempts_exhausted'));
+  if (dispatchColumnsAvailable) evaluatedTypes.add('dispatch-exhausted');
+  else health.disabledRules.push('dispatch-exhausted');
   for (const type of ['late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting'] as const) {
     if (orders.some((order) => type === 'late-delivery' ? order.expectedDeliveryAt !== null : type === 'outside-zone' ? order.isOutsideZone !== undefined : type === 'repeated-rejections' ? order.hasRepeatedRejections !== undefined : riders.some((rider) => rider.hasIrregularReporting !== undefined))) evaluatedTypes.add(type);
     else health.disabledRules.push(type);
@@ -183,8 +187,15 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
     const base = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
     if (base.error || !base.data) return base;
-    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,zone_id,expected_delivery_at,assignment_exhausted_at,assignment_attempts_exhausted,is_outside_zone,has_repeated_rejections', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const byId = new Map(enrichment.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
+    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,zone_id,expected_delivery_at,is_outside_zone,has_repeated_rejections', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const exhaustedAt = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_exhausted_at', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const exhaustedAttempts = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_attempts_exhausted', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const byId = new Map([...enrichment, ...exhaustedAt, ...exhaustedAttempts].filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
+    for (const row of [...exhaustedAt, ...exhaustedAttempts]) {
+      if (typeof row.id !== 'string') continue;
+      const existing = byId.get(row.id) ?? {};
+      byId.set(row.id, { ...existing, ...row });
+    }
     return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {

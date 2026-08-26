@@ -33,7 +33,7 @@ describe('protected monitoring snapshot schema fallbacks', () => {
   });
 
   it('reconciles once and computes KPIs before applying filters', async () => {
-    const reconcileIncidents = vi.fn(async () => []);
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
     const fetchRelevantRiders = vi.fn(async () => ({ data: [{ id: 'r-offline', is_active_for_orders: false, last_location_update: now.toISOString() }], error: null }));
     const repo = repositories({
       fetchSettings: vi.fn(async () => ({ data: {
@@ -56,6 +56,28 @@ describe('protected monitoring snapshot schema fallbacks', () => {
     expect(reconcileIncidents).toHaveBeenCalledTimes(1);
     expect(fetchRelevantRiders).toHaveBeenCalledWith([]);
     expect(result.serverTimestamp).toBe(now.toISOString());
+  });
+
+  it('disables dispatch exhaustion when neither dispatch column is available', async () => {
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const repo = repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'pending_acceptance', rider_id: null, created_at: now.toISOString() }], error: null })),
+      reconcileIncidents,
+    });
+    const result = await buildMonitoringSnapshot({ repositories: repo, now });
+    expect(result.dataHealth.disabledRules).toContain('dispatch-exhausted');
+    expect(reconcileIncidents.mock.calls[0]?.[1]).not.toContain('dispatch-exhausted');
+  });
+
+  it('evaluates dispatch exhaustion when one dispatch column is available', async () => {
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const repo = repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'pending_acceptance', rider_id: null, created_at: now.toISOString(), assignment_attempts_exhausted: true }], error: null })),
+      reconcileIncidents,
+    });
+    const result = await buildMonitoringSnapshot({ repositories: repo, now });
+    expect(result.dataHealth.disabledRules).not.toContain('dispatch-exhausted');
+    expect(reconcileIncidents.mock.calls[0]?.[1]).toContain('dispatch-exhausted');
   });
 
   it('continues safely when optional movement history is unavailable', async () => {
