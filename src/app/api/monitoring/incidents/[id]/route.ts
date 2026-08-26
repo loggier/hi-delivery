@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { AdminSessionError, requireAdminOperationSession } from '@/lib/auth/admin-session';
-import { getMonitoringIncidentForOperation, isConditionActive, transitionMonitoringIncident } from '@/lib/monitoring/incident-repository';
+import { getMonitoringIncidentForOperation, requestCloseMonitoringIncident, transitionMonitoringIncident } from '@/lib/monitoring/incident-repository';
 
 const bodySchema = z.discriminatedUnion('action', [z.object({ action: z.literal('attend') }).strict(), z.object({ action: z.literal('request_close'), reason: z.string().trim().min(3).max(300) }).strict()]);
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -12,8 +12,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const body = bodySchema.parse(await request.json());
     const incident = await getMonitoringIncidentForOperation(id);
     if (!incident) return NextResponse.json({ message: 'Incidente no encontrado.' }, { status: 404 });
-    const conditionActive = body.action === 'request_close' ? await isConditionActive(incident.conditionKey, { orderId: incident.orderId, riderId: incident.riderId }) : undefined;
-    const result = await transitionMonitoringIncident({ incident, action: body.action, reason: body.action === 'request_close' ? body.reason : undefined, actorId: actor.id, conditionActive });
+    const result = body.action === 'request_close'
+      ? await requestCloseMonitoringIncident({ incident, reason: body.reason, actorId: actor.id })
+      : await transitionMonitoringIncident({ incident, action: body.action, actorId: actor.id });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof AdminSessionError) return NextResponse.json({ message: error.message }, { status: error.status });

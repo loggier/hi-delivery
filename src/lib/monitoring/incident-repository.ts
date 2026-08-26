@@ -55,12 +55,25 @@ type OperationQuery = {
   then<TResult1 = IncidentDbResult, TResult2 = never>(onfulfilled?: ((value: IncidentDbResult) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2>;
 };
 
-export type IncidentOperation = 'attend' | 'request_close';
+export type IncidentOperation = 'attend';
 
-export async function isConditionActive(conditionKey: string, entity: { orderId: string | null; riderId: string | null }): Promise<boolean> {
-  const { buildMonitoringSnapshot } = await import('./snapshot-service');
-  const snapshot = await buildMonitoringSnapshot({ filter: entity.orderId ? { search: entity.orderId } : entity.riderId ? { riderId: entity.riderId } : undefined });
-  return snapshot.incidents.some((incident) => incident.conditionKey === conditionKey && incident.status !== 'resolved');
+export async function requestCloseMonitoringIncident(input: { incident: MonitoringIncident; reason: string; actorId: string }): Promise<{ status: MonitoringIncidentStatus; closed: boolean }> {
+  const client = createSupabaseAdminClient() as unknown as SupabaseIncidentClient;
+  // The RPC owns the row lock, current-condition evaluation, and CAS. The client never pre-checks activity.
+  const result = await client.rpc('request_close_monitoring_incident', {
+    p_incident_id: input.incident.id,
+    p_condition_key: input.incident.conditionKey,
+    p_order_id: input.incident.orderId,
+    p_rider_id: input.incident.riderId,
+    p_expected_status: input.incident.status,
+    p_expected_last_detected_at: input.incident.lastDetectedAt,
+    p_actor_id: input.actorId,
+    p_reason: input.reason,
+  }) as IncidentDbResult;
+  if (result.error) throw new Error('Unable to close monitoring incident');
+  if (!result.data || (Array.isArray(result.data) && result.data.length === 0)) throw new Error('stale incident');
+  const updated = mapIncidentRow(Array.isArray(result.data) ? result.data[0] : result.data);
+  return { status: updated.status, closed: updated.status === 'resolved' };
 }
 
 export async function getMonitoringIncidentForOperation(id: number): Promise<MonitoringIncident | null> {
@@ -70,8 +83,8 @@ export async function getMonitoringIncidentForOperation(id: number): Promise<Mon
   return result.data === null ? null : mapIncidentRow(result.data);
 }
 
-export async function transitionMonitoringIncident(input: { incident: MonitoringIncident; action: IncidentOperation; reason?: string; actorId: string; conditionActive?: boolean }): Promise<{ status: MonitoringIncidentStatus; closed: boolean }> {
-  const { incident, action, reason, actorId, conditionActive = true } = input;
+export async function transitionMonitoringIncident(input: { incident: MonitoringIncident; action: IncidentOperation; actorId: string }): Promise<{ status: MonitoringIncidentStatus; closed: boolean }> {
+  const { incident, action, actorId } = input;
   if (incident.status === 'resolved') throw new Error('stale incident');
   if (action === 'attend') {
     if (incident.status === 'attending') return { status: 'attending', closed: false };
@@ -79,10 +92,7 @@ export async function transitionMonitoringIncident(input: { incident: Monitoring
     if (!updated) throw new Error('stale incident');
     return { status: 'attending', closed: false };
   }
-  if (conditionActive) return { status: 'attending', closed: false };
-  const updated = await updateIncident(incident.id, 'attending', incident.lastDetectedAt, { status: 'resolved', resolved_at: new Date().toISOString(), resolution_source: 'operator', resolution_reason: reason, last_acted_by_user_id: actorId });
-  if (!updated) throw new Error('stale incident');
-  return { status: 'resolved', closed: true };
+  return { status: 'attending', closed: false };
 }
 
 async function updateIncident(id: number, expectedStatus: MonitoringIncidentStatus, expectedLastDetectedAt: string, values: Record<string, unknown>): Promise<MonitoringIncident | null> {
