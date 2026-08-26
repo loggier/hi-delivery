@@ -41,6 +41,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error("Failed to clear session from localStorage", e);
     }
     set({ user: null, isAuthenticated: false });
+    void fetch('/api/auth/sign-out', { method: 'POST' }).catch(() => {
+      // Server revocation is best-effort; local logout has already completed.
+    });
   },
 
   checkAuth: () => {

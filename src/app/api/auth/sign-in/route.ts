@@ -2,10 +2,11 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
 import { verifyPassword, hashPassword } from '@/lib/auth-utils';
+import { createAdminWebSession } from '@/lib/auth/admin-session';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
-import type { User, Role } from '@/types';
+import type { User } from '@/types';
 
 type UserData = {
   id: string;
@@ -40,14 +41,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Email y contraseña son requeridos.' }, { status: 400 });
     }
     
-    const supabaseAdmin = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-        db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA! },
-      }
-    );
+    const supabaseAdmin = createSupabaseAdminClient();
   
 
     const { data: user, error: userError }: PostgrestSingleResponse<UserData> = await supabaseAdmin
@@ -120,6 +114,8 @@ export async function POST(request: Request) {
     
     // Remove password from the returned user object
     delete (fullUser as any).password;
+
+    await createAdminWebSession(fullUser.id);
 
     return NextResponse.json({ message: 'Inicio de sesión exitoso', user: fullUser as User }, { status: 200 });
 
