@@ -19,6 +19,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   } catch (error) {
     if (error instanceof AdminSessionError) return NextResponse.json({ message: error.message }, { status: error.status });
     if (error instanceof z.ZodError || error instanceof SyntaxError) return NextResponse.json({ message: 'Solicitud inválida.' }, { status: 400 });
+    if (error instanceof Error && error.message === 'missing incident') return NextResponse.json({ message: 'Incidente no encontrado.' }, { status: 404 });
     if (error instanceof Error && error.message === 'stale incident') return NextResponse.json({ message: 'El incidente cambió. Actualiza la cola.' }, { status: 409 });
     return NextResponse.json({ message: 'No se pudo actualizar el incidente.' }, { status: 500 });
   }

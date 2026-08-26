@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createSupabaseIncidentStore,
   reconcileMonitoringIncidents,
+  requestCloseMonitoringIncident,
 } from '@/lib/monitoring/incident-repository';
 import type { DetectedCondition } from '@/lib/monitoring/types';
 
@@ -186,6 +187,20 @@ describe('Supabase incident store batch reconciliation', () => {
     expect(client.calls).toHaveLength(1);
   });
 
+  it('calls the atomic manual close RPC once and maps an active open response', async () => {
+    const client = new FakeSupabase();
+    client.response = { data: { status: 'attending', closed: false }, error: null };
+    const result = await requestCloseMonitoringIncident({ incident: { ...rowToIncident(), status: 'open' }, reason: 'still active', actorId: 'admin-1' }, client);
+    expect(result).toEqual({ status: 'attending', closed: false });
+    expect(client.calls).toEqual([{ functionName: 'request_close_monitoring_incident', params: expect.objectContaining({ p_actor_user_id: 'admin-1', p_reason: 'still active', p_condition_key: detected.key }) }]);
+  });
+
+  it('maps an atomic zero-row race to a stale incident without resolving it', async () => {
+    const client = new FakeSupabase();
+    client.response = { data: null, error: null };
+    await expect(requestCloseMonitoringIncident({ incident: rowToIncident(), reason: 'condition cleared', actorId: 'admin-1' }, client)).rejects.toThrow('stale incident');
+  });
+
   it.each([
     {
       id: 0.5,
@@ -221,3 +236,7 @@ describe('Supabase incident store batch reconciliation', () => {
     ).rejects.toThrow('Invalid monitoring incident response');
   });
 });
+
+function rowToIncident() {
+  return { id: row.id, conditionKey: row.condition_key, type: row.incident_type, priority: row.priority, status: row.status as 'open' | 'attending', orderId: row.order_id, riderId: row.rider_id, firstDetectedAt: row.first_detected_at, lastDetectedAt: row.last_detected_at, attendingAt: row.attending_at, resolvedAt: row.resolved_at, metadata: row.condition_metadata };
+}

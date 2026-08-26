@@ -95,6 +95,16 @@ CREATE TABLE IF NOT EXISTS grupohubs.monitoring_incidents (
     CHECK (jsonb_typeof(condition_metadata) = 'object')
 );
 
+-- This table is maintained by reconciliation and is the authoritative state
+-- consulted by manual close. It is never writable by browser roles.
+CREATE TABLE IF NOT EXISTS grupohubs.monitoring_current_conditions (
+  condition_key text PRIMARY KEY,
+  order_id varchar(255),
+  rider_id varchar(255),
+  last_detected_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+
 CREATE OR REPLACE FUNCTION grupohubs.prevent_monitoring_incident_reopen()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -336,6 +346,28 @@ BEGIN
       WHERE condition ->> 'condition_key' = incident.condition_key
     );
 
+  DELETE FROM grupohubs.monitoring_current_conditions AS current_condition
+  WHERE current_condition.last_detected_at <= p_now
+    AND EXISTS (
+      SELECT 1
+      FROM unnest(p_evaluated_types) AS evaluated_type
+      WHERE evaluated_type = split_part(current_condition.condition_key, ':', 1)
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(p_conditions) AS entry(condition)
+      WHERE condition ->> 'condition_key' = current_condition.condition_key
+    );
+
+  INSERT INTO grupohubs.monitoring_current_conditions (condition_key, order_id, rider_id, last_detected_at, updated_at)
+  SELECT condition ->> 'condition_key', nullif(condition ->> 'order_id', ''), nullif(condition ->> 'rider_id', ''), p_now, p_now
+  FROM jsonb_array_elements(p_conditions) AS entry(condition)
+  ON CONFLICT (condition_key) DO UPDATE
+  SET order_id = EXCLUDED.order_id,
+      rider_id = EXCLUDED.rider_id,
+      last_detected_at = GREATEST(grupohubs.monitoring_current_conditions.last_detected_at, EXCLUDED.last_detected_at),
+      updated_at = GREATEST(grupohubs.monitoring_current_conditions.updated_at, EXCLUDED.updated_at);
+
   RETURN QUERY
   SELECT active_incident.*
   FROM grupohubs.monitoring_incidents AS active_incident
@@ -344,6 +376,82 @@ BEGIN
     CASE priority WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END,
     first_detected_at,
     id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION grupohubs.request_close_monitoring_incident(
+  p_incident_id bigint,
+  p_condition_key text,
+  p_actor_user_id varchar,
+  p_reason text,
+  p_now timestamptz
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, grupohubs
+AS $$
+DECLARE
+  incident grupohubs.monitoring_incidents%ROWTYPE;
+  condition_active boolean;
+BEGIN
+  IF p_incident_id IS NULL OR p_incident_id < 1 OR nullif(btrim(p_condition_key), '') IS NULL
+     OR nullif(btrim(p_actor_user_id), '') IS NULL OR nullif(btrim(p_reason), '') IS NULL
+     OR length(btrim(p_reason)) < 3 OR length(btrim(p_reason)) > 300 OR p_now IS NULL THEN
+    RAISE EXCEPTION 'invalid manual incident close request' USING ERRCODE = '22023';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM grupohubs.users AS actor
+    WHERE actor.id = p_actor_user_id AND actor.status = 'ACTIVE' AND actor.role_id = 'role-admin'
+  ) THEN
+    RAISE EXCEPTION 'invalid manual incident actor' USING ERRCODE = '42501';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(907202608);
+  SELECT * INTO incident
+  FROM grupohubs.monitoring_incidents
+  WHERE id = p_incident_id AND condition_key = p_condition_key
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'monitoring incident not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF incident.status = 'resolved' THEN
+    RAISE EXCEPTION 'monitoring incident is already resolved' USING ERRCODE = 'P0009';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM grupohubs.monitoring_current_conditions AS current_condition
+    WHERE current_condition.condition_key = p_condition_key
+      AND current_condition.order_id IS NOT DISTINCT FROM incident.order_id
+      AND current_condition.rider_id IS NOT DISTINCT FROM incident.rider_id
+  ) INTO condition_active;
+
+  IF condition_active THEN
+    UPDATE grupohubs.monitoring_incidents
+    SET status = 'attending',
+        attending_at = COALESCE(incident.attending_at, GREATEST(p_now, incident.first_detected_at)),
+        last_acted_by_user_id = p_actor_user_id,
+        resolution_reason = btrim(p_reason),
+        updated_at = p_now
+    WHERE id = incident.id
+      AND status IN ('open', 'attending')
+      AND last_detected_at = incident.last_detected_at;
+    IF NOT FOUND THEN RAISE EXCEPTION 'stale monitoring incident' USING ERRCODE = 'P0009'; END IF;
+    RETURN jsonb_build_object('closed', false, 'status', 'attending');
+  END IF;
+
+  UPDATE grupohubs.monitoring_incidents
+  SET status = 'resolved',
+      resolved_at = GREATEST(p_now, incident.last_detected_at, COALESCE(incident.attending_at, p_now)),
+      resolution_source = 'manual_request',
+      resolution_reason = btrim(p_reason),
+      last_acted_by_user_id = p_actor_user_id,
+      updated_at = p_now
+  WHERE id = incident.id
+    AND status IN ('open', 'attending')
+    AND last_detected_at = incident.last_detected_at;
+  IF NOT FOUND THEN RAISE EXCEPTION 'stale monitoring incident' USING ERRCODE = 'P0009'; END IF;
+  RETURN jsonb_build_object('closed', true, 'status', 'resolved');
 END;
 $$;
 
@@ -428,6 +536,16 @@ GRANT USAGE, SELECT ON SEQUENCE grupohubs.monitoring_incidents_id_seq TO service
 REVOKE ALL ON FUNCTION grupohubs.reconcile_monitoring_incidents(jsonb, text[], timestamptz)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION grupohubs.reconcile_monitoring_incidents(jsonb, text[], timestamptz)
+  TO service_role;
+
+REVOKE ALL ON TABLE grupohubs.monitoring_current_conditions
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE grupohubs.monitoring_current_conditions
+  TO service_role;
+
+REVOKE ALL ON FUNCTION grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, timestamptz)
   TO service_role;
 
 REVOKE ALL ON TABLE grupohubs.monitoring_action_log
