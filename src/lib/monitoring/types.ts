@@ -41,6 +41,7 @@ export type MonitoringOrder = {
   createdAt: string | null;
   expectedDeliveryAt: string | null;
   assignmentExhaustedAt: string | null;
+  assignmentAttemptsExhausted?: boolean;
   isOutsideZone?: boolean;
   hasRepeatedRejections?: boolean;
 };
@@ -85,7 +86,7 @@ export type DetectedCondition = {
 };
 
 export type MonitoringIncident = {
-  id: string;
+  id: number;
   conditionKey: string;
   type: MonitoringConditionType;
   priority: MonitoringPriority;
@@ -99,18 +100,26 @@ export type MonitoringIncident = {
   metadata: MonitoringConditionMetadata;
 };
 
+export type MonitoringRiskFilter =
+  | 'all'
+  | 'atRisk'
+  | 'unassigned'
+  | 'onTheWay'
+  | 'available'
+  | 'occupied'
+  | 'noSignal';
+
 export type MonitoringFilter = {
-  priorities?: readonly MonitoringPriority[];
-  incidentStatuses?: readonly MonitoringIncidentStatus[];
-  orderStatuses?: readonly OrderStatus[];
+  zoneId?: string;
+  risk?: MonitoringRiskFilter;
   riderId?: string;
-  orderId?: string;
-  query?: string;
+  orderStatus?: OrderStatus;
+  search?: string;
 };
 
 export type MonitoringSnapshot = {
-  generatedAt: string;
-  health: MonitoringSnapshotHealth;
+  serverTimestamp: string;
+  dataHealth: MonitoringSnapshotHealth;
   thresholds: MonitoringThresholds;
   orders: MonitoringOrder[];
   riders: MonitoringRider[];

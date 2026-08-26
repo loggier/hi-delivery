@@ -15,13 +15,20 @@ export function computeMonitoringKpis(
   thresholds: MonitoringThresholds,
   now: Date,
 ): MonitoringKpis {
-  const openOrders = orders.filter((order) => isOpenOrderStatus(order.status));
+  const deduplicatedOrders = [...new Map(orders.map((order) => [order.id, order])).values()];
+  const deduplicatedRiders = [...new Map(riders.map((rider) => [rider.id, rider])).values()];
+  const openOrders = deduplicatedOrders.filter((order) => isOpenOrderStatus(order.status));
+  const openOrderIds = new Set(openOrders.map((order) => order.id));
   const activeRiderIds = new Set(
     openOrders.flatMap((order) => (order.riderId === null ? [] : [order.riderId])),
   );
   const atRiskOrderIds = new Set(
     conditions.flatMap((condition) =>
-      condition.priority === 'P1' && condition.orderId !== null ? [condition.orderId] : [],
+      condition.priority === 'P1' &&
+      condition.orderId !== null &&
+      openOrderIds.has(condition.orderId)
+        ? [condition.orderId]
+        : [],
     ),
   );
 
@@ -30,7 +37,7 @@ export function computeMonitoringKpis(
   let occupied = 0;
   let noSignal = 0;
 
-  for (const rider of riders) {
+  for (const rider of deduplicatedRiders) {
     const hasActiveOrder = activeRiderIds.has(rider.id);
     const stale = isLocationStale(rider, thresholds.gpsStaleCriticalMinutes, now);
     const online = !stale && (rider.activeForOrders || hasActiveOrder);

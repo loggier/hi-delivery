@@ -58,7 +58,7 @@ export function detectMonitoringConditions(
       }
     }
 
-    if (hasValidDate(order.assignmentExhaustedAt)) {
+    if (hasValidDate(order.assignmentExhaustedAt) || order.assignmentAttemptsExhausted === true) {
       conditions.push(createCondition('dispatch-exhausted', 'P1', order, null, now, {}));
     }
 
@@ -104,7 +104,8 @@ export function isLocationStale(
   staleMinutes: number,
   now: Date,
 ): boolean {
-  return isAtLeastMinutesOld(getRiderLocationTimestamp(rider), staleMinutes, now);
+  const locationTimestamp = getRiderLocationTimestamp(rider);
+  return locationTimestamp === null || isAtLeastMinutesOld(locationTimestamp, staleMinutes, now);
 }
 
 function createCondition(
@@ -135,7 +136,7 @@ function conditionKey(type: MonitoringConditionType, orderId: string, riderId: s
 
 function isAtLeastMinutesOld(value: string | null, minutes: number, now: Date): boolean {
   const timestamp = parseTimestamp(value);
-  return timestamp === null || now.getTime() - timestamp >= minutes * MILLISECONDS_PER_MINUTE;
+  return timestamp !== null && now.getTime() - timestamp >= minutes * MILLISECONDS_PER_MINUTE;
 }
 
 function hasValidDate(value: string | null | undefined): value is string {

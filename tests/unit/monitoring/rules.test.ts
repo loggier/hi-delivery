@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { detectMonitoringConditions } from '@/lib/monitoring/rules';
 import type {
   MonitoringOrder,
+  MonitoringFilter,
+  MonitoringIncident,
   MonitoringRider,
   MonitoringSnapshot,
   MonitoringThresholds,
@@ -25,6 +27,7 @@ const order = (overrides: Partial<MonitoringOrder> = {}): MonitoringOrder => ({
   createdAt: '2026-08-25T11:53:00Z',
   expectedDeliveryAt: null,
   assignmentExhaustedAt: null,
+  assignmentAttemptsExhausted: false,
   isOutsideZone: false,
   hasRepeatedRejections: false,
   ...overrides,
@@ -125,10 +128,29 @@ describe('monitoring condition rules', () => {
     ]);
   });
 
-  it('emits deterministic dispatch exhausted and normalized P2 conditions', () => {
+  it('emits dispatch exhausted from a timestamp or the normalized attempts flag', () => {
     const conditions = detect([
       order({
+        id: 'timestamp',
         assignmentExhaustedAt: '2026-08-25T11:58:00Z',
+      }),
+      order({
+        id: 'attempts',
+        assignmentAttemptsExhausted: true,
+        createdAt: '2026-08-25T11:59:00Z',
+      }),
+    ]);
+
+    expect(conditions.map((condition) => condition.key)).toEqual([
+      'unassigned:timestamp',
+      'dispatch-exhausted:timestamp',
+      'dispatch-exhausted:attempts',
+    ]);
+  });
+
+  it('emits normalized P2 conditions without sensitive movement data', () => {
+    const conditions = detect([
+      order({
         isOutsideZone: true,
         hasRepeatedRejections: true,
       }),
@@ -136,7 +158,6 @@ describe('monitoring condition rules', () => {
 
     expect(conditions.map((condition) => condition.key)).toEqual([
       'unassigned:order-1',
-      'dispatch-exhausted:order-1',
       'outside-zone:order-1',
       'repeated-rejections:order-1',
     ]);
@@ -144,11 +165,37 @@ describe('monitoring condition rules', () => {
     expect(conditions.every((condition) => !('history' in condition.metadata))).toBe(true);
   });
 
+  it('does not infer unassigned age from missing or invalid creation timestamps', () => {
+    const conditions = detect([
+      order({ id: 'missing', createdAt: null }),
+      order({ id: 'invalid', createdAt: 'not-a-date' }),
+    ]);
+
+    expect(conditions).toEqual([]);
+  });
+
+  it('does not infer a stopped duration from missing or invalid movement timestamps', () => {
+    const orders = [
+      order({ id: 'missing', status: 'picked_up', riderId: 'missing-rider' }),
+      order({ id: 'invalid', status: 'on_the_way', riderId: 'invalid-rider' }),
+    ];
+    const riders = orders.map((item) =>
+      rider({ id: item.riderId!, lastLocationReceivedAt: '2026-08-25T11:59:00Z' }),
+    );
+
+    const conditions = detect(orders, riders, {
+      'missing-rider': movement('missing-rider', null, 0),
+      'invalid-rider': movement('invalid-rider', 'not-a-date', 0),
+    });
+
+    expect(conditions).toEqual([]);
+  });
+
   it('does not invent late-delivery SLA and snapshots can disable that rule', () => {
     const conditions = detect([order({ status: 'on_the_way', riderId: 'rider-1' })], [rider()]);
     const snapshot: MonitoringSnapshot = {
-      generatedAt: now.toISOString(),
-      health: { schema: 'degraded', disabledRules: ['late-delivery'] },
+      serverTimestamp: now.toISOString(),
+      dataHealth: { schema: 'degraded', disabledRules: ['late-delivery'] },
       thresholds,
       orders: [],
       riders: [],
@@ -167,7 +214,7 @@ describe('monitoring condition rules', () => {
     };
 
     expect(conditions.some((condition) => condition.type === 'late-delivery')).toBe(false);
-    expect(snapshot.health.disabledRules).toContain('late-delivery');
+    expect(snapshot.dataHealth.disabledRules).toContain('late-delivery');
   });
 
   it('marks late delivery only when an expected timestamp exists', () => {
@@ -182,11 +229,30 @@ describe('monitoring condition rules', () => {
 
     expect(conditions.map((condition) => condition.key)).toContain('late-delivery:late');
   });
+
+  it('exposes Task 5 incident and filter contracts', () => {
+    const filter: MonitoringFilter = {
+      zoneId: 'zone-1',
+      risk: 'atRisk',
+      riderId: 'rider-1',
+      orderStatus: 'accepted',
+      search: 'order-1',
+    };
+
+    expectTypeOf<MonitoringIncident['id']>().toEqualTypeOf<number>();
+    expect(filter).toEqual({
+      zoneId: 'zone-1',
+      risk: 'atRisk',
+      riderId: 'rider-1',
+      orderStatus: 'accepted',
+      search: 'order-1',
+    });
+  });
 });
 
 function movement(
   riderId: string,
-  windowStartedAt: string,
+  windowStartedAt: string | null,
   distanceMeters: number,
 ): RiderMovementWindow {
   return { riderId, windowStartedAt, windowEndedAt: now.toISOString(), distanceMeters };

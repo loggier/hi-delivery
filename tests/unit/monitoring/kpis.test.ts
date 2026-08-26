@@ -65,6 +65,56 @@ describe('monitoring KPIs', () => {
     expect(Object.keys(result)).toHaveLength(8);
   });
 
+  it('deduplicates orders and riders by id with the last row winning for all KPIs', () => {
+    const orders = [
+      order('unassigned', { status: 'completed' }),
+      order('unassigned', { status: 'pending_acceptance' }),
+      order('transit', { status: 'accepted', riderId: null }),
+      order('transit', { status: 'out_for_delivery', riderId: 'occupied' }),
+      order('terminal', { status: 'accepted' }),
+      order('terminal', { status: 'delivered' }),
+    ];
+    const riders = [
+      rider('occupied', { activeForOrders: false, lastLocationReceivedAt: null }),
+      rider('occupied', { activeForOrders: false }),
+      rider('available', { lastLocationReceivedAt: null }),
+      rider('available'),
+      rider('signal', { lastLocationReceivedAt: '2026-08-25T11:59:00Z' }),
+      rider('signal', { lastLocationReceivedAt: null }),
+    ];
+    const conditions = [
+      condition('unassigned:unassigned', 'unassigned'),
+      condition('gps-stale:unassigned:rider', 'unassigned'),
+      condition('late-delivery:terminal', 'terminal'),
+      condition('late-delivery:missing', 'missing'),
+    ];
+
+    expect(computeMonitoringKpis(orders, riders, conditions, thresholds, now)).toEqual({
+      openOrders: 2,
+      unassigned: 1,
+      onTheWay: 1,
+      atRisk: 1,
+      ridersOnline: 2,
+      available: 1,
+      occupied: 1,
+      noSignal: 1,
+    });
+  });
+
+  it('counts risk only for deduplicated open orders present in the snapshot', () => {
+    const orders = [
+      order('open'),
+      order('terminal', { status: 'completed' }),
+    ];
+    const conditions = [
+      condition('gps-stale:open:rider', 'open'),
+      condition('late-delivery:terminal', 'terminal'),
+      condition('late-delivery:missing', 'missing'),
+    ];
+
+    expect(computeMonitoringKpis(orders, [], conditions, thresholds, now).atRisk).toBe(1);
+  });
+
   it('counts a stale occupied rider in occupied and noSignal, not available', () => {
     const result = computeMonitoringKpis(
       [order('active', { riderId: 'busy', status: 'accepted' })],
