@@ -219,18 +219,30 @@ function priorityRank(priority: MonitoringPriority): number {
 function mapIncidentRow(value: unknown): MonitoringIncident {
   if (!isRecord(value)) throw new Error('Invalid monitoring incident response');
 
+  const id = requiredNumber(value.id);
+  const firstDetectedAt = requiredTimestamp(value.first_detected_at);
+  const lastDetectedAt = requiredTimestamp(value.last_detected_at);
+  const attendingAt = nullableTimestamp(value.attending_at);
+  const resolvedAt = nullableTimestamp(value.resolved_at);
+  if (
+    !Number.isSafeInteger(id) ||
+    Date.parse(lastDetectedAt) < Date.parse(firstDetectedAt)
+  ) {
+    throw new Error('Invalid monitoring incident response');
+  }
+
   return {
-    id: requiredNumber(value.id),
+    id,
     conditionKey: requiredString(value.condition_key),
     type: conditionType(value.incident_type),
     priority: priority(value.priority),
     status: status(value.status),
     orderId: nullableString(value.order_id),
     riderId: nullableString(value.rider_id),
-    firstDetectedAt: requiredString(value.first_detected_at),
-    lastDetectedAt: requiredString(value.last_detected_at),
-    attendingAt: nullableString(value.attending_at),
-    resolvedAt: nullableString(value.resolved_at),
+    firstDetectedAt,
+    lastDetectedAt,
+    attendingAt,
+    resolvedAt,
     metadata: metadata(value.condition_metadata),
   };
 }
@@ -316,6 +328,17 @@ function requiredNumber(value: unknown): number {
 function requiredString(value: unknown): string {
   if (typeof value !== 'string') throw new Error('Invalid monitoring incident response');
   return value;
+}
+
+function requiredTimestamp(value: unknown): string {
+  const timestamp = requiredString(value);
+  assertIsoTimestamp(timestamp, 'Invalid monitoring incident response');
+  return timestamp;
+}
+
+function nullableTimestamp(value: unknown): string | null {
+  if (value === null) return null;
+  return requiredTimestamp(value);
 }
 
 function nullableString(value: unknown): string | null {

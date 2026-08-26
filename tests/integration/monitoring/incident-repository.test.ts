@@ -142,4 +142,82 @@ describe('Supabase incident store batch reconciliation', () => {
     await expect(operation).rejects.not.toThrow('sensitive row details');
     expect(client.calls).toHaveLength(1);
   });
+
+  it('allows a legitimate new cycle after a previous resolved cycle', async () => {
+    const client = new FakeSupabase();
+    client.response = {
+      data: [
+        {
+          ...row,
+          id: 8,
+          status: 'open',
+          first_detected_at: now,
+          last_detected_at: now,
+          attending_at: null,
+        },
+      ],
+      error: null,
+    };
+
+    const result = await reconcileMonitoringIncidents(
+      createSupabaseIncidentStore(client),
+      [detected],
+      ['gps-stale'],
+      new Date(now),
+    );
+
+    expect(result[0]).toMatchObject({ id: 8, status: 'open', firstDetectedAt: now });
+    expect(client.calls).toHaveLength(1);
+  });
+
+  it('does not re-open a resolved cycle for an older snapshot', async () => {
+    const client = new FakeSupabase();
+    client.response = { data: [], error: null };
+
+    const result = await reconcileMonitoringIncidents(
+      createSupabaseIncidentStore(client),
+      [detected],
+      ['gps-stale'],
+      new Date('2026-08-25T11:00:00.000Z'),
+    );
+
+    expect(result).toEqual([]);
+    expect(client.calls[0].params.p_now).toBe('2026-08-25T11:00:00.000Z');
+    expect(client.calls).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      id: 0.5,
+      first_detected_at: now,
+      last_detected_at: now,
+    },
+    {
+      id: Number.MAX_SAFE_INTEGER + 1,
+      first_detected_at: now,
+      last_detected_at: now,
+    },
+    {
+      id: 7,
+      first_detected_at: 'not-a-date',
+      last_detected_at: now,
+    },
+    {
+      id: 7,
+      first_detected_at: '2026-08-25T12:00:00.000Z',
+      last_detected_at: '2026-08-25T11:00:00.000Z',
+    },
+  ])('rejects invalid incident response mapping %#', async (invalidRow) => {
+    const client = new FakeSupabase();
+    client.response = { data: [{ ...row, ...invalidRow }], error: null };
+
+    await expect(
+      reconcileMonitoringIncidents(
+        createSupabaseIncidentStore(client),
+        [],
+        [],
+        new Date(now),
+      ),
+    ).rejects.toThrow('Invalid monitoring incident response');
+  });
 });

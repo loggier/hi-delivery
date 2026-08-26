@@ -65,6 +65,9 @@ describe('monitoring operations control migration', () => {
     );
     expect(sql).toContain('monitoring_incidents_active_order_idx');
     expect(sql).toContain('monitoring_incidents_active_rider_idx');
+    expect(sql).toMatch(
+      /create index if not exists monitoring_incidents_condition_resolved_idx[^;]+\(condition_key, resolved_at desc\)[^;]+where status = 'resolved'/,
+    );
   });
 
   it('defines one atomic and serialized incident reconciliation RPC', () => {

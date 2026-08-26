@@ -134,6 +134,10 @@ CREATE INDEX IF NOT EXISTS monitoring_incidents_active_rider_idx
   ON grupohubs.monitoring_incidents (rider_id, first_detected_at DESC, id DESC)
   WHERE status IN ('open', 'attending') AND rider_id IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS monitoring_incidents_condition_resolved_idx
+  ON grupohubs.monitoring_incidents (condition_key, resolved_at DESC)
+  WHERE status = 'resolved';
+
 CREATE OR REPLACE FUNCTION grupohubs.reconcile_monitoring_incidents(
   p_conditions jsonb,
   p_evaluated_types text[],
@@ -283,6 +287,13 @@ BEGIN
     p_now,
     p_now
   FROM deduplicated_conditions
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM grupohubs.monitoring_incidents AS resolved_incident
+    WHERE resolved_incident.condition_key = deduplicated_conditions.condition_key
+      AND resolved_incident.status = 'resolved'
+      AND resolved_incident.resolved_at >= p_now
+  )
   ON CONFLICT (condition_key) WHERE status IN ('open', 'attending') DO UPDATE
   SET
     incident_type = CASE
