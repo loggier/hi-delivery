@@ -48,4 +48,12 @@ describe('monitoring filter helpers', () => {
 
     expect(mergeMonitoringLocationPatches(riders, patches)).toEqual(riders);
   });
+
+  it('does not replace a newer snapshot location with an older patch', () => {
+    const riders = [{ ...rider('r1'), lastLocationReceivedAt: '2026-08-26T12:00:00.000Z' }];
+    const patches = new Map<string, MonitoringLocationPatch>([
+      ['r1', { riderId: 'r1', latitude: 20, longitude: -99, receivedAt: '2026-08-26T11:59:00.000Z' }],
+    ]);
+    expect(mergeMonitoringLocationPatches(riders, patches)).toEqual(riders);
+  });
 });

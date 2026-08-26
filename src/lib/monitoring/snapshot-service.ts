@@ -37,7 +37,7 @@ export function parseMonitoringFilter(input: URLSearchParams | unknown): Monitor
 }
 
 type DbError = { code?: string; message?: string };
-type DbResponse<T> = { data: T | null; error: DbError | null; available?: boolean; schemaDegraded?: string[]; availableRules?: string[] };
+type DbResponse<T> = { data: T | null; error: DbError | null; available?: boolean; schemaDegraded?: string[]; availableRules?: string[]; limitReached?: boolean };
 export type MonitoringOrderRow = Record<string, unknown>;
 export type MonitoringRiderRow = Record<string, unknown>;
 export type MovementRow = Record<string, unknown>;
@@ -103,13 +103,18 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
     else addDegradedRules(health, [type]);
   }
   if (inTransitRiderIds.length > 0) {
-    const movementResult = await repositories.fetchMovementHistory(inTransitRiderIds, new Date(now.getTime() - Math.max(thresholds.stoppedInTransitMinutes, thresholds.gpsStaleCriticalMinutes) * 60_000).toISOString());
+    const historyWindowMinutes = Math.max(thresholds.stoppedInTransitMinutes, thresholds.gpsStaleCriticalMinutes) + 5;
+    const movementResult = await repositories.fetchMovementHistory(inTransitRiderIds, new Date(now.getTime() - historyWindowMinutes * 60_000).toISOString());
     if (movementResult.error) {
       if (!isSchemaError(movementResult.error)) throw new Error('Unable to load monitoring snapshot');
       health.schema = 'degraded';
-      health.disabledRules.push('stopped-in-transit');
+      addDegradedRules(health, ['stopped-in-transit']);
+    } else if (movementResult.limitReached || !movementResult.data) {
+      addDegradedRules(health, ['stopped-in-transit']);
+      movementByRiderId = {};
+      // Do not evaluate a potentially incomplete movement window as a P1.
     } else {
-      if (movementResult.data) movementByRiderId = buildMovementWindows(movementResult.data, inTransitRiderIds);
+      movementByRiderId = buildMovementWindows(movementResult.data, inTransitRiderIds);
       evaluatedTypes.add('stopped-in-transit');
     }
   } else evaluatedTypes.add('stopped-in-transit');
@@ -161,7 +166,14 @@ function isSchemaError(error: DbError): boolean {
 function buildMovementWindows(rows: MovementRow[], riderIds: readonly string[]): Record<string, RiderMovementWindow | undefined> {
   const result: Record<string, RiderMovementWindow | undefined> = {};
   const orderedRows = [...rows].sort(compareMovementRows);
-  for (const riderId of riderIds) { const values = orderedRows.filter((row) => row.rider_id === riderId && typeof row.recorded_at === 'string'); const first = values[0]; const last = values[values.length - 1]; result[riderId] = { riderId, windowStartedAt: stringOrNull(first?.recorded_at), windowEndedAt: stringOrNull(last?.recorded_at), distanceMeters: values.reduce((sum, row) => sum + (typeof row.distance_meters === 'number' && Number.isFinite(row.distance_meters) ? row.distance_meters : 0), 0) }; }
+  const rowsByRider = new Map<string, MovementRow[]>();
+  for (const row of orderedRows) {
+    if (typeof row.rider_id !== 'string' || typeof row.recorded_at !== 'string') continue;
+    const values = rowsByRider.get(row.rider_id) ?? [];
+    values.push(row);
+    rowsByRider.set(row.rider_id, values);
+  }
+  for (const riderId of riderIds) { const values = rowsByRider.get(riderId) ?? []; const first = values[0]; const last = values[values.length - 1]; result[riderId] = { riderId, windowStartedAt: stringOrNull(first?.recorded_at), windowEndedAt: stringOrNull(last?.recorded_at), distanceMeters: values.reduce((sum, row) => sum + (typeof row.distance_meters === 'number' && Number.isFinite(row.distance_meters) ? row.distance_meters : 0), 0) }; }
   return result;
 }
 function compareMovementRows(left: MovementRow, right: MovementRow): number {
@@ -190,7 +202,7 @@ function addDegradedRules(health: { schema: 'healthy' | 'degraded'; disabledRule
   for (const rule of rules) if (!health.disabledRules.includes(rule)) health.disabledRules.push(rule);
 }
 
-  type Query = { select(value: string): Query; maybeSingle(): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; order(column: string, options?: { ascending?: boolean }): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
+  type Query = { select(value: string): Query; maybeSingle(): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; order(column: string, options?: { ascending?: boolean }): Query; limit(count: number): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
 export function createSupabaseSnapshotRepositories(): MonitoringSnapshotRepositories {
   const client = createSupabaseAdminClient() as unknown as { from(table: string): Query; rpc(functionName: string, params: Record<string, unknown>): unknown };
   const query = async <T>(table: string, select: string, configure?: (query: Query) => Query): Promise<DbResponse<T>> => { let current = client.from(table).select(select); if (configure) current = configure(current); const result = await current as unknown as DbResponse<T>; return { ...result, available: !result.error }; };
@@ -215,11 +227,14 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
     return { ...fallback, available: true, schemaDegraded: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'], availableRules: [] };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {
-    const base = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update', (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
-    if (base.error || !base.data) return base;
-    const enrichment = await optional<MonitoringRiderRow[]>('riders', 'id,last_location_received_at,has_irregular_reporting,zone_id', [], ['irregular-reporting'], (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
-    const byId = new Map(enrichment.data.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
-    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, available: true, schemaDegraded: enrichment.schemaDegraded, availableRules: enrichment.available ? ['irregular-reporting'] : [] };
+    const configure = (q: Query) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true);
+    const complete = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update,last_location_received_at,has_irregular_reporting,zone_id', configure);
+    if (!complete.error && complete.data) return { ...complete, available: true, availableRules: ['irregular-reporting'] };
+    if (!complete.error) return { data: [], error: null, available: false, schemaDegraded: ['irregular-reporting'], availableRules: [] };
+    if (!isSchemaError(complete.error)) return complete;
+    const fallback = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update', configure);
+    if (fallback.error || !fallback.data) return fallback;
+    return { ...fallback, available: true, schemaDegraded: ['irregular-reporting'], availableRules: [] };
   };
-  return { fetchSettings, fetchActiveOrders, fetchRelevantRiders, fetchMovementHistory: (ids, since) => query<MovementRow[]>('rider_location_history', 'id,rider_id,recorded_at,distance_meters', (q) => q.in('rider_id', ids).gte('recorded_at', since).order('recorded_at', { ascending: true }).order('id', { ascending: true })), reconcileIncidents: (conditions, evaluated, snapshotNow) => reconcileMonitoringIncidents(incidentStore, conditions, evaluated, snapshotNow) };
+  return { fetchSettings, fetchActiveOrders, fetchRelevantRiders, fetchMovementHistory: async (ids, since) => { const limit = 5_000; const result = await query<MovementRow[]>('rider_location_history', 'id,rider_id,recorded_at,distance_meters', (q) => q.in('rider_id', ids).gte('recorded_at', since).order('recorded_at', { ascending: true }).order('id', { ascending: true }).limit(limit)); return { ...result, limitReached: Boolean(result.data && result.data.length >= limit) }; }, reconcileIncidents: (conditions, evaluated, snapshotNow) => reconcileMonitoringIncidents(incidentStore, conditions, evaluated, snapshotNow) };
 }

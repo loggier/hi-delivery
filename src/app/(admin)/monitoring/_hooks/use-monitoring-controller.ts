@@ -22,6 +22,9 @@ export function mergeMonitoringLocationPatches(
   return riders.map((rider) => {
     const patch = patches.get(rider.id);
     if (!patch || !Number.isFinite(patch.latitude) || !Number.isFinite(patch.longitude)) return rider;
+    const patchTime = Date.parse(patch.receivedAt);
+    const riderTime = Date.parse(rider.lastLocationReceivedAt ?? rider.lastLocationUpdate ?? '');
+    if (!Number.isFinite(patchTime) || (Number.isFinite(riderTime) && patchTime < riderTime)) return rider;
     return { ...rider, latitude: patch.latitude, longitude: patch.longitude, ...(patch.speed === undefined ? {} : { speed: patch.speed }), ...(patch.course === undefined ? {} : { course: patch.course }), lastLocationReceivedAt: patch.receivedAt, lastLocationUpdate: patch.receivedAt };
   });
 }

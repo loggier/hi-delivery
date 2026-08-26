@@ -141,6 +141,19 @@ describe('protected monitoring snapshot schema fallbacks', () => {
     ]));
   });
 
+  it('disables stopped-in-transit when the movement history limit is reached', async () => {
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const repo = repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null })),
+      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', is_active_for_orders: true, last_location_update: now.toISOString() }], error: null })),
+      fetchMovementHistory: vi.fn(async () => ({ data: [], error: null, limitReached: true })),
+      reconcileIncidents,
+    });
+    const result = await buildMonitoringSnapshot({ repositories: repo, now });
+    expect(result.dataHealth.disabledRules).toContain('stopped-in-transit');
+    expect(reconcileIncidents.mock.calls[0]?.[1]).not.toContain('stopped-in-transit');
+  });
+
   it('continues safely when optional movement history is unavailable', async () => {
     const repo = repositories({
       fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null })),
