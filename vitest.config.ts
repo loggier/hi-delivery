@@ -8,7 +8,7 @@ export default defineConfig(async () => {
     plugins: [tsconfigPaths(), react()],
     test: {
       environment: 'node',
-      environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
+      environmentMatchGlobs: [['tests/ui/**', 'jsdom']] as [string, 'jsdom'][],
       setupFiles: ['./vitest.setup.ts'],
       clearMocks: true,
     },
