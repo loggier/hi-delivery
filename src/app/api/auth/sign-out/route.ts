@@ -18,6 +18,9 @@ export async function POST() {
       // The response remains safe if cookie headers cannot be mutated.
     }
 
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: 'No se pudo cerrar la sesión de forma segura.' },
+      { status: 500 },
+    );
   }
 }

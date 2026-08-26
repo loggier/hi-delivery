@@ -28,6 +28,7 @@ import {
   requireAdminOperationSession,
   revokeCurrentAdminWebSession,
 } from '@/lib/auth/admin-session';
+import { POST as signOut } from '@/app/api/auth/sign-out/route';
 
 type SessionRow = {
   user_id: string;
@@ -176,14 +177,28 @@ describe('revokeCurrentAdminWebSession', () => {
     revokeError = null;
   });
 
-  it('deletes the cookie even when database revocation fails', async () => {
+  it('throws a safe error and deletes the cookie when database revocation fails', async () => {
     revokeError = new Error('database unavailable');
     const { revokeEq, update } = configureDatabase();
 
-    await expect(revokeCurrentAdminWebSession()).resolves.toBeUndefined();
+    await expect(revokeCurrentAdminWebSession()).rejects.toThrow('Unable to revoke admin session');
 
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ revoked_at: expect.any(String) }));
     expect(revokeEq).toHaveBeenCalledWith('token_hash', hashSessionToken('session-token'));
+    expect(cookieStore.delete).toHaveBeenCalledWith(ADMIN_SESSION_COOKIE);
+  });
+
+  it('returns a safe non-2xx response and deletes the cookie when revocation fails', async () => {
+    revokeError = new Error('database details must remain private');
+    configureDatabase();
+
+    const response = await signOut();
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      ok: false,
+      message: 'No se pudo cerrar la sesión de forma segura.',
+    });
     expect(cookieStore.delete).toHaveBeenCalledWith(ADMIN_SESSION_COOKIE);
   });
 });

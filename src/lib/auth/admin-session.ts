@@ -101,13 +101,17 @@ export async function revokeCurrentAdminWebSession(): Promise<void> {
   try {
     if (rawToken) {
       const supabase = createSupabaseAdminClient();
-      await supabase
+      const { error } = await supabase
         .from('admin_web_sessions')
         .update({ revoked_at: new Date().toISOString() })
         .eq('token_hash', hashSessionToken(rawToken));
+
+      if (error) {
+        throw new Error('Unable to revoke admin session');
+      }
     }
   } catch {
-    // Local sign-out must continue when server-side revocation is unavailable.
+    throw new Error('Unable to revoke admin session');
   } finally {
     try {
       cookieStore.delete(ADMIN_SESSION_COOKIE);
