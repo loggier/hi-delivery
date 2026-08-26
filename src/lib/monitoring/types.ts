@@ -123,7 +123,6 @@ export type MonitoringSnapshot = {
   thresholds: MonitoringThresholds;
   orders: MonitoringOrder[];
   riders: MonitoringRider[];
-  conditions: DetectedCondition[];
   incidents: MonitoringIncident[];
   kpis: MonitoringKpis;
 };

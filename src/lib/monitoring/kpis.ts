@@ -17,6 +17,7 @@ export function computeMonitoringKpis(
 ): MonitoringKpis {
   const deduplicatedOrders = [...new Map(orders.map((order) => [order.id, order])).values()];
   const deduplicatedRiders = [...new Map(riders.map((rider) => [rider.id, rider])).values()];
+  const riderIds = new Set(deduplicatedRiders.map((rider) => rider.id));
   const openOrders = deduplicatedOrders.filter((order) => isOpenOrderStatus(order.status));
   const openOrderIds = new Set(openOrders.map((order) => order.id));
   const activeRiderIds = new Set(
@@ -34,8 +35,8 @@ export function computeMonitoringKpis(
 
   let ridersOnline = 0;
   let available = 0;
-  let occupied = 0;
-  let noSignal = 0;
+  const occupied = activeRiderIds.size;
+  let noSignal = [...activeRiderIds].filter((riderId) => !riderIds.has(riderId)).length;
 
   for (const rider of deduplicatedRiders) {
     const hasActiveOrder = activeRiderIds.has(rider.id);
@@ -44,7 +45,6 @@ export function computeMonitoringKpis(
 
     if (online) ridersOnline += 1;
     if (online && rider.activeForOrders && !hasActiveOrder) available += 1;
-    if (hasActiveOrder) occupied += 1;
     if ((rider.activeForOrders || hasActiveOrder) && stale) noSignal += 1;
   }
 

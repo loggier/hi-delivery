@@ -128,6 +128,49 @@ describe('monitoring condition rules', () => {
     ]);
   });
 
+  it('requires a coherent and fresh movement window for stopped transit', () => {
+    const orders = [
+      order({ id: 'historical', status: 'picked_up', riderId: 'historical-rider' }),
+      order({ id: 'future-end', status: 'picked_up', riderId: 'future-rider' }),
+      order({ id: 'reversed', status: 'picked_up', riderId: 'reversed-rider' }),
+      order({ id: 'recent', status: 'picked_up', riderId: 'recent-rider' }),
+    ];
+    const riders = orders.map((item) =>
+      rider({ id: item.riderId!, lastLocationReceivedAt: '2026-08-25T11:59:00Z' }),
+    );
+
+    const conditions = detect(orders, riders, {
+      'historical-rider': movement(
+        'historical-rider',
+        '2026-08-25T11:30:00Z',
+        0,
+        '2026-08-25T11:50:00Z',
+      ),
+      'future-rider': movement(
+        'future-rider',
+        '2026-08-25T11:40:00Z',
+        0,
+        '2026-08-25T12:00:01Z',
+      ),
+      'reversed-rider': movement(
+        'reversed-rider',
+        '2026-08-25T11:45:00Z',
+        0,
+        '2026-08-25T11:44:59Z',
+      ),
+      'recent-rider': movement(
+        'recent-rider',
+        '2026-08-25T11:44:00Z',
+        0,
+        '2026-08-25T11:59:00Z',
+      ),
+    });
+
+    expect(conditions.map((condition) => condition.key)).toEqual([
+      'stopped-in-transit:recent:recent-rider',
+    ]);
+  });
+
   it('emits dispatch exhausted from a timestamp or the normalized attempts flag', () => {
     const conditions = detect([
       order({
@@ -174,6 +217,26 @@ describe('monitoring condition rules', () => {
     expect(conditions).toEqual([]);
   });
 
+  it('treats future location timestamps as stale and future order dates as not old', () => {
+    const conditions = detect(
+      [
+        order({ id: 'assigned', status: 'accepted', riderId: 'future-rider' }),
+        order({ id: 'future-created', createdAt: '2026-08-25T12:00:01Z' }),
+      ],
+      [
+        rider({
+          id: 'future-rider',
+          lastLocationReceivedAt: '2026-08-25T12:00:01Z',
+          lastLocationUpdate: '2026-08-25T11:59:00Z',
+        }),
+      ],
+    );
+
+    expect(conditions.map((condition) => condition.key)).toEqual([
+      'gps-stale:assigned:future-rider',
+    ]);
+  });
+
   it('does not infer a stopped duration from missing or invalid movement timestamps', () => {
     const orders = [
       order({ id: 'missing', status: 'picked_up', riderId: 'missing-rider' }),
@@ -191,6 +254,30 @@ describe('monitoring condition rules', () => {
     expect(conditions).toEqual([]);
   });
 
+  it('deduplicates orders and riders by id with the last row winning', () => {
+    const conditions = detect(
+      [
+        order({ id: 'exhausted', assignmentAttemptsExhausted: true }),
+        order({ id: 'exhausted', assignmentAttemptsExhausted: true }),
+        order({ id: 'last-safe', createdAt: '2026-08-25T11:00:00Z' }),
+        order({ id: 'last-safe', createdAt: '2026-08-25T11:59:00Z' }),
+        order({ id: 'assigned', status: 'accepted', riderId: 'location-rider' }),
+      ],
+      [
+        rider({ id: 'location-rider', lastLocationReceivedAt: '2026-08-25T11:00:00Z' }),
+        rider({ id: 'location-rider', lastLocationReceivedAt: '2026-08-25T11:59:00Z' }),
+        rider({ id: 'irregular-rider', hasIrregularReporting: true }),
+        rider({ id: 'irregular-rider', hasIrregularReporting: true }),
+      ],
+    );
+
+    expect(conditions.map((condition) => condition.key)).toEqual([
+      'unassigned:exhausted',
+      'dispatch-exhausted:exhausted',
+      'irregular-reporting:irregular-rider',
+    ]);
+  });
+
   it('does not invent late-delivery SLA and snapshots can disable that rule', () => {
     const conditions = detect([order({ status: 'on_the_way', riderId: 'rider-1' })], [rider()]);
     const snapshot: MonitoringSnapshot = {
@@ -199,7 +286,6 @@ describe('monitoring condition rules', () => {
       thresholds,
       orders: [],
       riders: [],
-      conditions,
       incidents: [],
       kpis: {
         openOrders: 0,
@@ -254,6 +340,7 @@ function movement(
   riderId: string,
   windowStartedAt: string | null,
   distanceMeters: number,
+  windowEndedAt: string | null = now.toISOString(),
 ): RiderMovementWindow {
-  return { riderId, windowStartedAt, windowEndedAt: now.toISOString(), distanceMeters };
+  return { riderId, windowStartedAt, windowEndedAt, distanceMeters };
 }

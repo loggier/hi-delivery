@@ -8,6 +8,7 @@ import type {
   MonitoringRider,
   MonitoringRuleInput,
   MonitoringThresholds,
+  RiderMovementWindow,
 } from './types';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
@@ -18,9 +19,11 @@ export function detectMonitoringConditions(
   now: Date,
 ): DetectedCondition[] {
   const conditions: DetectedCondition[] = [];
+  const orders = [...new Map(input.orders.map((order) => [order.id, order])).values()];
   const ridersById = new Map(input.riders.map((rider) => [rider.id, rider]));
+  const riders = [...ridersById.values()];
 
-  for (const order of input.orders) {
+  for (const order of orders) {
     if (!isOpenOrderStatus(order.status)) continue;
 
     if (
@@ -41,11 +44,7 @@ export function detectMonitoringConditions(
       if (
         isInTransitStatus(order.status) &&
         movement !== undefined &&
-        isAtLeastMinutesOld(
-          movement.windowStartedAt,
-          thresholds.stoppedInTransitMinutes,
-          now,
-        ) &&
+        isValidStoppedWindow(movement, thresholds, now) &&
         movement.distanceMeters !== null &&
         Number.isFinite(movement.distanceMeters) &&
         movement.distanceMeters < thresholds.meaningfulMovementMeters
@@ -76,7 +75,7 @@ export function detectMonitoringConditions(
     }
   }
 
-  for (const rider of input.riders) {
+  for (const rider of riders) {
     if (rider.hasIrregularReporting === true) {
       conditions.push({
         key: `irregular-reporting:${rider.id}`,
@@ -105,7 +104,31 @@ export function isLocationStale(
   now: Date,
 ): boolean {
   const locationTimestamp = getRiderLocationTimestamp(rider);
-  return locationTimestamp === null || isAtLeastMinutesOld(locationTimestamp, staleMinutes, now);
+  const timestamp = parseTimestamp(locationTimestamp);
+  return (
+    timestamp === null ||
+    timestamp > now.getTime() ||
+    now.getTime() - timestamp >= staleMinutes * MILLISECONDS_PER_MINUTE
+  );
+}
+
+function isValidStoppedWindow(
+  movement: RiderMovementWindow,
+  thresholds: MonitoringThresholds,
+  now: Date,
+): boolean {
+  const startedAt = parseTimestamp(movement.windowStartedAt);
+  const endedAt = parseTimestamp(movement.windowEndedAt);
+  const nowTimestamp = now.getTime();
+
+  return (
+    startedAt !== null &&
+    endedAt !== null &&
+    endedAt >= startedAt &&
+    endedAt <= nowTimestamp &&
+    nowTimestamp - endedAt < thresholds.gpsStaleCriticalMinutes * MILLISECONDS_PER_MINUTE &&
+    nowTimestamp - startedAt >= thresholds.stoppedInTransitMinutes * MILLISECONDS_PER_MINUTE
+  );
 }
 
 function createCondition(

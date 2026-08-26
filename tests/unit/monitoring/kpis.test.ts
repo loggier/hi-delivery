@@ -127,6 +127,26 @@ describe('monitoring KPIs', () => {
     expect(result).toMatchObject({ ridersOnline: 0, available: 0, occupied: 1, noSignal: 1 });
   });
 
+  it('counts assigned rider ids as occupied and no signal when rider rows are missing', () => {
+    const result = computeMonitoringKpis(
+      [
+        order('first', { riderId: 'missing-rider' }),
+        order('second', { riderId: 'missing-rider', status: 'picked_up' }),
+      ],
+      [],
+      [],
+      thresholds,
+      now,
+    );
+
+    expect(result).toMatchObject({
+      ridersOnline: 0,
+      available: 0,
+      occupied: 1,
+      noSignal: 1,
+    });
+  });
+
   it('prefers server receipt time and applies online eligibility without double counting', () => {
     const result = computeMonitoringKpis(
       [order('active', { riderId: 'occupied-off-duty', status: 'picked_up' })],
@@ -165,5 +185,17 @@ describe('monitoring KPIs', () => {
     );
 
     expect(result).toMatchObject({ ridersOnline: 0, available: 0, occupied: 0, noSignal: 2 });
+  });
+
+  it('treats future location timestamps as no signal', () => {
+    const result = computeMonitoringKpis(
+      [],
+      [rider('future', { lastLocationReceivedAt: '2026-08-25T12:00:01Z' })],
+      [],
+      thresholds,
+      now,
+    );
+
+    expect(result).toMatchObject({ ridersOnline: 0, available: 0, noSignal: 1 });
   });
 });
