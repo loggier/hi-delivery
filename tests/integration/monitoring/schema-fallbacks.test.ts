@@ -80,6 +80,39 @@ describe('protected monitoring snapshot schema fallbacks', () => {
     expect(reconcileIncidents.mock.calls[0]?.[1]).toContain('dispatch-exhausted');
   });
 
+  it('propagates optional schema degradation metadata from repositories', async () => {
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const repo = repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [], error: null, schemaDegraded: ['dispatch-exhausted'] })),
+      reconcileIncidents,
+    });
+    const result = await buildMonitoringSnapshot({ repositories: repo, now });
+    expect(result.dataHealth).toMatchObject({ schema: 'degraded' });
+    expect(result.dataHealth.disabledRules).toContain('dispatch-exhausted');
+    expect(reconcileIncidents.mock.calls[0]?.[1]).not.toContain('dispatch-exhausted');
+  });
+
+  it('evaluates irregular reporting from riders even when there are no orders', async () => {
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const repo = repositories({
+      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', has_irregular_reporting: true }], error: null })),
+      reconcileIncidents,
+    });
+    const result = await buildMonitoringSnapshot({ repositories: repo, now });
+    expect(result.dataHealth.disabledRules).not.toContain('irregular-reporting');
+    expect(reconcileIncidents.mock.calls[0]?.[1]).toContain('irregular-reporting');
+  });
+
+  it('includes stale riders in the no-signal filter without filtering KPIs', async () => {
+    const repo = repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [], error: null })),
+      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r-stale', last_location_update: '2026-08-26T11:00:00.000Z', is_active_for_orders: true }], error: null })),
+    });
+    const result = await buildMonitoringSnapshot({ repositories: repo, now, filter: { risk: 'noSignal' } });
+    expect(result.riders.map((rider) => rider.id)).toEqual(['r-stale']);
+    expect(result.kpis.noSignal).toBe(1);
+  });
+
   it('continues safely when optional movement history is unavailable', async () => {
     const repo = repositories({
       fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null })),

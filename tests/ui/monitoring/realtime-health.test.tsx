@@ -63,7 +63,8 @@ describe('monitoring data hooks', () => {
     expect(channels).toHaveLength(1);
     act(() => channels[0].statusHandler?.('SUBSCRIBED'));
     expect(result.result.current.realtimeStatus).toBe('connected');
-    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19.4, last_longitude: -99.1, last_speed: 4, last_course: 180 } }));
+    const currentReceivedAt = new Date().toISOString();
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19.4, last_longitude: -99.1, last_speed: 4, last_course: 180, last_location_received_at: currentReceivedAt } }));
     expect(result.result.current.locationPatches.get('r1')).toMatchObject({ riderId: 'r1', latitude: 19.4, longitude: -99.1 });
     act(() => channels[0].statusHandler?.('CHANNEL_ERROR'));
     expect(result.result.current.realtimeStatus).toBe('degraded');
@@ -89,7 +90,7 @@ describe('monitoring data hooks', () => {
     await waitFor(() => expect(result.result.current.snapshot.snapshot).toEqual(snapshot));
     const refetch = vi.spyOn(result.result.current.snapshot, 'refetch');
 
-    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19, last_longitude: -99 } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19, last_longitude: -99, last_location_received_at: new Date().toISOString() } }));
     await waitFor(() => expect(result.result.current.realtime.locationPatches.has('r1')).toBe(true));
     expect(request).toHaveBeenCalledTimes(1);
     expect(refetch).not.toHaveBeenCalled();
@@ -97,6 +98,17 @@ describe('monitoring data hooks', () => {
     result.unmount();
     expect(supabase.removeChannel).toHaveBeenCalledTimes(1);
     expect(supabase.removeChannel).toHaveBeenCalledWith(channels[0]);
+  });
+
+  it('ignores missing timestamps and out-of-order patches while accepting equal timestamps', async () => {
+    const result = renderHook(() => useMonitoringRealtime());
+    const newer = '2026-08-26T12:00:00.000Z';
+    const older = '2026-08-26T11:59:00.000Z';
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19, last_longitude: -99 } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 20, last_longitude: -98, last_location_received_at: newer } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 21, last_longitude: -97, last_location_received_at: older } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 22, last_longitude: -96, last_location_received_at: newer } }));
+    await waitFor(() => expect(result.result.current.locationPatches.get('r1')).toMatchObject({ latitude: 22, longitude: -96, receivedAt: newer }));
   });
 
   it('selects entities and replaces the filter through the public controller contract', async () => {

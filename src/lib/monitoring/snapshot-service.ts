@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { computeMonitoringKpis } from './kpis';
 import { createSupabaseIncidentStore, reconcileMonitoringIncidents, type SupabaseIncidentClient } from './incident-repository';
-import { detectMonitoringConditions } from './rules';
+import { detectMonitoringConditions, isLocationStale } from './rules';
 import { isInTransitStatus, isTerminalOrderStatus } from './statuses';
 import type {
   DetectedCondition,
@@ -37,7 +37,7 @@ export function parseMonitoringFilter(input: URLSearchParams | unknown): Monitor
 }
 
 type DbError = { code?: string; message?: string };
-type DbResponse<T> = { data: T | null; error: DbError | null };
+type DbResponse<T> = { data: T | null; error: DbError | null; schemaDegraded?: string[]; availableRules?: string[] };
 export type MonitoringOrderRow = Record<string, unknown>;
 export type MonitoringRiderRow = Record<string, unknown>;
 export type MovementRow = Record<string, unknown>;
@@ -81,20 +81,25 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
 
   const orderResult = await repositories.fetchActiveOrders();
   if (orderResult.error || !orderResult.data) throw new Error('Unable to load monitoring snapshot');
+  addDegradedRules(health, orderResult.schemaDegraded);
   const orders = orderResult.data.map(normalizeOrder).filter((order) => !isTerminalOrderStatus(order.status));
   const assignedRiderIds = [...new Set(orders.flatMap((order) => order.riderId ? [order.riderId] : []))];
   const riderResult = await repositories.fetchRelevantRiders(assignedRiderIds);
   if (riderResult.error || !riderResult.data) throw new Error('Unable to load monitoring snapshot');
+  addDegradedRules(health, riderResult.schemaDegraded);
   const riders = riderResult.data.map(normalizeRider);
   const inTransitRiderIds = [...new Set(orders.filter((order) => order.riderId && isInTransitStatus(order.status)).map((order) => order.riderId!))];
   let movementByRiderId: Record<string, RiderMovementWindow | undefined> = {};
   const evaluatedTypes = new Set<MonitoringConditionType>(['unassigned', 'gps-stale']);
-  const dispatchColumnsAvailable = orderResult.data.some((row) => Object.prototype.hasOwnProperty.call(row, 'assignment_exhausted_at') || Object.prototype.hasOwnProperty.call(row, 'assignment_attempts_exhausted'));
+  const dispatchColumnsAvailable = !orderResult.schemaDegraded?.includes('dispatch-exhausted') && (orderResult.availableRules?.includes('dispatch-exhausted') || orderResult.data.some((row) => Object.prototype.hasOwnProperty.call(row, 'assignment_exhausted_at') || Object.prototype.hasOwnProperty.call(row, 'assignment_attempts_exhausted')));
   if (dispatchColumnsAvailable) evaluatedTypes.add('dispatch-exhausted');
-  else health.disabledRules.push('dispatch-exhausted');
+  else addDegradedRules(health, ['dispatch-exhausted']);
   for (const type of ['late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting'] as const) {
-    if (orders.some((order) => type === 'late-delivery' ? order.expectedDeliveryAt !== null : type === 'outside-zone' ? order.isOutsideZone !== undefined : type === 'repeated-rejections' ? order.hasRepeatedRejections !== undefined : riders.some((rider) => rider.hasIrregularReporting !== undefined))) evaluatedTypes.add(type);
-    else health.disabledRules.push(type);
+    const available = type === 'irregular-reporting'
+      ? riders.some((rider) => rider.hasIrregularReporting !== undefined)
+      : orders.some((order) => type === 'late-delivery' ? order.expectedDeliveryAt !== null : type === 'outside-zone' ? order.isOutsideZone !== undefined : order.hasRepeatedRejections !== undefined);
+    if (available) evaluatedTypes.add(type);
+    else addDegradedRules(health, [type]);
   }
   if (inTransitRiderIds.length > 0) {
     const movementResult = await repositories.fetchMovementHistory(inTransitRiderIds, new Date(now.getTime() - Math.max(thresholds.stoppedInTransitMinutes, thresholds.gpsStaleCriticalMinutes) * 60_000).toISOString());
@@ -112,7 +117,7 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
     .filter((condition) => evaluatedTypes.has(condition.type));
   const incidents = await repositories.reconcileIncidents(conditions, [...evaluatedTypes], now);
   const kpis = computeMonitoringKpis(orders, riders, conditions, thresholds, now);
-  const filtered = applyFilter(orders, riders, incidents, input.filter);
+  const filtered = applyFilter(orders, riders, incidents, input.filter, thresholds, now);
   return { serverTimestamp: now.toISOString(), dataHealth: health, thresholds, kpis, incidents: filtered.incidents, orders: filtered.orders, riders: filtered.riders };
 }
 
@@ -157,7 +162,7 @@ function buildMovementWindows(rows: MovementRow[], riderIds: readonly string[]):
   for (const riderId of riderIds) { const values = rows.filter((row) => row.rider_id === riderId && typeof row.recorded_at === 'string'); const first = values[0]; const last = values[values.length - 1]; result[riderId] = { riderId, windowStartedAt: stringOrNull(first?.recorded_at), windowEndedAt: stringOrNull(last?.recorded_at), distanceMeters: values.reduce((sum, row) => sum + (typeof row.distance_meters === 'number' && Number.isFinite(row.distance_meters) ? row.distance_meters : 0), 0) }; }
   return result;
 }
-function applyFilter(orders: MonitoringOrder[], riders: MonitoringRider[], incidents: MonitoringIncident[], filter?: MonitoringFilter) {
+function applyFilter(orders: MonitoringOrder[], riders: MonitoringRider[], incidents: MonitoringIncident[], filter?: MonitoringFilter, thresholds?: MonitoringThresholds, now?: Date) {
   if (!filter) return { orders, riders, incidents };
   const orderIds = new Set(orders.filter((order) => (!filter.zoneId || order.zoneId === filter.zoneId) && (!filter.orderStatus || order.status === filter.orderStatus) && (!filter.riderId || order.riderId === filter.riderId) && (!filter.search || order.id.includes(filter.search))).map((order) => order.id));
   const riderIds = new Set(riders.filter((rider) => (!filter.zoneId || rider.zoneId === filter.zoneId) && (!filter.riderId || rider.id === filter.riderId)).map((rider) => rider.id));
@@ -167,7 +172,13 @@ function applyFilter(orders: MonitoringOrder[], riders: MonitoringRider[], incid
   if (filter.risk === 'atRisk') { const ids = new Set(incidents.filter((incident) => incident.priority === 'P1').map((incident) => incident.orderId)); selectedOrders = selectedOrders.filter((order) => ids.has(order.id)); }
   if (filter.risk === 'noSignal') selectedOrders = selectedOrders.filter((order) => incidents.some((incident) => incident.type === 'gps-stale' && incident.orderId === order.id));
   const selectedOrderIds = new Set(selectedOrders.map((order) => order.id));
-  return { orders: selectedOrders, riders: riders.filter((rider) => riderIds.has(rider.id) && (filter.risk !== 'available' || rider.activeForOrders) && (filter.risk !== 'occupied' || selectedOrders.some((order) => order.riderId === rider.id))), incidents: incidents.filter((incident) => (incident.orderId === null || selectedOrderIds.has(incident.orderId)) && (incident.riderId === null || riderIds.has(incident.riderId))) };
+  return { orders: selectedOrders, riders: riders.filter((rider) => riderIds.has(rider.id) && (filter.risk !== 'available' || rider.activeForOrders) && (filter.risk !== 'occupied' || selectedOrders.some((order) => order.riderId === rider.id)) && (filter.risk !== 'noSignal' || (thresholds && now && isLocationStale(rider, thresholds.gpsStaleCriticalMinutes, now) || incidents.some((incident) => incident.type === 'gps-stale' && incident.riderId === rider.id)))), incidents: incidents.filter((incident) => (incident.orderId === null || selectedOrderIds.has(incident.orderId)) && (incident.riderId === null || riderIds.has(incident.riderId))) };
+}
+
+function addDegradedRules(health: { schema: 'healthy' | 'degraded'; disabledRules: string[] }, rules?: readonly string[]) {
+  if (!rules?.length) return;
+  health.schema = 'degraded';
+  for (const rule of rules) if (!health.disabledRules.includes(rule)) health.disabledRules.push(rule);
 }
 
 type Query = { select(value: string): Query; maybeSingle(): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
@@ -175,35 +186,37 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
   const client = createSupabaseAdminClient() as unknown as { from(table: string): Query; rpc(functionName: string, params: Record<string, unknown>): unknown };
   const query = async <T>(table: string, select: string, configure?: (query: Query) => Query): Promise<DbResponse<T>> => { let current = client.from(table).select(select); if (configure) current = configure(current); return await current as unknown as DbResponse<T>; };
   const incidentStore = createSupabaseIncidentStore(client as SupabaseIncidentClient);
-  const optional = async <T>(table: string, select: string, base: T, configure?: (q: Query) => Query): Promise<T> => {
+  const optional = async <T>(table: string, select: string, base: T, disabledRules: readonly string[], configure?: (q: Query) => Query): Promise<{ data: T; schemaDegraded: string[] }> => {
     const result = await query<T>(table, select, configure);
     if (result.error) {
-      if (isSchemaError(result.error)) return base;
+      if (isSchemaError(result.error)) return { data: base, schemaDegraded: [...disabledRules] };
       throw new Error('Unable to load monitoring snapshot');
     }
-    return result.data ?? base;
+    return { data: result.data ?? base, schemaDegraded: [] };
   };
   const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
     const base = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
     if (base.error || !base.data) return base;
-    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,zone_id,expected_delivery_at,is_outside_zone,has_repeated_rejections', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const exhaustedAt = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_exhausted_at', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const exhaustedAttempts = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_attempts_exhausted', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const byId = new Map([...enrichment, ...exhaustedAt, ...exhaustedAttempts].filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
-    for (const row of [...exhaustedAt, ...exhaustedAttempts]) {
+    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,zone_id,expected_delivery_at,is_outside_zone,has_repeated_rejections', [], ['late-delivery', 'outside-zone', 'repeated-rejections'], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const exhaustedAt = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_exhausted_at', [], ['dispatch-exhausted'], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const exhaustedAttempts = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_attempts_exhausted', [], ['dispatch-exhausted'], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const byId = new Map(enrichment.data.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
+    for (const row of [...exhaustedAt.data, ...exhaustedAttempts.data]) {
       if (typeof row.id !== 'string') continue;
       const existing = byId.get(row.id) ?? {};
       byId.set(row.id, { ...existing, ...row });
     }
-    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null };
+    const schemaDegraded = [...enrichment.schemaDegraded];
+    if (exhaustedAt.schemaDegraded.includes('dispatch-exhausted') && exhaustedAttempts.schemaDegraded.includes('dispatch-exhausted')) schemaDegraded.push('dispatch-exhausted');
+    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, schemaDegraded, availableRules: exhaustedAt.schemaDegraded.length && exhaustedAttempts.schemaDegraded.length ? [] : ['dispatch-exhausted'] };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {
     const base = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update', (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
     if (base.error || !base.data) return base;
-    const enrichment = await optional<MonitoringRiderRow[]>('riders', 'id,last_location_received_at,has_irregular_reporting,zone_id', [], (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
-    const byId = new Map(enrichment.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
-    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null };
+    const enrichment = await optional<MonitoringRiderRow[]>('riders', 'id,last_location_received_at,has_irregular_reporting,zone_id', [], ['irregular-reporting'], (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
+    const byId = new Map(enrichment.data.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
+    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, schemaDegraded: enrichment.schemaDegraded };
   };
   return { fetchSettings, fetchActiveOrders, fetchRelevantRiders, fetchMovementHistory: (ids, since) => query<MovementRow[]>('rider_location_history', 'rider_id,recorded_at,distance_meters', (q) => q.in('rider_id', ids).gte('recorded_at', since)), reconcileIncidents: (conditions, evaluated, snapshotNow) => reconcileMonitoringIncidents(incidentStore, conditions, evaluated, snapshotNow) };
 }

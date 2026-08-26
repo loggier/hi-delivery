@@ -30,9 +30,9 @@ function parsePatch(payload: unknown): MonitoringLocationPatch | null {
   if (finite(row.last_course) && (row.last_course < 0 || row.last_course > 360)) return null;
   const receivedAt = typeof row.last_location_received_at === 'string'
     ? new Date(row.last_location_received_at)
-    : new Date();
+    : null;
   // Allow normal device clock skew, but reject timestamps over five minutes ahead.
-  if (Number.isNaN(receivedAt.getTime()) || receivedAt.getTime() > Date.now() + 5 * 60_000) return null;
+  if (!receivedAt || Number.isNaN(receivedAt.getTime()) || receivedAt.getTime() > Date.now() + 5 * 60_000) return null;
   const patch: MonitoringLocationPatch = { riderId, latitude, longitude, receivedAt: receivedAt.toISOString() };
   if (finite(row.last_speed)) patch.speed = row.last_speed;
   if (finite(row.last_course)) patch.course = row.last_course;
@@ -44,6 +44,7 @@ export function useMonitoringRealtime() {
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting');
   const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState<string | null>(null);
 
+  // Realtime only moves rider markers; operational refresh belongs to polling/Task 12.
   useEffect(() => {
     const supabase = createClient();
     const schema = process.env.NEXT_PUBLIC_SUPABASE_SCHEMA || 'public';
@@ -52,6 +53,8 @@ export function useMonitoringRealtime() {
         const patch = parsePatch(payload);
         if (!patch) return;
         setLocationPatches((current) => {
+          const previous = current.get(patch.riderId);
+          if (previous && patch.receivedAt < previous.receivedAt) return current;
           const next = new Map(current);
           next.set(patch.riderId, patch);
           return next;
