@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildMonitoringSnapshot, type MonitoringSnapshotRepositories } from '@/lib/monitoring/snapshot-service';
+import { createSupabaseIncidentStore, reconcileMonitoringIncidents } from '@/lib/monitoring/incident-repository';
 
 const now = new Date('2026-08-26T12:00:00.000Z');
 
@@ -34,6 +35,12 @@ describe('protected monitoring snapshot schema fallbacks', () => {
   it('reconciles once and computes KPIs before applying filters', async () => {
     const reconcileIncidents = vi.fn(async () => []);
     const repo = repositories({
+      fetchSettings: vi.fn(async () => ({ data: {
+        monitoring_unassigned_critical_minutes: 2,
+        monitoring_gps_stale_critical_minutes: 3,
+        monitoring_stopped_in_transit_minutes: 4,
+        monitoring_meaningful_movement_meters: 25,
+      }, error: null })),
       fetchActiveOrders: vi.fn(async () => ({ data: [
         { id: 'o1', status: 'pending_acceptance', rider_id: null, created_at: '2026-08-26T11:00:00.000Z' },
         { id: 'terminal', status: 'completed', rider_id: null, created_at: '2026-08-26T10:00:00.000Z' },
@@ -41,6 +48,7 @@ describe('protected monitoring snapshot schema fallbacks', () => {
       reconcileIncidents,
     });
     const result = await buildMonitoringSnapshot({ repositories: repo, now, filter: { riderId: 'missing' } });
+    expect(result.thresholds).toEqual({ unassignedCriticalMinutes: 2, gpsStaleCriticalMinutes: 3, stoppedInTransitMinutes: 4, meaningfulMovementMeters: 25, source: 'settings' });
     expect(result.kpis.openOrders).toBe(1);
     expect(result.orders).toEqual([]);
     expect(reconcileIncidents).toHaveBeenCalledTimes(1);
@@ -62,5 +70,23 @@ describe('protected monitoring snapshot schema fallbacks', () => {
       fetchActiveOrders: vi.fn(async () => ({ data: null, error: { code: '42501', message: 'denied' } })),
     });
     await expect(buildMonitoringSnapshot({ repositories: repo, now })).rejects.toThrow('Unable to load monitoring snapshot');
+  });
+
+  it('does not classify an unrelated database message as a schema fallback', async () => {
+    const repo = repositories({ fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code: 'XX000', message: 'column policy denied by operation' } })) });
+    const active = repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null })),
+      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', is_active_for_orders: true, last_location_update: now.toISOString() }], error: null })),
+      fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code: 'XX000', message: 'column policy denied by operation' } })),
+    });
+    await expect(buildMonitoringSnapshot({ repositories: active, now })).rejects.toThrow('Unable to load monitoring snapshot');
+  });
+
+  it('maps RPC incident rows through the shared incident store mapper', async () => {
+    const rpc = vi.fn(async () => ({ data: [{ id: 4, condition_key: 'unassigned:o1', incident_type: 'unassigned', priority: 'P1', status: 'open', order_id: 'o1', rider_id: null, first_detected_at: now.toISOString(), last_detected_at: now.toISOString(), attending_at: null, resolved_at: null, condition_metadata: {} }], error: null }));
+    const store = createSupabaseIncidentStore({ rpc });
+    const incidents = await reconcileMonitoringIncidents(store, [], ['unassigned'], now);
+    expect(incidents[0]).toMatchObject({ conditionKey: 'unassigned:o1', firstDetectedAt: now.toISOString(), lastDetectedAt: now.toISOString() });
+    expect(incidents[0]).not.toHaveProperty('condition_key');
   });
 });

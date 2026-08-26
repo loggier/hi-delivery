@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { computeMonitoringKpis } from './kpis';
-import { reconcileMonitoringIncidents, type IncidentStore } from './incident-repository';
+import { createSupabaseIncidentStore, reconcileMonitoringIncidents, type SupabaseIncidentClient } from './incident-repository';
 import { detectMonitoringConditions } from './rules';
 import { isInTransitStatus, isTerminalOrderStatus } from './statuses';
 import type {
@@ -23,10 +23,6 @@ const orderStatuses = [
   'picked_up', 'out_for_delivery', 'on_the_way', 'arrived_at_destination',
   'delivered', 'completed', 'cancelled', 'refunded', 'failed',
 ] as const satisfies readonly OrderStatus[];
-const conditionTypes: readonly MonitoringConditionType[] = [
-  'unassigned', 'gps-stale', 'stopped-in-transit', 'dispatch-exhausted',
-  'late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting',
-];
 const riskSchema = z.enum(['all', 'atRisk', 'unassigned', 'onTheWay', 'available', 'occupied', 'noSignal']);
 const text = (max: number) => z.string().trim().min(1).max(max).optional();
 export const monitoringFilterSchema = z.object({
@@ -138,7 +134,12 @@ function normalizeRider(row: MonitoringRiderRow): MonitoringRider {
 }
 function stringOrNull(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value : null; }
 function boolOrUndefined(value: unknown): boolean | undefined { return typeof value === 'boolean' ? value : undefined; }
-function isSchemaError(error: DbError): boolean { return error.code === '42703' || error.code === 'PGRST204' || /column|schema cache|does not exist/i.test(error.message ?? ''); }
+function isSchemaError(error: DbError): boolean {
+  return error.code === '42703' || error.code === 'PGRST204' || error.code === 'PGRST200' ||
+    error.message === 'Could not find the table in the schema cache' ||
+    error.message === 'Could not find the column in the schema cache' ||
+    /^Could not find the '.+' column of '.+' in the schema cache$/.test(error.message ?? '');
+}
 function buildMovementWindows(rows: MovementRow[], riderIds: readonly string[]): Record<string, RiderMovementWindow | undefined> {
   const result: Record<string, RiderMovementWindow | undefined> = {};
   for (const riderId of riderIds) { const values = rows.filter((row) => row.rider_id === riderId && typeof row.recorded_at === 'string'); const first = values[0]; const last = values[values.length - 1]; result[riderId] = { riderId, windowStartedAt: stringOrNull(first?.recorded_at), windowEndedAt: stringOrNull(last?.recorded_at), distanceMeters: values.reduce((sum, row) => sum + (typeof row.distance_meters === 'number' && Number.isFinite(row.distance_meters) ? row.distance_meters : 0), 0) }; }
@@ -157,11 +158,11 @@ function applyFilter(orders: MonitoringOrder[], riders: MonitoringRider[], incid
   return { orders: selectedOrders, riders: riders.filter((rider) => riderIds.has(rider.id) && (filter.risk !== 'available' || rider.activeForOrders) && (filter.risk !== 'occupied' || selectedOrders.some((order) => order.riderId === rider.id))), incidents: incidents.filter((incident) => (incident.orderId === null || selectedOrderIds.has(incident.orderId)) && (incident.riderId === null || riderIds.has(incident.riderId))) };
 }
 
-type Query = { select(value: string): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
-function createSupabaseSnapshotRepositories(): MonitoringSnapshotRepositories {
+type Query = { select(value: string): Query; maybeSingle(): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
+export function createSupabaseSnapshotRepositories(): MonitoringSnapshotRepositories {
   const client = createSupabaseAdminClient() as unknown as { from(table: string): Query; rpc(functionName: string, params: Record<string, unknown>): unknown };
   const query = async <T>(table: string, select: string, configure?: (query: Query) => Query): Promise<DbResponse<T>> => { let current = client.from(table).select(select); if (configure) current = configure(current); return await current as unknown as DbResponse<T>; };
-  const incidentStore = { reconcileBatch: (conditions: readonly DetectedCondition[], evaluated: readonly MonitoringConditionType[], snapshotNow: string) => client.rpc('reconcile_monitoring_incidents', { p_conditions: conditions, p_evaluated_types: [...evaluated], p_now: snapshotNow }) } as unknown as IncidentStore;
+  const incidentStore = createSupabaseIncidentStore(client as SupabaseIncidentClient);
   const optional = async <T>(table: string, select: string, base: T, configure?: (q: Query) => Query): Promise<T> => {
     const result = await query<T>(table, select, configure);
     if (result.error) {
@@ -170,15 +171,11 @@ function createSupabaseSnapshotRepositories(): MonitoringSnapshotRepositories {
     }
     return result.data ?? base;
   };
-  const fetchSettings = async (): Promise<DbResponse<SettingsRow>> => {
-    const base = await query<SettingsRow[]>('system_settings', 'id');
-    if (base.error) return { data: null, error: base.error };
-    return { data: { ...(base.data?.[0] ?? {}), ...(await optional('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', {})) }, error: null };
-  };
+  const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
     const base = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
     if (base.error || !base.data) return base;
-    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,expected_delivery_at,assignment_exhausted_at,assignment_attempts_exhausted,is_outside_zone,has_repeated_rejections', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,zone_id,expected_delivery_at,assignment_exhausted_at,assignment_attempts_exhausted,is_outside_zone,has_repeated_rejections', [], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
     const byId = new Map(enrichment.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
     return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null };
   };

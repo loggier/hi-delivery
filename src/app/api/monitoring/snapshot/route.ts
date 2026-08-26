@@ -6,7 +6,7 @@ import { buildMonitoringSnapshot, parseMonitoringFilter } from '@/lib/monitoring
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request): Promise<Response> {
+async function handleSnapshot(request: Request): Promise<Response> {
   try {
     await requireAdminOperationSession();
     const filter = parseMonitoringFilter(new URL(request.url).searchParams);
@@ -18,3 +18,6 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ message: 'No se pudo actualizar la operación.' }, { status: 500 });
   }
 }
+
+export const GET = handleSnapshot;
+export const POST = handleSnapshot;
