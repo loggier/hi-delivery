@@ -125,20 +125,22 @@ describe('protected monitoring snapshot schema fallbacks', () => {
 
   it('uses chronological order for shuffled movement rows', async () => {
     const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const fetchMovementHistory = vi.fn(async () => ({ data: [
+      { id: 2, rider_id: 'r1', recorded_at: '2026-08-26T11:55:00.000Z', distance_meters: 2 },
+      { id: 1, rider_id: 'r1', recorded_at: '2026-08-26T11:45:00.000Z', distance_meters: 1 },
+    ], error: null, available: true }));
     const repo = repositories({
       fetchSettings: vi.fn(async () => ({ data: { monitoring_stopped_in_transit_minutes: 5, monitoring_gps_stale_critical_minutes: 10 }, error: null, available: true })),
       fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null, available: true, availableRules: ['dispatch-exhausted'] })),
       fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', is_active_for_orders: true, last_location_update: now.toISOString() }], error: null, available: true })),
-      fetchMovementHistory: vi.fn(async () => ({ data: [
-        { id: 2, rider_id: 'r1', recorded_at: '2026-08-26T11:55:00.000Z', distance_meters: 2 },
-        { id: 1, rider_id: 'r1', recorded_at: '2026-08-26T11:45:00.000Z', distance_meters: 1 },
-      ], error: null, available: true })),
+      fetchMovementHistory,
       reconcileIncidents,
     });
     await buildMonitoringSnapshot({ repositories: repo, now });
     expect(reconcileIncidents.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: 'stopped-in-transit', metadata: { distanceMeters: 3 } }),
     ]));
+    expect(fetchMovementHistory).toHaveBeenCalledWith(['r1'], '2026-08-26T11:50:00.000Z');
   });
 
   it('disables stopped-in-transit when the movement history limit is reached', async () => {

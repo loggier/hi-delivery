@@ -103,7 +103,7 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
     else addDegradedRules(health, [type]);
   }
   if (inTransitRiderIds.length > 0) {
-    const historyWindowMinutes = Math.max(thresholds.stoppedInTransitMinutes, thresholds.gpsStaleCriticalMinutes) + 5;
+    const historyWindowMinutes = Math.max(1, Math.max(thresholds.stoppedInTransitMinutes, thresholds.gpsStaleCriticalMinutes));
     const movementResult = await repositories.fetchMovementHistory(inTransitRiderIds, new Date(now.getTime() - historyWindowMinutes * 60_000).toISOString());
     if (movementResult.error) {
       if (!isSchemaError(movementResult.error)) throw new Error('Unable to load monitoring snapshot');
