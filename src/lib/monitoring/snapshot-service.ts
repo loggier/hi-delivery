@@ -97,7 +97,7 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
   for (const type of ['late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting'] as const) {
     const schemaAvailable = !health.disabledRules.includes(type) && (type === 'irregular-reporting' ? riderResult.availableRules?.includes(type) : orderResult.availableRules?.includes(type));
     const available = type === 'irregular-reporting'
-      ? riders.some((rider) => rider.hasIrregularReporting !== undefined)
+      ? schemaAvailable
       : schemaAvailable || orders.some((order) => type === 'late-delivery' ? order.expectedDeliveryAt !== null : type === 'outside-zone' ? order.isOutsideZone !== undefined : order.hasRepeatedRejections !== undefined);
     if (available) evaluatedTypes.add(type);
     else addDegradedRules(health, [type]);
@@ -201,26 +201,18 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
       if (isSchemaError(result.error)) return { data: base, available: false, schemaDegraded: [...disabledRules] };
       throw new Error('Unable to load monitoring snapshot');
     }
-    return { data: result.data ?? base, available: true, schemaDegraded: [] };
+    if (result.data === null) return { data: base, available: false, schemaDegraded: [...disabledRules] };
+    return { data: result.data, available: true, schemaDegraded: [] };
   };
   const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
-    const base = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    if (base.error || !base.data) return base;
-    const enrichment = await optional<MonitoringOrderRow[]>('orders', 'id,zone_id,expected_delivery_at,is_outside_zone,has_repeated_rejections', [], ['late-delivery', 'outside-zone', 'repeated-rejections'], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const exhaustedAt = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_exhausted_at', [], ['dispatch-exhausted'], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const exhaustedAttempts = await optional<MonitoringOrderRow[]>('orders', 'id,assignment_attempts_exhausted', [], ['dispatch-exhausted'], (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
-    const byId = new Map(enrichment.data.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
-    for (const row of [...exhaustedAt.data, ...exhaustedAttempts.data]) {
-      if (typeof row.id !== 'string') continue;
-      const existing = byId.get(row.id) ?? {};
-      byId.set(row.id, { ...existing, ...row });
-    }
-    const schemaDegraded = [...enrichment.schemaDegraded];
-    if (exhaustedAt.schemaDegraded.includes('dispatch-exhausted') && exhaustedAttempts.schemaDegraded.includes('dispatch-exhausted')) schemaDegraded.push('dispatch-exhausted');
-    const availableRules = [...(enrichment.available ? ['late-delivery', 'outside-zone', 'repeated-rejections'] : [])];
-    if (!(exhaustedAt.schemaDegraded.length && exhaustedAttempts.schemaDegraded.length)) availableRules.push('dispatch-exhausted');
-    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, available: true, schemaDegraded, availableRules };
+    const select = 'id,status,rider_id,created_at,zone_id,expected_delivery_at,assignment_exhausted_at,assignment_attempts_exhausted,is_outside_zone,has_repeated_rejections';
+    const complete = await query<MonitoringOrderRow[]>('orders', select, (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    if (!complete.error && complete.data) return { ...complete, available: true, availableRules: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'] };
+    if (!complete.error || !isSchemaError(complete.error)) return complete;
+    const fallback = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    if (fallback.error || !fallback.data) return fallback;
+    return { ...fallback, available: true, schemaDegraded: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'], availableRules: [] };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {
     const base = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update', (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));

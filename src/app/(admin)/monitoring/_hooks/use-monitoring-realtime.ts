@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 export type MonitoringLocationPatch = {
@@ -41,8 +41,10 @@ function parsePatch(payload: unknown): MonitoringLocationPatch | null {
 
 export function useMonitoringRealtime() {
   const [locationPatches, setLocationPatches] = useState<Map<string, MonitoringLocationPatch>>(() => new Map());
+  const locationPatchesRef = useRef(new Map<string, MonitoringLocationPatch>());
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting');
   const [lastRealtimeEventAt, setLastRealtimeEventAt] = useState<string | null>(null);
+  const lastRealtimeEventAtRef = useRef<string | null>(null);
 
   // Realtime only moves rider markers; operational refresh belongs to polling/Task 12.
   useEffect(() => {
@@ -52,14 +54,16 @@ export function useMonitoringRealtime() {
       .on('postgres_changes', { event: '*', schema, table: 'riders' }, (payload: unknown) => {
         const patch = parsePatch(payload);
         if (!patch) return;
-        setLocationPatches((current) => {
-          const previous = current.get(patch.riderId);
-          if (previous && patch.receivedAt < previous.receivedAt) return current;
-          const next = new Map(current);
-          next.set(patch.riderId, patch);
+        const previous = locationPatchesRef.current.get(patch.riderId);
+        if (previous && patch.receivedAt < previous.receivedAt) return;
+        const next = new Map(locationPatchesRef.current);
+        next.set(patch.riderId, patch);
+        locationPatchesRef.current = next;
+        setLocationPatches(next);
+        if (!lastRealtimeEventAtRef.current || patch.receivedAt >= lastRealtimeEventAtRef.current) {
+          lastRealtimeEventAtRef.current = patch.receivedAt;
           setLastRealtimeEventAt(patch.receivedAt);
-          return next;
-        });
+        }
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIBED') setRealtimeStatus('connected');

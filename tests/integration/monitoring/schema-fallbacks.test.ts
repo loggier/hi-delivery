@@ -26,12 +26,20 @@ describe('protected monitoring snapshot schema fallbacks', () => {
       meaningfulMovementMeters: 50,
       source: 'fallback',
     });
-     expect(result.dataHealth).toEqual({ schema: 'degraded', disabledRules: ['irregular-reporting'] });
+     expect(result.dataHealth).toEqual({ schema: 'degraded', disabledRules: [] });
   });
 
   it('does not disable optional rules when successful selects return empty data', async () => {
     const result = await buildMonitoringSnapshot({ repositories: repositories(), now });
     expect(result.dataHealth.disabledRules).not.toEqual(expect.arrayContaining(['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted']));
+  });
+
+  it('does not treat successful null optional data as an available schema', async () => {
+    const result = await buildMonitoringSnapshot({ repositories: repositories({
+      fetchActiveOrders: vi.fn(async () => ({ data: [], error: null, available: true, availableRules: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'], schemaDegraded: ['late-delivery'] })),
+    }), now });
+    expect(result.dataHealth.schema).toBe('degraded');
+    expect(result.dataHealth.disabledRules).toContain('late-delivery');
   });
 
   it('reconciles once and computes KPIs before applying filters', async () => {
@@ -97,7 +105,7 @@ describe('protected monitoring snapshot schema fallbacks', () => {
   it('evaluates irregular reporting from riders even when there are no orders', async () => {
     const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
     const repo = repositories({
-      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', has_irregular_reporting: true }], error: null })),
+      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', has_irregular_reporting: true }], error: null, available: true, availableRules: ['irregular-reporting'] })),
       reconcileIncidents,
     });
     const result = await buildMonitoringSnapshot({ repositories: repo, now });

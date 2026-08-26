@@ -138,6 +138,15 @@ describe('monitoring data hooks', () => {
     expect(result.result.current.lastRealtimeEventAt).toBe(newer);
   });
 
+  it('keeps the global realtime timestamp at the maximum accepted event', async () => {
+    const result = renderHook(() => useMonitoringRealtime());
+    const recent = new Date(Date.now() - 60_000).toISOString();
+    const older = new Date(Date.now() - 120_000).toISOString();
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r-a', last_latitude: 19, last_longitude: -99, last_location_received_at: recent } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r-b', last_latitude: 20, last_longitude: -98, last_location_received_at: older } }));
+    await waitFor(() => expect(result.result.current.lastRealtimeEventAt).toBe(recent));
+  });
+
   it('selects entities and replaces the filter through the public controller contract', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 }));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
