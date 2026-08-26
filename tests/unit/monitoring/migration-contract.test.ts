@@ -67,6 +67,30 @@ describe('monitoring operations control migration', () => {
     expect(sql).toContain('monitoring_incidents_active_rider_idx');
   });
 
+  it('defines one atomic and serialized incident reconciliation RPC', () => {
+    expect(sql).toMatch(
+      /create or replace function grupohubs\.reconcile_monitoring_incidents\(\s*p_conditions jsonb,\s*p_evaluated_types text\[\],\s*p_now timestamptz\s*\)/,
+    );
+    expect(sql).toContain('set search_path = pg_catalog, grupohubs');
+    expect(sql).toContain('pg_advisory_xact_lock');
+    expect(sql).toMatch(
+      /on conflict \(condition_key\) where status in \('open', 'attending'\) do update/,
+    );
+    expect(sql).toMatch(
+      /greatest\(\s*monitoring_incidents\.last_detected_at,\s*excluded\.last_detected_at\s*\)/,
+    );
+    expect(sql).toMatch(/incident_type\s*=\s*any\s*\(p_evaluated_types\)/);
+    expect(sql).toMatch(/last_detected_at\s*<=\s*p_now/);
+    expect(sql).toContain("resolution_source = 'condition_cleared'");
+    expect(sql).toMatch(/order by[\s\S]*case priority[\s\S]*first_detected_at[\s\S]*id/);
+    expect(sql).toMatch(
+      /revoke all on function grupohubs\.reconcile_monitoring_incidents\(jsonb, text\[\], timestamptz\) from public, anon, authenticated/,
+    );
+    expect(sql).toMatch(
+      /grant execute on function grupohubs\.reconcile_monitoring_incidents\(jsonb, text\[\], timestamptz\) to service_role/,
+    );
+  });
+
   it('defines a permission-restricted append-only action log', () => {
     expect(sql).toMatch(/create table if not exists grupohubs\.monitoring_action_log/);
     expect(sql).toContain("result varchar(20) not null check (result in ('success', 'failed'))");

@@ -134,6 +134,208 @@ CREATE INDEX IF NOT EXISTS monitoring_incidents_active_rider_idx
   ON grupohubs.monitoring_incidents (rider_id, first_detected_at DESC, id DESC)
   WHERE status IN ('open', 'attending') AND rider_id IS NOT NULL;
 
+CREATE OR REPLACE FUNCTION grupohubs.reconcile_monitoring_incidents(
+  p_conditions jsonb,
+  p_evaluated_types text[],
+  p_now timestamptz
+)
+RETURNS SETOF grupohubs.monitoring_incidents
+LANGUAGE plpgsql
+SET search_path = pg_catalog, grupohubs
+AS $$
+DECLARE
+  incompatible_condition_key text;
+BEGIN
+  IF p_now IS NULL THEN
+    RAISE EXCEPTION 'p_now is required' USING ERRCODE = '22023';
+  END IF;
+
+  IF p_conditions IS NULL OR jsonb_typeof(p_conditions) <> 'array' THEN
+    RAISE EXCEPTION 'p_conditions must be a JSON array' USING ERRCODE = '22023';
+  END IF;
+
+  IF p_evaluated_types IS NULL OR EXISTS (
+    SELECT 1
+    FROM unnest(p_evaluated_types) AS evaluated_type
+    WHERE evaluated_type IS NULL
+      OR evaluated_type <> ALL (ARRAY[
+        'unassigned',
+        'gps-stale',
+        'stopped-in-transit',
+        'dispatch-exhausted',
+        'late-delivery',
+        'outside-zone',
+        'repeated-rejections',
+        'irregular-reporting'
+      ]::text[])
+  ) THEN
+    RAISE EXCEPTION 'p_evaluated_types contains an invalid incident type'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_conditions) AS entry(condition)
+    WHERE jsonb_typeof(condition) <> 'object'
+      OR jsonb_typeof(condition -> 'condition_key') IS DISTINCT FROM 'string'
+      OR nullif(btrim(condition ->> 'condition_key'), '') IS NULL
+      OR condition ->> 'incident_type' IS NULL
+      OR condition ->> 'incident_type' <> ALL (ARRAY[
+        'unassigned',
+        'gps-stale',
+        'stopped-in-transit',
+        'dispatch-exhausted',
+        'late-delivery',
+        'outside-zone',
+        'repeated-rejections',
+        'irregular-reporting'
+      ]::text[])
+      OR condition ->> 'priority' IS NULL
+      OR condition ->> 'priority' <> ALL (ARRAY['P1', 'P2', 'P3']::text[])
+      OR condition ->> 'status' IS DISTINCT FROM 'open'
+      OR coalesce(jsonb_typeof(condition -> 'order_id'), 'missing')
+        NOT IN ('string', 'null')
+      OR coalesce(jsonb_typeof(condition -> 'rider_id'), 'missing')
+        NOT IN ('string', 'null')
+      OR jsonb_typeof(condition -> 'condition_metadata') IS DISTINCT FROM 'object'
+      OR EXISTS (
+        SELECT 1
+        FROM jsonb_each(condition -> 'condition_metadata') AS metadata(key, value)
+        WHERE jsonb_typeof(value) NOT IN ('string', 'number', 'boolean', 'null')
+          OR key ~* '(coordinate|latitude|longitude|(^|_)lat($|_)|(^|_)lng($|_)|token|credential|secret|password|history)'
+      )
+  ) THEN
+    RAISE EXCEPTION 'p_conditions contains an invalid or sensitive condition'
+      USING ERRCODE = '22023';
+  END IF;
+
+  WITH parsed_conditions AS (
+    SELECT
+      condition ->> 'condition_key' AS condition_key,
+      condition ->> 'incident_type' AS incident_type,
+      nullif(condition ->> 'order_id', '') AS order_id,
+      nullif(condition ->> 'rider_id', '') AS rider_id
+    FROM jsonb_array_elements(p_conditions) AS entry(condition)
+  )
+  SELECT condition_key
+  INTO incompatible_condition_key
+  FROM parsed_conditions
+  GROUP BY condition_key
+  HAVING count(DISTINCT (incident_type, order_id, rider_id)) > 1
+  ORDER BY condition_key
+  LIMIT 1;
+
+  IF incompatible_condition_key IS NOT NULL THEN
+    RAISE EXCEPTION 'duplicate condition_key has incompatible identity'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- A stable transaction-scoped lock serializes snapshots before upsert and resolution.
+  PERFORM pg_advisory_xact_lock(907202608);
+
+  WITH parsed_conditions AS (
+    SELECT
+      condition ->> 'condition_key' AS condition_key,
+      condition ->> 'incident_type' AS incident_type,
+      condition ->> 'priority' AS priority,
+      nullif(condition ->> 'order_id', '') AS order_id,
+      nullif(condition ->> 'rider_id', '') AS rider_id,
+      condition -> 'condition_metadata' AS condition_metadata
+    FROM jsonb_array_elements(p_conditions) AS entry(condition)
+  ),
+  deduplicated_conditions AS (
+    SELECT DISTINCT ON (condition_key)
+      condition_key,
+      incident_type,
+      priority,
+      order_id,
+      rider_id,
+      condition_metadata
+    FROM parsed_conditions
+    ORDER BY
+      condition_key,
+      CASE priority WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END,
+      condition_metadata::text
+  )
+  INSERT INTO grupohubs.monitoring_incidents (
+    condition_key,
+    incident_type,
+    priority,
+    rider_id,
+    order_id,
+    status,
+    first_detected_at,
+    last_detected_at,
+    condition_metadata,
+    created_at,
+    updated_at
+  )
+  SELECT
+    condition_key,
+    incident_type,
+    priority,
+    rider_id,
+    order_id,
+    'open',
+    p_now,
+    p_now,
+    condition_metadata,
+    p_now,
+    p_now
+  FROM deduplicated_conditions
+  ON CONFLICT (condition_key) WHERE status IN ('open', 'attending') DO UPDATE
+  SET
+    incident_type = CASE
+      WHEN EXCLUDED.last_detected_at >= monitoring_incidents.last_detected_at
+        THEN EXCLUDED.incident_type
+      ELSE monitoring_incidents.incident_type
+    END,
+    priority = CASE
+      WHEN EXCLUDED.last_detected_at >= monitoring_incidents.last_detected_at
+        THEN EXCLUDED.priority
+      ELSE monitoring_incidents.priority
+    END,
+    last_detected_at = GREATEST(
+      monitoring_incidents.last_detected_at,
+      EXCLUDED.last_detected_at
+    ),
+    condition_metadata = CASE
+      WHEN EXCLUDED.last_detected_at >= monitoring_incidents.last_detected_at
+        THEN EXCLUDED.condition_metadata
+      ELSE monitoring_incidents.condition_metadata
+    END,
+    updated_at = GREATEST(monitoring_incidents.updated_at, EXCLUDED.updated_at);
+
+  UPDATE grupohubs.monitoring_incidents AS incident
+  SET
+    status = 'resolved',
+    resolved_at = GREATEST(
+      p_now,
+      incident.last_detected_at,
+      coalesce(incident.attending_at, p_now)
+    ),
+    resolution_source = 'condition_cleared',
+    updated_at = GREATEST(incident.updated_at, p_now)
+  WHERE incident.status IN ('open', 'attending')
+    AND incident.incident_type = ANY (p_evaluated_types)
+    AND incident.last_detected_at <= p_now
+    AND NOT EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(p_conditions) AS entry(condition)
+      WHERE condition ->> 'condition_key' = incident.condition_key
+    );
+
+  RETURN QUERY
+  SELECT active_incident.*
+  FROM grupohubs.monitoring_incidents AS active_incident
+  WHERE active_incident.status IN ('open', 'attending')
+  ORDER BY
+    CASE priority WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END,
+    first_detected_at,
+    id;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS grupohubs.monitoring_action_log (
   id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   action_type varchar(64) NOT NULL,
@@ -211,6 +413,11 @@ GRANT SELECT, INSERT, UPDATE ON TABLE grupohubs.monitoring_incidents TO service_
 REVOKE ALL ON SEQUENCE grupohubs.monitoring_incidents_id_seq
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT USAGE, SELECT ON SEQUENCE grupohubs.monitoring_incidents_id_seq TO service_role;
+
+REVOKE ALL ON FUNCTION grupohubs.reconcile_monitoring_incidents(jsonb, text[], timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION grupohubs.reconcile_monitoring_incidents(jsonb, text[], timestamptz)
+  TO service_role;
 
 REVOKE ALL ON TABLE grupohubs.monitoring_action_log
   FROM PUBLIC, anon, authenticated, service_role;

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  IncidentConflictError,
   reconcileMonitoringIncidents,
   type IncidentStore,
 } from '@/lib/monitoring/incident-repository';
-import type { DetectedCondition, MonitoringIncident } from '@/lib/monitoring/types';
+import type {
+  DetectedCondition,
+  MonitoringConditionType,
+  MonitoringIncident,
+} from '@/lib/monitoring/types';
 
 const now = '2026-08-25T12:00:00.000Z';
 const nowDate = new Date(now);
@@ -32,8 +35,8 @@ function incident(overrides: Partial<MonitoringIncident> = {}): MonitoringIncide
     status: 'open',
     orderId: 'order-1',
     riderId: null,
-    firstDetectedAt: '2026-08-25T11:00:00.000Z',
-    lastDetectedAt: '2026-08-25T11:00:00.000Z',
+    firstDetectedAt: now,
+    lastDetectedAt: now,
     attendingAt: null,
     resolvedAt: null,
     metadata: {},
@@ -41,10 +44,30 @@ function incident(overrides: Partial<MonitoringIncident> = {}): MonitoringIncide
   };
 }
 
-class MemoryIncidentStore implements IncidentStore {
+type BatchCall = {
+  conditions: readonly DetectedCondition[];
+  evaluatedTypes: readonly MonitoringConditionType[];
+  now: string;
+};
+
+class RecordingIncidentStore implements IncidentStore {
+  calls: BatchCall[] = [];
+
+  constructor(private readonly result: MonitoringIncident[] = []) {}
+
+  async reconcileBatch(
+    conditions: readonly DetectedCondition[],
+    evaluatedTypes: readonly MonitoringConditionType[],
+    timestamp: string,
+  ): Promise<MonitoringIncident[]> {
+    this.calls.push({ conditions, evaluatedTypes, now: timestamp });
+    return this.result;
+  }
+}
+
+class LifecycleBatchIncidentStore implements IncidentStore {
   rows: MonitoringIncident[];
-  calls: string[] = [];
-  conflictKeys = new Set<string>();
+  calls = 0;
   private nextId: number;
 
   constructor(rows: MonitoringIncident[] = []) {
@@ -52,167 +75,212 @@ class MemoryIncidentStore implements IncidentStore {
     this.nextId = Math.max(0, ...rows.map((row) => row.id)) + 1;
   }
 
-  async listActive(): Promise<MonitoringIncident[]> {
-    this.calls.push('list');
-    return this.rows.filter((row) => row.status !== 'resolved').map((row) => ({ ...row }));
-  }
+  async reconcileBatch(
+    conditions: readonly DetectedCondition[],
+    evaluatedTypes: readonly MonitoringConditionType[],
+    timestamp: string,
+  ): Promise<MonitoringIncident[]> {
+    this.calls += 1;
+    const conditionsByKey = new Map(conditions.map((item) => [item.key, item]));
 
-  async findActiveByConditionKey(key: string): Promise<MonitoringIncident | null> {
-    this.calls.push(`find:${key}`);
-    return this.rows.find((row) => row.conditionKey === key && row.status !== 'resolved') ?? null;
-  }
-
-  async insertCondition(value: DetectedCondition, timestamp: string): Promise<void> {
-    this.calls.push(`insert:${value.key}`);
-    if (this.conflictKeys.delete(value.key)) {
-      this.rows.push(incident({ id: this.nextId++, conditionKey: value.key }));
-      throw new IncidentConflictError();
-    }
-    this.rows.push(
-      incident({
-        id: this.nextId++,
-        conditionKey: value.key,
-        type: value.type,
-        priority: value.priority,
-        orderId: value.orderId,
-        riderId: value.riderId,
-        firstDetectedAt: timestamp,
-        lastDetectedAt: timestamp,
-        metadata: { ...value.metadata },
-      }),
-    );
-  }
-
-  async touchCondition(id: number, value: DetectedCondition, timestamp: string): Promise<void> {
-    this.calls.push(`touch:${id}`);
-    this.rows = this.rows.map((row) =>
-      row.id === id
-        ? {
-            ...row,
-            type: value.type,
-            priority: value.priority,
+    for (const condition of conditions) {
+      const existing = this.rows.find(
+        (row) => row.conditionKey === condition.key && row.status !== 'resolved',
+      );
+      if (existing !== undefined) {
+        existing.lastDetectedAt = timestamp;
+        existing.priority = condition.priority;
+        existing.metadata = { ...condition.metadata };
+      } else {
+        this.rows.push(
+          incident({
+            id: this.nextId++,
+            conditionKey: condition.key,
+            type: condition.type,
+            priority: condition.priority,
+            orderId: condition.orderId,
+            riderId: condition.riderId,
+            firstDetectedAt: timestamp,
             lastDetectedAt: timestamp,
-            metadata: { ...value.metadata },
-          }
-        : row,
-    );
-  }
+            metadata: { ...condition.metadata },
+          }),
+        );
+      }
+    }
 
-  async resolveCondition(id: number, timestamp: string): Promise<void> {
-    this.calls.push(`resolve:${id}`);
-    this.rows = this.rows.map((row) =>
-      row.id === id
-        ? { ...row, status: 'resolved', resolvedAt: timestamp }
-        : row,
-    );
+    for (const row of this.rows) {
+      if (
+        row.status !== 'resolved' &&
+        evaluatedTypes.includes(row.type) &&
+        !conditionsByKey.has(row.conditionKey) &&
+        row.lastDetectedAt <= timestamp
+      ) {
+        row.status = 'resolved';
+        row.resolvedAt = timestamp;
+      }
+    }
+
+    return this.rows.filter((row) => row.status !== 'resolved');
   }
 }
 
 describe('reconcileMonitoringIncidents', () => {
-  it('inserts a new active incident for a newly detected condition', async () => {
-    const store = new MemoryIncidentStore();
+  it('uses one batch call for 500 conditions', async () => {
+    const store = new RecordingIncidentStore();
+    const conditions = Array.from({ length: 500 }, (_, index) =>
+      condition({ key: `unassigned:order-${index}`, orderId: `order-${index}` }),
+    );
 
-    const result = await reconcileMonitoringIncidents(store, [condition()], nowDate);
+    await reconcileMonitoringIncidents(store, conditions, ['unassigned'], nowDate);
 
-    expect(result).toMatchObject([
-      { conditionKey: 'unassigned:order-1', status: 'open', firstDetectedAt: now },
-    ]);
-    expect(store.calls).toEqual(['list', 'insert:unassigned:order-1', 'list']);
+    expect(store.calls).toHaveLength(1);
+    expect(store.calls[0].conditions).toHaveLength(500);
+    expect(store.calls[0].now).toBe(now);
   });
 
-  it('touches an attending incident without resetting its cycle or status', async () => {
+  it('passes only the explicitly evaluated incident types to the batch store', async () => {
+    const store = new RecordingIncidentStore();
+
+    await reconcileMonitoringIncidents(
+      store,
+      [condition()],
+      ['unassigned', 'gps-stale'],
+      nowDate,
+    );
+
+    expect(store.calls[0].evaluatedTypes).toEqual(['unassigned', 'gps-stale']);
+  });
+
+  it('models insert, attending touch, and evaluated-only resolution in one batch fake call', async () => {
     const attending = incident({
+      id: 1,
+      conditionKey: 'gps-stale:order-1:rider-1',
+      type: 'gps-stale',
       status: 'attending',
       attendingAt: '2026-08-25T11:30:00.000Z',
       firstDetectedAt: '2026-08-25T10:00:00.000Z',
     });
-    const store = new MemoryIncidentStore([attending]);
+    const cleared = incident({ id: 2, conditionKey: 'unassigned:cleared' });
+    const disabled = incident({
+      id: 3,
+      conditionKey: 'irregular-reporting:rider-2',
+      type: 'irregular-reporting',
+      orderId: null,
+      riderId: 'rider-2',
+    });
+    const store = new LifecycleBatchIncidentStore([attending, cleared, disabled]);
 
-    const [result] = await reconcileMonitoringIncidents(
+    const result = await reconcileMonitoringIncidents(
       store,
-      [condition({ priority: 'P2', metadata: { attempts: 4 } })],
+      [
+        condition({
+          key: attending.conditionKey,
+          type: 'gps-stale',
+          riderId: 'rider-1',
+          priority: 'P2',
+        }),
+        condition({ key: 'unassigned:new', orderId: 'new' }),
+      ],
+      ['unassigned', 'gps-stale'],
       nowDate,
     );
 
-    expect(result).toMatchObject({
-      status: 'attending',
-      firstDetectedAt: '2026-08-25T10:00:00.000Z',
-      lastDetectedAt: now,
-      priority: 'P2',
-      metadata: { attempts: 4 },
+    expect(store.calls).toBe(1);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          conditionKey: attending.conditionKey,
+          status: 'attending',
+          firstDetectedAt: '2026-08-25T10:00:00.000Z',
+          priority: 'P2',
+        }),
+        expect.objectContaining({ conditionKey: 'unassigned:new', status: 'open' }),
+        expect.objectContaining({
+          conditionKey: disabled.conditionKey,
+          status: 'open',
+        }),
+      ]),
+    );
+    expect(store.rows.find((row) => row.id === cleared.id)?.status).toBe('resolved');
+  });
+
+  it.each([
+    ['P1 then P2', ['P1', 'P2']],
+    ['P2 then P1', ['P2', 'P1']],
+  ] as const)('keeps P1 for compatible duplicates in order %s', async (_, priorities) => {
+    const store = new RecordingIncidentStore();
+
+    await reconcileMonitoringIncidents(
+      store,
+      priorities.map((priority) => condition({ priority })),
+      ['unassigned'],
+      nowDate,
+    );
+
+    expect(store.calls[0].conditions).toHaveLength(1);
+    expect(store.calls[0].conditions[0].priority).toBe('P1');
+  });
+
+  it('rejects duplicate keys with incompatible incident identity before the store call', async () => {
+    const store = new RecordingIncidentStore();
+
+    await expect(
+      reconcileMonitoringIncidents(
+        store,
+        [condition(), condition({ type: 'gps-stale', riderId: 'rider-1' })],
+        ['unassigned', 'gps-stale'],
+        nowDate,
+      ),
+    ).rejects.toThrow('Incompatible duplicate monitoring condition');
+    expect(store.calls).toEqual([]);
+  });
+
+  it('sanitizes metadata without mutating the detected condition', async () => {
+    const store = new RecordingIncidentStore();
+    const detected = condition({
+      metadata: {
+        attempts: 2,
+        coordinates: '19.4326,-99.1332',
+        accessToken: 'secret',
+        preciseHistory: 'sensitive',
+      },
     });
+    const originalMetadata = detected.metadata;
+
+    await reconcileMonitoringIncidents(store, [detected], ['unassigned'], nowDate);
+
+    expect(store.calls[0].conditions[0].metadata).toEqual({ attempts: 2 });
+    expect(detected.metadata).toBe(originalMetadata);
   });
 
-  it('resolves active incidents whose conditions cleared', async () => {
-    const store = new MemoryIncidentStore([incident()]);
-
-    const result = await reconcileMonitoringIncidents(store, [], nowDate);
-
-    expect(result).toEqual([]);
-    expect(store.rows[0]).toMatchObject({ status: 'resolved', resolvedAt: now });
-    expect(store.calls).toEqual(['list', 'resolve:1', 'list']);
-  });
-
-  it('starts a new cycle instead of changing resolved history', async () => {
-    const resolved = incident({
-      status: 'resolved',
-      resolvedAt: '2026-08-25T11:30:00.000Z',
-    });
-    const store = new MemoryIncidentStore([resolved]);
-
-    await reconcileMonitoringIncidents(store, [condition()], nowDate);
-
-    expect(store.rows).toHaveLength(2);
-    expect(store.rows[0]).toEqual(resolved);
-    expect(store.rows[1]).toMatchObject({ status: 'open', firstDetectedAt: now });
-  });
-
-  it('deduplicates conditions by key before inserts or touches', async () => {
-    const insertStore = new MemoryIncidentStore();
-    const touchStore = new MemoryIncidentStore([incident()]);
-    const duplicates = [condition(), condition({ priority: 'P2' })];
-
-    await reconcileMonitoringIncidents(insertStore, duplicates, nowDate);
-    await reconcileMonitoringIncidents(touchStore, duplicates, nowDate);
-
-    expect(insertStore.calls.filter((call) => call.startsWith('insert:'))).toHaveLength(1);
-    expect(touchStore.calls.filter((call) => call.startsWith('touch:'))).toHaveLength(1);
-    expect(insertStore.rows[0].priority).toBe('P2');
-    expect(touchStore.rows[0].priority).toBe('P2');
-  });
-
-  it('recovers a unique race by finding and touching the concurrent active row', async () => {
-    const store = new MemoryIncidentStore();
-    store.conflictKeys.add('unassigned:order-1');
-
-    await reconcileMonitoringIncidents(store, [condition({ priority: 'P2' })], nowDate);
-
-    expect(store.calls).toContain('find:unassigned:order-1');
-    expect(store.calls).toContain('touch:1');
-    expect(store.rows[0]).toMatchObject({ priority: 'P2', lastDetectedAt: now });
-  });
-
-  it('returns P1, P2, P3 incidents and oldest cycles first within priority', async () => {
-    const store = new MemoryIncidentStore([
+  it('returns active incidents in priority and oldest-first order', async () => {
+    const store = new RecordingIncidentStore([
       incident({ id: 1, conditionKey: 'p3', priority: 'P3' }),
       incident({ id: 2, conditionKey: 'p1-new', firstDetectedAt: '2026-08-25T11:30:00.000Z' }),
       incident({ id: 3, conditionKey: 'p2', priority: 'P2' }),
       incident({ id: 4, conditionKey: 'p1-old', firstDetectedAt: '2026-08-25T10:30:00.000Z' }),
     ]);
 
-    const conditions = store.rows.map((row) =>
-      condition({ key: row.conditionKey, priority: row.priority }),
-    );
-    const result = await reconcileMonitoringIncidents(store, conditions, nowDate);
+    const result = await reconcileMonitoringIncidents(store, [], [], nowDate);
 
     expect(result.map((row) => row.conditionKey)).toEqual(['p1-old', 'p1-new', 'p2', 'p3']);
   });
 
-  it('rejects an invalid Date before reading or mutating the store', async () => {
-    const store = new MemoryIncidentStore();
+  it('rejects invalid evaluated types before calling the store', async () => {
+    const store = new RecordingIncidentStore();
+    const invalidTypes = ['unassigned', 'not-a-rule'] as readonly MonitoringConditionType[];
 
     await expect(
-      reconcileMonitoringIncidents(store, [condition()], new Date(Number.NaN)),
+      reconcileMonitoringIncidents(store, [], invalidTypes, nowDate),
+    ).rejects.toThrow('Invalid evaluated monitoring incident type');
+    expect(store.calls).toEqual([]);
+  });
+
+  it('rejects an invalid Date before calling the store', async () => {
+    const store = new RecordingIncidentStore();
+
+    await expect(
+      reconcileMonitoringIncidents(store, [], [], new Date(Number.NaN)),
     ).rejects.toThrow('Invalid monitoring reconciliation timestamp');
     expect(store.calls).toEqual([]);
   });

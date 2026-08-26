@@ -899,7 +899,8 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 
 - Las migraciones `20260825100000_admin_web_sessions.sql` y `20260825101000_monitoring_operations_control.sql` establecen la persistencia server-only para sesiones administrativas e incidentes/acciones de monitoreo.
 - `system_settings` incorpora umbrales opcionales con defaults de 7 minutos para pedidos sin asignar, 10 minutos para GPS desactualizado, 15 minutos para una unidad detenida en tránsito y 50 metros para movimiento significativo.
-- `monitoring_incidents` conserva el estado reconciliable de condiciones activas; un proceso backend debe detectar, revalidar y resolver estos incidentes. No se usa `pg_cron`.
+- `monitoring_incidents` se reconcilia desde backend mediante la RPC server-only `reconcile_monitoring_incidents`: recibe todas las condiciones del snapshot y sus tipos de regla evaluados, y hace deduplicación, upsert, resolución y retorno ordenado en una sola transacción/llamada.
+- La RPC serializa snapshots con un advisory lock transaccional estable. Sólo resuelve incidentes activos de tipos incluidos en `p_evaluated_types` y nunca limpia una fila tocada por un snapshot posterior (`last_detected_at > p_now`). No se usa `pg_cron`.
 - `monitoring_action_log` es append-only: el backend con `service_role` sólo puede consultar e insertar, y un trigger rechaza cualquier actualización o eliminación.
 - La detección de entrega tardía permanece deshabilitada mientras `orders` no tenga un timestamp canónico de entrega esperada.
 - Los cambios son aditivos, no agregan FKs rígidas para ids afectados por schema drift y preservan los fallbacks legacy de dispatch y asignación.

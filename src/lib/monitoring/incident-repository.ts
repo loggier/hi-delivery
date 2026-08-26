@@ -7,21 +7,16 @@ import type {
   MonitoringPriority,
 } from './types';
 
-const ACTIVE_STATUSES = ['open', 'attending'] as const;
-const INCIDENT_COLUMNS = [
-  'id',
-  'condition_key',
-  'incident_type',
-  'priority',
-  'status',
-  'order_id',
-  'rider_id',
-  'first_detected_at',
-  'last_detected_at',
-  'attending_at',
-  'resolved_at',
-  'condition_metadata',
-].join(',');
+const CONDITION_TYPES: readonly MonitoringConditionType[] = [
+  'unassigned',
+  'gps-stale',
+  'stopped-in-transit',
+  'dispatch-exhausted',
+  'late-delivery',
+  'outside-zone',
+  'repeated-rejections',
+  'irregular-reporting',
+];
 const ISO_TIMESTAMP_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
 const SENSITIVE_METADATA_KEY_PATTERN =
@@ -37,199 +32,168 @@ type IncidentDbResult = {
   error: IncidentDbError | null;
 };
 
-interface IncidentQuery extends PromiseLike<IncidentDbResult> {
-  select(columns: string): IncidentQuery;
-  insert(values: Record<string, unknown>): IncidentQuery;
-  update(values: Record<string, unknown>): IncidentQuery;
-  eq(column: string, value: unknown): IncidentQuery;
-  in(column: string, values: readonly unknown[]): IncidentQuery;
-  order(column: string, options: { ascending: boolean }): IncidentQuery;
-  limit(value: number): IncidentQuery;
-  maybeSingle(): IncidentQuery;
-}
+type RpcCondition = {
+  condition_key: string;
+  incident_type: MonitoringConditionType;
+  priority: MonitoringPriority;
+  status: 'open';
+  order_id: string | null;
+  rider_id: string | null;
+  condition_metadata: MonitoringConditionMetadata;
+};
 
 export interface SupabaseIncidentClient {
-  from(table: string): unknown;
+  rpc(functionName: string, params: Record<string, unknown>): unknown;
 }
 
 export interface IncidentStore {
-  listActive(): Promise<MonitoringIncident[]>;
-  findActiveByConditionKey(conditionKey: string): Promise<MonitoringIncident | null>;
-  insertCondition(condition: DetectedCondition, now: string): Promise<void>;
-  touchCondition(id: number, condition: DetectedCondition, now: string): Promise<void>;
-  resolveCondition(id: number, now: string): Promise<void>;
-}
-
-export class IncidentConflictError extends Error {
-  constructor() {
-    super('Active monitoring incident already exists');
-    this.name = 'IncidentConflictError';
-  }
+  reconcileBatch(
+    conditions: readonly DetectedCondition[],
+    evaluatedTypes: readonly MonitoringConditionType[],
+    now: string,
+  ): Promise<MonitoringIncident[]>;
 }
 
 export async function reconcileMonitoringIncidents(
   store: IncidentStore,
   conditions: readonly DetectedCondition[],
+  evaluatedTypes: readonly MonitoringConditionType[],
   now: Date,
 ): Promise<MonitoringIncident[]> {
   if (Number.isNaN(now.getTime())) {
     throw new Error('Invalid monitoring reconciliation timestamp');
   }
-  const timestamp = now.toISOString();
 
-  const activeIncidents = await store.listActive();
-  const activeByKey = new Map(
-    activeIncidents.map((incident) => [incident.conditionKey, incident]),
+  const normalizedTypes = normalizeEvaluatedTypes(evaluatedTypes);
+  const normalizedConditions = deduplicateConditions(conditions);
+  const incidents = await store.reconcileBatch(
+    normalizedConditions,
+    normalizedTypes,
+    now.toISOString(),
   );
-  const conditionsByKey = new Map(conditions.map((condition) => [condition.key, condition]));
 
-  for (const incident of activeIncidents) {
-    if (!conditionsByKey.has(incident.conditionKey)) {
-      await store.resolveCondition(incident.id, timestamp);
-    }
-  }
-
-  for (const condition of conditionsByKey.values()) {
-    const existing = activeByKey.get(condition.key);
-    if (existing !== undefined) {
-      await store.touchCondition(existing.id, condition, timestamp);
-      continue;
-    }
-
-    try {
-      await store.insertCondition(condition, timestamp);
-    } catch (error: unknown) {
-      if (!(error instanceof IncidentConflictError)) throw error;
-
-      const concurrent = await store.findActiveByConditionKey(condition.key);
-      if (concurrent === null) throw error;
-      await store.touchCondition(concurrent.id, condition, timestamp);
-    }
-  }
-
-  return sortIncidents(await store.listActive());
+  return sortIncidents(incidents);
 }
 
 export function createSupabaseIncidentStore(client: SupabaseIncidentClient): IncidentStore {
   return {
-    async listActive(): Promise<MonitoringIncident[]> {
-      const result = await query(client)
-        .select(INCIDENT_COLUMNS)
-        .in('status', ACTIVE_STATUSES)
-        .order('priority', { ascending: true })
-        .order('first_detected_at', { ascending: true })
-        .order('id', { ascending: true });
-      assertDbSuccess(result, 'Failed to list active monitoring incidents');
+    async reconcileBatch(
+      conditions: readonly DetectedCondition[],
+      evaluatedTypes: readonly MonitoringConditionType[],
+      now: string,
+    ): Promise<MonitoringIncident[]> {
+      assertIsoTimestamp(now, 'Invalid monitoring incident timestamp');
+      const result = (await client.rpc('reconcile_monitoring_incidents', {
+        p_conditions: conditions.map(toRpcCondition),
+        p_evaluated_types: [...evaluatedTypes],
+        p_now: now,
+      })) as IncidentDbResult;
 
+      if (result.error !== null) {
+        throw new Error('Failed to reconcile monitoring incidents');
+      }
       if (!Array.isArray(result.data)) {
         throw new Error('Invalid monitoring incident response');
       }
+
       return result.data.map(mapIncidentRow);
-    },
-
-    async findActiveByConditionKey(conditionKey: string): Promise<MonitoringIncident | null> {
-      const result = await query(client)
-        .select(INCIDENT_COLUMNS)
-        .eq('condition_key', conditionKey)
-        .in('status', ACTIVE_STATUSES)
-        .limit(1)
-        .maybeSingle();
-      assertDbSuccess(result, 'Failed to find active monitoring incident');
-
-      return result.data === null ? null : mapIncidentRow(result.data);
-    },
-
-    async insertCondition(condition: DetectedCondition, now: string): Promise<void> {
-      assertIsoTimestamp(now, 'Invalid monitoring incident timestamp');
-      const result = await query(client).insert({
-        condition_key: condition.key,
-        incident_type: condition.type,
-        priority: condition.priority,
-        status: 'open',
-        order_id: condition.orderId,
-        rider_id: condition.riderId,
-        first_detected_at: now,
-        last_detected_at: now,
-        condition_metadata: sanitizeMetadata(condition.metadata),
-        created_at: now,
-        updated_at: now,
-      });
-
-      if (result.error?.code === '23505') throw new IncidentConflictError();
-      assertDbSuccess(result, 'Failed to insert monitoring incident');
-    },
-
-    async touchCondition(
-      id: number,
-      condition: DetectedCondition,
-      now: string,
-    ): Promise<void> {
-      assertIsoTimestamp(now, 'Invalid monitoring incident timestamp');
-      const result = await query(client)
-        .update({
-          last_detected_at: now,
-          incident_type: condition.type,
-          priority: condition.priority,
-          condition_metadata: sanitizeMetadata(condition.metadata),
-          updated_at: now,
-        })
-        .eq('id', id)
-        .in('status', ACTIVE_STATUSES);
-      assertDbSuccess(result, 'Failed to update monitoring incident');
-    },
-
-    async resolveCondition(id: number, now: string): Promise<void> {
-      assertIsoTimestamp(now, 'Invalid monitoring incident timestamp');
-      const result = await query(client)
-        .update({
-          status: 'resolved',
-          resolved_at: now,
-          resolution_source: 'condition_cleared',
-          updated_at: now,
-        })
-        .eq('id', id)
-        .in('status', ACTIVE_STATUSES);
-      assertDbSuccess(result, 'Failed to resolve monitoring incident');
     },
   };
 }
 
-function query(client: SupabaseIncidentClient): IncidentQuery {
-  return client.from('monitoring_incidents') as IncidentQuery;
+function normalizeEvaluatedTypes(
+  evaluatedTypes: readonly MonitoringConditionType[],
+): MonitoringConditionType[] {
+  const normalized: MonitoringConditionType[] = [];
+  const seen = new Set<MonitoringConditionType>();
+
+  for (const type of evaluatedTypes) {
+    if (!isConditionType(type)) {
+      throw new Error('Invalid evaluated monitoring incident type');
+    }
+    if (!seen.has(type)) {
+      seen.add(type);
+      normalized.push(type);
+    }
+  }
+
+  return normalized;
 }
 
-function assertDbSuccess(result: IncidentDbResult, safeMessage: string): void {
-  if (result.error !== null) throw new Error(safeMessage);
+function deduplicateConditions(
+  conditions: readonly DetectedCondition[],
+): DetectedCondition[] {
+  const conditionsByKey = new Map<string, DetectedCondition>();
+
+  for (const rawCondition of conditions) {
+    assertCondition(rawCondition);
+    const condition = {
+      ...rawCondition,
+      metadata: sanitizeMetadata(rawCondition.metadata),
+    };
+    const existing = conditionsByKey.get(condition.key);
+
+    if (existing === undefined) {
+      conditionsByKey.set(condition.key, condition);
+      continue;
+    }
+    if (!hasCompatibleIdentity(existing, condition)) {
+      throw new Error('Incompatible duplicate monitoring condition');
+    }
+
+    const priorityComparison = priorityRank(condition.priority) - priorityRank(existing.priority);
+    if (
+      priorityComparison < 0 ||
+      (priorityComparison === 0 &&
+        canonicalMetadata(condition.metadata) < canonicalMetadata(existing.metadata))
+    ) {
+      conditionsByKey.set(condition.key, condition);
+    }
+  }
+
+  return [...conditionsByKey.values()].sort((left, right) => left.key.localeCompare(right.key));
 }
 
-function assertIsoTimestamp(value: string, safeMessage: string): void {
-  const match = ISO_TIMESTAMP_PATTERN.exec(value);
-  if (match === null || !isValidIsoCalendarDate(match) || !Number.isFinite(Date.parse(value))) {
-    throw new Error(safeMessage);
+function assertCondition(condition: DetectedCondition): void {
+  if (
+    typeof condition.key !== 'string' ||
+    condition.key.trim() === '' ||
+    !isConditionType(condition.type) ||
+    !isPriority(condition.priority) ||
+    (condition.orderId !== null && typeof condition.orderId !== 'string') ||
+    (condition.riderId !== null && typeof condition.riderId !== 'string') ||
+    !isMetadata(condition.metadata)
+  ) {
+    throw new Error('Invalid monitoring condition');
   }
 }
 
-function isValidIsoCalendarDate(match: RegExpExecArray): boolean {
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = Number(match[6]);
-  const offset = match[7];
-  const date = new Date(Date.UTC(year, month - 1, day));
-  const validOffset =
-    offset === 'Z' ||
-    (Number(offset.slice(1, 3)) <= 23 && Number(offset.slice(4, 6)) <= 59);
-
+function hasCompatibleIdentity(
+  left: DetectedCondition,
+  right: DetectedCondition,
+): boolean {
   return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day &&
-    hour <= 23 &&
-    minute <= 59 &&
-    second <= 59 &&
-    validOffset
+    left.type === right.type &&
+    left.orderId === right.orderId &&
+    left.riderId === right.riderId
+  );
+}
+
+function toRpcCondition(condition: DetectedCondition): RpcCondition {
+  return {
+    condition_key: condition.key,
+    incident_type: condition.type,
+    priority: condition.priority,
+    status: 'open',
+    order_id: condition.orderId,
+    rider_id: condition.riderId,
+    condition_metadata: sanitizeMetadata(condition.metadata),
+  };
+}
+
+function canonicalMetadata(metadata: MonitoringConditionMetadata): string {
+  return JSON.stringify(
+    Object.fromEntries(Object.entries(metadata).sort(([left], [right]) => left.localeCompare(right))),
   );
 }
 
@@ -271,8 +235,75 @@ function mapIncidentRow(value: unknown): MonitoringIncident {
   };
 }
 
+function assertIsoTimestamp(value: string, safeMessage: string): void {
+  const match = ISO_TIMESTAMP_PATTERN.exec(value);
+  if (match === null || !isValidIsoCalendarDate(match) || !Number.isFinite(Date.parse(value))) {
+    throw new Error(safeMessage);
+  }
+}
+
+function isValidIsoCalendarDate(match: RegExpExecArray): boolean {
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offset = match[7];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const validOffset =
+    offset === 'Z' ||
+    (Number(offset.slice(1, 3)) <= 23 && Number(offset.slice(4, 6)) <= 59);
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    hour <= 23 &&
+    minute <= 59 &&
+    second <= 59 &&
+    validOffset
+  );
+}
+
+function isConditionType(value: unknown): value is MonitoringConditionType {
+  return CONDITION_TYPES.some((type) => type === value);
+}
+
+function isPriority(value: unknown): value is MonitoringPriority {
+  return value === 'P1' || value === 'P2' || value === 'P3';
+}
+
+function conditionType(value: unknown): MonitoringConditionType {
+  if (isConditionType(value)) return value;
+  throw new Error('Invalid monitoring incident response');
+}
+
+function priority(value: unknown): MonitoringPriority {
+  if (isPriority(value)) return value;
+  throw new Error('Invalid monitoring incident response');
+}
+
+function status(value: unknown): MonitoringIncidentStatus {
+  if (value === 'open' || value === 'attending' || value === 'resolved') return value;
+  throw new Error('Invalid monitoring incident response');
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isMetadata(value: unknown): value is MonitoringConditionMetadata {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (item) =>
+        item === null ||
+        typeof item === 'string' ||
+        (typeof item === 'number' && Number.isFinite(item)) ||
+        typeof item === 'boolean',
+    )
+  );
 }
 
 function requiredNumber(value: unknown): number {
@@ -292,46 +323,7 @@ function nullableString(value: unknown): string | null {
   return requiredString(value);
 }
 
-function conditionType(value: unknown): MonitoringConditionType {
-  if (
-    value === 'unassigned' ||
-    value === 'gps-stale' ||
-    value === 'stopped-in-transit' ||
-    value === 'dispatch-exhausted' ||
-    value === 'late-delivery' ||
-    value === 'outside-zone' ||
-    value === 'repeated-rejections' ||
-    value === 'irregular-reporting'
-  ) {
-    return value;
-  }
-  throw new Error('Invalid monitoring incident response');
-}
-
-function priority(value: unknown): MonitoringPriority {
-  if (value === 'P1' || value === 'P2' || value === 'P3') return value;
-  throw new Error('Invalid monitoring incident response');
-}
-
-function status(value: unknown): MonitoringIncidentStatus {
-  if (value === 'open' || value === 'attending' || value === 'resolved') return value;
-  throw new Error('Invalid monitoring incident response');
-}
-
 function metadata(value: unknown): MonitoringConditionMetadata {
-  if (!isRecord(value)) throw new Error('Invalid monitoring incident response');
-
-  const entries = Object.entries(value);
-  if (
-    entries.some(
-      ([, item]) =>
-        item !== null &&
-        typeof item !== 'string' &&
-        typeof item !== 'number' &&
-        typeof item !== 'boolean',
-    )
-  ) {
-    throw new Error('Invalid monitoring incident response');
-  }
-  return sanitizeMetadata(value as MonitoringConditionMetadata);
+  if (!isMetadata(value)) throw new Error('Invalid monitoring incident response');
+  return sanitizeMetadata(value);
 }
