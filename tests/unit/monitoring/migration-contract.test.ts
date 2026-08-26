@@ -48,7 +48,7 @@ describe('monitoring operations control migration', () => {
       /create unique index if not exists monitoring_incidents_active_condition_uidx[^;]+where status in \('open', 'attending'\)/,
     );
     expect(sql).toMatch(
-      /create index if not exists monitoring_incidents_active_priority_idx[^;]+\(priority, first_detected_at, id\)[^;]+where status in \('open', 'attending'\)/,
+      /create index if not exists monitoring_incidents_active_priority_age_idx[^;]+\(priority, first_detected_at, id\)[^;]+where status in \('open', 'attending'\)/,
     );
     expect(sql).toContain('monitoring_incidents_active_order_idx');
     expect(sql).toContain('monitoring_incidents_active_rider_idx');

@@ -97,7 +97,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS monitoring_incidents_active_condition_uidx
   ON grupohubs.monitoring_incidents (condition_key)
   WHERE status IN ('open', 'attending');
 
-CREATE INDEX IF NOT EXISTS monitoring_incidents_active_priority_idx
+CREATE INDEX IF NOT EXISTS monitoring_incidents_active_priority_age_idx
   ON grupohubs.monitoring_incidents (priority, first_detected_at, id)
   WHERE status IN ('open', 'attending');
 
