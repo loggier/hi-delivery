@@ -1,4 +1,4 @@
-import { Bike, CircleAlert, CircleDot, ClipboardList, Navigation, Radio, UserCheck, Users } from 'lucide-react';
+import { Bike, CircleAlert, CircleDot, ClipboardList, Navigation, Radio, UserCheck, Users, type LucideIcon } from 'lucide-react';
 import type { MonitoringKpis } from '@/lib/monitoring/types';
 import type { MonitoringKpi } from '../_hooks/use-monitoring-controller';
 import { MonitoringKpiCard, MonitoringKpiCardSkeleton, type MonitoringKpiTone } from './monitoring-kpi-card';
@@ -6,11 +6,15 @@ import { MonitoringKpiCard, MonitoringKpiCardSkeleton, type MonitoringKpiTone } 
 type OperationsSummaryProps = {
   kpis?: MonitoringKpis;
   selectedKpi: MonitoringKpi;
+  selectedKpiCard?: MonitoringKpiCardKey;
   onSelectKpi: (kpi: MonitoringKpi) => void;
+  onSelectKpiCard?: (cardKey: MonitoringKpiCardKey) => void;
   isLoading?: boolean;
 };
 
-const cards: Array<{ key: keyof MonitoringKpis; label: string; selection: MonitoringKpi; icon: typeof ClipboardList; tone: MonitoringKpiTone }> = [
+export type MonitoringKpiCardKey = keyof MonitoringKpis;
+
+const cards: Array<{ key: MonitoringKpiCardKey; label: string; selection: MonitoringKpi; icon: LucideIcon; tone: MonitoringKpiTone }> = [
   { key: 'openOrders', label: 'Pedidos abiertos', selection: 'all', icon: ClipboardList, tone: 'neutral' },
   { key: 'unassigned', label: 'Sin asignar', selection: 'unassigned', icon: CircleAlert, tone: 'critical' },
   { key: 'onTheWay', label: 'En camino', selection: 'onTheWay', icon: Navigation, tone: 'neutral' },
@@ -21,7 +25,11 @@ const cards: Array<{ key: keyof MonitoringKpis; label: string; selection: Monito
   { key: 'noSignal', label: 'Sin señal', selection: 'noSignal', icon: Users, tone: 'warning' },
 ];
 
-export function OperationsSummary({ kpis, selectedKpi, onSelectKpi, isLoading = false }: OperationsSummaryProps) {
+function toneForValue(tone: MonitoringKpiTone, value: number): MonitoringKpiTone {
+  return (tone === 'critical' || tone === 'warning') && value === 0 ? 'neutral' : tone;
+}
+
+export function OperationsSummary({ kpis, selectedKpi, selectedKpiCard, onSelectKpi, onSelectKpiCard, isLoading = false }: OperationsSummaryProps) {
   return (
     <section aria-label="Resumen operativo">
       <div data-testid="monitoring-kpi-grid" className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
@@ -33,9 +41,12 @@ export function OperationsSummary({ kpis, selectedKpi, onSelectKpi, isLoading = 
               label={card.label}
               value={kpis[card.key]}
               icon={card.icon}
-              tone={card.tone}
-              selected={card.selection !== 'all' && selectedKpi === card.selection}
-              onSelect={() => onSelectKpi(card.selection)}
+              tone={toneForValue(card.tone, kpis[card.key])}
+              selected={selectedKpiCard ? selectedKpiCard === card.key : card.selection !== 'all' && selectedKpi === card.selection}
+              onSelect={() => {
+                onSelectKpi(card.selection);
+                onSelectKpiCard?.(card.key);
+              }}
             />
           ))}
       </div>

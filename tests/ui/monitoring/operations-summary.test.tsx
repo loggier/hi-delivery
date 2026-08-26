@@ -49,6 +49,20 @@ describe('OperationsSummary', () => {
     expect(screen.getByRole('button', { name: /Riders en línea.*9/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('uses card identity for one truthful visual selection while preserving the all filter', () => {
+    const selectKpi = vi.fn();
+    const selectCard = vi.fn();
+    render(<OperationsSummary kpis={kpis} selectedKpi="all" selectedKpiCard="openOrders" onSelectKpi={selectKpi} onSelectKpiCard={selectCard} />);
+
+    const orders = screen.getByRole('button', { name: /Pedidos abiertos.*12/ });
+    const riders = screen.getByRole('button', { name: /Riders en línea.*9/ });
+    expect(orders).toHaveAttribute('aria-pressed', 'true');
+    expect(riders).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(riders);
+    expect(selectKpi).toHaveBeenCalledWith('all');
+    expect(selectCard).toHaveBeenCalledWith('ridersOnline');
+  });
+
   it('maps every card to a controller selection and applies only approved tones', () => {
     const selectKpi = vi.fn();
     render(<OperationsSummary kpis={kpis} selectedKpi="all" onSelectKpi={selectKpi} />);
@@ -62,6 +76,18 @@ describe('OperationsSummary', () => {
     expect(screen.getByRole('button', { name: /En riesgo/ })).toHaveAttribute('data-tone', 'critical');
     expect(screen.getByRole('button', { name: /Sin señal/ })).toHaveAttribute('data-tone', 'warning');
     expect(screen.getByRole('button', { name: /Pedidos abiertos/ })).toHaveAttribute('data-tone', 'neutral');
+  });
+
+  it('uses neutral tone for zero incidents and alert tone only for positive values', () => {
+    const zeroKpis = { ...kpis, unassigned: 0, atRisk: 0, noSignal: 0 };
+    const { rerender } = render(<OperationsSummary kpis={zeroKpis} selectedKpi="all" onSelectKpi={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /Sin asignar.*0/ })).toHaveAttribute('data-tone', 'neutral');
+    expect(screen.getByRole('button', { name: /En riesgo.*0/ })).toHaveAttribute('data-tone', 'neutral');
+    expect(screen.getByRole('button', { name: /Sin señal.*0/ })).toHaveAttribute('data-tone', 'neutral');
+    rerender(<OperationsSummary kpis={kpis} selectedKpi="all" onSelectKpi={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /Sin asignar.*3/ })).toHaveAttribute('data-tone', 'critical');
+    expect(screen.getByRole('button', { name: /En riesgo.*2/ })).toHaveAttribute('data-tone', 'critical');
+    expect(screen.getByRole('button', { name: /Sin señal.*1/ })).toHaveAttribute('data-tone', 'warning');
   });
 
   it('keeps KPI cards keyboard accessible and truncates long labels safely', () => {
