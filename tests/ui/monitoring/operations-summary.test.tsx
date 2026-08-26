@@ -122,4 +122,20 @@ describe('MonitoringFilters', () => {
     fireEvent.change(search, { target: { value: '  rider  ' } });
     expect(callbacks.search).toHaveBeenCalledWith('rider');
   });
+
+  it('offers every canonical and legacy order status with its exact value', () => {
+    render(<MonitoringFilters priority="all" zone="all" orderStatus="all" search="" zones={[]} onPriorityChange={vi.fn()} onZoneChange={vi.fn()} onOrderStatusChange={vi.fn()} onSearchChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText('Estado del pedido'));
+
+    const statuses: Array<[string, string]> = [
+      ['Pendiente de aceptación', 'pending_acceptance'], ['Aceptado', 'accepted'], ['En tienda', 'at_store'],
+      ['En preparación', 'cooking'], ['Listo para recoger', 'ready_for_pickup'], ['Recogido', 'picked_up'],
+      ['En reparto', 'out_for_delivery'], ['En camino', 'on_the_way'], ['Llegó al destino', 'arrived_at_destination'],
+      ['Completado', 'completed'], ['Entregado', 'delivered'], ['Cancelado', 'cancelled'],
+      ['Reembolsado', 'refunded'], ['Fallido', 'failed'],
+    ];
+    statuses.forEach(([label, value]) => {
+      expect(screen.getByRole('option', { name: label })).toHaveAttribute('data-value', value);
+    });
+  });
 });

@@ -19,7 +19,22 @@ type MonitoringFiltersProps = {
 };
 
 const priorities = ['P1', 'P2', 'P3'] as const;
-const statuses: OrderStatus[] = ['pending_acceptance', 'accepted', 'at_store', 'cooking', 'ready_for_pickup', 'picked_up', 'on_the_way', 'arrived_at_destination', 'completed', 'delivered', 'cancelled'];
+const statuses: Array<{ value: OrderStatus; label: string }> = [
+  { value: 'pending_acceptance', label: 'Pendiente de aceptación' },
+  { value: 'accepted', label: 'Aceptado' },
+  { value: 'at_store', label: 'En tienda' },
+  { value: 'cooking', label: 'En preparación' },
+  { value: 'ready_for_pickup', label: 'Listo para recoger' },
+  { value: 'picked_up', label: 'Recogido' },
+  { value: 'out_for_delivery', label: 'En reparto' },
+  { value: 'on_the_way', label: 'En camino' },
+  { value: 'arrived_at_destination', label: 'Llegó al destino' },
+  { value: 'completed', label: 'Completado' },
+  { value: 'delivered', label: 'Entregado' },
+  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'refunded', label: 'Reembolsado' },
+  { value: 'failed', label: 'Fallido' },
+];
 
 export function MonitoringFilters({ priority, zone, orderStatus, search, zones, onPriorityChange, onZoneChange, onOrderStatusChange, onSearchChange }: MonitoringFiltersProps) {
   return (
@@ -42,7 +57,7 @@ export function MonitoringFilters({ priority, zone, orderStatus, search, zones, 
         <Label htmlFor="monitoring-status">Estado del pedido</Label>
         <Select value={orderStatus} onValueChange={onOrderStatusChange}>
           <SelectTrigger id="monitoring-status"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Todos los estados</SelectItem>{statuses.map((item) => <SelectItem key={item} value={item}>{item.replaceAll('_', ' ')}</SelectItem>)}</SelectContent>
+          <SelectContent><SelectItem value="all">Todos los estados</SelectItem>{statuses.map((item) => <SelectItem key={item.value} value={item.value} data-value={item.value}>{item.label}</SelectItem>)}</SelectContent>
         </Select>
       </div>
       <div className="space-y-1.5">
