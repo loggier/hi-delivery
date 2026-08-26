@@ -171,6 +171,31 @@ describe('monitoring condition rules', () => {
     ]);
   });
 
+  it('requires matching rider identity and a finite non-negative movement distance', () => {
+    const orders = ['mismatch', 'nan', 'infinity', 'negative', 'zero'].map((id) =>
+      order({ id, status: 'picked_up', riderId: `${id}-rider` }),
+    );
+    const riders = orders.map((item) =>
+      rider({ id: item.riderId!, lastLocationReceivedAt: '2026-08-25T11:59:00Z' }),
+    );
+
+    const conditions = detect(orders, riders, {
+      'mismatch-rider': movement('other-rider', '2026-08-25T11:45:00Z', 0),
+      'nan-rider': movement('nan-rider', '2026-08-25T11:45:00Z', Number.NaN),
+      'infinity-rider': movement(
+        'infinity-rider',
+        '2026-08-25T11:45:00Z',
+        Number.POSITIVE_INFINITY,
+      ),
+      'negative-rider': movement('negative-rider', '2026-08-25T11:45:00Z', -1),
+      'zero-rider': movement('zero-rider', '2026-08-25T11:45:00Z', 0),
+    });
+
+    expect(conditions.map((condition) => condition.key)).toEqual([
+      'stopped-in-transit:zero:zero-rider',
+    ]);
+  });
+
   it('emits dispatch exhausted from a timestamp or the normalized attempts flag', () => {
     const conditions = detect([
       order({

@@ -44,9 +44,11 @@ export function detectMonitoringConditions(
       if (
         isInTransitStatus(order.status) &&
         movement !== undefined &&
+        movement.riderId === order.riderId &&
         isValidStoppedWindow(movement, thresholds, now) &&
         movement.distanceMeters !== null &&
         Number.isFinite(movement.distanceMeters) &&
+        movement.distanceMeters >= 0 &&
         movement.distanceMeters < thresholds.meaningfulMovementMeters
       ) {
         conditions.push(
