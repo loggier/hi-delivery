@@ -452,6 +452,10 @@ export type SystemSettings = {
     dispatch_candidate_radius_km: number;
     dispatch_batch_size: number;
     dispatch_decision_window_seconds: number;
+    monitoring_unassigned_critical_minutes?: number;
+    monitoring_gps_stale_critical_minutes?: number;
+    monitoring_stopped_in_transit_minutes?: number;
+    monitoring_meaningful_movement_meters?: number;
     evolution_instance_name?: string | null;
     evolution_phone_number?: string | null;
     created_at: string;

@@ -894,3 +894,12 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 
 - En `src/app/(admin)/shipping/components.tsx`, las modales de `AddressFormModal` y `ShippingMapModal` ahora tienen `max-height` relativo al viewport y `overflow-y-auto`, para que en móvil se pueda hacer scroll hasta el botón de guardar o el footer.
 - `src/app/(admin)/shipping/page.tsx` usa `useLoadScript` con `id` estable para evitar que Google Maps se inserte dos veces al abrir el flujo de envío.
+
+## 2026-08-25 - Persistencia para control operativo de monitoring
+
+- Las migraciones `20260825100000_admin_web_sessions.sql` y `20260825101000_monitoring_operations_control.sql` establecen la persistencia server-only para sesiones administrativas e incidentes/acciones de monitoreo.
+- `system_settings` incorpora umbrales opcionales con defaults de 7 minutos para pedidos sin asignar, 10 minutos para GPS desactualizado, 15 minutos para una unidad detenida en tránsito y 50 metros para movimiento significativo.
+- `monitoring_incidents` conserva el estado reconciliable de condiciones activas; un proceso backend debe detectar, revalidar y resolver estos incidentes. No se usa `pg_cron`.
+- `monitoring_action_log` es append-only: el backend con `service_role` sólo puede consultar e insertar, y un trigger rechaza cualquier actualización o eliminación.
+- La detección de entrega tardía permanece deshabilitada mientras `orders` no tenga un timestamp canónico de entrega esperada.
+- Los cambios son aditivos, no agregan FKs rígidas para ids afectados por schema drift y preservan los fallbacks legacy de dispatch y asignación.
