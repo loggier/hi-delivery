@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, type QueryKey } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { MonitoringFilter, MonitoringSnapshot, MonitoringUiHealth } from '@/lib/monitoring/types';
 
 export const MONITORING_SNAPSHOT_REFETCH_INTERVAL = 15_000;
@@ -63,17 +63,28 @@ export function monitoringSnapshotQueryKey(filter: MonitoringFilter): QueryKey {
 }
 
 export function useMonitoringSnapshot(filter: MonitoringFilter) {
-  const [lastError, setLastError] = useState<Error | null>(null);
+  const filterKey = JSON.stringify(filter);
+  const errorsByFilter = useRef(new Map<string, Error>());
+  const requestIdsByFilter = useRef(new Map<string, number>());
+  const [, setErrorVersion] = useState(0);
   const query = useQuery({
     queryKey: monitoringSnapshotQueryKey(filter),
     queryFn: async () => {
+      const requestId = (requestIdsByFilter.current.get(filterKey) ?? 0) + 1;
+      requestIdsByFilter.current.set(filterKey, requestId);
       try {
         const result = await fetchMonitoringSnapshot(filter);
-        setLastError(null);
+        if (requestIdsByFilter.current.get(filterKey) === requestId) {
+          errorsByFilter.current.delete(filterKey);
+          setErrorVersion((version) => version + 1);
+        }
         return result;
       } catch (error) {
         const safeError = error instanceof Error ? error : new MonitoringSnapshotError('No se pudo cargar el monitoreo.');
-        setLastError(safeError);
+        if (requestIdsByFilter.current.get(filterKey) === requestId) {
+          errorsByFilter.current.set(filterKey, safeError);
+          setErrorVersion((version) => version + 1);
+        }
         throw safeError;
       }
     },
@@ -82,7 +93,7 @@ export function useMonitoringSnapshot(filter: MonitoringFilter) {
     placeholderData: (previous) => previous,
   });
   const snapshot = query.data;
-  const error = lastError ?? query.error;
+  const error = errorsByFilter.current.get(filterKey) ?? query.error;
   const isError = Boolean(error);
   const health: MonitoringUiHealth = {
     realtime: 'connected',

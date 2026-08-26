@@ -8,9 +8,9 @@ const now = new Date('2026-08-26T12:00:00.000Z');
 function repositories(overrides: Partial<MonitoringSnapshotRepositories> = {}): MonitoringSnapshotRepositories {
   return {
     fetchSettings: vi.fn(async () => ({ data: null, error: { code: '42703', message: 'expected_delivery_at missing' } })),
-    fetchActiveOrders: vi.fn(async () => ({ data: [], error: null })),
-    fetchRelevantRiders: vi.fn(async () => ({ data: [], error: null })),
-    fetchMovementHistory: vi.fn(async () => ({ data: [], error: null })),
+    fetchActiveOrders: vi.fn(async () => ({ data: [], error: null, available: true, availableRules: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'] })),
+    fetchRelevantRiders: vi.fn(async () => ({ data: [], error: null, available: true, availableRules: ['irregular-reporting'] })),
+    fetchMovementHistory: vi.fn(async () => ({ data: [], error: null, available: true })),
     reconcileIncidents: vi.fn(async () => []),
     ...overrides,
   };
@@ -26,10 +26,12 @@ describe('protected monitoring snapshot schema fallbacks', () => {
       meaningfulMovementMeters: 50,
       source: 'fallback',
     });
-    expect(result.dataHealth).toEqual({
-      schema: 'degraded',
-      disabledRules: expect.arrayContaining(['late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting']),
-    });
+     expect(result.dataHealth).toEqual({ schema: 'degraded', disabledRules: ['irregular-reporting'] });
+  });
+
+  it('does not disable optional rules when successful selects return empty data', async () => {
+    const result = await buildMonitoringSnapshot({ repositories: repositories(), now });
+    expect(result.dataHealth.disabledRules).not.toEqual(expect.arrayContaining(['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted']));
   });
 
   it('reconciles once and computes KPIs before applying filters', async () => {
@@ -111,6 +113,24 @@ describe('protected monitoring snapshot schema fallbacks', () => {
     const result = await buildMonitoringSnapshot({ repositories: repo, now, filter: { risk: 'noSignal' } });
     expect(result.riders.map((rider) => rider.id)).toEqual(['r-stale']);
     expect(result.kpis.noSignal).toBe(1);
+  });
+
+  it('uses chronological order for shuffled movement rows', async () => {
+    const reconcileIncidents = vi.fn(async (..._args: unknown[]) => []);
+    const repo = repositories({
+      fetchSettings: vi.fn(async () => ({ data: { monitoring_stopped_in_transit_minutes: 5, monitoring_gps_stale_critical_minutes: 10 }, error: null, available: true })),
+      fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null, available: true, availableRules: ['dispatch-exhausted'] })),
+      fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', is_active_for_orders: true, last_location_update: now.toISOString() }], error: null, available: true })),
+      fetchMovementHistory: vi.fn(async () => ({ data: [
+        { id: 2, rider_id: 'r1', recorded_at: '2026-08-26T11:55:00.000Z', distance_meters: 2 },
+        { id: 1, rider_id: 'r1', recorded_at: '2026-08-26T11:45:00.000Z', distance_meters: 1 },
+      ], error: null, available: true })),
+      reconcileIncidents,
+    });
+    await buildMonitoringSnapshot({ repositories: repo, now });
+    expect(reconcileIncidents.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'stopped-in-transit', metadata: { distanceMeters: 3 } }),
+    ]));
   });
 
   it('continues safely when optional movement history is unavailable', async () => {

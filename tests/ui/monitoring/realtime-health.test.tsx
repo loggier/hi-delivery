@@ -56,6 +56,32 @@ describe('monitoring data hooks', () => {
     expect(request).toHaveBeenCalledTimes(3);
   });
 
+  it('keeps errors associated with their filter when responses arrive out of order', async () => {
+    let resolveA: ((response: Response) => void) | undefined;
+    let rejectA: ((error: Error) => void) | undefined;
+    let resolveB: ((response: Response) => void) | undefined;
+    const request = vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+      const filter = JSON.parse(String(init?.body)) as { zoneId?: string };
+      return new Promise<Response>((resolve, reject) => {
+        if (filter.zoneId === 'a') { resolveA = resolve; rejectA = reject; }
+        else { resolveB = resolve; }
+      });
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const result = renderHook(({ filter }: { filter: { zoneId: string } }) => useMonitoringSnapshot(filter), { initialProps: { filter: { zoneId: 'a' } }, wrapper });
+    await waitFor(() => expect(resolveA).toBeDefined());
+    result.rerender({ filter: { zoneId: 'b' } });
+    await waitFor(() => expect(resolveB).toBeDefined());
+    resolveB?.(new Response(JSON.stringify({ ...snapshot, serverTimestamp: '2026-08-26T12:01:00.000Z' }), { status: 200 }));
+    await waitFor(() => expect(result.result.current.snapshot?.serverTimestamp).toBe('2026-08-26T12:01:00.000Z'));
+    rejectA?.(new Error('old request failed'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(result.result.current.isError).toBe(false);
+    expect(result.result.current.health.snapshot).toBe('fresh');
+  });
+
   it('subscribes only to riders, exposes immutable patches, and degrades on channel errors', async () => {
     const result = renderHook(() => useMonitoringRealtime());
     expect(result.result.current).toBeDefined();
@@ -109,6 +135,7 @@ describe('monitoring data hooks', () => {
     act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 21, last_longitude: -97, last_location_received_at: older } }));
     act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 22, last_longitude: -96, last_location_received_at: newer } }));
     await waitFor(() => expect(result.result.current.locationPatches.get('r1')).toMatchObject({ latitude: 22, longitude: -96, receivedAt: newer }));
+    expect(result.result.current.lastRealtimeEventAt).toBe(newer);
   });
 
   it('selects entities and replaces the filter through the public controller contract', async () => {

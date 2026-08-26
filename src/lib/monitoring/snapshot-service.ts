@@ -37,7 +37,7 @@ export function parseMonitoringFilter(input: URLSearchParams | unknown): Monitor
 }
 
 type DbError = { code?: string; message?: string };
-type DbResponse<T> = { data: T | null; error: DbError | null; schemaDegraded?: string[]; availableRules?: string[] };
+type DbResponse<T> = { data: T | null; error: DbError | null; available?: boolean; schemaDegraded?: string[]; availableRules?: string[] };
 export type MonitoringOrderRow = Record<string, unknown>;
 export type MonitoringRiderRow = Record<string, unknown>;
 export type MovementRow = Record<string, unknown>;
@@ -95,9 +95,10 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
   if (dispatchColumnsAvailable) evaluatedTypes.add('dispatch-exhausted');
   else addDegradedRules(health, ['dispatch-exhausted']);
   for (const type of ['late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting'] as const) {
+    const schemaAvailable = !health.disabledRules.includes(type) && (type === 'irregular-reporting' ? riderResult.availableRules?.includes(type) : orderResult.availableRules?.includes(type));
     const available = type === 'irregular-reporting'
       ? riders.some((rider) => rider.hasIrregularReporting !== undefined)
-      : orders.some((order) => type === 'late-delivery' ? order.expectedDeliveryAt !== null : type === 'outside-zone' ? order.isOutsideZone !== undefined : order.hasRepeatedRejections !== undefined);
+      : schemaAvailable || orders.some((order) => type === 'late-delivery' ? order.expectedDeliveryAt !== null : type === 'outside-zone' ? order.isOutsideZone !== undefined : order.hasRepeatedRejections !== undefined);
     if (available) evaluatedTypes.add(type);
     else addDegradedRules(health, [type]);
   }
@@ -159,8 +160,16 @@ function isSchemaError(error: DbError): boolean {
 }
 function buildMovementWindows(rows: MovementRow[], riderIds: readonly string[]): Record<string, RiderMovementWindow | undefined> {
   const result: Record<string, RiderMovementWindow | undefined> = {};
-  for (const riderId of riderIds) { const values = rows.filter((row) => row.rider_id === riderId && typeof row.recorded_at === 'string'); const first = values[0]; const last = values[values.length - 1]; result[riderId] = { riderId, windowStartedAt: stringOrNull(first?.recorded_at), windowEndedAt: stringOrNull(last?.recorded_at), distanceMeters: values.reduce((sum, row) => sum + (typeof row.distance_meters === 'number' && Number.isFinite(row.distance_meters) ? row.distance_meters : 0), 0) }; }
+  const orderedRows = [...rows].sort(compareMovementRows);
+  for (const riderId of riderIds) { const values = orderedRows.filter((row) => row.rider_id === riderId && typeof row.recorded_at === 'string'); const first = values[0]; const last = values[values.length - 1]; result[riderId] = { riderId, windowStartedAt: stringOrNull(first?.recorded_at), windowEndedAt: stringOrNull(last?.recorded_at), distanceMeters: values.reduce((sum, row) => sum + (typeof row.distance_meters === 'number' && Number.isFinite(row.distance_meters) ? row.distance_meters : 0), 0) }; }
   return result;
+}
+function compareMovementRows(left: MovementRow, right: MovementRow): number {
+  const timestampDifference = Date.parse(String(left.recorded_at)) - Date.parse(String(right.recorded_at));
+  if (timestampDifference !== 0) return timestampDifference;
+  const leftId = typeof left.id === 'number' ? left.id : String(left.id ?? '');
+  const rightId = typeof right.id === 'number' ? right.id : String(right.id ?? '');
+  return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
 }
 function applyFilter(orders: MonitoringOrder[], riders: MonitoringRider[], incidents: MonitoringIncident[], filter?: MonitoringFilter, thresholds?: MonitoringThresholds, now?: Date) {
   if (!filter) return { orders, riders, incidents };
@@ -181,18 +190,18 @@ function addDegradedRules(health: { schema: 'healthy' | 'degraded'; disabledRule
   for (const rule of rules) if (!health.disabledRules.includes(rule)) health.disabledRules.push(rule);
 }
 
-type Query = { select(value: string): Query; maybeSingle(): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
+  type Query = { select(value: string): Query; maybeSingle(): Query; eq(column: string, value: unknown): Query; in(column: string, values: readonly string[]): Query; gte(column: string, value: string): Query; not(column: string, operator: string, value: string): Query; or(filters: string): Query; order(column: string, options?: { ascending?: boolean }): Query; then<TResult1 = DbResponse<unknown>, TResult2 = never>(onfulfilled?: ((value: DbResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2> };
 export function createSupabaseSnapshotRepositories(): MonitoringSnapshotRepositories {
   const client = createSupabaseAdminClient() as unknown as { from(table: string): Query; rpc(functionName: string, params: Record<string, unknown>): unknown };
-  const query = async <T>(table: string, select: string, configure?: (query: Query) => Query): Promise<DbResponse<T>> => { let current = client.from(table).select(select); if (configure) current = configure(current); return await current as unknown as DbResponse<T>; };
+  const query = async <T>(table: string, select: string, configure?: (query: Query) => Query): Promise<DbResponse<T>> => { let current = client.from(table).select(select); if (configure) current = configure(current); const result = await current as unknown as DbResponse<T>; return { ...result, available: !result.error }; };
   const incidentStore = createSupabaseIncidentStore(client as SupabaseIncidentClient);
-  const optional = async <T>(table: string, select: string, base: T, disabledRules: readonly string[], configure?: (q: Query) => Query): Promise<{ data: T; schemaDegraded: string[] }> => {
+  const optional = async <T>(table: string, select: string, base: T, disabledRules: readonly string[], configure?: (q: Query) => Query): Promise<{ data: T; available: boolean; schemaDegraded: string[] }> => {
     const result = await query<T>(table, select, configure);
     if (result.error) {
-      if (isSchemaError(result.error)) return { data: base, schemaDegraded: [...disabledRules] };
+      if (isSchemaError(result.error)) return { data: base, available: false, schemaDegraded: [...disabledRules] };
       throw new Error('Unable to load monitoring snapshot');
     }
-    return { data: result.data ?? base, schemaDegraded: [] };
+    return { data: result.data ?? base, available: true, schemaDegraded: [] };
   };
   const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
@@ -209,14 +218,16 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
     }
     const schemaDegraded = [...enrichment.schemaDegraded];
     if (exhaustedAt.schemaDegraded.includes('dispatch-exhausted') && exhaustedAttempts.schemaDegraded.includes('dispatch-exhausted')) schemaDegraded.push('dispatch-exhausted');
-    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, schemaDegraded, availableRules: exhaustedAt.schemaDegraded.length && exhaustedAttempts.schemaDegraded.length ? [] : ['dispatch-exhausted'] };
+    const availableRules = [...(enrichment.available ? ['late-delivery', 'outside-zone', 'repeated-rejections'] : [])];
+    if (!(exhaustedAt.schemaDegraded.length && exhaustedAttempts.schemaDegraded.length)) availableRules.push('dispatch-exhausted');
+    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, available: true, schemaDegraded, availableRules };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {
     const base = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update', (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
     if (base.error || !base.data) return base;
     const enrichment = await optional<MonitoringRiderRow[]>('riders', 'id,last_location_received_at,has_irregular_reporting,zone_id', [], ['irregular-reporting'], (q) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true));
     const byId = new Map(enrichment.data.filter((row) => typeof row.id === 'string').map((row) => [row.id as string, row]));
-    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, schemaDegraded: enrichment.schemaDegraded };
+    return { data: base.data.map((row) => ({ ...row, ...(byId.get(row.id as string) ?? {}) })), error: null, available: true, schemaDegraded: enrichment.schemaDegraded, availableRules: enrichment.available ? ['irregular-reporting'] : [] };
   };
-  return { fetchSettings, fetchActiveOrders, fetchRelevantRiders, fetchMovementHistory: (ids, since) => query<MovementRow[]>('rider_location_history', 'rider_id,recorded_at,distance_meters', (q) => q.in('rider_id', ids).gte('recorded_at', since)), reconcileIncidents: (conditions, evaluated, snapshotNow) => reconcileMonitoringIncidents(incidentStore, conditions, evaluated, snapshotNow) };
+  return { fetchSettings, fetchActiveOrders, fetchRelevantRiders, fetchMovementHistory: (ids, since) => query<MovementRow[]>('rider_location_history', 'id,rider_id,recorded_at,distance_meters', (q) => q.in('rider_id', ids).gte('recorded_at', since).order('recorded_at', { ascending: true }).order('id', { ascending: true })), reconcileIncidents: (conditions, evaluated, snapshotNow) => reconcileMonitoringIncidents(incidentStore, conditions, evaluated, snapshotNow) };
 }

@@ -57,9 +57,9 @@ export function useMonitoringRealtime() {
           if (previous && patch.receivedAt < previous.receivedAt) return current;
           const next = new Map(current);
           next.set(patch.riderId, patch);
+          setLastRealtimeEventAt(patch.receivedAt);
           return next;
         });
-        setLastRealtimeEventAt(patch.receivedAt);
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
