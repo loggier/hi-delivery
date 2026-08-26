@@ -87,11 +87,36 @@ CREATE TABLE IF NOT EXISTS grupohubs.monitoring_incidents (
     CHECK (attending_at IS NULL OR attending_at >= first_detected_at),
   CONSTRAINT monitoring_incidents_resolution_order_check
     CHECK (resolved_at IS NULL OR resolved_at >= first_detected_at),
+  CONSTRAINT monitoring_incidents_resolution_after_detection_check
+    CHECK (status <> 'resolved' OR resolved_at >= last_detected_at),
   CONSTRAINT monitoring_incidents_resolution_after_attending_check
     CHECK (resolved_at IS NULL OR attending_at IS NULL OR resolved_at >= attending_at),
   CONSTRAINT monitoring_incidents_metadata_object_check
     CHECK (jsonb_typeof(condition_metadata) = 'object')
 );
+
+CREATE OR REPLACE FUNCTION grupohubs.prevent_monitoring_incident_reopen()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, grupohubs
+AS $$
+BEGIN
+  IF OLD.status = 'resolved' AND NEW.status <> 'resolved' THEN
+    RAISE EXCEPTION 'resolved monitoring incidents cannot be reopened'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS monitoring_incidents_no_reopen
+  ON grupohubs.monitoring_incidents;
+
+CREATE TRIGGER monitoring_incidents_no_reopen
+BEFORE UPDATE OF status ON grupohubs.monitoring_incidents
+FOR EACH ROW
+EXECUTE FUNCTION grupohubs.prevent_monitoring_incident_reopen();
 
 CREATE UNIQUE INDEX IF NOT EXISTS monitoring_incidents_active_condition_uidx
   ON grupohubs.monitoring_incidents (condition_key)

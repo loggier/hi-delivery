@@ -42,7 +42,20 @@ describe('monitoring operations control migration', () => {
     expect(sql).toContain('last_detected_at >= first_detected_at');
     expect(sql).toContain("status <> 'attending' or attending_at is not null");
     expect(sql).toContain("status <> 'resolved' or resolved_at is not null");
+    expect(sql).toContain("status <> 'resolved' or resolved_at >= last_detected_at");
     expect(sql).toContain("jsonb_typeof(condition_metadata) = 'object'");
+
+    expect(sql).toContain(
+      'create or replace function grupohubs.prevent_monitoring_incident_reopen()',
+    );
+    expect(sql).toContain("old.status = 'resolved' and new.status <> 'resolved'");
+    expect(sql).toContain("raise exception 'resolved monitoring incidents cannot be reopened'");
+    expect(sql).toMatch(
+      /drop trigger if exists monitoring_incidents_no_reopen on grupohubs\.monitoring_incidents/,
+    );
+    expect(sql).toMatch(
+      /create trigger monitoring_incidents_no_reopen before update of status on grupohubs\.monitoring_incidents[^;]+execute function grupohubs\.prevent_monitoring_incident_reopen\(\)/,
+    );
 
     expect(sql).toMatch(
       /create unique index if not exists monitoring_incidents_active_condition_uidx[^;]+where status in \('open', 'attending'\)/,
