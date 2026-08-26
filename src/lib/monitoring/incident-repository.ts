@@ -6,6 +6,7 @@ import type {
   MonitoringIncidentStatus,
   MonitoringPriority,
 } from './types';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const CONDITION_TYPES: readonly MonitoringConditionType[] = [
   'unassigned',
@@ -44,6 +45,44 @@ type RpcCondition = {
 
 export interface SupabaseIncidentClient {
   rpc(functionName: string, params: Record<string, unknown>): unknown;
+}
+
+type OperationQuery = {
+  select(value: string): OperationQuery;
+  eq(column: string, value: unknown): OperationQuery;
+  maybeSingle(): OperationQuery;
+  update(values: Record<string, unknown>): OperationQuery;
+  then<TResult1 = IncidentDbResult, TResult2 = never>(onfulfilled?: ((value: IncidentDbResult) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null): PromiseLike<TResult1 | TResult2>;
+};
+
+export type IncidentOperation = 'attend' | 'request_close';
+
+export async function getMonitoringIncidentForOperation(id: number): Promise<MonitoringIncident | null> {
+  const client = createSupabaseAdminClient() as unknown as { from(table: string): OperationQuery };
+  const result = await client.from('monitoring_incidents').select('id,condition_key,incident_type,priority,status,order_id,rider_id,first_detected_at,last_detected_at,attending_at,resolved_at,condition_metadata').eq('id', id).maybeSingle();
+  if (result.error) throw new Error('Unable to load monitoring incident');
+  return result.data === null ? null : mapIncidentRow(result.data);
+}
+
+export async function transitionMonitoringIncident(input: { incident: MonitoringIncident; action: IncidentOperation; reason?: string; actorId: string }): Promise<{ status: MonitoringIncidentStatus; closed: boolean }> {
+  const { incident, action, reason, actorId } = input;
+  if (incident.status === 'resolved') throw new Error('stale incident');
+  if (action === 'attend') {
+    if (incident.status === 'attending') return { status: 'attending', closed: false };
+    const result = await updateIncident(incident.id, incident.status, { status: 'attending', attending_at: new Date().toISOString(), last_acted_by_user_id: actorId });
+    if (result.error || result.data === null) throw new Error('stale incident');
+    return { status: 'attending', closed: false };
+  }
+  const current = await getMonitoringIncidentForOperation(incident.id);
+  if (current?.status !== 'resolved' && current?.lastDetectedAt === incident.lastDetectedAt) return { status: 'attending', closed: false };
+  const result = await updateIncident(incident.id, 'attending', { status: 'resolved', resolved_at: new Date().toISOString(), resolution_source: 'operator', resolution_reason: reason, last_acted_by_user_id: actorId });
+  if (result.error || result.data === null) throw new Error('stale incident');
+  return { status: 'resolved', closed: true };
+}
+
+async function updateIncident(id: number, expectedStatus: MonitoringIncidentStatus, values: Record<string, unknown>): Promise<IncidentDbResult> {
+  const client = createSupabaseAdminClient() as unknown as { from(table: string): OperationQuery };
+  return await client.from('monitoring_incidents').update(values).eq('id', id).eq('status', expectedStatus) as unknown as IncidentDbResult;
 }
 
 export interface IncidentStore {
