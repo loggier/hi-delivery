@@ -6,7 +6,7 @@ import { useMonitoringRealtime } from '@/app/(admin)/monitoring/_hooks/use-monit
 import { useMonitoringController } from '@/app/(admin)/monitoring/_hooks/use-monitoring-controller';
 
 const channels: FakeChannel[] = [];
-const removedChannels: FakeChannel[] = [];
+const supabase = vi.hoisted(() => ({ removeChannel: vi.fn() }));
 type Handler = (payload: unknown) => void;
 class FakeChannel {
   table: string | undefined;
@@ -15,7 +15,7 @@ class FakeChannel {
   on(_event: string, filter: { table: string }, handler: Handler) { this.table = filter.table; this.handler = handler; return this; }
   subscribe(handler: (status: string) => void) { this.statusHandler = handler; channels.push(this); return this; }
 }
-vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => new FakeChannel(), removeChannel: (channel: FakeChannel) => { removedChannels.push(channel); } }) }));
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => new FakeChannel(), removeChannel: supabase.removeChannel }) }));
 
 const snapshot = {
   serverTimestamp: '2025-01-01T00:00:00.000Z',
@@ -26,7 +26,7 @@ const snapshot = {
 };
 
 describe('monitoring data hooks', () => {
-  beforeEach(() => { vi.restoreAllMocks(); channels.length = 0; removedChannels.length = 0; });
+  beforeEach(() => { vi.restoreAllMocks(); channels.length = 0; supabase.removeChannel.mockReset(); });
 
   it('uses the filter as the second query key segment', () => {
     const filter = { risk: 'atRisk' as const };
@@ -74,15 +74,23 @@ describe('monitoring data hooks', () => {
     expect(result.result.current.locationPatches.has('r3')).toBe(false);
   });
 
-  it('unsubscribes the channel on cleanup and never invalidates or refetches queries', () => {
-    const refetch = vi.fn();
-    const invalidateQueries = vi.fn();
-    const result = renderHook(() => useMonitoringRealtime());
+  it('does not refetch or invalidate the snapshot when a rider update arrives', async () => {
+    const request = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateQueries = vi.spyOn(client, 'invalidateQueries');
+    const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const result = renderHook(() => ({ snapshot: useMonitoringSnapshot({}), realtime: useMonitoringRealtime() }), { wrapper });
+    await waitFor(() => expect(result.result.current.snapshot.snapshot).toEqual(snapshot));
+    const refetch = vi.spyOn(result.result.current.snapshot, 'refetch');
+
     act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19, last_longitude: -99 } }));
+    await waitFor(() => expect(result.result.current.realtime.locationPatches.has('r1')).toBe(true));
+    expect(request).toHaveBeenCalledTimes(1);
     expect(refetch).not.toHaveBeenCalled();
     expect(invalidateQueries).not.toHaveBeenCalled();
     result.unmount();
-    expect(removedChannels).toEqual([channels[0]]);
+    expect(supabase.removeChannel).toHaveBeenCalledTimes(1);
+    expect(supabase.removeChannel).toHaveBeenCalledWith(channels[0]);
   });
 
   it('selects entities and replaces the filter through the public controller contract', async () => {
