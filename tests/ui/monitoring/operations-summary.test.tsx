@@ -42,6 +42,13 @@ describe('OperationsSummary', () => {
     expect(screen.getByRole('button', { name: /En riesgo.*2/ })).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('does not expose duplicate selected states when the controller filter is all', () => {
+    render(<OperationsSummary kpis={kpis} selectedKpi="all" onSelectKpi={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /Pedidos abiertos.*12/ })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /Riders en línea.*9/ })).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('maps every card to a controller selection and applies only approved tones', () => {
     const selectKpi = vi.fn();
     render(<OperationsSummary kpis={kpis} selectedKpi="all" onSelectKpi={selectKpi} />);
@@ -79,6 +86,20 @@ describe('DataHealthBanner', () => {
     rerender(<DataHealthBanner health={{ ...fresh, snapshot: 'stale' }} serverTimestamp={timestamp} />);
     expect(screen.getByText('Datos desactualizados')).toBeInTheDocument();
     expect(screen.getByText('Actualizado hace 2 min')).toBeInTheDocument();
+  });
+
+  it('keeps snapshot KPI values visible beside a stale or degraded banner', () => {
+    const timestamp = new Date(Date.now() - 2 * 60_000).toISOString();
+    render(
+      <>
+        <DataHealthBanner health={{ ...fresh, realtime: 'degraded', snapshot: 'stale' }} serverTimestamp={timestamp} />
+        <OperationsSummary kpis={kpis} selectedKpi="all" onSelectKpi={vi.fn()} />
+      </>,
+    );
+    expect(screen.getByText('Datos degradados')).toBeInTheDocument();
+    expect(screen.getByText('Datos desactualizados')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pedidos abiertos.*12/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sin señal.*1/ })).toBeInTheDocument();
   });
 
   it('does not show a negative age for invalid or future timestamps', () => {

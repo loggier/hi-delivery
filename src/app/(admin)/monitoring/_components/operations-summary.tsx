@@ -34,7 +34,7 @@ export function OperationsSummary({ kpis, selectedKpi, onSelectKpi, isLoading = 
               value={kpis[card.key]}
               icon={card.icon}
               tone={card.tone}
-              selected={selectedKpi === card.selection}
+              selected={card.selection !== 'all' && selectedKpi === card.selection}
               onSelect={() => onSelectKpi(card.selection)}
             />
           ))}
