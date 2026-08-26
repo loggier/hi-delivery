@@ -7,7 +7,7 @@ const now = new Date('2026-08-26T12:00:00.000Z');
 
 function repositories(overrides: Partial<MonitoringSnapshotRepositories> = {}): MonitoringSnapshotRepositories {
   return {
-    fetchSettings: vi.fn(async () => ({ data: null, error: { code: '42703', message: 'column missing' } })),
+    fetchSettings: vi.fn(async () => ({ data: null, error: { code: '42703', message: 'expected_delivery_at missing' } })),
     fetchActiveOrders: vi.fn(async () => ({ data: [], error: null })),
     fetchRelevantRiders: vi.fn(async () => ({ data: [], error: null })),
     fetchMovementHistory: vi.fn(async () => ({ data: [], error: null })),
@@ -34,6 +34,7 @@ describe('protected monitoring snapshot schema fallbacks', () => {
 
   it('reconciles once and computes KPIs before applying filters', async () => {
     const reconcileIncidents = vi.fn(async () => []);
+    const fetchRelevantRiders = vi.fn(async () => ({ data: [{ id: 'r-offline', is_active_for_orders: false, last_location_update: now.toISOString() }], error: null }));
     const repo = repositories({
       fetchSettings: vi.fn(async () => ({ data: {
         monitoring_unassigned_critical_minutes: 2,
@@ -46,12 +47,14 @@ describe('protected monitoring snapshot schema fallbacks', () => {
         { id: 'terminal', status: 'completed', rider_id: null, created_at: '2026-08-26T10:00:00.000Z' },
       ], error: null })),
       reconcileIncidents,
+      fetchRelevantRiders,
     });
     const result = await buildMonitoringSnapshot({ repositories: repo, now, filter: { riderId: 'missing' } });
     expect(result.thresholds).toEqual({ unassignedCriticalMinutes: 2, gpsStaleCriticalMinutes: 3, stoppedInTransitMinutes: 4, meaningfulMovementMeters: 25, source: 'settings' });
     expect(result.kpis.openOrders).toBe(1);
     expect(result.orders).toEqual([]);
     expect(reconcileIncidents).toHaveBeenCalledTimes(1);
+    expect(fetchRelevantRiders).toHaveBeenCalledWith([]);
     expect(result.serverTimestamp).toBe(now.toISOString());
   });
 
@@ -59,7 +62,7 @@ describe('protected monitoring snapshot schema fallbacks', () => {
     const repo = repositories({
       fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null })),
       fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', is_active_for_orders: true, last_location_update: now.toISOString() }], error: null })),
-      fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code: 'PGRST204', message: 'optional column missing' } })),
+      fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code: 'PGRST204', message: 'recorded_at optional column missing' } })),
     });
     const result = await buildMonitoringSnapshot({ repositories: repo, now });
     expect(result.dataHealth.disabledRules).toContain('stopped-in-transit');
@@ -72,12 +75,15 @@ describe('protected monitoring snapshot schema fallbacks', () => {
     await expect(buildMonitoringSnapshot({ repositories: repo, now })).rejects.toThrow('Unable to load monitoring snapshot');
   });
 
-  it('does not classify an unrelated database message as a schema fallback', async () => {
-    const repo = repositories({ fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code: 'XX000', message: 'column policy denied by operation' } })) });
+  it.each([
+    ['PGRST200', 'relation missing'],
+    ['42P01', 'table missing'],
+    ['42703', 'column policy denied by operation'],
+  ])('does not classify %s unrelated database errors as schema fallbacks', async (code, message) => {
     const active = repositories({
       fetchActiveOrders: vi.fn(async () => ({ data: [{ id: 'o1', status: 'on_the_way', rider_id: 'r1', created_at: now.toISOString() }], error: null })),
       fetchRelevantRiders: vi.fn(async () => ({ data: [{ id: 'r1', is_active_for_orders: true, last_location_update: now.toISOString() }], error: null })),
-      fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code: 'XX000', message: 'column policy denied by operation' } })),
+      fetchMovementHistory: vi.fn(async () => ({ data: null, error: { code, message } })),
     });
     await expect(buildMonitoringSnapshot({ repositories: active, now })).rejects.toThrow('Unable to load monitoring snapshot');
   });

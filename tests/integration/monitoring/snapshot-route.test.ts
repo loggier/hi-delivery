@@ -13,6 +13,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: () => ({ fro
 
 import { AdminSessionError } from '@/lib/auth/admin-session';
 import { POST } from '@/app/api/monitoring/snapshot/route';
+import * as snapshotRoute from '@/app/api/monitoring/snapshot/route';
 
 function queryFor(table: string) {
   const result = table === 'system_settings'
@@ -33,6 +34,10 @@ describe('POST /api/monitoring/snapshot', () => {
     rpcMock.mockResolvedValue({ data: [{ id: 4, condition_key: 'unassigned:active', incident_type: 'unassigned', priority: 'P1', status: 'open', order_id: 'active', rider_id: null, first_detected_at: '2026-08-26T12:00:00.000Z', last_detected_at: '2026-08-26T12:00:00.000Z', attending_at: null, resolved_at: null, condition_metadata: {} }], error: null });
   });
 
+  it('exposes only the approved POST contract', () => {
+    expect(snapshotRoute).not.toHaveProperty('GET');
+  });
+
   it.each([[401], [403]] as const)('maps admin authorization failure to %i', async (status) => {
     authMock.mockRejectedValue(new AdminSessionError('denied', status));
     expect((await POST(new Request('http://localhost/api/monitoring/snapshot', { method: 'POST' }))).status).toBe(status);
@@ -48,10 +53,12 @@ describe('POST /api/monitoring/snapshot', () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(Object.keys(body).sort()).toEqual(['serverTimestamp', 'dataHealth', 'thresholds', 'kpis', 'incidents', 'orders', 'riders'].sort());
     expect(body.thresholds).toMatchObject({ unassignedCriticalMinutes: 2, gpsStaleCriticalMinutes: 3, stoppedInTransitMinutes: 4, meaningfulMovementMeters: 25 });
     expect(body.orders).toEqual([expect.objectContaining({ id: 'active' })]);
     expect(body.orders).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'terminal' })]));
     expect(body.incidents[0]).toMatchObject({ conditionKey: 'unassigned:active', firstDetectedAt: '2026-08-26T12:00:00.000Z', lastDetectedAt: '2026-08-26T12:00:00.000Z' });
     expect(body.incidents[0]).not.toHaveProperty('condition_key');
+    expect(Object.keys(body.incidents[0]).sort()).toEqual(['id', 'conditionKey', 'type', 'priority', 'status', 'orderId', 'riderId', 'firstDetectedAt', 'lastDetectedAt', 'attendingAt', 'resolvedAt', 'metadata'].sort());
   });
 });

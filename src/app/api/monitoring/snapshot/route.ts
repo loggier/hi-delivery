@@ -19,5 +19,4 @@ async function handleSnapshot(request: Request): Promise<Response> {
   }
 }
 
-export const GET = handleSnapshot;
 export const POST = handleSnapshot;
