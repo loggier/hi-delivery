@@ -56,11 +56,11 @@ Open orders use the canonical non-terminal lifecycle statuses. Terminal statuses
 
 - **Unassigned critical:** no rider after 7 minutes.
 - **Active-order GPS critical:** assigned rider has no location report after 10 minutes.
-- **Stopped in transit critical:** rider has not moved meaningfully for 15 minutes while the order is in transit.
+- **Stopped in transit critical:** rider has moved less than 50 meters for 15 minutes while the order is in transit.
 - **Dispatch exhausted:** assignment attempts are exhausted or `assignment_exhausted_at` is present.
 - **Late delivery:** the active order exceeds its expected delivery time when that value is available.
 
-Thresholds must be stored in `system_settings` and read by the server. They must not be hardcoded in the React page. Missing optional schema fields must degrade safely and preserve existing legacy dispatch fallbacks.
+The time thresholds and the 50-meter meaningful-movement threshold must be stored in `system_settings` and read by the server. They must not be hardcoded in the React page. Missing optional schema fields must degrade safely and preserve existing legacy dispatch fallbacks.
 
 ### Incident Priority
 
