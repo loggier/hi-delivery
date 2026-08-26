@@ -36,6 +36,7 @@ export type MonitoringKpis = {
 
 export type MonitoringOrder = {
   id: string;
+  zoneId?: string | null;
   status: OrderStatus;
   riderId: string | null;
   createdAt: string | null;
@@ -48,6 +49,7 @@ export type MonitoringOrder = {
 
 export type MonitoringRider = {
   id: string;
+  zoneId?: string | null;
   activeForOrders: boolean;
   lastLocationReceivedAt: string | null;
   lastLocationUpdate: string | null;
