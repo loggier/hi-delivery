@@ -8,6 +8,7 @@ import {
 import type { DetectedCondition, MonitoringIncident } from '@/lib/monitoring/types';
 
 const now = '2026-08-25T12:00:00.000Z';
+const nowDate = new Date(now);
 
 function condition(overrides: Partial<DetectedCondition> = {}): DetectedCondition {
   return {
@@ -111,7 +112,7 @@ describe('reconcileMonitoringIncidents', () => {
   it('inserts a new active incident for a newly detected condition', async () => {
     const store = new MemoryIncidentStore();
 
-    const result = await reconcileMonitoringIncidents(store, [condition()], now);
+    const result = await reconcileMonitoringIncidents(store, [condition()], nowDate);
 
     expect(result).toMatchObject([
       { conditionKey: 'unassigned:order-1', status: 'open', firstDetectedAt: now },
@@ -130,7 +131,7 @@ describe('reconcileMonitoringIncidents', () => {
     const [result] = await reconcileMonitoringIncidents(
       store,
       [condition({ priority: 'P2', metadata: { attempts: 4 } })],
-      now,
+      nowDate,
     );
 
     expect(result).toMatchObject({
@@ -145,7 +146,7 @@ describe('reconcileMonitoringIncidents', () => {
   it('resolves active incidents whose conditions cleared', async () => {
     const store = new MemoryIncidentStore([incident()]);
 
-    const result = await reconcileMonitoringIncidents(store, [], now);
+    const result = await reconcileMonitoringIncidents(store, [], nowDate);
 
     expect(result).toEqual([]);
     expect(store.rows[0]).toMatchObject({ status: 'resolved', resolvedAt: now });
@@ -159,7 +160,7 @@ describe('reconcileMonitoringIncidents', () => {
     });
     const store = new MemoryIncidentStore([resolved]);
 
-    await reconcileMonitoringIncidents(store, [condition()], now);
+    await reconcileMonitoringIncidents(store, [condition()], nowDate);
 
     expect(store.rows).toHaveLength(2);
     expect(store.rows[0]).toEqual(resolved);
@@ -171,8 +172,8 @@ describe('reconcileMonitoringIncidents', () => {
     const touchStore = new MemoryIncidentStore([incident()]);
     const duplicates = [condition(), condition({ priority: 'P2' })];
 
-    await reconcileMonitoringIncidents(insertStore, duplicates, now);
-    await reconcileMonitoringIncidents(touchStore, duplicates, now);
+    await reconcileMonitoringIncidents(insertStore, duplicates, nowDate);
+    await reconcileMonitoringIncidents(touchStore, duplicates, nowDate);
 
     expect(insertStore.calls.filter((call) => call.startsWith('insert:'))).toHaveLength(1);
     expect(touchStore.calls.filter((call) => call.startsWith('touch:'))).toHaveLength(1);
@@ -184,7 +185,7 @@ describe('reconcileMonitoringIncidents', () => {
     const store = new MemoryIncidentStore();
     store.conflictKeys.add('unassigned:order-1');
 
-    await reconcileMonitoringIncidents(store, [condition({ priority: 'P2' })], now);
+    await reconcileMonitoringIncidents(store, [condition({ priority: 'P2' })], nowDate);
 
     expect(store.calls).toContain('find:unassigned:order-1');
     expect(store.calls).toContain('touch:1');
@@ -202,20 +203,17 @@ describe('reconcileMonitoringIncidents', () => {
     const conditions = store.rows.map((row) =>
       condition({ key: row.conditionKey, priority: row.priority }),
     );
-    const result = await reconcileMonitoringIncidents(store, conditions, now);
+    const result = await reconcileMonitoringIncidents(store, conditions, nowDate);
 
     expect(result.map((row) => row.conditionKey)).toEqual(['p1-old', 'p1-new', 'p2', 'p3']);
   });
 
-  it.each(['invalid', '2026-02-30T12:00:00.000Z'])(
-    'rejects invalid injected timestamp %s before reading or mutating the store',
-    async (invalidTimestamp) => {
-      const store = new MemoryIncidentStore();
+  it('rejects an invalid Date before reading or mutating the store', async () => {
+    const store = new MemoryIncidentStore();
 
-      await expect(
-        reconcileMonitoringIncidents(store, [condition()], invalidTimestamp),
-      ).rejects.toThrow('Invalid monitoring reconciliation timestamp');
-      expect(store.calls).toEqual([]);
-    },
-  );
+    await expect(
+      reconcileMonitoringIncidents(store, [condition()], new Date(Number.NaN)),
+    ).rejects.toThrow('Invalid monitoring reconciliation timestamp');
+    expect(store.calls).toEqual([]);
+  });
 });

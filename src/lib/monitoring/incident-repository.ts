@@ -70,9 +70,12 @@ export class IncidentConflictError extends Error {
 export async function reconcileMonitoringIncidents(
   store: IncidentStore,
   conditions: readonly DetectedCondition[],
-  now: string,
+  now: Date,
 ): Promise<MonitoringIncident[]> {
-  assertIsoTimestamp(now, 'Invalid monitoring reconciliation timestamp');
+  if (Number.isNaN(now.getTime())) {
+    throw new Error('Invalid monitoring reconciliation timestamp');
+  }
+  const timestamp = now.toISOString();
 
   const activeIncidents = await store.listActive();
   const activeByKey = new Map(
@@ -82,25 +85,25 @@ export async function reconcileMonitoringIncidents(
 
   for (const incident of activeIncidents) {
     if (!conditionsByKey.has(incident.conditionKey)) {
-      await store.resolveCondition(incident.id, now);
+      await store.resolveCondition(incident.id, timestamp);
     }
   }
 
   for (const condition of conditionsByKey.values()) {
     const existing = activeByKey.get(condition.key);
     if (existing !== undefined) {
-      await store.touchCondition(existing.id, condition, now);
+      await store.touchCondition(existing.id, condition, timestamp);
       continue;
     }
 
     try {
-      await store.insertCondition(condition, now);
+      await store.insertCondition(condition, timestamp);
     } catch (error: unknown) {
       if (!(error instanceof IncidentConflictError)) throw error;
 
       const concurrent = await store.findActiveByConditionKey(condition.key);
       if (concurrent === null) throw error;
-      await store.touchCondition(concurrent.id, condition, now);
+      await store.touchCondition(concurrent.id, condition, timestamp);
     }
   }
 

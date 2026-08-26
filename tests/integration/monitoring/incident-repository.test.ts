@@ -248,7 +248,7 @@ describe('Supabase incident store', () => {
     await reconcileMonitoringIncidents(
       createSupabaseIncidentStore(client),
       [detected],
-      now,
+      new Date(now),
     );
 
     const methods = client.calls.map((call) => call.method);
