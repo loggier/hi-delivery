@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { authMock, getMock, transitionMock } = vi.hoisted(() => ({
+const { authMock, getMock, activeMock, transitionMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   getMock: vi.fn(),
+  activeMock: vi.fn(),
   transitionMock: vi.fn(),
 }));
 
@@ -15,6 +16,7 @@ vi.mock('@/lib/auth/admin-session', () => ({
 }));
 vi.mock('@/lib/monitoring/incident-repository', () => ({
   getMonitoringIncidentForOperation: getMock,
+  isConditionActive: activeMock,
   transitionMonitoringIncident: transitionMock,
 }));
 
@@ -47,6 +49,7 @@ describe('PATCH /api/monitoring/incidents/[id]', () => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ id: 'admin-7', roleId: 'role-admin', status: 'ACTIVE' });
     getMock.mockResolvedValue(incident);
+    activeMock.mockResolvedValue(false);
     transitionMock.mockResolvedValue({ status: 'resolved', closed: true });
   });
 
@@ -59,13 +62,26 @@ describe('PATCH /api/monitoring/incidents/[id]', () => {
     getMock.mockResolvedValue({ ...incident, status: 'attending' });
     const response = await PATCH(request({ action: 'request_close', reason: '  condition cleared  ' }), { params: Promise.resolve({ id: '42' }) });
     expect(response.status).toBe(200);
-    expect(transitionMock).toHaveBeenCalledWith({ incident, action: 'request_close', reason: 'condition cleared', actorId: 'admin-7' });
+    expect(transitionMock).toHaveBeenCalledWith({ incident, action: 'request_close', reason: 'condition cleared', actorId: 'admin-7', conditionActive: false });
   });
 
   it('keeps an active condition attending', async () => {
+    activeMock.mockResolvedValue(true);
     transitionMock.mockResolvedValue({ status: 'attending', closed: false });
     const response = await PATCH(request({ action: 'request_close', reason: 'still active' }), { params: Promise.resolve({ id: '42' }) });
     expect(await response.json()).toEqual({ status: 'attending', closed: false });
+    expect(transitionMock).toHaveBeenCalledWith(expect.objectContaining({ conditionActive: true }));
+  });
+
+  it('passes an inactive condition and authenticated actor to close', async () => {
+    await PATCH(request({ action: 'request_close', reason: 'fixed by operator' }), { params: Promise.resolve({ id: '42' }) });
+    expect(activeMock).toHaveBeenCalledWith('gps-stale:order-1:rider-1', { orderId: 'order-1', riderId: 'rider-1' });
+    expect(transitionMock).toHaveBeenCalledWith(expect.objectContaining({ conditionActive: false, actorId: 'admin-7', reason: 'fixed by operator' }));
+  });
+
+  it('maps a stale lifecycle update to 409', async () => {
+    transitionMock.mockRejectedValue(new Error('stale incident'));
+    expect((await PATCH(request({ action: 'attend' }), { params: Promise.resolve({ id: '42' }) })).status).toBe(409);
   });
 
   it('rejects invalid bodies and missing incidents without exposing DB errors', async () => {
