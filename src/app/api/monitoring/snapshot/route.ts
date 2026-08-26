@@ -9,7 +9,18 @@ export const dynamic = 'force-dynamic';
 async function handleSnapshot(request: Request): Promise<Response> {
   try {
     await requireAdminOperationSession();
-    const filter = parseMonitoringFilter(new URL(request.url).searchParams);
+    const rawBody = await request.text();
+    let filterInput: unknown;
+    if (rawBody.trim()) {
+      try {
+        filterInput = JSON.parse(rawBody) as unknown;
+      } catch {
+        throw new Error('invalid filter');
+      }
+    } else {
+      filterInput = new URL(request.url).searchParams;
+    }
+    const filter = parseMonitoringFilter(filterInput);
     const snapshot = await buildMonitoringSnapshot({ filter });
     return NextResponse.json(snapshot, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {

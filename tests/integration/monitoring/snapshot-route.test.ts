@@ -14,6 +14,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: () => ({ fro
 import { AdminSessionError } from '@/lib/auth/admin-session';
 import { POST } from '@/app/api/monitoring/snapshot/route';
 import * as snapshotRoute from '@/app/api/monitoring/snapshot/route';
+import * as snapshotService from '@/lib/monitoring/snapshot-service';
 
 function queryFor(table: string) {
   const result = table === 'system_settings'
@@ -45,6 +46,27 @@ describe('POST /api/monitoring/snapshot', () => {
 
   it('validates query filters and returns 400 without invoking data access', async () => {
     const response = await POST(new Request('http://localhost/api/monitoring/snapshot?orderStatus=not-real', { method: 'POST' }));
+    expect(response.status).toBe(400);
+  });
+
+  it('uses JSON POST filters as the single builder input', async () => {
+    const builder = vi.spyOn(snapshotService, 'buildMonitoringSnapshot').mockResolvedValue({} as never);
+    const response = await POST(new Request('http://localhost/api/monitoring/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ risk: 'atRisk', zoneId: 'z1', search: 'abc' }),
+    }));
+    expect(response.status).toBe(200);
+    expect(builder).toHaveBeenCalledWith({ filter: { risk: 'atRisk', zoneId: 'z1', search: 'abc' } });
+    builder.mockRestore();
+  });
+
+  it('rejects malformed JSON POST filters', async () => {
+    const response = await POST(new Request('http://localhost/api/monitoring/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{',
+    }));
     expect(response.status).toBe(400);
   });
 

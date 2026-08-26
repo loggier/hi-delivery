@@ -30,8 +30,9 @@ export const monitoringFilterSchema = z.object({
   orderStatus: z.enum(orderStatuses).optional(), search: text(100),
 }).strict();
 
-export function parseMonitoringFilter(params: URLSearchParams): MonitoringFilter {
-  return monitoringFilterSchema.parse(Object.fromEntries(params.entries()));
+export function parseMonitoringFilter(input: URLSearchParams | unknown): MonitoringFilter {
+  const value = input instanceof URLSearchParams ? Object.fromEntries(input.entries()) : (input ?? {});
+  return monitoringFilterSchema.parse(value);
 }
 
 type DbError = { code?: string; message?: string };

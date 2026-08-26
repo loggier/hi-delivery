@@ -70,8 +70,14 @@ describe('monitoring data hooks', () => {
     act(() => channels[0].handler?.({ eventType: 'INSERT', new: { id: 'r2', last_latitude: 19.4, last_longitude: -99.1 } }));
     act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: ' ', last_latitude: 19.4, last_longitude: -99.1 } }));
     act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r3', last_latitude: 91, last_longitude: -99.1 } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r4', last_latitude: 19.4, last_longitude: -99.1, last_location_received_at: new Date(Date.now() + 4 * 60_000).toISOString() } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r5', last_latitude: 19.4, last_longitude: -99.1, last_location_received_at: new Date(Date.now() + 6 * 60_000).toISOString() } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r6', last_latitude: 19.4, last_longitude: -99.1, last_location_received_at: 'invalid' } }));
     expect(result.result.current.locationPatches.has('r2')).toBe(false);
     expect(result.result.current.locationPatches.has('r3')).toBe(false);
+    expect(result.result.current.locationPatches.has('r4')).toBe(true);
+    expect(result.result.current.locationPatches.has('r5')).toBe(false);
+    expect(result.result.current.locationPatches.has('r6')).toBe(false);
   });
 
   it('does not refetch or invalidate the snapshot when a rider update arrives', async () => {
