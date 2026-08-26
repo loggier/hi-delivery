@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchMonitoringSnapshot, useMonitoringSnapshot } from '@/app/(admin)/monitoring/_hooks/use-monitoring-snapshot';
+import { fetchMonitoringSnapshot, monitoringSnapshotQueryKey, useMonitoringSnapshot } from '@/app/(admin)/monitoring/_hooks/use-monitoring-snapshot';
 import { useMonitoringRealtime } from '@/app/(admin)/monitoring/_hooks/use-monitoring-realtime';
+import { useMonitoringController } from '@/app/(admin)/monitoring/_hooks/use-monitoring-controller';
 
 const channels: FakeChannel[] = [];
+const removedChannels: FakeChannel[] = [];
 type Handler = (payload: unknown) => void;
 class FakeChannel {
   table: string | undefined;
@@ -13,7 +15,7 @@ class FakeChannel {
   on(_event: string, filter: { table: string }, handler: Handler) { this.table = filter.table; this.handler = handler; return this; }
   subscribe(handler: (status: string) => void) { this.statusHandler = handler; channels.push(this); return this; }
 }
-vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => new FakeChannel(), removeChannel: vi.fn() }) }));
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ channel: () => new FakeChannel(), removeChannel: (channel: FakeChannel) => { removedChannels.push(channel); } }) }));
 
 const snapshot = {
   serverTimestamp: '2025-01-01T00:00:00.000Z',
@@ -24,7 +26,12 @@ const snapshot = {
 };
 
 describe('monitoring data hooks', () => {
-  beforeEach(() => { vi.restoreAllMocks(); channels.length = 0; });
+  beforeEach(() => { vi.restoreAllMocks(); channels.length = 0; removedChannels.length = 0; });
+
+  it('uses the filter as the second query key segment', () => {
+    const filter = { risk: 'atRisk' as const };
+    expect(monitoringSnapshotQueryKey(filter)).toEqual(['monitoring-snapshot', filter]);
+  });
 
   it('POSTs the exact filter with same-origin credentials and no-store cache', async () => {
     const response = new Response(JSON.stringify(snapshot), { status: 200 });
@@ -60,5 +67,38 @@ describe('monitoring data hooks', () => {
     expect(result.result.current.locationPatches.get('r1')).toMatchObject({ riderId: 'r1', latitude: 19.4, longitude: -99.1 });
     act(() => channels[0].statusHandler?.('CHANNEL_ERROR'));
     expect(result.result.current.realtimeStatus).toBe('degraded');
+    act(() => channels[0].handler?.({ eventType: 'INSERT', new: { id: 'r2', last_latitude: 19.4, last_longitude: -99.1 } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: ' ', last_latitude: 19.4, last_longitude: -99.1 } }));
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r3', last_latitude: 91, last_longitude: -99.1 } }));
+    expect(result.result.current.locationPatches.has('r2')).toBe(false);
+    expect(result.result.current.locationPatches.has('r3')).toBe(false);
+  });
+
+  it('unsubscribes the channel on cleanup and never invalidates or refetches queries', () => {
+    const refetch = vi.fn();
+    const invalidateQueries = vi.fn();
+    const result = renderHook(() => useMonitoringRealtime());
+    act(() => channels[0].handler?.({ eventType: 'UPDATE', new: { id: 'r1', last_latitude: 19, last_longitude: -99 } }));
+    expect(refetch).not.toHaveBeenCalled();
+    expect(invalidateQueries).not.toHaveBeenCalled();
+    result.unmount();
+    expect(removedChannels).toEqual([channels[0]]);
+  });
+
+  it('selects entities and replaces the filter through the public controller contract', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const result = renderHook(() => useMonitoringController({ zoneId: 'z1', search: 'x' }), { wrapper });
+    act(() => result.result.current.selectKpi('occupied'));
+    expect(result.result.current.filter).toEqual({ risk: 'occupied' });
+    act(() => result.result.current.selectIncident('i1'));
+    expect(result.result.current.selection).toEqual({ kind: 'incident', id: 'i1' });
+    act(() => result.result.current.selectOrder('o1'));
+    expect(result.result.current.selection).toEqual({ kind: 'order', id: 'o1' });
+    act(() => result.result.current.selectRider('r1'));
+    expect(result.result.current.selection).toEqual({ kind: 'rider', id: 'r1' });
+    act(() => result.result.current.clearSelection());
+    expect(result.result.current.selection).toBeNull();
   });
 });

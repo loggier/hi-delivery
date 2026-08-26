@@ -59,7 +59,7 @@ export async function fetchMonitoringSnapshot(filter: MonitoringFilter): Promise
 }
 
 export function monitoringSnapshotQueryKey(filter: MonitoringFilter): QueryKey {
-  return ['monitoring', 'snapshot', filter];
+  return ['monitoring-snapshot', filter];
 }
 
 export function useMonitoringSnapshot(filter: MonitoringFilter) {

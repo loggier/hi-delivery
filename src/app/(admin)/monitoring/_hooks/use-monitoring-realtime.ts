@@ -18,13 +18,21 @@ function record(value: unknown): Record<string, unknown> | null { return value &
 
 function parsePatch(payload: unknown): MonitoringLocationPatch | null {
   const root = record(payload);
+  if (root?.eventType !== 'UPDATE') return null;
   const row = record(root?.new);
   if (!row) return null;
-  const riderId = typeof row?.id === 'string' ? row.id : null;
+  const riderId = typeof row.id === 'string' && row.id.trim() ? row.id : null;
   const latitude = row?.last_latitude;
   const longitude = row?.last_longitude;
   if (!riderId || !finite(latitude) || !finite(longitude)) return null;
-  const patch: MonitoringLocationPatch = { riderId, latitude, longitude, receivedAt: new Date().toISOString() };
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  if (finite(row.last_speed) && (row.last_speed < 0 || row.last_speed > 100)) return null;
+  if (finite(row.last_course) && (row.last_course < 0 || row.last_course > 360)) return null;
+  const receivedAt = typeof row.last_location_received_at === 'string'
+    ? new Date(row.last_location_received_at)
+    : new Date();
+  if (Number.isNaN(receivedAt.getTime()) || receivedAt.getTime() > Date.now()) return null;
+  const patch: MonitoringLocationPatch = { riderId, latitude, longitude, receivedAt: receivedAt.toISOString() };
   if (finite(row.last_speed)) patch.speed = row.last_speed;
   if (finite(row.last_course)) patch.course = row.last_course;
   return patch;

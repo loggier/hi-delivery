@@ -19,6 +19,9 @@ describe('monitoring filter helpers', () => {
     expect(monitoringFilterForKpi('unassigned')).toEqual({ risk: 'unassigned' });
     expect(monitoringFilterForKpi('atRisk')).toEqual({ risk: 'atRisk' });
     expect(monitoringFilterForKpi('noSignal')).toEqual({ risk: 'noSignal' });
+    expect(monitoringFilterForKpi('onTheWay')).toEqual({ risk: 'onTheWay' });
+    expect(monitoringFilterForKpi('available')).toEqual({ risk: 'available' });
+    expect(monitoringFilterForKpi('occupied')).toEqual({ risk: 'occupied' });
     expect(monitoringFilterForKpi('all')).toEqual({});
   });
 
