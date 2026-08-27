@@ -54,6 +54,7 @@ export function MonitoringOperationsDesk() {
   const [actionPending, setActionPending] = useState(false);
 
   const snapshot = controller.snapshot;
+  const showSnapshot = Boolean(snapshot && !controller.isError);
   const { data: zones = [] } = api.zones.useGetAll({ status: 'ACTIVE' });
   const orders = useMemo(() => snapshot?.orders ?? [], [snapshot?.orders]);
   const riders = controller.riders;
@@ -150,8 +151,8 @@ export function MonitoringOperationsDesk() {
         onSearchChange={(value) => updateFilter({ search: value || undefined })}
       />
       {!snapshot && controller.isLoading ? <div role="status" className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Cargando datos de monitoreo...</div> : null}
-      {!snapshot && controller.isError ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-8 text-center text-sm text-red-800">{snapshotFailure ? `No se pudo actualizar la operación (etapa: ${snapshotFailure})` : 'No hay datos de monitoreo disponibles.'}</div> : null}
-      {snapshot ? <>
+      {controller.isError ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-8 text-center text-sm text-red-800">{snapshotFailure ? `No se pudo actualizar la operación (etapa: ${snapshotFailure})` : 'No hay datos de monitoreo disponibles.'}</div> : null}
+      {showSnapshot ? <>
         <div className="grid min-h-[32rem] grid-cols-1 gap-3 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(24rem,2fr)_minmax(17rem,1fr)]">
           <IncidentQueue incidents={incidents} selectedId={selectedIncident?.id ?? null} onSelect={(incident: MonitoringIncident) => controller.selectIncident(String(incident.id))} isLoading={false} />
           <div className="min-h-[24rem] overflow-hidden rounded-lg border bg-card"><OperationsMap riders={riders} orders={mapOrders} incidents={incidents} selectedEntity={selection} selectedOrderId={selectedOrderId} selectedRiderId={selectedRiderId} onSelectEntity={selectEntity} resetCameraToken={resetCameraToken} historyPath={historyPoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))} playbackPoint={playbackPoint ? { latitude: playbackPoint.latitude, longitude: playbackPoint.longitude, recordedAt: playbackPoint.recorded_at, speed: playbackPoint.speed, course: playbackPoint.course } : null} /></div>

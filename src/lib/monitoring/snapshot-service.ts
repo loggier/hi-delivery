@@ -185,14 +185,14 @@ function isSchemaError(error: DbError): boolean {
   const optionalColumnNames = [
     'monitoring_unassigned_critical_minutes', 'monitoring_gps_stale_critical_minutes',
     'monitoring_stopped_in_transit_minutes', 'monitoring_meaningful_movement_meters',
-    'expected_delivery_at', 'assignment_exhausted_at', 'assignment_attempts_exhausted',
+    'zone_id', 'expected_delivery_at', 'assignment_exhausted_at', 'assignment_attempts_exhausted',
     'is_outside_zone', 'has_repeated_rejections', 'last_location_received_at',
     'has_irregular_reporting', 'recorded_at', 'distance_meters',
   ];
   const message = error.message ?? '';
   const mentionsOptionalColumn = optionalColumnNames.some((name) => message.includes(name));
   return (error.code === '42703' || error.code === 'PGRST204') && mentionsOptionalColumn ||
-    /^Could not find the '(?:monitoring_unassigned_critical_minutes|monitoring_gps_stale_critical_minutes|monitoring_stopped_in_transit_minutes|monitoring_meaningful_movement_meters|expected_delivery_at|assignment_exhausted_at|assignment_attempts_exhausted|is_outside_zone|has_repeated_rejections|last_location_received_at|has_irregular_reporting|recorded_at|distance_meters)' column of '.+' in the schema cache$/.test(message);
+    /^Could not find the '(?:monitoring_unassigned_critical_minutes|monitoring_gps_stale_critical_minutes|monitoring_stopped_in_transit_minutes|monitoring_meaningful_movement_meters|zone_id|expected_delivery_at|assignment_exhausted_at|assignment_attempts_exhausted|is_outside_zone|has_repeated_rejections|last_location_received_at|has_irregular_reporting|recorded_at|distance_meters)' column of '.+' in the schema cache$/.test(message);
 }
 function buildMovementWindows(rows: MovementRow[], riderIds: readonly string[]): Record<string, RiderMovementWindow | undefined> {
   const result: Record<string, RiderMovementWindow | undefined> = {};
@@ -250,10 +250,11 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
   const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
     const select = 'id,status,rider_id,created_at,zone_id,expected_delivery_at,assignment_exhausted_at,assignment_attempts_exhausted,is_outside_zone,has_repeated_rejections';
-    const complete = await query<MonitoringOrderRow[]>('orders', select, (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const activeStatusFilter = '("completed","delivered","cancelled","refunded","failed")';
+    const complete = await query<MonitoringOrderRow[]>('orders', select, (q) => q.not('status', 'in', activeStatusFilter));
     if (!complete.error && complete.data) return { ...complete, available: true, availableRules: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'] };
     if (!complete.error || !isSchemaError(complete.error)) return complete;
-    const fallback = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', '(completed,delivered,cancelled,refunded,failed)'));
+    const fallback = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', activeStatusFilter));
     if (fallback.error || !fallback.data) return fallback;
     return { ...fallback, available: true, schemaDegraded: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'], availableRules: [] };
   };
