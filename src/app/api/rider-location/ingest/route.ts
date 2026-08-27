@@ -61,14 +61,8 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Rider location ingestion failed:', error.message);
-      const legacySchemaErrorCodes = new Set([
-        'PGRST202',
-        'PGRST204',
-        '42P01',
-        '42703',
-        '42883',
-      ]);
-      if (error.code && legacySchemaErrorCodes.has(error.code)) {
+      const nonFallbackErrorCodes = new Set(['42501', 'P0002', '22023']);
+      if (!error.code || !nonFallbackErrorCodes.has(error.code)) {
         const latestPoint = parsed.data.points.reduce((latest, point) =>
           point.recorded_at > latest.recorded_at ? point : latest,
         );
@@ -97,6 +91,14 @@ export async function POST(request: Request) {
             { status: 200 },
           );
         }
+
+        return NextResponse.json(
+          {
+            message: 'No se pudo registrar la ubicación.',
+            code: 'RIDER_LOCATION_FALLBACK',
+          },
+          { status: 502 },
+        );
       }
       return NextResponse.json(
         {
