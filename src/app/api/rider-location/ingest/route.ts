@@ -61,7 +61,13 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Rider location ingestion failed:', error.message);
-      return NextResponse.json({ message: 'No se pudo registrar la ubicación.' }, { status: 502 });
+      return NextResponse.json(
+        {
+          message: 'No se pudo registrar la ubicación.',
+          code: typeof error.code === 'string' ? error.code : 'RIDER_LOCATION_RPC',
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json(data, { status: 200 });
