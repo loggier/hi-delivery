@@ -190,15 +190,15 @@ describe('Supabase incident store batch reconciliation', () => {
   it('calls the atomic manual close RPC once and maps an active open response', async () => {
     const client = new FakeSupabase();
     client.response = { data: { status: 'attending', closed: false }, error: null };
-    const result = await requestCloseMonitoringIncident({ incident: { ...rowToIncident(), status: 'open' }, reason: 'still active', actorId: 'admin-1' }, client);
+    const result = await requestCloseMonitoringIncident({ incident: { ...rowToIncident(), status: 'open' }, reason: 'still active', actorId: 'admin-1', now: '2026-08-26T12:02:00.000Z' }, client);
     expect(result).toEqual({ status: 'attending', closed: false });
-    expect(client.calls).toEqual([{ functionName: 'request_close_monitoring_incident', params: expect.objectContaining({ p_actor_user_id: 'admin-1', p_reason: 'still active', p_condition_key: detected.key }) }]);
+    expect(client.calls).toEqual([{ functionName: 'request_close_monitoring_incident', params: { p_incident_id: 7, p_condition_key: detected.key, p_actor_user_id: 'admin-1', p_reason: 'still active', p_expected_status: 'open', p_expected_last_detected_at: row.last_detected_at, p_condition_active: null, p_now: '2026-08-26T12:02:00.000Z' } }]);
   });
 
   it('maps an atomic zero-row race to a stale incident without resolving it', async () => {
     const client = new FakeSupabase();
     client.response = { data: null, error: null };
-    await expect(requestCloseMonitoringIncident({ incident: rowToIncident(), reason: 'condition cleared', actorId: 'admin-1' }, client)).rejects.toThrow('stale incident');
+    await expect(requestCloseMonitoringIncident({ incident: rowToIncident(), reason: 'condition cleared', actorId: 'admin-1', now: '2026-08-26T12:02:00.000Z' }, client)).rejects.toThrow('stale incident');
   });
 
   it.each([

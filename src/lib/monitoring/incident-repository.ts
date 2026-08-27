@@ -57,17 +57,18 @@ type OperationQuery = {
 
 export type IncidentOperation = 'attend';
 
-export async function requestCloseMonitoringIncident(input: { incident: MonitoringIncident; reason: string; actorId: string }, suppliedClient?: SupabaseIncidentClient): Promise<{ status: MonitoringIncidentStatus; closed: boolean }> {
+export async function requestCloseMonitoringIncident(input: { incident: MonitoringIncident; reason: string; actorId: string; now?: string }, suppliedClient?: SupabaseIncidentClient): Promise<{ status: MonitoringIncidentStatus; closed: boolean }> {
   const client = suppliedClient ?? createSupabaseAdminClient() as unknown as SupabaseIncidentClient;
   // The RPC owns the row lock, current-condition evaluation, and CAS. The client never pre-checks activity.
   const result = await client.rpc('request_close_monitoring_incident', {
     p_incident_id: input.incident.id,
     p_condition_key: input.incident.conditionKey,
-    p_order_id: input.incident.orderId,
-    p_rider_id: input.incident.riderId,
     p_expected_status: input.incident.status,
+    p_expected_last_detected_at: input.incident.lastDetectedAt,
+    p_condition_active: null,
     p_actor_user_id: input.actorId,
     p_reason: input.reason,
+    p_now: input.now ?? new Date().toISOString(),
   }) as IncidentDbResult;
   if (result.error?.code === 'P0009' || result.error?.code === '40001') throw new Error('stale incident');
   if (result.error?.code === 'P0002') throw new Error('missing incident');

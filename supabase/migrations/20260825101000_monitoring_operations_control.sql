@@ -384,6 +384,9 @@ CREATE OR REPLACE FUNCTION grupohubs.request_close_monitoring_incident(
   p_condition_key text,
   p_actor_user_id varchar,
   p_reason text,
+  p_expected_status text,
+  p_expected_last_detected_at timestamptz,
+  p_condition_active boolean,
   p_now timestamptz
 )
 RETURNS jsonb
@@ -397,7 +400,8 @@ DECLARE
 BEGIN
   IF p_incident_id IS NULL OR p_incident_id < 1 OR nullif(btrim(p_condition_key), '') IS NULL
      OR nullif(btrim(p_actor_user_id), '') IS NULL OR nullif(btrim(p_reason), '') IS NULL
-     OR length(btrim(p_reason)) < 3 OR length(btrim(p_reason)) > 300 OR p_now IS NULL THEN
+     OR length(btrim(p_reason)) < 3 OR length(btrim(p_reason)) > 300
+     OR p_expected_status NOT IN ('open', 'attending') OR p_expected_last_detected_at IS NULL OR p_now IS NULL THEN
     RAISE EXCEPTION 'invalid manual incident close request' USING ERRCODE = '22023';
   END IF;
   IF NOT EXISTS (
@@ -418,6 +422,9 @@ BEGIN
   IF incident.status = 'resolved' THEN
     RAISE EXCEPTION 'monitoring incident is already resolved' USING ERRCODE = 'P0009';
   END IF;
+  IF incident.status <> p_expected_status OR incident.last_detected_at <> p_expected_last_detected_at THEN
+    RAISE EXCEPTION 'stale monitoring incident' USING ERRCODE = 'P0009';
+  END IF;
 
   SELECT EXISTS (
     SELECT 1 FROM grupohubs.monitoring_current_conditions AS current_condition
@@ -434,8 +441,8 @@ BEGIN
         resolution_reason = btrim(p_reason),
         updated_at = p_now
     WHERE id = incident.id
-      AND status IN ('open', 'attending')
-      AND last_detected_at = incident.last_detected_at;
+      AND status = p_expected_status
+      AND last_detected_at = p_expected_last_detected_at;
     IF NOT FOUND THEN RAISE EXCEPTION 'stale monitoring incident' USING ERRCODE = 'P0009'; END IF;
     RETURN jsonb_build_object('closed', false, 'status', 'attending');
   END IF;
@@ -448,8 +455,8 @@ BEGIN
       last_acted_by_user_id = p_actor_user_id,
       updated_at = p_now
   WHERE id = incident.id
-    AND status IN ('open', 'attending')
-    AND last_detected_at = incident.last_detected_at;
+    AND status = p_expected_status
+    AND last_detected_at = p_expected_last_detected_at;
   IF NOT FOUND THEN RAISE EXCEPTION 'stale monitoring incident' USING ERRCODE = 'P0009'; END IF;
   RETURN jsonb_build_object('closed', true, 'status', 'resolved');
 END;
@@ -543,9 +550,9 @@ REVOKE ALL ON TABLE grupohubs.monitoring_current_conditions
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE grupohubs.monitoring_current_conditions
   TO service_role;
 
-REVOKE ALL ON FUNCTION grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, timestamptz)
+REVOKE ALL ON FUNCTION grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, timestamptz)
+GRANT EXECUTE ON FUNCTION grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz)
   TO service_role;
 
 REVOKE ALL ON TABLE grupohubs.monitoring_action_log

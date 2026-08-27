@@ -96,14 +96,15 @@ describe('monitoring operations control migration', () => {
 
   it('defines the server-only atomic manual close RPC and its authoritative condition state', () => {
     expect(sql).toContain('monitoring_current_conditions');
-    expect(sql).toMatch(/create or replace function grupohubs\.request_close_monitoring_incident\(\s*p_incident_id bigint,\s*p_condition_key text,\s*p_actor_user_id varchar,\s*p_reason text,\s*p_now timestamptz\s*\)/);
+    expect(sql).toMatch(/create or replace function grupohubs\.request_close_monitoring_incident\(\s*p_incident_id bigint,\s*p_condition_key text,\s*p_actor_user_id varchar,\s*p_reason text,\s*p_expected_status text,\s*p_expected_last_detected_at timestamptz,\s*p_condition_active boolean,\s*p_now timestamptz\s*\)/);
     expect(sql).toContain("resolution_source = 'manual_request'");
     expect(sql).toContain('p_actor_user_id');
     expect(sql).toContain("nullif(btrim(p_reason), '')");
     expect(sql).toMatch(/pg_advisory_xact_lock\(907202608\)/);
-    expect(sql).toContain('last_detected_at = incident.last_detected_at');
-    expect(sql).toContain("grant execute on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, timestamptz) to service_role");
-    expect(sql).toContain("revoke all on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, timestamptz) from public, anon, authenticated");
+    expect(sql).toContain('status = p_expected_status');
+    expect(sql).toContain('last_detected_at = p_expected_last_detected_at');
+    expect(sql).toContain("grant execute on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz) to service_role");
+    expect(sql).toContain("revoke all on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz) from public, anon, authenticated");
   });
 
   it('defines a permission-restricted append-only action log', () => {
