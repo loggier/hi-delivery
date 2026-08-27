@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendPushToRiders } from '@/lib/push-notifications';
+import { AdminSessionError, requireAdminOperationSession } from '@/lib/auth/admin-session';
 
 const locationRequestSchema = z.object({
   riderId: z.string().trim().min(1),
@@ -8,6 +9,7 @@ const locationRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    await requireAdminOperationSession();
     const parsed = locationRequestSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -24,10 +26,9 @@ export async function POST(request: Request) {
       data: { kind: 'location_request' },
     });
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json({ ok: true, notification: { sent: result.sentCount > 0, sentCount: result.sentCount, warning: result.sentCount === 0 ? 'El rider no tiene un token disponible.' : undefined } }, { status: 200 });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'No se pudo enviar el push.';
-    return NextResponse.json({ message }, { status: 500 });
+    if (error instanceof AdminSessionError) return NextResponse.json({ message: error.message }, { status: error.status });
+    return NextResponse.json({ message: 'No se pudo enviar la solicitud de ubicación.' }, { status: 500 });
   }
 }

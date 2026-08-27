@@ -69,18 +69,6 @@ type AvailableRider = Pick<Rider, "id" | "first_name" | "last_name" | "phone_e16
     rejectedThisOrder?: boolean;
 };
 
-function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 function isPointInsidePolygon(
   point: { lat: number; lng: number },
   polygon?: { lat: number; lng: number }[],
@@ -675,138 +663,6 @@ export default function ViewOrderPage() {
     }
   }
 
-  const tryDispatchOrderRpc = async (orderId: string) => {
-    const attempts = [
-      { order_id_in: orderId },
-      { p_order_id: orderId },
-      { order_id: orderId },
-    ];
-
-    let lastError: unknown = null;
-    for (const params of attempts) {
-      const { error } = await supabase.rpc('dispatch_order', params);
-      if (!error) {
-        return;
-      }
-      lastError = error;
-    }
-    throw lastError instanceof Error ? lastError : new Error('No se pudo ejecutar dispatch_order.');
-  };
-
-  const handleRedispatchFallback = async () => {
-    if (!order) {
-      throw new Error('No se encontró la orden.');
-    }
-
-    const { data: settings } = await supabase
-      .from('system_settings')
-      .select('dispatch_algorithm, dispatch_candidate_radius_km, dispatch_batch_size, dispatch_decision_window_seconds')
-      .eq('id', 1)
-      .single();
-
-    const dispatchAlgorithm = settings?.dispatch_algorithm ?? 'batch';
-    const dispatchRadiusKm = settings?.dispatch_candidate_radius_km ?? 10;
-    const dispatchBatchSize = settings?.dispatch_batch_size ?? 3;
-    const decisionWindowSeconds = settings?.dispatch_decision_window_seconds ?? 60;
-
-    const { data: riders, error: riderError } = await supabase
-      .from('riders')
-      .select('id, first_name, last_name, phone_e164, zone_id, is_active_for_orders, last_location_update, last_latitude, last_longitude, status')
-      .in('status', ['ACTIVE', 'approved'])
-      .eq('is_active_for_orders', true);
-
-    if (riderError) {
-      throw riderError;
-    }
-
-    const riderRows = (riders ?? []) as AvailableRider[];
-    if (riderRows.length === 0) {
-      throw new Error('No hay riders activos para reenviar este pedido.');
-    }
-
-    const riderIds = riderRows.map((rider) => rider.id);
-    const { data: activeOrders, error: activeOrdersError } = await supabase
-      .from('orders')
-      .select('id, rider_id, status')
-      .in('rider_id', riderIds)
-      .in('status', activeDeliveryStatuses);
-
-    if (activeOrdersError) {
-      throw activeOrdersError;
-    }
-
-    const pickupCoordinates = order.pickup_address?.coordinates;
-    const rejectedRiderIds = new Set(order.rejected_riders ?? []);
-    const loadByRider = new Map<string, number>();
-
-    for (const activeOrder of activeOrders ?? []) {
-      const riderId = activeOrder.rider_id as string | null;
-      if (!riderId) continue;
-      if (activeOrder.id === order.id) continue;
-      loadByRider.set(riderId, (loadByRider.get(riderId) ?? 0) + 1);
-    }
-
-    const candidateRiders = riderRows
-      .filter((rider) => !rejectedRiderIds.has(rider.id))
-      .map((rider) => {
-        const activeOrderCount = loadByRider.get(rider.id) ?? 0;
-        const hasLocation = typeof rider.last_latitude === 'number' && typeof rider.last_longitude === 'number';
-        const distanceKm = pickupCoordinates && hasLocation
-          ? getDistanceInKm(
-              rider.last_latitude as number,
-              rider.last_longitude as number,
-              pickupCoordinates.lat,
-              pickupCoordinates.lng,
-            )
-          : Number.POSITIVE_INFINITY;
-
-        return {
-          ...rider,
-          activeOrderCount,
-          distanceKm,
-        };
-      })
-      .filter((rider) => rider.activeOrderCount < 2)
-      .filter((rider) => !pickupCoordinates || rider.distanceKm <= dispatchRadiusKm || !Number.isFinite(rider.distanceKm))
-      .sort((a, b) => {
-        if (a.activeOrderCount !== b.activeOrderCount) {
-          return a.activeOrderCount - b.activeOrderCount;
-        }
-        return a.distanceKm - b.distanceKm;
-      });
-
-    if (candidateRiders.length === 0) {
-      throw new Error('No hay riders elegibles para reenviar este pedido.');
-    }
-
-    const selectionSize = dispatchAlgorithm === 'sequential' ? 1 : dispatchBatchSize;
-    const selectedRiders = candidateRiders.slice(0, Math.max(1, selectionSize));
-    const selectedIds = selectedRiders.map((rider) => rider.id);
-    const notifiedRiders = Array.from(new Set([...(order.notified_riders ?? []), ...selectedIds]));
-    const expiresAt = new Date(Date.now() + decisionWindowSeconds * 1000).toISOString();
-
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        status: 'pending_acceptance',
-        rider_id: null,
-        active_notified_riders: selectedIds,
-        notified_riders: notifiedRiders,
-        notification_expires_at: expiresAt,
-        assignment_exhausted_at: null,
-        last_dispatch_at: new Date().toISOString(),
-        dispatch_attempt_count: (order.dispatch_attempt_count ?? 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', order.id);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    return selectedRiders.length;
-  };
-
   const handleRedispatch = async () => {
     if (!order || !canUseOperationsTools) return;
     const ok = await confirm({
@@ -818,22 +674,10 @@ export default function ViewOrderPage() {
 
     setReDispatching(true);
     try {
-      let selectedRiderCount: number | null = null;
-      try {
-        await tryDispatchOrderRpc(order.id);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const shouldFallback =
-          message.includes('dispatch_order') ||
-          message.includes('function') ||
-          message.includes('schema cache');
-
-        if (!shouldFallback) {
-          throw error;
-        }
-
-        selectedRiderCount = await handleRedispatchFallback();
-      }
+      const response = await fetch('/api/monitoring/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'reassign_order', orderId: order.id, expectedRiderId: order.rider_id ?? null, riderId: null, reason: 'Reenvío operativo solicitado desde el detalle de la orden.' }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.message || 'No se pudo reenviar la orden.');
+      const selectedRiderCount = result?.result?.selectedRiderCount ?? null;
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['orders'] }),
@@ -871,48 +715,9 @@ export default function ViewOrderPage() {
 
     setAssigningRiderId(rider.id);
     try {
-      const nowIso = new Date().toISOString();
-      const payload: Record<string, unknown> = {
-        rider_id: rider.id,
-        status: 'accepted',
-        accepted_at: nowIso,
-        active_notified_riders: [],
-        notification_expires_at: null,
-        assignment_exhausted_at: null,
-        updated_at: nowIso,
-      };
-      try {
-        const { error } = await supabase
-          .from('orders')
-          .update(payload)
-          .eq('id', order.id);
-        if (error) {
-          throw error;
-        }
-      } catch {
-        delete payload.accepted_at;
-        const { error } = await supabase
-          .from('orders')
-          .update(payload)
-          .eq('id', order.id);
-        if (error) {
-          throw error;
-        }
-      }
-
-      try {
-        const { error } = await supabase.from('order_events').insert({
-          order_id: order.id,
-          rider_id: rider.id,
-          event_type: 'driver_assigned',
-          notes: 'Asignación manual desde el panel de administración.',
-        });
-        if (error) {
-          throw error;
-        }
-      } catch {
-        // Best effort only.
-      }
+      const response = await fetch('/api/monitoring/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'reassign_order', orderId: order.id, expectedRiderId: order.rider_id ?? null, riderId: rider.id, reason: 'Asignación manual solicitada desde el detalle de la orden.' }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.message || 'No se pudo asignar el rider.');
 
       setIsAssignDialogOpen(false);
       await Promise.all([

@@ -16,6 +16,7 @@ import { MonitoringFilters } from './monitoring-filters';
 import { OperationsMap } from './operations-map';
 import { OperationsSummary, type MonitoringKpiCardKey } from './operations-summary';
 import { RiderHistoryPanel, type RiderHistoryPoint } from './rider-history-panel';
+import { SensitiveActionDialog } from './sensitive-action-dialog';
 
 type Mode = 'live' | 'history';
 
@@ -48,6 +49,8 @@ export function MonitoringOperationsDesk() {
   const [historyPoints, setHistoryPoints] = useState<RiderHistoryPoint[]>([]);
   const [playbackPoint, setPlaybackPoint] = useState<RiderHistoryPoint | null>(null);
   const [resetCameraToken, setResetCameraToken] = useState(0);
+  const [actionOpen, setActionOpen] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
 
   const snapshot = controller.snapshot;
   const { data: zones = [] } = api.zones.useGetAll({ status: 'ACTIVE' });
@@ -98,10 +101,23 @@ export function MonitoringOperationsDesk() {
       toast({ title: 'Solicitud no enviada', description: error instanceof Error ? error.message : 'No se pudo solicitar la ubicación.', variant: 'destructive' });
     }
   };
+  const runSensitiveAction = async (reason: string) => {
+    if (!selectedRiderId) return;
+    setActionPending(true);
+    try {
+      const response = await fetch('/api/monitoring/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'pause_rider', riderId: selectedRiderId, expectedActive: selectedRider?.activeForOrders ?? true, reason }) });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.message || 'No se pudo pausar el rider.');
+      setActionOpen(false);
+      toast({ title: 'Rider pausado', description: 'La disponibilidad fue actualizada.', variant: 'success' });
+      await controller.refetch();
+    } catch (error) { toast({ title: 'Acción no aplicada', description: error instanceof Error ? error.message : 'No se pudo completar la acción.', variant: 'destructive' }); } finally { setActionPending(false); }
+  };
   const contextProps = {
     incident: selectedIncident,
     onFocusMap: () => setResetCameraToken((token) => token + 1),
     onRequestLocation: selectedIncident?.riderId ? reportLocation : undefined,
+    onSensitiveAction: selectedRiderId ? () => setActionOpen(true) : undefined,
     selectedOrderId,
     selectedRiderId,
     orderZoneName: selectedOrder?.zoneId ? zones.find((zone) => zone.id === selectedOrder.zoneId)?.name : null,
@@ -139,6 +155,7 @@ export function MonitoringOperationsDesk() {
         </div>
         <ActiveOrdersTable orders={orders} selectedOrderId={selectedOrderId} onSelectOrder={(id) => controller.selectOrder(id)} />
         {mode === 'history' ? <RiderHistoryPanel rider={selectedRider} startAt={historyStartAt} endAt={historyEndAt} onStartAtChange={setHistoryStartAt} onEndAtChange={setHistoryEndAt} onPointsChange={setHistoryPoints} onPlaybackPointChange={setPlaybackPoint} /> : null}
+        <SensitiveActionDialog open={actionOpen} actionLabel="Pausar rider" entity={selectedRiderId ?? 'rider'} before={selectedRider?.activeForOrders ? 'Activo' : 'Pausado'} after="Pausado" onConfirm={runSensitiveAction} onCancel={() => setActionOpen(false)} isPending={actionPending} />
       </> : null}
     </div>
   );
