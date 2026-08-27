@@ -94,6 +94,16 @@ describe('monitoring operations control migration', () => {
     );
   });
 
+  it('validates client-compatible detection timestamps without the SQL escaped-dot bug', () => {
+    expect(sql).toContain(
+      "!~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}t[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?(z|[+-](0[0-9]|1[0-9]|2[0-3]):[0-5][0-9])$'",
+    );
+    expect(sql).not.toContain('\\\\.');
+    expect(sql).toContain("(condition ->> 'detected_at')::timestamptz");
+    expect(sql).toContain("pg_input_is_valid(detected.p_detected_at, 'timestamptz'::regtype)");
+    expect(sql).toMatch(/order by latest_resolved\.resolved_at desc, latest_resolved\.id desc/);
+  });
+
   it('defines the server-only atomic manual close RPC and its authoritative condition state', () => {
     expect(sql).toContain('monitoring_current_conditions');
     expect(sql).toMatch(/create or replace function grupohubs\.request_close_monitoring_incident\(\s*p_incident_id bigint,\s*p_condition_key text,\s*p_actor_user_id varchar,\s*p_reason text,\s*p_expected_status text,\s*p_expected_last_detected_at timestamptz,\s*p_condition_active boolean,\s*p_now timestamptz\s*\)/);
@@ -104,11 +114,12 @@ describe('monitoring operations control migration', () => {
     expect(sql).toContain('status = p_expected_status');
     expect(sql).toContain('last_detected_at = p_expected_last_detected_at');
     expect(sql).toContain('where excluded.detected_at >= grupohubs.monitoring_current_conditions.detected_at');
-    expect(sql).toContain('resolved_incident.resolved_at >= p_now');
+    expect(sql).not.toContain('resolved_incident.resolved_at >= p_now');
     expect(sql).toContain('incident_type varchar(64) not null');
     expect(sql).toContain('detected_at timestamptz not null');
     expect(sql).toContain('excluded.detected_at >= grupohubs.monitoring_current_conditions.detected_at');
     expect(sql).toContain("resolved_incident.resolved_at >= (condition ->> 'detected_at')::timestamptz");
+    expect(sql).toContain('p_condition_active is intentionally ignored');
     expect(sql).toContain("grant execute on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz) to service_role");
     expect(sql).toContain("revoke all on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz) from public, anon, authenticated");
   });

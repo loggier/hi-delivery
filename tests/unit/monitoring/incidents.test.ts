@@ -84,11 +84,18 @@ class LifecycleBatchIncidentStore implements IncidentStore {
     const conditionsByKey = new Map(conditions.map((item) => [item.key, item]));
 
     for (const condition of conditions) {
+      const detectedAt = new Date(condition.detectedAt).getTime();
+      const latestResolved = this.rows
+        .filter((row) => row.conditionKey === condition.key && row.status === 'resolved')
+        .sort((left, right) => Date.parse(right.resolvedAt ?? '') - Date.parse(left.resolvedAt ?? ''))[0];
+      if (latestResolved?.resolvedAt !== null && latestResolved?.resolvedAt !== undefined && Date.parse(latestResolved.resolvedAt) >= detectedAt) {
+        continue;
+      }
       const existing = this.rows.find(
         (row) => row.conditionKey === condition.key && row.status !== 'resolved',
       );
       if (existing !== undefined) {
-        existing.lastDetectedAt = timestamp;
+        existing.lastDetectedAt = condition.detectedAt;
         existing.priority = condition.priority;
         existing.metadata = { ...condition.metadata };
       } else {
@@ -100,8 +107,8 @@ class LifecycleBatchIncidentStore implements IncidentStore {
             priority: condition.priority,
             orderId: condition.orderId,
             riderId: condition.riderId,
-            firstDetectedAt: timestamp,
-            lastDetectedAt: timestamp,
+            firstDetectedAt: condition.detectedAt,
+            lastDetectedAt: condition.detectedAt,
             metadata: { ...condition.metadata },
           }),
         );
@@ -283,5 +290,45 @@ describe('reconcileMonitoringIncidents', () => {
       reconcileMonitoringIncidents(store, [], [], new Date(Number.NaN)),
     ).rejects.toThrow('Invalid monitoring reconciliation timestamp');
     expect(store.calls).toEqual([]);
+  });
+
+  it('accepts a JavaScript toISOString detection timestamp', async () => {
+    const store = new RecordingIncidentStore();
+
+    await reconcileMonitoringIncidents(
+      store,
+      [condition({ detectedAt: new Date('2026-08-25T12:00:00.000Z').toISOString() })],
+      ['unassigned'],
+      nowDate,
+    );
+
+    expect(store.calls[0].conditions[0].detectedAt).toBe('2026-08-25T12:00:00.000Z');
+  });
+
+  it('does not reopen a resolved key for an older detection, but starts a new cycle after resolution', async () => {
+    const resolved = incident({
+      status: 'resolved',
+      resolvedAt: '2026-08-25T12:00:00.000Z',
+      firstDetectedAt: '2026-08-25T10:00:00.000Z',
+      lastDetectedAt: '2026-08-25T11:00:00.000Z',
+    });
+    const store = new LifecycleBatchIncidentStore([resolved]);
+
+    await reconcileMonitoringIncidents(
+      store,
+      [condition({ detectedAt: '2026-08-25T11:00:00.000Z' })],
+      ['unassigned'],
+      new Date('2026-08-25T13:00:00.000Z'),
+    );
+    expect(store.rows).toHaveLength(1);
+
+    await reconcileMonitoringIncidents(
+      store,
+      [condition({ detectedAt: '2026-08-25T12:01:00.000Z' })],
+      ['unassigned'],
+      new Date('2026-08-25T13:00:00.000Z'),
+    );
+    expect(store.rows).toHaveLength(2);
+    expect(store.rows[1]).toMatchObject({ status: 'open', firstDetectedAt: '2026-08-25T12:01:00.000Z' });
   });
 });

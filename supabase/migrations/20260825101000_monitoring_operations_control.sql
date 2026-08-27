@@ -175,8 +175,15 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM jsonb_array_elements(p_conditions) AS entry(condition)
-    WHERE condition ->> 'detected_at' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$'
-      OR (condition ->> 'detected_at')::timestamptz > p_now
+    CROSS JOIN LATERAL (SELECT condition ->> 'detected_at' AS p_detected_at) AS detected
+    WHERE detected.p_detected_at IS NULL
+      OR detected.p_detected_at !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,3})?(Z|[+-](0[0-9]|1[0-9]|2[0-3]):[0-5][0-9])$'
+      OR NOT pg_input_is_valid(detected.p_detected_at, 'timestamptz'::regtype)
+      OR CASE
+        WHEN pg_input_is_valid(detected.p_detected_at, 'timestamptz'::regtype)
+          THEN detected.p_detected_at::timestamptz > p_now
+        ELSE false
+      END
   ) THEN
     RAISE EXCEPTION 'p_conditions contains an invalid detection timestamp' USING ERRCODE = '22023';
   END IF;
@@ -318,7 +325,15 @@ BEGIN
     FROM grupohubs.monitoring_incidents AS resolved_incident
     WHERE resolved_incident.condition_key = deduplicated_conditions.condition_key
       AND resolved_incident.status = 'resolved'
-      AND resolved_incident.resolved_at >= p_now
+      AND resolved_incident.id = (
+        SELECT latest_resolved.id
+        FROM grupohubs.monitoring_incidents AS latest_resolved
+        WHERE latest_resolved.condition_key = deduplicated_conditions.condition_key
+          AND latest_resolved.status = 'resolved'
+        ORDER BY latest_resolved.resolved_at DESC, latest_resolved.id DESC
+        LIMIT 1
+      )
+      AND resolved_incident.resolved_at >= deduplicated_conditions.detected_at::timestamptz
   )
   ON CONFLICT (condition_key) WHERE status IN ('open', 'attending') DO UPDATE
   SET
@@ -383,6 +398,14 @@ BEGIN
     FROM grupohubs.monitoring_incidents AS resolved_incident
     WHERE resolved_incident.condition_key = condition ->> 'condition_key'
       AND resolved_incident.status = 'resolved'
+      AND resolved_incident.id = (
+        SELECT latest_resolved.id
+        FROM grupohubs.monitoring_incidents AS latest_resolved
+        WHERE latest_resolved.condition_key = condition ->> 'condition_key'
+          AND latest_resolved.status = 'resolved'
+        ORDER BY latest_resolved.resolved_at DESC, latest_resolved.id DESC
+        LIMIT 1
+      )
       AND resolved_incident.resolved_at >= (condition ->> 'detected_at')::timestamptz
   )
   ON CONFLICT (condition_key) DO UPDATE
@@ -424,6 +447,7 @@ DECLARE
   incident grupohubs.monitoring_incidents%ROWTYPE;
   condition_active boolean;
 BEGIN
+  -- p_condition_active is intentionally ignored; authoritative state is read under the row lock.
   IF p_incident_id IS NULL OR p_incident_id < 1 OR nullif(btrim(p_condition_key), '') IS NULL
      OR nullif(btrim(p_actor_user_id), '') IS NULL OR nullif(btrim(p_reason), '') IS NULL
      OR length(btrim(p_reason)) < 3 OR length(btrim(p_reason)) > 300
