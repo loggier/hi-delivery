@@ -62,13 +62,16 @@ export function LiveMap({
     libraries,
   });
 
-  const [selectedRider, setSelectedRider] = React.useState<Rider | null>(null);
   const [animatedRiders, setAnimatedRiders] = React.useState<Rider[]>(riders);
   const mapRef = useRef<google.maps.Map | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const previousRidersRef = useRef<Rider[]>(riders);
+  const operatorInteractedRef = useRef(false);
+  const ridersRef = useRef(riders);
+  ridersRef.current = riders;
   const isHistoryMode = Boolean(selectedRiderId && historyPath.length > 0);
+  const selectedRider = riders.find((rider) => rider.id === selectedRiderId) ?? null;
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -77,16 +80,6 @@ export function LiveMap({
   const onUnmount = useCallback(() => {
     mapRef.current = null;
   }, []);
-
-  useEffect(() => {
-    if (!selectedRiderId) {
-      setSelectedRider(null);
-      return;
-    }
-
-    const rider = riders.find((item) => item.id === selectedRiderId) ?? null;
-    setSelectedRider(rider);
-  }, [selectedRiderId, riders]);
 
   useEffect(() => {
     const previousById = new Map(previousRidersRef.current.map((rider) => [rider.id, rider]));
@@ -160,7 +153,13 @@ export function LiveMap({
   }, [riders]);
 
   useEffect(() => {
-    if (mapRef.current && selectedRider?.last_latitude && selectedRider?.last_longitude) {
+    const selectedRider = ridersRef.current.find((rider) => rider.id === selectedRiderId) ?? null;
+    if (
+      mapRef.current &&
+      selectedRider &&
+      typeof selectedRider.last_latitude === 'number' &&
+      typeof selectedRider.last_longitude === 'number'
+    ) {
       mapRef.current.panTo({
         lat: selectedRider.last_latitude,
         lng: selectedRider.last_longitude,
@@ -169,7 +168,7 @@ export function LiveMap({
         mapRef.current.setZoom(14);
       }
     }
-  }, [selectedRider]);
+  }, [selectedRiderId]);
 
   useEffect(() => {
     if (
@@ -183,6 +182,7 @@ export function LiveMap({
           new window.google.maps.LatLng(point.latitude, point.longitude),
         );
       });
+      if (operatorInteractedRef.current) return;
       mapRef.current.fitBounds(bounds);
       const listener = window.google.maps.event.addListener(mapRef.current, 'idle', function () {
         if (mapRef.current) {
@@ -195,14 +195,14 @@ export function LiveMap({
       return;
     }
 
-    if (mapRef.current && animatedRiders.length > 0) {
+    if (mapRef.current && animatedRiders.length > 0 && !operatorInteractedRef.current) {
       if (selectedRiderId) {
         return;
       }
       const bounds = new window.google.maps.LatLngBounds();
       let activeRidersFound = 0;
       animatedRiders.forEach(rider => {
-        if (rider.last_latitude && rider.last_longitude) {
+        if (typeof rider.last_latitude === 'number' && typeof rider.last_longitude === 'number') {
           bounds.extend(new window.google.maps.LatLng(rider.last_latitude, rider.last_longitude));
           activeRidersFound++;
         }
@@ -271,10 +271,11 @@ export function LiveMap({
       center={defaultCenter}
       zoom={12}
       options={mapOptions}
-      onClick={() => {
-        setSelectedRider(null);
-        onSelectRider?.(null);
-      }}
+       onClick={() => {
+         onSelectRider?.(null);
+       }}
+       onDragStart={() => { operatorInteractedRef.current = true; }}
+       onZoomChanged={() => { operatorInteractedRef.current = true; }}
       onLoad={onMapLoad}
       onUnmount={onUnmount}
     >
@@ -282,7 +283,7 @@ export function LiveMap({
         {(clusterer) => (
           <>
             {visibleRiders.map((rider) =>
-              rider.last_latitude && rider.last_longitude ? (
+              typeof rider.last_latitude === 'number' && typeof rider.last_longitude === 'number' ? (
                 (() => {
                   const hasActiveOrder = activeOrderRiderIds.has(rider.id);
                   const labelText = `${rider.first_name} ${rider.last_name}`;
@@ -306,8 +307,7 @@ export function LiveMap({
                         position={{ lat: effectiveLatitude, lng: effectiveLongitude }}
                         title={labelText}
                         onClick={() => {
-                          setSelectedRider(rider);
-                          onSelectRider?.(rider);
+                           onSelectRider?.(rider);
                         }}
                         icon={{
                           url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
@@ -328,7 +328,6 @@ export function LiveMap({
                           type="button"
                           className="pointer-events-auto"
                           onClick={() => {
-                            setSelectedRider(rider);
                             onSelectRider?.(rider);
                           }}
                         >
@@ -361,7 +360,6 @@ export function LiveMap({
                           type="button"
                           className="pointer-events-auto"
                           onClick={() => {
-                            setSelectedRider(rider);
                             onSelectRider?.(rider);
                           }}
                         >
@@ -441,7 +439,7 @@ export function LiveMap({
         </>
       ) : null}
 
-      {selectedRider && selectedRider.last_latitude && selectedRider.last_longitude && (
+      {selectedRider && typeof selectedRider.last_latitude === 'number' && typeof selectedRider.last_longitude === 'number' && (
         <OverlayViewF
           position={{
             lat: playbackPoint?.latitude ?? selectedRider.last_latitude,
