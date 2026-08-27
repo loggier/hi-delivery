@@ -61,6 +61,43 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Rider location ingestion failed:', error.message);
+      const legacySchemaErrorCodes = new Set([
+        'PGRST202',
+        'PGRST204',
+        '42P01',
+        '42703',
+        '42883',
+      ]);
+      if (error.code && legacySchemaErrorCodes.has(error.code)) {
+        const latestPoint = parsed.data.points.reduce((latest, point) =>
+          point.recorded_at > latest.recorded_at ? point : latest,
+        );
+        const { error: fallbackError } = await supabaseAdmin
+          .from('riders')
+          .update({
+            last_latitude: latestPoint.latitude,
+            last_longitude: latestPoint.longitude,
+            last_speed: latestPoint.speed_mps ?? null,
+            last_course: latestPoint.heading_deg ?? null,
+            last_location_update: latestPoint.recorded_at,
+          })
+          .eq('id', tokenPayload.riderId);
+
+        if (!fallbackError) {
+          return NextResponse.json(
+            {
+              batch_id: parsed.data.batch_id,
+              accepted: parsed.data.points.length,
+              duplicates: 0,
+              rejected: 0,
+              latest_applied: true,
+              acknowledged_event_ids: parsed.data.points.map((point) => point.event_id),
+              legacy_fallback: true,
+            },
+            { status: 200 },
+          );
+        }
+      }
       return NextResponse.json(
         {
           message: 'No se pudo registrar la ubicación.',
