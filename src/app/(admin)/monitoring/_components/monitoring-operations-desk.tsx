@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import type { MonitoringFilter, MonitoringIncident, MonitoringOrder, MonitoringRider } from '@/lib/monitoring/types';
+import { api } from '@/lib/api';
+import type { MonitoringFilter, MonitoringIncident, MonitoringOrder } from '@/lib/monitoring/types';
 import { useMonitoringController, type MonitoringKpi, type MonitoringSelection } from '../_hooks/use-monitoring-controller';
 import { ActiveOrdersTable } from './active-orders-table';
 import { ContextDrawer } from './context-drawer';
@@ -15,7 +16,6 @@ import { MonitoringFilters } from './monitoring-filters';
 import { OperationsMap } from './operations-map';
 import { OperationsSummary, type MonitoringKpiCardKey } from './operations-summary';
 import { RiderHistoryPanel, type RiderHistoryPoint } from './rider-history-panel';
-import { SensitiveActionDialog } from './sensitive-action-dialog';
 
 type Mode = 'live' | 'history';
 
@@ -47,10 +47,10 @@ export function MonitoringOperationsDesk() {
   const [historyEndAt, setHistoryEndAt] = useState(() => new Date().toISOString().slice(0, 16));
   const [historyPoints, setHistoryPoints] = useState<RiderHistoryPoint[]>([]);
   const [playbackPoint, setPlaybackPoint] = useState<RiderHistoryPoint | null>(null);
-  const [sensitiveActionOpen, setSensitiveActionOpen] = useState(false);
   const [resetCameraToken, setResetCameraToken] = useState(0);
 
   const snapshot = controller.snapshot;
+  const { data: zones = [] } = api.zones.useGetAll({ status: 'ACTIVE' });
   const orders = useMemo(() => snapshot?.orders ?? [], [snapshot?.orders]);
   const riders = controller.riders;
   const incidents = useMemo(() => snapshot?.incidents ?? [], [snapshot?.incidents]);
@@ -58,12 +58,13 @@ export function MonitoringOperationsDesk() {
   const selectedIncident = selection?.kind === 'incident'
     ? incidents.find((incident) => String(incident.id) === selection.id) ?? null
     : null;
-  const selectedRider = selection?.kind === 'rider'
-    ? riders.find((rider) => rider.id === selection.id) ?? null
-    : null;
-  const selectedOrder = selection?.kind === 'order'
-    ? orders.find((order) => order.id === selection.id) ?? null
-    : null;
+  const selectedOrderId = selectedIncident?.orderId ?? (selection?.kind === 'order' ? selection.id : null);
+  const selectedOrder = selectedOrderId ? orders.find((order) => order.id === selectedOrderId) ?? null : null;
+  const selectedRiderId = selectedIncident?.riderId
+    ?? (selection?.kind === 'rider' ? selection.id : null)
+    ?? selectedOrder?.riderId
+    ?? null;
+  const selectedRider = selectedRiderId ? riders.find((rider) => rider.id === selectedRiderId) ?? null : null;
 
   useEffect(() => {
     if (!selection || !snapshot) return;
@@ -72,8 +73,12 @@ export function MonitoringOperationsDesk() {
       : selection.kind === 'order'
         ? orders.some((order) => order.id === selection.id)
         : riders.some((rider) => rider.id === selection.id);
-    if (!exists) controller.clearSelection();
-  }, [controller, incidents, orders, riders, selection, snapshot]);
+    const associationsExist = selection.kind !== 'incident' || (
+      (!selectedIncident?.orderId || orders.some((order) => order.id === selectedIncident.orderId))
+      && (!selectedIncident?.riderId || riders.some((rider) => rider.id === selectedIncident.riderId))
+    );
+    if (!exists || !associationsExist) controller.clearSelection();
+  }, [controller, incidents, orders, riders, selectedIncident?.orderId, selectedIncident?.riderId, selection, snapshot]);
 
   const mapOrders = useMemo(() => orders as MonitoringOrder[], [orders]);
   const updateFilter = (next: Partial<MonitoringFilter>) => controller.setFilter({ ...controller.filter, ...next });
@@ -97,7 +102,10 @@ export function MonitoringOperationsDesk() {
     incident: selectedIncident,
     onFocusMap: () => setResetCameraToken((token) => token + 1),
     onRequestLocation: selectedIncident?.riderId ? reportLocation : undefined,
-    onSensitiveAction: () => setSensitiveActionOpen(true),
+    selectedOrderId,
+    selectedRiderId,
+    orderZoneName: selectedOrder?.zoneId ? zones.find((zone) => zone.id === selectedOrder.zoneId)?.name : null,
+    riderZoneName: selectedRider?.zoneId ? zones.find((zone) => zone.id === selectedRider.zoneId)?.name : null,
   };
 
   return (
@@ -115,7 +123,7 @@ export function MonitoringOperationsDesk() {
         zone={filterValue(controller.filter, 'zoneId')}
         orderStatus={filterValue(controller.filter, 'orderStatus')}
         search={filterValue(controller.filter, 'search')}
-        zones={[]}
+        zones={zones}
         onPriorityChange={(value) => updateFilter(value === 'all' ? { risk: undefined } : { risk: value as MonitoringFilter['risk'] })}
         onZoneChange={(value) => updateFilter(value === 'all' ? { zoneId: undefined } : { zoneId: value })}
         onOrderStatusChange={(value) => updateFilter(value === 'all' ? { orderStatus: undefined } : { orderStatus: value as MonitoringFilter['orderStatus'] })}
@@ -126,13 +134,12 @@ export function MonitoringOperationsDesk() {
       {snapshot ? <>
         <div className="grid min-h-[32rem] grid-cols-1 gap-3 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(24rem,2fr)_minmax(17rem,1fr)]">
           <IncidentQueue incidents={incidents} selectedId={selectedIncident?.id ?? null} onSelect={(incident: MonitoringIncident) => controller.selectIncident(String(incident.id))} isLoading={false} />
-          <div className="min-h-[24rem] overflow-hidden rounded-lg border bg-card"><OperationsMap riders={riders} orders={mapOrders} incidents={incidents} selectedEntity={selection} onSelectEntity={selectEntity} resetCameraToken={resetCameraToken} historyPath={historyPoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))} playbackPoint={playbackPoint ? { latitude: playbackPoint.latitude, longitude: playbackPoint.longitude, recordedAt: playbackPoint.recorded_at, speed: playbackPoint.speed, course: playbackPoint.course } : null} /></div>
+          <div className="min-h-[24rem] overflow-hidden rounded-lg border bg-card"><OperationsMap riders={riders} orders={mapOrders} incidents={incidents} selectedEntity={selection} selectedOrderId={selectedOrderId} selectedRiderId={selectedRiderId} onSelectEntity={selectEntity} resetCameraToken={resetCameraToken} historyPath={historyPoints.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))} playbackPoint={playbackPoint ? { latitude: playbackPoint.latitude, longitude: playbackPoint.longitude, recordedAt: playbackPoint.recorded_at, speed: playbackPoint.speed, course: playbackPoint.course } : null} /></div>
           {narrow ? <ContextDrawer open={Boolean(selection)} onOpenChange={(open) => { if (!open) controller.clearSelection(); }} {...contextProps} /> : <ContextPanel {...contextProps} />}
         </div>
-        <ActiveOrdersTable orders={orders} selectedOrderId={selectedOrder?.id} onSelectOrder={(id) => controller.selectOrder(id)} />
+        <ActiveOrdersTable orders={orders} selectedOrderId={selectedOrderId} onSelectOrder={(id) => controller.selectOrder(id)} />
         {mode === 'history' ? <RiderHistoryPanel rider={selectedRider} startAt={historyStartAt} endAt={historyEndAt} onStartAtChange={setHistoryStartAt} onEndAtChange={setHistoryEndAt} onPointsChange={setHistoryPoints} onPlaybackPointChange={setPlaybackPoint} /> : null}
       </> : null}
-      <SensitiveActionDialog open={sensitiveActionOpen} actionLabel="Cambiar estado" entity={selectedIncident ? `incidente #${selectedIncident.id}` : 'este incidente'} before="sin cambios" after="pendiente de Task 12" onCancel={() => setSensitiveActionOpen(false)} onConfirm={() => { setSensitiveActionOpen(false); toast({ title: 'Acción no disponible', description: 'El cambio de estado se habilitará en Task 12.' }); }} />
     </div>
   );
 }

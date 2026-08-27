@@ -14,6 +14,7 @@ vi.mock('@/app/(admin)/monitoring/_components/active-orders-table', () => ({ Act
 vi.mock('@/app/(admin)/monitoring/_components/context-panel', () => ({ ContextPanel: () => <div data-testid="desktop-context">desktop</div> }));
 vi.mock('@/app/(admin)/monitoring/_components/context-drawer', () => ({ ContextDrawer: ({ open }: { open: boolean }) => open ? <div data-testid="mobile-context">mobile</div> : null }));
 vi.mock('@/app/(admin)/monitoring/_components/rider-history-panel', () => ({ RiderHistoryPanel: () => <div>history</div> }));
+vi.mock('@/lib/api', () => ({ api: { zones: { useGetAll: () => ({ data: [] }) } } }));
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 

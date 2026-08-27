@@ -13,7 +13,7 @@ const defaultCenter = { lat: 19.4326, lng: -99.1332 };
 type LocatedOrder = MonitoringOrder & { pickup?: { latitude: number; longitude: number }; delivery?: { latitude: number; longitude: number }; path?: readonly { latitude: number; longitude: number }[] };
 type LocatedIncident = MonitoringIncident & { latitude?: number; longitude?: number };
 export type OperationsPlaybackPoint = { latitude: number; longitude: number; recordedAt: string; speed?: number | null; course?: number | null };
-export type OperationsMapProps = { riders: readonly MonitoringRiderWithLocation[]; orders: readonly LocatedOrder[]; incidents?: readonly LocatedIncident[]; selectedEntity: MonitoringSelection | null; onSelectEntity: (selection: MonitoringSelection | null) => void; historyPath?: readonly { latitude: number; longitude: number }[]; playbackPoint?: OperationsPlaybackPoint | null; resetCameraToken?: number };
+export type OperationsMapProps = { riders: readonly MonitoringRiderWithLocation[]; orders: readonly LocatedOrder[]; incidents?: readonly LocatedIncident[]; selectedEntity: MonitoringSelection | null; selectedOrderId?: string | null; selectedRiderId?: string | null; onSelectEntity: (selection: MonitoringSelection | null) => void; historyPath?: readonly { latitude: number; longitude: number }[]; playbackPoint?: OperationsPlaybackPoint | null; resetCameraToken?: number };
 
 export function isValidCoordinate(latitude: unknown, longitude: unknown): latitude is number {
   return typeof latitude === 'number' && Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 && typeof longitude === 'number' && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180;
@@ -25,7 +25,7 @@ export function applyFreshLocationPatch(rider: MonitoringRiderWithLocation, patc
   return Number.isFinite(incoming) && (!Number.isFinite(current) || incoming >= current) ? { ...rider, ...patch } : rider;
 }
 
-export function OperationsMap({ riders, orders, incidents = [], selectedEntity, onSelectEntity, historyPath = [], playbackPoint = null, resetCameraToken = 0 }: OperationsMapProps) {
+export function OperationsMap({ riders, orders, incidents = [], selectedEntity, selectedOrderId: _selectedOrderId = null, selectedRiderId: _selectedRiderId = null, onSelectEntity, historyPath = [], playbackPoint = null, resetCameraToken = 0 }: OperationsMapProps) {
   const { isLoaded, loadError } = useLoadScript({ id: GOOGLE_MAPS_LOADER_ID, googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '', libraries });
   const mapRef = useRef<google.maps.Map | null>(null); const interactedRef = useRef(false); const lastResetRef = useRef(resetCameraToken); const [animatedRiders, setAnimatedRiders] = useState(riders); const previousRidersRef = useRef(riders); const ridersRef = useRef(riders); const ordersRef = useRef(orders); ridersRef.current = riders; ordersRef.current = orders;
   const options = useMemo(() => ({ disableDefaultUI: true, zoomControl: true }), []);
