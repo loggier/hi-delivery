@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
 import { AdminSessionError, requireAdminOperationSession } from '@/lib/auth/admin-session';
-import { buildMonitoringSnapshot, parseMonitoringFilter } from '@/lib/monitoring/snapshot-service';
+import { buildMonitoringSnapshot, MonitoringSnapshotError, parseMonitoringFilter } from '@/lib/monitoring/snapshot-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +26,7 @@ async function handleSnapshot(request: Request): Promise<Response> {
   } catch (error) {
     if (error instanceof AdminSessionError) return NextResponse.json({ message: error.message }, { status: error.status });
     if (error instanceof ZodError || (error instanceof Error && error.message === 'invalid filter')) return NextResponse.json({ message: 'Filtros inválidos.' }, { status: 400 });
-    return NextResponse.json({ message: 'No se pudo actualizar la operación.' }, { status: 500 });
+    return NextResponse.json({ message: 'No se pudo actualizar la operación.', code: error instanceof MonitoringSnapshotError ? error.code : 'unknown' }, { status: 500 });
   }
 }
 

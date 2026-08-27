@@ -2,18 +2,20 @@
 
 import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import type { MonitoringFilter, MonitoringSnapshot, MonitoringUiHealth } from '@/lib/monitoring/types';
+import { MONITORING_SNAPSHOT_STAGES, type MonitoringFilter, type MonitoringSnapshot, type MonitoringSnapshotStage, type MonitoringUiHealth } from '@/lib/monitoring/types';
 
 export const MONITORING_SNAPSHOT_REFETCH_INTERVAL = 15_000;
 export const MONITORING_SNAPSHOT_RETRY = 1;
 
 export class MonitoringSnapshotError extends Error {
   readonly status: number | null;
+  readonly code: MonitoringSnapshotStage | null;
 
-  constructor(message: string, status: number | null = null) {
+  constructor(message: string, status: number | null = null, code: MonitoringSnapshotStage | null = null) {
     super(message);
     this.name = 'MonitoringSnapshotError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -25,6 +27,10 @@ function isSnapshot(value: unknown): value is MonitoringSnapshot {
     && typeof item.thresholds === 'object' && item.thresholds !== null
     && typeof item.kpis === 'object' && item.kpis !== null
     && Array.isArray(item.incidents) && Array.isArray(item.orders) && Array.isArray(item.riders);
+}
+
+function isSnapshotStage(value: unknown): value is MonitoringSnapshotStage {
+  return typeof value === 'string' && MONITORING_SNAPSHOT_STAGES.includes(value as MonitoringSnapshotStage);
 }
 
 export async function fetchMonitoringSnapshot(filter: MonitoringFilter): Promise<MonitoringSnapshot> {
@@ -49,10 +55,13 @@ export async function fetchMonitoringSnapshot(filter: MonitoringFilter): Promise
   }
 
   if (!response.ok) {
+    const code = payload && typeof payload === 'object' && isSnapshotStage((payload as Record<string, unknown>).code)
+      ? (payload as Record<string, unknown>).code as MonitoringSnapshotStage
+      : null;
     const message = payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).message === 'string'
       ? (payload as Record<string, unknown>).message as string
       : 'No se pudo cargar el monitoreo.';
-    throw new MonitoringSnapshotError(message, response.status);
+    throw new MonitoringSnapshotError(message, response.status, code);
   }
   if (!isSnapshot(payload)) throw new MonitoringSnapshotError('La respuesta de monitoreo no es válida.', response.status);
   return payload;

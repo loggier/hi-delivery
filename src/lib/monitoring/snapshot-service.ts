@@ -13,6 +13,7 @@ import type {
   MonitoringOrder,
   MonitoringRider,
   MonitoringSnapshot,
+  MonitoringSnapshotStage,
   MonitoringThresholds,
   RiderMovementWindow,
 } from './types';
@@ -63,31 +64,61 @@ export type BuildMonitoringSnapshotInput = {
 
 const FALLBACKS = { unassignedCriticalMinutes: 7, gpsStaleCriticalMinutes: 10, stoppedInTransitMinutes: 15, meaningfulMovementMeters: 50 } as const;
 
+export class MonitoringSnapshotError extends Error {
+  readonly code: MonitoringSnapshotStage;
+  readonly stage: MonitoringSnapshotStage;
+
+  constructor(stage: MonitoringSnapshotStage) {
+    super('Monitoring snapshot failed');
+    this.name = 'MonitoringSnapshotError';
+    this.code = stage;
+    this.stage = stage;
+  }
+}
+
+async function atSnapshotStage<T>(stage: MonitoringSnapshotStage, operation: () => Promise<T> | T): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof MonitoringSnapshotError) throw error;
+    throw new MonitoringSnapshotError(stage);
+  }
+}
+
 export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInput = {}): Promise<MonitoringSnapshot> {
+  try {
+    return await buildMonitoringSnapshotInternal(input);
+  } catch (error) {
+    if (error instanceof MonitoringSnapshotError) throw error;
+    throw new MonitoringSnapshotError('unknown');
+  }
+}
+
+async function buildMonitoringSnapshotInternal(input: BuildMonitoringSnapshotInput): Promise<MonitoringSnapshot> {
   const now = input.now ?? new Date();
-  if (!Number.isFinite(now.getTime())) throw new Error('Invalid monitoring snapshot timestamp');
+  if (!Number.isFinite(now.getTime())) throw new MonitoringSnapshotError('unknown');
   const repositories = input.repositories ?? createSupabaseSnapshotRepositories();
   const health = { schema: 'healthy' as 'healthy' | 'degraded', disabledRules: [] as string[] };
-  const settingResult = await repositories.fetchSettings();
+  const settingResult = await atSnapshotStage('settings', () => repositories.fetchSettings());
   let thresholds: MonitoringThresholds;
   if (settingResult.error) {
-    if (!isSchemaError(settingResult.error)) throw new Error('Unable to load monitoring snapshot');
+    if (!isSchemaError(settingResult.error)) throw new MonitoringSnapshotError('settings');
     thresholds = { ...FALLBACKS, source: 'fallback' };
     health.schema = 'degraded';
   } else {
-    thresholds = readThresholds(settingResult.data);
+    thresholds = await atSnapshotStage('settings', () => readThresholds(settingResult.data));
     if (thresholds.source === 'fallback') health.schema = 'degraded';
   }
 
-  const orderResult = await repositories.fetchActiveOrders();
-  if (orderResult.error || !orderResult.data) throw new Error('Unable to load monitoring snapshot');
+  const orderResult = await atSnapshotStage('orders', () => repositories.fetchActiveOrders());
+  if (orderResult.error || !orderResult.data) throw new MonitoringSnapshotError('orders');
   addDegradedRules(health, orderResult.schemaDegraded);
-  const orders = orderResult.data.map(normalizeOrder).filter((order) => !isTerminalOrderStatus(order.status));
+  const orders = await atSnapshotStage('orders', () => orderResult.data.map(normalizeOrder).filter((order) => !isTerminalOrderStatus(order.status)));
   const assignedRiderIds = [...new Set(orders.flatMap((order) => order.riderId ? [order.riderId] : []))];
-  const riderResult = await repositories.fetchRelevantRiders(assignedRiderIds);
-  if (riderResult.error || !riderResult.data) throw new Error('Unable to load monitoring snapshot');
+  const riderResult = await atSnapshotStage('riders', () => repositories.fetchRelevantRiders(assignedRiderIds));
+  if (riderResult.error || !riderResult.data) throw new MonitoringSnapshotError('riders');
   addDegradedRules(health, riderResult.schemaDegraded);
-  const riders = riderResult.data.map(normalizeRider);
+  const riders = await atSnapshotStage('riders', () => riderResult.data.map(normalizeRider));
   const inTransitRiderIds = [...new Set(orders.filter((order) => order.riderId && isInTransitStatus(order.status)).map((order) => order.riderId!))];
   let movementByRiderId: Record<string, RiderMovementWindow | undefined> = {};
   const evaluatedTypes = new Set<MonitoringConditionType>(['unassigned', 'gps-stale']);
@@ -104,9 +135,9 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
   }
   if (inTransitRiderIds.length > 0) {
     const historyWindowMinutes = Math.max(1, Math.max(thresholds.stoppedInTransitMinutes, thresholds.gpsStaleCriticalMinutes));
-    const movementResult = await repositories.fetchMovementHistory(inTransitRiderIds, new Date(now.getTime() - historyWindowMinutes * 60_000).toISOString());
+    const movementResult = await atSnapshotStage('movement', () => repositories.fetchMovementHistory(inTransitRiderIds, new Date(now.getTime() - historyWindowMinutes * 60_000).toISOString()));
     if (movementResult.error) {
-      if (!isSchemaError(movementResult.error)) throw new Error('Unable to load monitoring snapshot');
+      if (!isSchemaError(movementResult.error)) throw new MonitoringSnapshotError('movement');
       health.schema = 'degraded';
       addDegradedRules(health, ['stopped-in-transit']);
     } else if (movementResult.limitReached || !movementResult.data) {
@@ -114,16 +145,16 @@ export async function buildMonitoringSnapshot(input: BuildMonitoringSnapshotInpu
       movementByRiderId = {};
       // Do not evaluate a potentially incomplete movement window as a P1.
     } else {
-      movementByRiderId = buildMovementWindows(movementResult.data, inTransitRiderIds);
+      movementByRiderId = await atSnapshotStage('movement', () => buildMovementWindows(movementResult.data, inTransitRiderIds));
       evaluatedTypes.add('stopped-in-transit');
     }
   } else evaluatedTypes.add('stopped-in-transit');
 
   const conditions = detectMonitoringConditions({ orders, riders, movementByRiderId }, thresholds, now)
     .filter((condition) => evaluatedTypes.has(condition.type));
-  const incidents = await repositories.reconcileIncidents(conditions, [...evaluatedTypes], now);
+  const incidents = await atSnapshotStage('incidents', () => repositories.reconcileIncidents(conditions, [...evaluatedTypes], now));
   const kpis = computeMonitoringKpis(orders, riders, conditions, thresholds, now);
-  const filtered = applyFilter(orders, riders, incidents, input.filter, thresholds, now);
+  const filtered = await atSnapshotStage('filters', () => applyFilter(orders, riders, incidents, input.filter, thresholds, now));
   return { serverTimestamp: now.toISOString(), dataHealth: health, thresholds, kpis, incidents: filtered.incidents, orders: filtered.orders, riders: filtered.riders };
 }
 

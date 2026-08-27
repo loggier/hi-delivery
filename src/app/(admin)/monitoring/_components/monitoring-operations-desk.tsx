@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import type { MonitoringFilter, MonitoringIncident, MonitoringOrder } from '@/lib/monitoring/types';
+import { MonitoringSnapshotError } from '../_hooks/use-monitoring-snapshot';
 import { useMonitoringController, type MonitoringKpi, type MonitoringSelection } from '../_hooks/use-monitoring-controller';
 import { ActiveOrdersTable } from './active-orders-table';
 import { ContextDrawer } from './context-drawer';
@@ -57,6 +58,9 @@ export function MonitoringOperationsDesk() {
   const orders = useMemo(() => snapshot?.orders ?? [], [snapshot?.orders]);
   const riders = controller.riders;
   const incidents = useMemo(() => snapshot?.incidents ?? [], [snapshot?.incidents]);
+  const snapshotFailure = controller.error instanceof MonitoringSnapshotError && controller.error.status === 500
+    ? controller.error.code
+    : null;
   const selection = controller.selection;
   const selectedIncident = selection?.kind === 'incident'
     ? incidents.find((incident) => String(incident.id) === selection.id) ?? null
@@ -146,7 +150,7 @@ export function MonitoringOperationsDesk() {
         onSearchChange={(value) => updateFilter({ search: value || undefined })}
       />
       {!snapshot && controller.isLoading ? <div role="status" className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Cargando datos de monitoreo...</div> : null}
-      {!snapshot && controller.isError ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-8 text-center text-sm text-red-800">No hay datos de monitoreo disponibles.</div> : null}
+      {!snapshot && controller.isError ? <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-8 text-center text-sm text-red-800">{snapshotFailure ? `No se pudo actualizar la operación (etapa: ${snapshotFailure})` : 'No hay datos de monitoreo disponibles.'}</div> : null}
       {snapshot ? <>
         <div className="grid min-h-[32rem] grid-cols-1 gap-3 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(24rem,2fr)_minmax(17rem,1fr)]">
           <IncidentQueue incidents={incidents} selectedId={selectedIncident?.id ?? null} onSelect={(incident: MonitoringIncident) => controller.selectIncident(String(incident.id))} isLoading={false} />

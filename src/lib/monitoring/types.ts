@@ -1,5 +1,17 @@
 import type { OrderStatus } from '@/types';
 
+export const MONITORING_SNAPSHOT_STAGES = [
+  'settings',
+  'orders',
+  'riders',
+  'movement',
+  'incidents',
+  'filters',
+  'unknown',
+] as const;
+
+export type MonitoringSnapshotStage = (typeof MONITORING_SNAPSHOT_STAGES)[number];
+
 export type MonitoringPriority = 'P1' | 'P2' | 'P3';
 
 export type MonitoringIncidentStatus = 'open' | 'attending' | 'resolved';
