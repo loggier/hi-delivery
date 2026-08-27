@@ -100,13 +100,15 @@ CREATE TABLE IF NOT EXISTS grupohubs.monitoring_incidents (
 CREATE TABLE IF NOT EXISTS grupohubs.monitoring_current_conditions (
   condition_key text PRIMARY KEY,
   incident_type varchar(64) NOT NULL,
+  detected_at timestamptz NOT NULL,
   order_id varchar(255),
   rider_id varchar(255),
   last_detected_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL
 );
 ALTER TABLE grupohubs.monitoring_current_conditions
-  ADD COLUMN IF NOT EXISTS incident_type varchar(64) NOT NULL DEFAULT 'unknown';
+  ADD COLUMN IF NOT EXISTS incident_type varchar(64) NOT NULL DEFAULT 'unknown',
+  ADD COLUMN IF NOT EXISTS detected_at timestamptz NOT NULL DEFAULT clock_timestamp();
 
 CREATE OR REPLACE FUNCTION grupohubs.prevent_monitoring_incident_reopen()
 RETURNS trigger
@@ -170,6 +172,14 @@ BEGIN
   IF p_conditions IS NULL OR jsonb_typeof(p_conditions) <> 'array' THEN
     RAISE EXCEPTION 'p_conditions must be a JSON array' USING ERRCODE = '22023';
   END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_conditions) AS entry(condition)
+    WHERE condition ->> 'detected_at' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$'
+      OR (condition ->> 'detected_at')::timestamptz > p_now
+  ) THEN
+    RAISE EXCEPTION 'p_conditions contains an invalid detection timestamp' USING ERRCODE = '22023';
+  END IF;
 
   IF p_evaluated_types IS NULL OR EXISTS (
     SELECT 1
@@ -197,6 +207,7 @@ BEGIN
       OR jsonb_typeof(condition -> 'condition_key') IS DISTINCT FROM 'string'
       OR nullif(btrim(condition ->> 'condition_key'), '') IS NULL
       OR condition ->> 'incident_type' IS NULL
+      OR condition ->> 'detected_at' IS NULL
       OR condition ->> 'incident_type' <> ALL (ARRAY[
         'unassigned',
         'gps-stale',
@@ -257,7 +268,8 @@ BEGIN
       condition ->> 'priority' AS priority,
       nullif(condition ->> 'order_id', '') AS order_id,
       nullif(condition ->> 'rider_id', '') AS rider_id,
-      condition -> 'condition_metadata' AS condition_metadata
+       condition -> 'condition_metadata' AS condition_metadata,
+       condition ->> 'detected_at' AS detected_at
     FROM jsonb_array_elements(p_conditions) AS entry(condition)
   ),
   deduplicated_conditions AS (
@@ -267,7 +279,8 @@ BEGIN
       priority,
       order_id,
       rider_id,
-      condition_metadata
+       condition_metadata
+       ,detected_at
     FROM parsed_conditions
     ORDER BY
       condition_key,
@@ -281,21 +294,21 @@ BEGIN
     rider_id,
     order_id,
     status,
-    first_detected_at,
-    last_detected_at,
-    condition_metadata,
+     first_detected_at,
+     last_detected_at,
+     condition_metadata,
     created_at,
     updated_at
   )
-  SELECT
+   SELECT
     condition_key,
     incident_type,
     priority,
     rider_id,
     order_id,
     'open',
-    p_now,
-    p_now,
+     detected_at::timestamptz,
+     detected_at::timestamptz,
     condition_metadata,
     p_now,
     p_now
@@ -350,7 +363,7 @@ BEGIN
     );
 
   DELETE FROM grupohubs.monitoring_current_conditions AS current_condition
-  WHERE current_condition.last_detected_at <= p_now
+  WHERE current_condition.detected_at <= p_now
     AND EXISTS (
       SELECT 1
       FROM unnest(p_evaluated_types) AS evaluated_type
@@ -362,23 +375,24 @@ BEGIN
       WHERE condition ->> 'condition_key' = current_condition.condition_key
     );
 
-  INSERT INTO grupohubs.monitoring_current_conditions (condition_key, incident_type, order_id, rider_id, last_detected_at, updated_at)
-  SELECT condition ->> 'condition_key', condition ->> 'incident_type', nullif(condition ->> 'order_id', ''), nullif(condition ->> 'rider_id', ''), p_now, p_now
+  INSERT INTO grupohubs.monitoring_current_conditions (condition_key, incident_type, detected_at, order_id, rider_id, last_detected_at, updated_at)
+  SELECT condition ->> 'condition_key', condition ->> 'incident_type', condition ->> 'detected_at', nullif(condition ->> 'order_id', ''), nullif(condition ->> 'rider_id', ''), condition ->> 'detected_at', p_now
   FROM jsonb_array_elements(p_conditions) AS entry(condition)
   WHERE NOT EXISTS (
     SELECT 1
     FROM grupohubs.monitoring_incidents AS resolved_incident
     WHERE resolved_incident.condition_key = condition ->> 'condition_key'
       AND resolved_incident.status = 'resolved'
-      AND resolved_incident.resolved_at >= p_now
+      AND resolved_incident.resolved_at >= (condition ->> 'detected_at')::timestamptz
   )
   ON CONFLICT (condition_key) DO UPDATE
   SET incident_type = EXCLUDED.incident_type,
       order_id = EXCLUDED.order_id,
       rider_id = EXCLUDED.rider_id,
+      detected_at = GREATEST(grupohubs.monitoring_current_conditions.detected_at, EXCLUDED.detected_at),
       last_detected_at = GREATEST(grupohubs.monitoring_current_conditions.last_detected_at, EXCLUDED.last_detected_at),
       updated_at = GREATEST(grupohubs.monitoring_current_conditions.updated_at, EXCLUDED.updated_at)
-  WHERE EXCLUDED.last_detected_at >= grupohubs.monitoring_current_conditions.last_detected_at;
+  WHERE EXCLUDED.detected_at >= grupohubs.monitoring_current_conditions.detected_at;
 
   RETURN QUERY
   SELECT active_incident.*

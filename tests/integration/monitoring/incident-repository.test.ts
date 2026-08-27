@@ -67,6 +67,7 @@ describe('Supabase incident store batch reconciliation', () => {
             incident_type: 'gps-stale',
             priority: 'P1',
             status: 'open',
+            detected_at: now,
             order_id: 'order-1',
             rider_id: 'rider-1',
             condition_metadata: { attempts: 2 },

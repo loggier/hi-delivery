@@ -38,6 +38,7 @@ type RpcCondition = {
   incident_type: MonitoringConditionType;
   priority: MonitoringPriority;
   status: 'open';
+  detected_at: string;
   order_id: string | null;
   rider_id: string | null;
   condition_metadata: MonitoringConditionMetadata;
@@ -215,6 +216,7 @@ function deduplicateConditions(
 }
 
 function assertCondition(condition: DetectedCondition): void {
+  assertIsoTimestamp(condition.detectedAt, 'Invalid monitoring condition timestamp');
   if (
     typeof condition.key !== 'string' ||
     condition.key.trim() === '' ||
@@ -245,6 +247,7 @@ function toRpcCondition(condition: DetectedCondition): RpcCondition {
     incident_type: condition.type,
     priority: condition.priority,
     status: 'open',
+    detected_at: condition.detectedAt,
     order_id: condition.orderId,
     rider_id: condition.riderId,
     condition_metadata: sanitizeMetadata(condition.metadata),
