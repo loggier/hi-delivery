@@ -128,7 +128,7 @@ describe('OperationsMap', () => {
     const previous = { ...rider, last_latitude: 19.4, last_longitude: -99.1 } as unknown as Rider;
     const incoming = { ...previous, last_course: 180, is_active_for_orders: false, last_location_update: '2026-08-26T10:01:00.000Z' };
     const changed = changedRiderIds([previous], [incoming]);
-    expect(changed).toHaveLength(0);
+    expect(changed.size).toBe(0);
     expect(interpolateRiders([previous], [incoming], changed, 0.5)[0]).toMatchObject({ last_course: 180, is_active_for_orders: false, last_location_update: '2026-08-26T10:01:00.000Z' });
   });
 });
