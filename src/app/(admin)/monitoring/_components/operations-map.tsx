@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, MarkerClustererF, MarkerF, PolylineF, useLoadScript } from '@react-google-maps/api';
 import type { MonitoringIncident, MonitoringOrder, MonitoringRider } from '@/lib/monitoring/types';
 import type { MonitoringSelection, MonitoringRiderWithLocation } from '../_hooks/use-monitoring-controller';
@@ -26,18 +26,23 @@ export function applyFreshLocationPatch(rider: MonitoringRiderWithLocation, patc
 
 export function OperationsMap({ riders, orders, incidents = [], selectedEntity, onSelectEntity, historyPath = [], resetCameraToken = 0 }: OperationsMapProps) {
   const { isLoaded, loadError } = useLoadScript({ id: GOOGLE_MAPS_LOADER_ID, googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '', libraries });
-  const mapRef = useRef<google.maps.Map | null>(null); const interactedRef = useRef(false); const lastResetRef = useRef(resetCameraToken); const [animatedRiders, setAnimatedRiders] = useState(riders); const previousRidersRef = useRef(riders);
+  const mapRef = useRef<google.maps.Map | null>(null); const interactedRef = useRef(false); const lastResetRef = useRef(resetCameraToken); const [animatedRiders, setAnimatedRiders] = useState(riders); const previousRidersRef = useRef(riders); const ridersRef = useRef(riders); const ordersRef = useRef(orders); ridersRef.current = riders; ordersRef.current = orders;
   const options = useMemo(() => ({ disableDefaultUI: true, zoomControl: true }), []);
   const clusterOptions = useMemo(() => ({ gridSize: 56, maxZoom: 16, minimumClusterSize: 2 }), []);
-  const onLoad = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-    if (riders.length + orders.length === 0) return;
+  const fitAll = useCallback(() => {
+    const map = mapRef.current; if (!map) return;
+    const currentRiders = ridersRef.current; const currentOrders = ordersRef.current;
+    if (currentRiders.length + currentOrders.length === 0) return;
     const bounds = new window.google.maps.LatLngBounds();
     let points = 0;
-    riders.forEach((rider) => { if (isValidCoordinate(rider.latitude, rider.longitude) && typeof rider.longitude === 'number') { bounds.extend({ lat: rider.latitude, lng: rider.longitude }); points += 1; } });
-    orders.forEach((order) => { if (order.pickup && isValidCoordinate(order.pickup.latitude, order.pickup.longitude)) { bounds.extend({ lat: order.pickup.latitude, lng: order.pickup.longitude }); points += 1; } });
+    currentRiders.forEach((rider) => { if (isValidCoordinate(rider.latitude, rider.longitude) && typeof rider.longitude === 'number') { bounds.extend({ lat: rider.latitude, lng: rider.longitude }); points += 1; } });
+    currentOrders.forEach((order) => { if (order.pickup && isValidCoordinate(order.pickup.latitude, order.pickup.longitude)) { bounds.extend({ lat: order.pickup.latitude, lng: order.pickup.longitude }); points += 1; } });
     if (points > 0) map.fitBounds(bounds);
-  }, [orders, riders]);
+  }, []);
+  const onLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+    fitAll();
+  }, [fitAll]);
   const refocus = useCallback((selection: MonitoringSelection | null) => {
     const map = mapRef.current; if (!map) return;
     const rider = selection?.kind === 'rider' ? riders.find((item) => item.id === selection.id) : undefined;
@@ -47,14 +52,14 @@ export function OperationsMap({ riders, orders, incidents = [], selectedEntity, 
     if (point) { map.panTo(point); if ((map.getZoom() ?? 0) < 14) map.setZoom(14); }
   }, [incidents, orders, riders]);
   useEffect(() => { if (selectedEntity) refocus(selectedEntity); }, [refocus, selectedEntity]);
-  useEffect(() => { if (resetCameraToken !== lastResetRef.current) { lastResetRef.current = resetCameraToken; interactedRef.current = false; refocus(selectedEntity); } }, [refocus, resetCameraToken, selectedEntity]);
+  useEffect(() => { if (resetCameraToken !== lastResetRef.current) { lastResetRef.current = resetCameraToken; interactedRef.current = false; fitAll(); if (selectedEntity) refocus(selectedEntity); } }, [fitAll, refocus, resetCameraToken, selectedEntity]);
   useEffect(() => { const previous = new Map(previousRidersRef.current.map((rider) => [rider.id, rider])); const changed = riders.some((rider) => { const old = previous.get(rider.id); return old?.latitude !== rider.latitude || old?.longitude !== rider.longitude; }); setAnimatedRiders(riders); if (changed) previousRidersRef.current = riders; }, [riders]);
   if (loadError) return <div role="alert">Error al cargar el mapa</div>;
   if (!isLoaded) return <Skeleton className="h-full w-full rounded-lg" />;
   const visibleOrders = orders.filter((order) => order.id === selectedEntity?.id || selectedEntity?.kind !== 'order' ? true : order.id === selectedEntity.id);
-  return <div className="h-full w-full"><GoogleMap mapContainerStyle={mapContainerStyle} center={defaultCenter} zoom={12} options={options} onLoad={onLoad} onUnmount={() => { mapRef.current = null; }} onDragStart={() => { interactedRef.current = true; }} onZoomChanged={() => { interactedRef.current = true; }} onClick={() => onSelectEntity(null)}>
+  return <div className="h-full w-full"><GoogleMap mapContainerStyle={mapContainerStyle} center={defaultCenter} zoom={12} options={options} onLoad={onLoad} onUnmount={() => { mapRef.current = null; }} onDragStart={() => { interactedRef.current = true; }} onZoomChanged={() => { interactedRef.current = true; }} onClick={() => { interactedRef.current = true; onSelectEntity(null); }}>
     <MarkerClustererF options={clusterOptions}>{(clusterer) => <>{animatedRiders.filter((rider) => isValidCoordinate(rider.latitude, rider.longitude)).map((rider) => <MarkerF key={rider.id} clusterer={clusterer} position={{ lat: rider.latitude as number, lng: rider.longitude as number }} title={`Rider ${rider.id}`} onClick={() => onSelectEntity({ kind: 'rider', id: rider.id })} />)}</>}</MarkerClustererF>
-    {visibleOrders.map((order) => <>{order.pickup && isValidCoordinate(order.pickup.latitude, order.pickup.longitude) ? <MarkerF key={`pickup-${order.id}`} position={{ lat: order.pickup.latitude, lng: order.pickup.longitude }} title={`Pickup ${order.id}`} onClick={() => onSelectEntity({ kind: 'order', id: order.id })} /> : null}{order.delivery && isValidCoordinate(order.delivery.latitude, order.delivery.longitude) ? <MarkerF key={`delivery-${order.id}`} position={{ lat: order.delivery.latitude, lng: order.delivery.longitude }} title={`Entrega ${order.id}`} onClick={() => onSelectEntity({ kind: 'order', id: order.id })} /> : null}{order.id === selectedEntity?.id && order.path && order.path.length > 1 ? <PolylineF key={`path-${order.id}`} path={order.path.filter((point) => isValidCoordinate(point.latitude, point.longitude)).map((point) => ({ lat: point.latitude, lng: point.longitude }))} options={{ strokeColor: '#f59e0b', strokeOpacity: 0.7, strokeWeight: 3 }} /> : null}</>)}
+    {visibleOrders.map((order) => <Fragment key={order.id}>{order.pickup && isValidCoordinate(order.pickup.latitude, order.pickup.longitude) ? <MarkerF key={`pickup-${order.id}`} position={{ lat: order.pickup.latitude, lng: order.pickup.longitude }} title={`Pickup ${order.id}`} onClick={() => onSelectEntity({ kind: 'order', id: order.id })} /> : null}{order.delivery && isValidCoordinate(order.delivery.latitude, order.delivery.longitude) ? <MarkerF key={`delivery-${order.id}`} position={{ lat: order.delivery.latitude, lng: order.delivery.longitude }} title={`Entrega ${order.id}`} onClick={() => onSelectEntity({ kind: 'order', id: order.id })} /> : null}{order.id === selectedEntity?.id && order.path && order.path.length > 1 ? <PolylineF key={`path-${order.id}`} path={order.path.filter((point) => isValidCoordinate(point.latitude, point.longitude)).map((point) => ({ lat: point.latitude, lng: point.longitude }))} options={{ strokeColor: '#f59e0b', strokeOpacity: 0.7, strokeWeight: 3 }} /> : null}</Fragment>)}
     {historyPath.length > 1 ? <PolylineF path={historyPath.filter((point) => isValidCoordinate(point.latitude, point.longitude)).map((point) => ({ lat: point.latitude, lng: point.longitude }))} options={{ strokeColor: '#2563eb', strokeOpacity: 0.85, strokeWeight: 4 }} /> : null}
     {incidents.filter((incident) => isValidCoordinate(incident.latitude, incident.longitude)).map((incident) => <MarkerF key={`incident-${incident.id}`} position={{ lat: incident.latitude as number, lng: incident.longitude as number }} title={`Incidente ${incident.id}`} onClick={() => onSelectEntity({ kind: 'incident', id: String(incident.id) })} />)}
   </GoogleMap></div>;
