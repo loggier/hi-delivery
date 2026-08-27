@@ -59,7 +59,7 @@ export function detectMonitoringConditions(
       }
     }
 
-    if (hasValidDate(order.assignmentExhaustedAt) || order.assignmentAttemptsExhausted === true) {
+    if (hasValidDate(order.assignmentExhaustedAt)) {
       conditions.push(createCondition('dispatch-exhausted', 'P1', order, null, now, {}));
     }
 

@@ -54,7 +54,7 @@ export function MonitoringOperationsDesk() {
   const [actionPending, setActionPending] = useState(false);
 
   const snapshot = controller.snapshot;
-  const showSnapshot = Boolean(snapshot && !controller.isError);
+  const showSnapshot = Boolean(snapshot);
   const { data: zones = [] } = api.zones.useGetAll({ status: 'ACTIVE' });
   const orders = useMemo(() => snapshot?.orders ?? [], [snapshot?.orders]);
   const riders = controller.riders;

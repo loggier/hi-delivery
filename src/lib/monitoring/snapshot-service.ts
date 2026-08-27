@@ -122,7 +122,7 @@ async function buildMonitoringSnapshotInternal(input: BuildMonitoringSnapshotInp
   const inTransitRiderIds = [...new Set(orders.filter((order) => order.riderId && isInTransitStatus(order.status)).map((order) => order.riderId!))];
   let movementByRiderId: Record<string, RiderMovementWindow | undefined> = {};
   const evaluatedTypes = new Set<MonitoringConditionType>(['unassigned', 'gps-stale']);
-  const dispatchColumnsAvailable = !orderResult.schemaDegraded?.includes('dispatch-exhausted') && (orderResult.availableRules?.includes('dispatch-exhausted') || orderResult.data.some((row) => Object.prototype.hasOwnProperty.call(row, 'assignment_exhausted_at') || Object.prototype.hasOwnProperty.call(row, 'assignment_attempts_exhausted')));
+  const dispatchColumnsAvailable = !orderResult.schemaDegraded?.includes('dispatch-exhausted') && (orderResult.availableRules?.includes('dispatch-exhausted') || orderResult.data.some((row) => Object.prototype.hasOwnProperty.call(row, 'assignment_exhausted_at') || Object.prototype.hasOwnProperty.call(row, 'dispatch_attempt_count')));
   if (dispatchColumnsAvailable) evaluatedTypes.add('dispatch-exhausted');
   else addDegradedRules(health, ['dispatch-exhausted']);
   for (const type of ['late-delivery', 'outside-zone', 'repeated-rejections', 'irregular-reporting'] as const) {
@@ -173,7 +173,7 @@ function finitePositive(value: unknown, fallback: number): number { return typeo
 function normalizeOrder(row: MonitoringOrderRow): MonitoringOrder {
   const status = row.status;
   if (typeof row.id !== 'string' || !orderStatuses.includes(status as OrderStatus)) throw new Error('Unable to load monitoring snapshot');
-  return { id: row.id, zoneId: stringOrNull(row.zone_id), status: status as OrderStatus, riderId: typeof row.rider_id === 'string' ? row.rider_id : null, createdAt: stringOrNull(row.created_at), expectedDeliveryAt: stringOrNull(row.expected_delivery_at), assignmentExhaustedAt: stringOrNull(row.assignment_exhausted_at), assignmentAttemptsExhausted: boolOrUndefined(row.assignment_attempts_exhausted), isOutsideZone: boolOrUndefined(row.is_outside_zone), hasRepeatedRejections: boolOrUndefined(row.has_repeated_rejections) };
+  return { id: row.id, zoneId: null, status: status as OrderStatus, riderId: typeof row.rider_id === 'string' ? row.rider_id : null, createdAt: stringOrNull(row.created_at), expectedDeliveryAt: null, assignmentExhaustedAt: stringOrNull(row.assignment_exhausted_at), dispatchAttemptCount: numberOrUndefined(row.dispatch_attempt_count) };
 }
 function normalizeRider(row: MonitoringRiderRow): MonitoringRider {
   if (typeof row.id !== 'string') throw new Error('Unable to load monitoring snapshot');
@@ -181,18 +181,18 @@ function normalizeRider(row: MonitoringRiderRow): MonitoringRider {
 }
 function stringOrNull(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value : null; }
 function boolOrUndefined(value: unknown): boolean | undefined { return typeof value === 'boolean' ? value : undefined; }
+function numberOrUndefined(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
 function isSchemaError(error: DbError): boolean {
   const optionalColumnNames = [
     'monitoring_unassigned_critical_minutes', 'monitoring_gps_stale_critical_minutes',
     'monitoring_stopped_in_transit_minutes', 'monitoring_meaningful_movement_meters',
-    'zone_id', 'expected_delivery_at', 'assignment_exhausted_at', 'assignment_attempts_exhausted',
-    'is_outside_zone', 'has_repeated_rejections', 'last_location_received_at',
+    'last_location_received_at',
     'has_irregular_reporting', 'recorded_at', 'distance_meters',
   ];
   const message = error.message ?? '';
   const mentionsOptionalColumn = optionalColumnNames.some((name) => message.includes(name));
   return (error.code === '42703' || error.code === 'PGRST204') && mentionsOptionalColumn ||
-    /^Could not find the '(?:monitoring_unassigned_critical_minutes|monitoring_gps_stale_critical_minutes|monitoring_stopped_in_transit_minutes|monitoring_meaningful_movement_meters|zone_id|expected_delivery_at|assignment_exhausted_at|assignment_attempts_exhausted|is_outside_zone|has_repeated_rejections|last_location_received_at|has_irregular_reporting|recorded_at|distance_meters)' column of '.+' in the schema cache$/.test(message);
+    /^Could not find the '(?:monitoring_unassigned_critical_minutes|monitoring_gps_stale_critical_minutes|monitoring_stopped_in_transit_minutes|monitoring_meaningful_movement_meters|last_location_received_at|has_irregular_reporting|recorded_at|distance_meters)' column of '.+' in the schema cache$/.test(message);
 }
 function buildMovementWindows(rows: MovementRow[], riderIds: readonly string[]): Record<string, RiderMovementWindow | undefined> {
   const result: Record<string, RiderMovementWindow | undefined> = {};
@@ -249,14 +249,11 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
   };
   const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
-    const select = 'id,status,rider_id,created_at,zone_id,expected_delivery_at,assignment_exhausted_at,assignment_attempts_exhausted,is_outside_zone,has_repeated_rejections';
+    const select = 'id,status,rider_id,created_at,assignment_exhausted_at,dispatch_attempt_count';
     const activeStatusFilter = '("completed","delivered","cancelled","refunded","failed")';
-    const complete = await query<MonitoringOrderRow[]>('orders', select, (q) => q.not('status', 'in', activeStatusFilter));
-    if (!complete.error && complete.data) return { ...complete, available: true, availableRules: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'] };
-    if (!complete.error || !isSchemaError(complete.error)) return complete;
-    const fallback = await query<MonitoringOrderRow[]>('orders', 'id,status,rider_id,created_at', (q) => q.not('status', 'in', activeStatusFilter));
-    if (fallback.error || !fallback.data) return fallback;
-    return { ...fallback, available: true, schemaDegraded: ['late-delivery', 'outside-zone', 'repeated-rejections', 'dispatch-exhausted'], availableRules: [] };
+    const result = await query<MonitoringOrderRow[]>('orders', select, (q) => q.not('status', 'in', activeStatusFilter));
+    if (result.error || !result.data) return { data: null, error: { code: 'orders_base_query_failed' }, available: false };
+    return { ...result, available: true, schemaDegraded: ['late-delivery', 'outside-zone', 'repeated-rejections'], availableRules: ['dispatch-exhausted'] };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {
     const configure = (q: Query) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true);

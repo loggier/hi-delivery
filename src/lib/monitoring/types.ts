@@ -54,6 +54,7 @@ export type MonitoringOrder = {
   createdAt: string | null;
   expectedDeliveryAt: string | null;
   assignmentExhaustedAt: string | null;
+  dispatchAttemptCount?: number;
   assignmentAttemptsExhausted?: boolean;
   isOutsideZone?: boolean;
   hasRepeatedRejections?: boolean;
