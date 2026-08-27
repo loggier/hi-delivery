@@ -56,6 +56,16 @@ export function changedRiderIds(previous: readonly Rider[], next: readonly Rider
   return new Set(next.filter((rider) => riderPositionChanged(previousById.get(rider.id), rider)).map((rider) => rider.id));
 }
 
+export function interpolateRiders(previous: readonly Rider[], next: readonly Rider[], changedIds: ReadonlySet<string>, progress: number): Rider[] {
+  const previousById = new Map(previous.map((rider) => [rider.id, rider]));
+  return next.map((rider) => {
+    if (!changedIds.has(rider.id)) return rider;
+    const old = previousById.get(rider.id);
+    if (!old || typeof old.last_latitude !== 'number' || typeof old.last_longitude !== 'number' || typeof rider.last_latitude !== 'number' || typeof rider.last_longitude !== 'number') return rider;
+    return { ...rider, last_latitude: old.last_latitude + (rider.last_latitude - old.last_latitude) * progress, last_longitude: old.last_longitude + (rider.last_longitude - old.last_longitude) * progress };
+  });
+}
+
 export function LiveMap({
   riders,
   activeOrderRiderIds,
@@ -91,10 +101,10 @@ export function LiveMap({
   }, []);
 
   useEffect(() => {
-    const previousById = new Map(previousRidersRef.current.map((rider) => [rider.id, rider]));
     const nextSnapshot = riders;
     const changedIds = changedRiderIds(previousRidersRef.current, nextSnapshot);
     if (changedIds.size === 0) {
+      setAnimatedRiders(nextSnapshot);
       previousRidersRef.current = nextSnapshot;
       return;
     }
@@ -103,24 +113,7 @@ export function LiveMap({
       previousRidersRef.current = nextSnapshot;
       return;
     }
-    const animatedFrom = nextSnapshot.map((rider) => {
-      const previous = previousById.get(rider.id);
-      if (!changedIds.has(rider.id)) return previous ?? rider;
-      if (
-        previous &&
-        typeof previous.last_latitude === 'number' &&
-        typeof previous.last_longitude === 'number' &&
-        typeof rider.last_latitude === 'number' &&
-        typeof rider.last_longitude === 'number'
-      ) {
-        return {
-          ...rider,
-          last_latitude: previous.last_latitude,
-          last_longitude: previous.last_longitude,
-        };
-      }
-      return rider;
-    });
+    const animatedFrom = interpolateRiders(previousRidersRef.current, nextSnapshot, changedIds, 0);
 
     setAnimatedRiders(animatedFrom);
 
@@ -137,26 +130,7 @@ export function LiveMap({
       const progress = Math.min(1, (now - startedAt) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
 
-      setAnimatedRiders(
-        nextSnapshot.map((rider) => {
-          if (!changedIds.has(rider.id)) return previousById.get(rider.id) ?? rider;
-          const previous = previousById.get(rider.id);
-          if (
-            previous &&
-            typeof previous.last_latitude === 'number' &&
-            typeof previous.last_longitude === 'number' &&
-            typeof rider.last_latitude === 'number' &&
-            typeof rider.last_longitude === 'number'
-          ) {
-            return {
-              ...rider,
-              last_latitude: previous.last_latitude + (rider.last_latitude - previous.last_latitude) * eased,
-              last_longitude: previous.last_longitude + (rider.last_longitude - previous.last_longitude) * eased,
-            };
-          }
-          return rider;
-        })
-      );
+      setAnimatedRiders(interpolateRiders(previousRidersRef.current, nextSnapshot, changedIds, eased));
 
       if (progress < 1) {
         animationFrameRef.current = requestAnimationFrame(tick);

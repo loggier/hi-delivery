@@ -11,9 +11,9 @@ export type RiderHistoryPoint = { id: number; rider_id: string; latitude: number
 export type RiderHistoryPanelProps = { rider: MonitoringRider | null; startAt: string; endAt: string; onStartAtChange?: (value: string) => void; onEndAtChange?: (value: string) => void; onPointsChange?: (points: RiderHistoryPoint[]) => void; onPlaybackPointChange?: (point: RiderHistoryPoint | null) => void };
 
 export function RiderHistoryPanel({ rider, startAt, endAt, onStartAtChange, onEndAtChange, onPointsChange, onPlaybackPointChange }: RiderHistoryPanelProps) {
-  const [points, setPoints] = useState<RiderHistoryPoint[]>([]); const [index, setIndex] = useState(0); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const requestIdRef = useRef(0); const abortRef = useRef<AbortController | null>(null);
+  const [points, setPoints] = useState<RiderHistoryPoint[]>([]); const [index, setIndex] = useState(0); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null); const [playing, setPlaying] = useState(false); const requestIdRef = useRef(0); const abortRef = useRef<AbortController | null>(null); const playbackCallbackRef = useRef(onPlaybackPointChange); playbackCallbackRef.current = onPlaybackPointChange;
   useEffect(() => () => { abortRef.current?.abort(); }, []);
-  useEffect(() => { requestIdRef.current += 1; abortRef.current?.abort(); setPoints([]); setIndex(0); setPlaying(false); setError(null); onPlaybackPointChange?.(null); }, [onPlaybackPointChange, rider?.id, startAt, endAt]);
+  useEffect(() => { requestIdRef.current += 1; abortRef.current?.abort(); setPoints([]); setIndex(0); setPlaying(false); setError(null); playbackCallbackRef.current?.(null); }, [rider?.id, startAt, endAt]);
   useEffect(() => { if (!playing || points.length < 2) return; const timer = window.setInterval(() => { setIndex((current) => { const next = Math.min(current + 1, points.length - 1); onPlaybackPointChange?.(points[next] ?? null); if (next === points.length - 1) setPlaying(false); return next; }); }, 700); return () => window.clearInterval(timer); }, [onPlaybackPointChange, playing, points]);
   async function load() {
     if (!rider) return;
