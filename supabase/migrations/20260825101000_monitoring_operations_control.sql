@@ -99,11 +99,14 @@ CREATE TABLE IF NOT EXISTS grupohubs.monitoring_incidents (
 -- consulted by manual close. It is never writable by browser roles.
 CREATE TABLE IF NOT EXISTS grupohubs.monitoring_current_conditions (
   condition_key text PRIMARY KEY,
+  incident_type varchar(64) NOT NULL,
   order_id varchar(255),
   rider_id varchar(255),
   last_detected_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL
 );
+ALTER TABLE grupohubs.monitoring_current_conditions
+  ADD COLUMN IF NOT EXISTS incident_type varchar(64) NOT NULL DEFAULT 'unknown';
 
 CREATE OR REPLACE FUNCTION grupohubs.prevent_monitoring_incident_reopen()
 RETURNS trigger
@@ -351,7 +354,7 @@ BEGIN
     AND EXISTS (
       SELECT 1
       FROM unnest(p_evaluated_types) AS evaluated_type
-      WHERE evaluated_type = split_part(current_condition.condition_key, ':', 1)
+      WHERE evaluated_type = current_condition.incident_type
     )
     AND NOT EXISTS (
       SELECT 1
@@ -359,14 +362,23 @@ BEGIN
       WHERE condition ->> 'condition_key' = current_condition.condition_key
     );
 
-  INSERT INTO grupohubs.monitoring_current_conditions (condition_key, order_id, rider_id, last_detected_at, updated_at)
-  SELECT condition ->> 'condition_key', nullif(condition ->> 'order_id', ''), nullif(condition ->> 'rider_id', ''), p_now, p_now
+  INSERT INTO grupohubs.monitoring_current_conditions (condition_key, incident_type, order_id, rider_id, last_detected_at, updated_at)
+  SELECT condition ->> 'condition_key', condition ->> 'incident_type', nullif(condition ->> 'order_id', ''), nullif(condition ->> 'rider_id', ''), p_now, p_now
   FROM jsonb_array_elements(p_conditions) AS entry(condition)
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM grupohubs.monitoring_incidents AS resolved_incident
+    WHERE resolved_incident.condition_key = condition ->> 'condition_key'
+      AND resolved_incident.status = 'resolved'
+      AND resolved_incident.resolved_at >= p_now
+  )
   ON CONFLICT (condition_key) DO UPDATE
-  SET order_id = EXCLUDED.order_id,
+  SET incident_type = EXCLUDED.incident_type,
+      order_id = EXCLUDED.order_id,
       rider_id = EXCLUDED.rider_id,
       last_detected_at = GREATEST(grupohubs.monitoring_current_conditions.last_detected_at, EXCLUDED.last_detected_at),
-      updated_at = GREATEST(grupohubs.monitoring_current_conditions.updated_at, EXCLUDED.updated_at);
+      updated_at = GREATEST(grupohubs.monitoring_current_conditions.updated_at, EXCLUDED.updated_at)
+  WHERE EXCLUDED.last_detected_at >= grupohubs.monitoring_current_conditions.last_detected_at;
 
   RETURN QUERY
   SELECT active_incident.*

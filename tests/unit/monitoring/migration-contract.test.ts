@@ -103,6 +103,9 @@ describe('monitoring operations control migration', () => {
     expect(sql).toMatch(/pg_advisory_xact_lock\(907202608\)/);
     expect(sql).toContain('status = p_expected_status');
     expect(sql).toContain('last_detected_at = p_expected_last_detected_at');
+    expect(sql).toContain('where excluded.last_detected_at >= grupohubs.monitoring_current_conditions.last_detected_at');
+    expect(sql).toContain('resolved_incident.resolved_at >= p_now');
+    expect(sql).toContain('incident_type varchar(64) not null');
     expect(sql).toContain("grant execute on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz) to service_role");
     expect(sql).toContain("revoke all on function grupohubs.request_close_monitoring_incident(bigint, text, varchar, text, text, timestamptz, boolean, timestamptz) from public, anon, authenticated");
   });
