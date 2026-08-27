@@ -47,6 +47,15 @@ const defaultCenter = {
   lng: -99.1332,
 };
 
+export function riderPositionChanged(previous: Rider | undefined, next: Rider): boolean {
+  return previous?.last_latitude !== next.last_latitude || previous?.last_longitude !== next.last_longitude;
+}
+
+export function changedRiderIds(previous: readonly Rider[], next: readonly Rider[]): Set<string> {
+  const previousById = new Map(previous.map((rider) => [rider.id, rider]));
+  return new Set(next.filter((rider) => riderPositionChanged(previousById.get(rider.id), rider)).map((rider) => rider.id));
+}
+
 export function LiveMap({
   riders,
   activeOrderRiderIds,
@@ -84,8 +93,19 @@ export function LiveMap({
   useEffect(() => {
     const previousById = new Map(previousRidersRef.current.map((rider) => [rider.id, rider]));
     const nextSnapshot = riders;
+    const changedIds = changedRiderIds(previousRidersRef.current, nextSnapshot);
+    if (changedIds.size === 0) {
+      previousRidersRef.current = nextSnapshot;
+      return;
+    }
+    if (changedIds.size > 300) {
+      setAnimatedRiders(nextSnapshot);
+      previousRidersRef.current = nextSnapshot;
+      return;
+    }
     const animatedFrom = nextSnapshot.map((rider) => {
       const previous = previousById.get(rider.id);
+      if (!changedIds.has(rider.id)) return previous ?? rider;
       if (
         previous &&
         typeof previous.last_latitude === 'number' &&
@@ -110,13 +130,16 @@ export function LiveMap({
 
     const duration = 900;
     const startedAt = performance.now();
+    let isActive = true;
 
     const tick = (now: number) => {
+      if (!isActive) return;
       const progress = Math.min(1, (now - startedAt) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
 
       setAnimatedRiders(
         nextSnapshot.map((rider) => {
+          if (!changedIds.has(rider.id)) return previousById.get(rider.id) ?? rider;
           const previous = previousById.get(rider.id);
           if (
             previous &&
@@ -139,14 +162,17 @@ export function LiveMap({
         animationFrameRef.current = requestAnimationFrame(tick);
       } else {
         previousRidersRef.current = nextSnapshot;
+        animationFrameRef.current = null;
       }
     };
 
     animationFrameRef.current = requestAnimationFrame(tick);
 
     return () => {
-      if (animationFrameRef.current) {
+      isActive = false;
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
       previousRidersRef.current = nextSnapshot;
     };
@@ -171,6 +197,13 @@ export function LiveMap({
   }, [selectedRiderId]);
 
   useEffect(() => {
+    let idleListener: google.maps.MapsEventListener | null = null;
+    const cleanupIdleListener = () => {
+      if (idleListener) {
+        window.google.maps.event.removeListener(idleListener);
+        idleListener = null;
+      }
+    };
     if (
       mapRef.current &&
       selectedRiderId &&
@@ -182,22 +215,22 @@ export function LiveMap({
           new window.google.maps.LatLng(point.latitude, point.longitude),
         );
       });
-      if (operatorInteractedRef.current) return;
+      if (operatorInteractedRef.current) return cleanupIdleListener;
       mapRef.current.fitBounds(bounds);
-      const listener = window.google.maps.event.addListener(mapRef.current, 'idle', function () {
+      idleListener = window.google.maps.event.addListener(mapRef.current, 'idle', function () {
         if (mapRef.current) {
           if ((mapRef.current.getZoom() ?? 0) > 18) {
             mapRef.current.setZoom(18);
           }
-          window.google.maps.event.removeListener(listener);
+          cleanupIdleListener();
         }
       });
-      return;
+      return cleanupIdleListener;
     }
 
     if (mapRef.current && animatedRiders.length > 0 && !operatorInteractedRef.current) {
       if (selectedRiderId) {
-        return;
+        return cleanupIdleListener;
       }
       const bounds = new window.google.maps.LatLngBounds();
       let activeRidersFound = 0;
@@ -209,16 +242,17 @@ export function LiveMap({
       });
       if (activeRidersFound > 0) {
         mapRef.current.fitBounds(bounds);
-        const listener = window.google.maps.event.addListener(mapRef.current, "idle", function() {
+        idleListener = window.google.maps.event.addListener(mapRef.current, "idle", function() {
             if (mapRef.current) {
               if ((mapRef.current.getZoom() ?? 0) > 18) {
                 mapRef.current.setZoom(18);
               }
-              window.google.maps.event.removeListener(listener);
+              cleanupIdleListener();
             }
         });
       }
     }
+    return cleanupIdleListener;
   }, [animatedRiders, historyPath, selectedRiderId]);
 
   useEffect(() => {

@@ -50,4 +50,16 @@ describe('POST /api/monitoring/history', () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ message: 'No se pudo consultar el historial.' });
   });
+
+  it('bounds oversized database responses to 5000 points', async () => {
+    const rows = Array.from({ length: 5001 }, (_, id) => ({ id, rider_id: 'r1', latitude: 19, longitude: -99, recorded_at: `2026-08-26T10:${String(id % 60).padStart(2, '0')}:00.000Z` }));
+    const query = { select: vi.fn(), eq: vi.fn(), gte: vi.fn(), lte: vi.fn(), order: vi.fn(), limit: vi.fn(), then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: rows, error: null })) };
+    query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.gte.mockReturnValue(query); query.lte.mockReturnValue(query); query.order.mockReturnValue(query); query.limit.mockReturnValue(query);
+    fromMock.mockReturnValue(query);
+    const response = await POST(request({ riderId: 'r1', startAt: '2026-08-26T00:00:00.000Z', endAt: '2026-08-26T23:00:00.000Z' }));
+    const body = await response.json();
+    expect(body.points).toHaveLength(5000);
+    expect(body.truncated).toBe(true);
+    expect(query.limit).toHaveBeenCalledWith(5001);
+  });
 });
