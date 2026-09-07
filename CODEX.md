@@ -918,4 +918,6 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Se retiró `live-map.tsx` como implementación duplicada; `page.tsx` quedó como entrada mínima a la mesa modular.
 - Los incidentes siguen disponibles en una bandeja flotante opcional sobre el mapa, sin reservar una tercera columna permanente.
 - La reconciliación de `monitoring_incidents` es degradable: si la RPC/migración no está disponible, el snapshot sigue entregando riders y pedidos, marca `incidents` en `dataHealth.disabledRules` y deja temporalmente vacía la bandeja de alertas.
+- El modo historial aísla el recorrido consultado: no superpone la ruta, pickup/delivery del pedido activo ni marcadores de incidentes sobre la trayectoria del rider.
+- Los puntos históricos se trazan en segmentos separados cuando existe un intervalo sin reportes mayor a 15 minutos, evitando dibujar desplazamientos rectos que no fueron registrados por GPS.
 - No se ejecutaron pruebas ni compilación local por indicación operativa; la validación se realizará en el servidor de desarrollo/despliegue.

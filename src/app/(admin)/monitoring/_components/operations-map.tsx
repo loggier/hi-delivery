@@ -22,7 +22,7 @@ export type OperationsMapProps = {
   selectedOrderId?: string | null;
   selectedRiderId?: string | null;
   onSelectEntity: (selection: MonitoringSelection | null) => void;
-  historyPath?: readonly { latitude: number; longitude: number }[];
+  historyPath?: readonly { latitude: number; longitude: number; recorded_at?: string }[];
   playbackPoint?: OperationsPlaybackPoint | null;
   historyMode?: boolean;
   staleMinutes?: number;
@@ -116,7 +116,18 @@ export function OperationsMap({ riders, orders, incidents = [], selectedEntity, 
 
   const visibleRiders = historyMode && effectiveSelectedRiderId ? animatedRiders.filter((rider) => rider.id === effectiveSelectedRiderId) : animatedRiders;
   const orderByRider = new Map(orders.flatMap((order) => order.riderId ? [[order.riderId, order] as const] : []));
-  const visibleOrders = effectiveSelectedOrderId ? orders.filter((order) => order.id === effectiveSelectedOrderId) : [];
+  const visibleOrders = !historyMode && effectiveSelectedOrderId ? orders.filter((order) => order.id === effectiveSelectedOrderId) : [];
+  const visibleIncidents = historyMode ? [] : incidents;
+  const historySegments = historyMode ? historyPath.reduce<Array<Array<{ lat: number; lng: number }>>>((segments, point, pointIndex) => {
+    if (!isValidCoordinate(point.latitude, point.longitude)) return segments;
+    const previous = historyPath[pointIndex - 1];
+    const previousTime = Date.parse(previous?.recorded_at ?? '');
+    const currentTime = Date.parse(point.recorded_at ?? '');
+    const hasReportingGap = Number.isFinite(previousTime) && Number.isFinite(currentTime) && currentTime - previousTime > 15 * 60 * 1000;
+    if (!segments.length || hasReportingGap) segments.push([]);
+    segments[segments.length - 1].push({ lat: point.latitude, lng: point.longitude });
+    return segments;
+  }, []) : [];
 
   return <div data-testid="operations-map" className="h-full w-full"><GoogleMap mapContainerStyle={mapContainerStyle} center={defaultCenter} zoom={12} options={options} onLoad={(map) => { mapRef.current = map; lastFleetSignatureRef.current = fleetSignature; fitFleet(); }} onUnmount={() => { mapRef.current = null; }} onClick={() => onSelectEntity(null)}>
     <MarkerClustererF options={clusterOptions}>{(clusterer) => <>{visibleRiders.filter((rider) => isValidCoordinate(rider.latitude, rider.longitude)).map((rider) => {
@@ -125,7 +136,7 @@ export function OperationsMap({ riders, orders, incidents = [], selectedEntity, 
       return <Fragment key={rider.id}><MarkerF clusterer={clusterer} position={{ lat: latitude, lng: longitude }} title={`${rider.firstName} ${rider.lastName}`} onClick={() => onSelectEntity({ kind: 'rider', id: rider.id })} icon={{ url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', scaledSize: new window.google.maps.Size(1, 1) }} /><OverlayViewF position={{ lat: latitude, lng: longitude }} mapPaneName="overlayMouseTarget" getPixelPositionOffset={() => ({ x: selected ? -24 : -20, y: selected ? -24 : -20 })}><button type="button" className="pointer-events-auto" aria-label={`Seleccionar ${rider.firstName} ${rider.lastName}`} onClick={() => onSelectEntity({ kind: 'rider', id: rider.id })}><Image src="/repartidor.png" alt="" width={48} height={48} unoptimized className="object-contain drop-shadow-md" style={{ width: selected ? 48 : 40, height: selected ? 48 : 40, transform: `rotate(${course}deg)`, opacity: rider.activeForOrders || order ? 1 : 0.6 }} /></button></OverlayViewF><OverlayViewF position={{ lat: latitude, lng: longitude }} mapPaneName="overlayMouseTarget" getPixelPositionOffset={(width, height) => ({ x: -(width / 2), y: -(height + 42) })}><button type="button" className="pointer-events-auto flex items-stretch overflow-hidden rounded-md border bg-white text-xs font-bold text-slate-900 shadow-md" onClick={() => onSelectEntity({ kind: 'rider', id: rider.id })}><span className={`w-[10px] ${visual.dot}`} /><span className="whitespace-nowrap px-2 py-1">{rider.firstName} {rider.lastName}</span></button></OverlayViewF></Fragment>;
     })}</>}</MarkerClustererF>
     {visibleOrders.map((order) => <Fragment key={order.id}>{order.pickup && isValidCoordinate(order.pickup.latitude, order.pickup.longitude) ? <MarkerF position={{ lat: order.pickup.latitude, lng: order.pickup.longitude }} title={`Negocio ${order.businessName || order.id}`} /> : null}{order.delivery && isValidCoordinate(order.delivery.latitude, order.delivery.longitude) ? <MarkerF position={{ lat: order.delivery.latitude, lng: order.delivery.longitude }} title={`Cliente ${order.customerName || order.id}`} /> : null}{order.path && order.path.length > 1 ? <PolylineF path={order.path.map((point) => ({ lat: point.latitude, lng: point.longitude }))} options={{ strokeColor: '#f59e0b', strokeOpacity: 0.85, strokeWeight: 4 }} /> : null}</Fragment>)}
-    {historyPath.length > 1 ? <PolylineF path={historyPath.filter((point) => isValidCoordinate(point.latitude, point.longitude)).map((point) => ({ lat: point.latitude, lng: point.longitude }))} options={{ strokeColor: '#2563eb', strokeOpacity: 0.9, strokeWeight: 5 }} /> : null}
-    {incidents.filter((incident) => isValidCoordinate(incident.latitude, incident.longitude)).map((incident) => <MarkerF key={`incident-${incident.id}`} position={{ lat: incident.latitude as number, lng: incident.longitude as number }} title={`Incidente ${incident.id}`} onClick={() => onSelectEntity({ kind: 'incident', id: String(incident.id) })} />)}
+    {historySegments.filter((segment) => segment.length > 1).map((segment, index) => <PolylineF key={`history-segment-${index}`} path={segment} options={{ strokeColor: '#2563eb', strokeOpacity: 0.9, strokeWeight: 5 }} />)}
+    {visibleIncidents.filter((incident) => isValidCoordinate(incident.latitude, incident.longitude)).map((incident) => <MarkerF key={`incident-${incident.id}`} position={{ lat: incident.latitude as number, lng: incident.longitude as number }} title={`Incidente ${incident.id}`} onClick={() => onSelectEntity({ kind: 'incident', id: String(incident.id) })} />)}
   </GoogleMap></div>;
 }
