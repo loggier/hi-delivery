@@ -29,6 +29,8 @@ const text = (max: number) => z.string().trim().min(1).max(max).optional();
 export const monitoringFilterSchema = z.object({
   zoneId: text(100), risk: riskSchema.optional(), riderId: text(100),
   orderStatus: z.enum(orderStatuses).optional(), search: text(100),
+  fleetStatus: z.enum(['all', 'available', 'occupied', 'unavailable']).optional(),
+  signal: z.enum(['all', 'fresh', 'stale']).optional(),
 }).strict();
 
 export function parseMonitoringFilter(input: URLSearchParams | unknown): MonitoringFilter {
@@ -173,15 +175,52 @@ function finitePositive(value: unknown, fallback: number): number { return typeo
 function normalizeOrder(row: MonitoringOrderRow): MonitoringOrder {
   const status = row.status;
   if (typeof row.id !== 'string' || !orderStatuses.includes(status as OrderStatus)) throw new Error('Unable to load monitoring snapshot');
-  return { id: row.id, zoneId: null, status: status as OrderStatus, riderId: typeof row.rider_id === 'string' ? row.rider_id : null, createdAt: stringOrNull(row.created_at), expectedDeliveryAt: null, assignmentExhaustedAt: stringOrNull(row.assignment_exhausted_at), dispatchAttemptCount: numberOrUndefined(row.dispatch_attempt_count) };
+  const business = relationRecord(row.business);
+  return {
+    id: row.id,
+    businessId: stringOrNull(row.business_id),
+    businessName: stringOrNull(business?.name),
+    customerName: stringOrNull(row.customer_name),
+    zoneId: stringOrNull(business?.zone_id),
+    status: status as OrderStatus,
+    riderId: typeof row.rider_id === 'string' ? row.rider_id : null,
+    createdAt: stringOrNull(row.created_at),
+    expectedDeliveryAt: null,
+    assignmentExhaustedAt: stringOrNull(row.assignment_exhausted_at),
+    dispatchAttemptCount: numberOrUndefined(row.dispatch_attempt_count),
+    pickup: addressCoordinate(row.pickup_address),
+    delivery: addressCoordinate(row.delivery_address),
+    path: routeCoordinates(row.route_path),
+  };
 }
 function normalizeRider(row: MonitoringRiderRow): MonitoringRider {
   if (typeof row.id !== 'string') throw new Error('Unable to load monitoring snapshot');
-  return { id: row.id, zoneId: stringOrNull(row.zone_id), activeForOrders: row.is_active_for_orders === true, lastLocationReceivedAt: stringOrNull(row.last_location_received_at), lastLocationUpdate: stringOrNull(row.last_location_update), hasIrregularReporting: boolOrUndefined(row.has_irregular_reporting) };
+  return {
+    id: row.id,
+    firstName: stringOrNull(row.first_name) ?? 'Rider',
+    lastName: stringOrNull(row.last_name) ?? '',
+    phone: stringOrNull(row.phone_e164),
+    avatarUrl: sanitizeUrl(row.avatar1x1_url) ?? sanitizeUrl(row.avatar_1x1_url),
+    status: stringOrNull(row.status),
+    zoneId: stringOrNull(row.zone_id),
+    activeForOrders: row.is_active_for_orders === true,
+    latitude: coordinate(row.last_latitude, -90, 90),
+    longitude: coordinate(row.last_longitude, -180, 180),
+    speed: numberOrUndefined(row.last_speed),
+    course: numberOrUndefined(row.last_course),
+    lastLocationReceivedAt: stringOrNull(row.last_location_received_at),
+    lastLocationUpdate: stringOrNull(row.last_location_update),
+    hasIrregularReporting: boolOrUndefined(row.has_irregular_reporting),
+  };
 }
 function stringOrNull(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value : null; }
 function boolOrUndefined(value: unknown): boolean | undefined { return typeof value === 'boolean' ? value : undefined; }
 function numberOrUndefined(value: unknown): number | undefined { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
+function coordinate(value: unknown, min: number, max: number): number | undefined { const parsed = numberOrUndefined(value); return parsed !== undefined && parsed >= min && parsed <= max ? parsed : undefined; }
+function relationRecord(value: unknown): Record<string, unknown> | null { if (Array.isArray(value)) return value[0] && typeof value[0] === 'object' ? value[0] as Record<string, unknown> : null; return value && typeof value === 'object' ? value as Record<string, unknown> : null; }
+function sanitizeUrl(value: unknown): string | null { const normalized = stringOrNull(value)?.replace(/^['"]+|['"]+$/g, ''); return normalized && (/^https?:\/\//.test(normalized) || normalized.startsWith('/')) ? normalized : null; }
+function addressCoordinate(value: unknown): { latitude: number; longitude: number } | null { const address = relationRecord(value); const coordinates = relationRecord(address?.coordinates); const latitude = coordinate(coordinates?.lat, -90, 90); const longitude = coordinate(coordinates?.lng, -180, 180); return latitude !== undefined && longitude !== undefined ? { latitude, longitude } : null; }
+function routeCoordinates(value: unknown): Array<{ latitude: number; longitude: number }> { const root = relationRecord(value); const routes = Array.isArray(root?.routes) ? root.routes : []; const firstRoute = relationRecord(routes[0]); const direct = Array.isArray(root?.path) ? root.path : Array.isArray(firstRoute?.overview_path) ? firstRoute.overview_path : Array.isArray(value) ? value : []; return direct.flatMap((point) => { const row = relationRecord(point); const latitude = coordinate(row?.lat ?? row?.latitude, -90, 90); const longitude = coordinate(row?.lng ?? row?.longitude, -180, 180); return latitude !== undefined && longitude !== undefined ? [{ latitude, longitude }] : []; }); }
 function isSchemaError(error: DbError): boolean {
   const optionalColumnNames = [
     'monitoring_unassigned_critical_minutes', 'monitoring_gps_stale_critical_minutes',
@@ -217,8 +256,21 @@ function compareMovementRows(left: MovementRow, right: MovementRow): number {
 function applyFilter(orders: MonitoringOrder[], riders: MonitoringRider[], incidents: MonitoringIncident[], filter?: MonitoringFilter, thresholds?: MonitoringThresholds, now?: Date) {
   if (!filter) return { orders, riders, incidents };
   const orderIds = new Set(orders.filter((order) => (!filter.zoneId || order.zoneId === filter.zoneId) && (!filter.orderStatus || order.status === filter.orderStatus) && (!filter.riderId || order.riderId === filter.riderId) && (!filter.search || order.id.includes(filter.search))).map((order) => order.id));
-  const riderIds = new Set(riders.filter((rider) => (!filter.zoneId || rider.zoneId === filter.zoneId) && (!filter.riderId || rider.id === filter.riderId)).map((rider) => rider.id));
-  let selectedOrders = orders.filter((order) => orderIds.has(order.id));
+  const activeOrderRiderIds = new Set(orders.flatMap((order) => order.riderId ? [order.riderId] : []));
+  const riderIds = new Set(riders.filter((rider) => {
+    const name = `${rider.firstName ?? ''} ${rider.lastName ?? ''} ${rider.phone ?? ''} ${rider.id}`.toLowerCase();
+    const stale = thresholds && now ? isLocationStale(rider, thresholds.gpsStaleCriticalMinutes, now) : false;
+    const occupied = activeOrderRiderIds.has(rider.id);
+    return (!filter.zoneId || rider.zoneId === filter.zoneId)
+      && (!filter.riderId || rider.id === filter.riderId)
+      && (!filter.search || name.includes(filter.search.toLowerCase()))
+      && (!filter.signal || filter.signal === 'all' || (filter.signal === 'stale' ? stale : !stale))
+      && (!filter.fleetStatus || filter.fleetStatus === 'all'
+        || (filter.fleetStatus === 'available' && rider.activeForOrders && !occupied)
+        || (filter.fleetStatus === 'occupied' && occupied)
+        || (filter.fleetStatus === 'unavailable' && !rider.activeForOrders && !occupied));
+  }).map((rider) => rider.id));
+  let selectedOrders = orders.filter((order) => orderIds.has(order.id) || Boolean(filter.search && order.riderId && riderIds.has(order.riderId)));
   if (filter.risk === 'unassigned') selectedOrders = selectedOrders.filter((order) => order.status === 'pending_acceptance' && order.riderId === null);
   if (filter.risk === 'onTheWay') selectedOrders = selectedOrders.filter((order) => isInTransitStatus(order.status));
   if (filter.risk === 'atRisk') { const ids = new Set(incidents.filter((incident) => incident.priority === 'P1').map((incident) => incident.orderId)); selectedOrders = selectedOrders.filter((order) => ids.has(order.id)); }
@@ -249,19 +301,19 @@ export function createSupabaseSnapshotRepositories(): MonitoringSnapshotReposito
   };
   const fetchSettings = (): Promise<DbResponse<SettingsRow>> => query<SettingsRow>('system_settings', 'monitoring_unassigned_critical_minutes,monitoring_gps_stale_critical_minutes,monitoring_stopped_in_transit_minutes,monitoring_meaningful_movement_meters', (q) => q.maybeSingle());
   const fetchActiveOrders = async (): Promise<DbResponse<MonitoringOrderRow[]>> => {
-    const select = 'id,status,rider_id,created_at,assignment_exhausted_at,dispatch_attempt_count';
+    const select = 'id,status,rider_id,business_id,customer_name,created_at,assignment_exhausted_at,dispatch_attempt_count,pickup_address,delivery_address,route_path,business:business_id(name,zone_id)';
     const activeStatusFilter = '("completed","delivered","cancelled","refunded","failed")';
     const result = await query<MonitoringOrderRow[]>('orders', select, (q) => q.not('status', 'in', activeStatusFilter));
     if (result.error || !result.data) return { data: null, error: { code: 'orders_base_query_failed' }, available: false };
     return { ...result, available: true, schemaDegraded: ['late-delivery', 'outside-zone', 'repeated-rejections'], availableRules: ['dispatch-exhausted'] };
   };
   const fetchRelevantRiders = async (ids: readonly string[]): Promise<DbResponse<MonitoringRiderRow[]>> => {
-    const configure = (q: Query) => ids.length ? q.or(`is_active_for_orders.eq.true,id.in.(${ids.join(',')})`) : q.eq('is_active_for_orders', true);
-    const complete = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update,last_location_received_at,has_irregular_reporting,zone_id', configure);
+    const configure = (q: Query) => ids.length ? q.or(`status.eq.approved,status.eq.ACTIVE,id.in.(${ids.join(',')})`) : q.or('status.eq.approved,status.eq.ACTIVE');
+    const complete = await query<MonitoringRiderRow[]>('riders', 'id,first_name,last_name,phone_e164,avatar1x1_url,status,zone_id,is_active_for_orders,last_latitude,last_longitude,last_speed,last_course,last_location_update,last_location_received_at,has_irregular_reporting', configure);
     if (!complete.error && complete.data) return { ...complete, available: true, availableRules: ['irregular-reporting'] };
     if (!complete.error) return { data: [], error: null, available: false, schemaDegraded: ['irregular-reporting'], availableRules: [] };
     if (!isSchemaError(complete.error)) return complete;
-    const fallback = await query<MonitoringRiderRow[]>('riders', 'id,is_active_for_orders,last_location_update', configure);
+    const fallback = await query<MonitoringRiderRow[]>('riders', 'id,first_name,last_name,phone_e164,avatar1x1_url,status,zone_id,is_active_for_orders,last_latitude,last_longitude,last_speed,last_course,last_location_update', configure);
     if (fallback.error || !fallback.data) return fallback;
     return { ...fallback, available: true, schemaDegraded: ['irregular-reporting'], availableRules: [] };
   };

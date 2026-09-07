@@ -138,30 +138,18 @@ describe('DataHealthBanner', () => {
 
 describe('MonitoringFilters', () => {
   it('renders accessible controlled filters and emits values without filtering', () => {
-    const callbacks = { priority: vi.fn(), zone: vi.fn(), status: vi.fn(), search: vi.fn() };
-    render(<MonitoringFilters priority="all" zone="all" orderStatus="all" search="" zones={[{ id: 'z1', name: 'Centro' }]} onPriorityChange={callbacks.priority} onZoneChange={callbacks.zone} onOrderStatusChange={callbacks.status} onSearchChange={callbacks.search} />);
-    expect(screen.getByLabelText('Prioridad')).toBeInTheDocument();
+    const callbacks = { zone: vi.fn(), fleet: vi.fn(), signal: vi.fn() };
+    render(<MonitoringFilters zone="all" fleetStatus="all" signal="all" zones={[{ id: 'z1', name: 'Centro' }]} onZoneChange={callbacks.zone} onFleetStatusChange={callbacks.fleet} onSignalChange={callbacks.signal} />);
     expect(screen.getByLabelText('Zona')).toBeInTheDocument();
-    expect(screen.getByLabelText('Estado del pedido')).toBeInTheDocument();
-    const search = screen.getByLabelText('Buscar');
-    expect(search).toHaveAttribute('maxLength', '120');
-    fireEvent.change(search, { target: { value: '  rider  ' } });
-    expect(callbacks.search).toHaveBeenCalledWith('rider');
+    expect(screen.getByLabelText('Disponibilidad')).toBeInTheDocument();
+    expect(screen.getByLabelText('Señal')).toBeInTheDocument();
   });
 
-  it('offers every canonical and legacy order status with its exact value', () => {
-    render(<MonitoringFilters priority="all" zone="all" orderStatus="all" search="" zones={[]} onPriorityChange={vi.fn()} onZoneChange={vi.fn()} onOrderStatusChange={vi.fn()} onSearchChange={vi.fn()} />);
-    fireEvent.click(screen.getByLabelText('Estado del pedido'));
-
-    const statuses: Array<[string, string]> = [
-      ['Pendiente de aceptación', 'pending_acceptance'], ['Aceptado', 'accepted'], ['En tienda', 'at_store'],
-      ['En preparación', 'cooking'], ['Listo para recoger', 'ready_for_pickup'], ['Recogido', 'picked_up'],
-      ['En reparto', 'out_for_delivery'], ['En camino', 'on_the_way'], ['Llegó al destino', 'arrived_at_destination'],
-      ['Completado', 'completed'], ['Entregado', 'delivered'], ['Cancelado', 'cancelled'],
-      ['Reembolsado', 'refunded'], ['Fallido', 'failed'],
-    ];
-    statuses.forEach(([label, value]) => {
-      expect(screen.getByRole('option', { name: label })).toHaveAttribute('data-value', value);
-    });
+  it('offers fleet availability filters', () => {
+    render(<MonitoringFilters zone="all" fleetStatus="all" signal="all" zones={[]} onZoneChange={vi.fn()} onFleetStatusChange={vi.fn()} onSignalChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText('Disponibilidad'));
+    expect(screen.getByRole('option', { name: 'Toda la flota' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Disponibles' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Con pedido' })).toBeInTheDocument();
   });
 });

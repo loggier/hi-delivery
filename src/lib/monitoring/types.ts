@@ -48,6 +48,9 @@ export type MonitoringKpis = {
 
 export type MonitoringOrder = {
   id: string;
+  businessId?: string | null;
+  businessName?: string | null;
+  customerName?: string | null;
   zoneId?: string | null;
   status: OrderStatus;
   riderId: string | null;
@@ -58,12 +61,29 @@ export type MonitoringOrder = {
   assignmentAttemptsExhausted?: boolean;
   isOutsideZone?: boolean;
   hasRepeatedRejections?: boolean;
+  pickup?: MonitoringCoordinate | null;
+  delivery?: MonitoringCoordinate | null;
+  path?: MonitoringCoordinate[];
+};
+
+export type MonitoringCoordinate = {
+  latitude: number;
+  longitude: number;
 };
 
 export type MonitoringRider = {
   id: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  status?: string | null;
   zoneId?: string | null;
   activeForOrders: boolean;
+  latitude?: number;
+  longitude?: number;
+  speed?: number;
+  course?: number;
   lastLocationReceivedAt: string | null;
   lastLocationUpdate: string | null;
   hasIrregularReporting?: boolean;
@@ -130,6 +150,8 @@ export type MonitoringFilter = {
   riderId?: string;
   orderStatus?: OrderStatus;
   search?: string;
+  fleetStatus?: 'all' | 'available' | 'occupied' | 'unavailable';
+  signal?: 'all' | 'fresh' | 'stale';
 };
 
 export type MonitoringSnapshot = {

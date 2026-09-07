@@ -9,6 +9,7 @@ export type MonitoringLocationPatch = {
   longitude: number;
   speed?: number;
   course?: number;
+  activeForOrders?: boolean;
   receivedAt: string;
 };
 export type RealtimeStatus = 'connecting' | 'connected' | 'degraded';
@@ -18,7 +19,7 @@ function record(value: unknown): Record<string, unknown> | null { return value &
 
 function parsePatch(payload: unknown): MonitoringLocationPatch | null {
   const root = record(payload);
-  if (root?.eventType !== 'UPDATE') return null;
+  if (root?.eventType !== 'UPDATE' && root?.eventType !== 'INSERT') return null;
   const row = record(root?.new);
   if (!row) return null;
   const riderId = typeof row.id === 'string' && row.id.trim() ? row.id : null;
@@ -36,6 +37,7 @@ function parsePatch(payload: unknown): MonitoringLocationPatch | null {
   const patch: MonitoringLocationPatch = { riderId, latitude, longitude, receivedAt: receivedAt.toISOString() };
   if (finite(row.last_speed)) patch.speed = row.last_speed;
   if (finite(row.last_course)) patch.course = row.last_course;
+  if (typeof row.is_active_for_orders === 'boolean') patch.activeForOrders = row.is_active_for_orders;
   return patch;
 }
 

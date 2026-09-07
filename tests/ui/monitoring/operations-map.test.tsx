@@ -2,11 +2,9 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActiveOrdersTable } from '@/app/(admin)/monitoring/_components/active-orders-table';
-import { OperationsMap, applyFreshLocationPatch } from '@/app/(admin)/monitoring/_components/operations-map';
-import { changedRiderIds, interpolateRiders } from '@/app/(admin)/monitoring/live-map';
+import { OperationsMap, applyFreshLocationPatch, interpolateMonitoringRiders } from '@/app/(admin)/monitoring/_components/operations-map';
 import { RiderHistoryPanel } from '@/app/(admin)/monitoring/_components/rider-history-panel';
 import type { MonitoringIncident, MonitoringOrder, MonitoringRider } from '@/lib/monitoring/types';
-import type { Rider } from '@/types';
 
 vi.mock('@react-google-maps/api', () => ({
   useLoadScript: () => ({ isLoaded: true, loadError: undefined }),
@@ -124,11 +122,9 @@ describe('OperationsMap', () => {
     expect(screen.getByText('1 puntos capturados')).toBeInTheDocument();
   });
 
-  it('uses incoming metadata while interpolating only changed positions', () => {
-    const previous = { ...rider, last_latitude: 19.4, last_longitude: -99.1 } as unknown as Rider;
-    const incoming = { ...previous, last_course: 180, is_active_for_orders: false, last_location_update: '2026-08-26T10:01:00.000Z' };
-    const changed = changedRiderIds([previous], [incoming]);
-    expect(changed.size).toBe(0);
-    expect(interpolateRiders([previous], [incoming], changed, 0.5)[0]).toMatchObject({ last_course: 180, is_active_for_orders: false, last_location_update: '2026-08-26T10:01:00.000Z' });
+  it('uses incoming metadata while interpolating changed positions', () => {
+    const previous = { ...rider, latitude: 19.4, longitude: -99.1 };
+    const incoming = { ...previous, latitude: 19.6, course: 180, activeForOrders: false, lastLocationUpdate: '2026-08-26T10:01:00.000Z' };
+    expect(interpolateMonitoringRiders([previous], [incoming], 0.5)[0]).toMatchObject({ latitude: 19.5, course: 180, activeForOrders: false, lastLocationUpdate: '2026-08-26T10:01:00.000Z' });
   });
 });

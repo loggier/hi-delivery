@@ -904,3 +904,17 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - `monitoring_action_log` es append-only: el backend con `service_role` sólo puede consultar e insertar, y un trigger rechaza cualquier actualización o eliminación.
 - La detección de entrega tardía permanece deshabilitada mientras `orders` no tenga un timestamp canónico de entrega esperada.
 - Los cambios son aditivos, no agregan FKs rígidas para ids afectados por schema drift y preservan los fallbacks legacy de dispatch y asignación.
+
+## 2026-09-07 - Consolidación web de `/monitoring`
+
+- `/monitoring` dejó de renderizar la implementación monolítica y ahora usa una sola composición basada en `MonitoringOperationsDesk`.
+- La vista operativa prioriza un listado compacto de toda la flota aprobada a la izquierda y un mapa dominante a la derecha.
+- El snapshot protegido ahora incluye identidad, avatar, zona, disponibilidad, coordenadas, velocidad y curso de riders, además de negocio, cliente, pickup, entrega y ruta de pedidos activos.
+- Se agregaron filtros por zona, disponibilidad y calidad de señal, además de búsqueda por rider, teléfono o id.
+- Seleccionar un rider desde el listado o el mapa abre una tarjeta flotante sobre el mapa sin redimensionarlo, con pedido activo y acciones para centrar, solicitar ubicación, abrir historial o ver perfil.
+- El mapa calcula `fitBounds` al entrar y al cambiar la flota filtrada, limita el zoom automático a 18, conserva clusters y anima los cambios de posición recibidos por Realtime.
+- El modo historial oculta las demás motos, dibuja el recorrido y permite reproducir puntos con fecha, velocidad y curso; `Volver a flota en vivo` restaura el estado realtime.
+- Realtime acepta inserciones y actualizaciones recientes de ubicación; el snapshot de 15 segundos permanece como respaldo operativo.
+- Se retiró `live-map.tsx` como implementación duplicada; `page.tsx` quedó como entrada mínima a la mesa modular.
+- Los incidentes siguen disponibles en una bandeja flotante opcional sobre el mapa, sin reservar una tercera columna permanente.
+- No se ejecutaron pruebas ni compilación local por indicación operativa; la validación se realizará en el servidor de desarrollo/despliegue.

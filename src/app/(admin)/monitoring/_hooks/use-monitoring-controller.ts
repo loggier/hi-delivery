@@ -9,7 +9,7 @@ export type MonitoringSelection = { kind: 'incident' | 'order' | 'rider'; id: st
 export type MonitoringKpi = keyof Pick<MonitoringKpis, 'unassigned' | 'atRisk' | 'noSignal' | 'onTheWay' | 'available' | 'occupied'> | 'all';
 export type MonitoringRiderWithLocation = MonitoringRider & { latitude?: number; longitude?: number; speed?: number; course?: number };
 
-// Task 11 owns page/live-map wiring; this hook exposes the single controller contract only.
+// The controller is the single coordination point for snapshot, realtime, filters and selection.
 
 export function monitoringFilterForKpi(kpi: MonitoringKpi): MonitoringFilter {
   return kpi === 'all' ? {} : { risk: kpi };
@@ -25,7 +25,7 @@ export function mergeMonitoringLocationPatches(
     const patchTime = Date.parse(patch.receivedAt);
     const riderTime = Date.parse(rider.lastLocationReceivedAt ?? rider.lastLocationUpdate ?? '');
     if (!Number.isFinite(patchTime) || (Number.isFinite(riderTime) && patchTime < riderTime)) return rider;
-    return { ...rider, latitude: patch.latitude, longitude: patch.longitude, ...(patch.speed === undefined ? {} : { speed: patch.speed }), ...(patch.course === undefined ? {} : { course: patch.course }), lastLocationReceivedAt: patch.receivedAt, lastLocationUpdate: patch.receivedAt };
+    return { ...rider, latitude: patch.latitude, longitude: patch.longitude, ...(patch.speed === undefined ? {} : { speed: patch.speed }), ...(patch.course === undefined ? {} : { course: patch.course }), ...(patch.activeForOrders === undefined ? {} : { activeForOrders: patch.activeForOrders }), lastLocationReceivedAt: patch.receivedAt, lastLocationUpdate: patch.receivedAt };
   });
 }
 
