@@ -154,7 +154,14 @@ async function buildMonitoringSnapshotInternal(input: BuildMonitoringSnapshotInp
 
   const conditions = detectMonitoringConditions({ orders, riders, movementByRiderId }, thresholds, now)
     .filter((condition) => evaluatedTypes.has(condition.type));
-  const incidents = await atSnapshotStage('incidents', () => repositories.reconcileIncidents(conditions, [...evaluatedTypes], now));
+  let incidents: MonitoringIncident[] = [];
+  try {
+    incidents = await repositories.reconcileIncidents(conditions, [...evaluatedTypes], now);
+  } catch {
+    // Incident persistence is auxiliary: a missing migration must not hide fleet data.
+    health.schema = 'degraded';
+    addDegradedRules(health, ['incidents']);
+  }
   const kpis = computeMonitoringKpis(orders, riders, conditions, thresholds, now);
   const filtered = await atSnapshotStage('filters', () => applyFilter(orders, riders, incidents, input.filter, thresholds, now));
   return { serverTimestamp: now.toISOString(), dataHealth: health, thresholds, kpis, incidents: filtered.incidents, orders: filtered.orders, riders: filtered.riders };

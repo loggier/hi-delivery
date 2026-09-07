@@ -917,4 +917,5 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Realtime acepta inserciones y actualizaciones recientes de ubicación; el snapshot de 15 segundos permanece como respaldo operativo.
 - Se retiró `live-map.tsx` como implementación duplicada; `page.tsx` quedó como entrada mínima a la mesa modular.
 - Los incidentes siguen disponibles en una bandeja flotante opcional sobre el mapa, sin reservar una tercera columna permanente.
+- La reconciliación de `monitoring_incidents` es degradable: si la RPC/migración no está disponible, el snapshot sigue entregando riders y pedidos, marca `incidents` en `dataHealth.disabledRules` y deja temporalmente vacía la bandeja de alertas.
 - No se ejecutaron pruebas ni compilación local por indicación operativa; la validación se realizará en el servidor de desarrollo/despliegue.
