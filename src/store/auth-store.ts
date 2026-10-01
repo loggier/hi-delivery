@@ -6,6 +6,12 @@ import { type User } from "@/types";
 
 export const AUTH_STORAGE_KEY = "hid-session";
 
+let pendingSignOut: Promise<void> = Promise.resolve();
+
+export function waitForPendingSignOut(): Promise<void> {
+  return pendingSignOut;
+}
+
 type AuthState = {
   user: User | null;
   isAuthenticated: boolean;
@@ -41,8 +47,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error("Failed to clear session from localStorage", e);
     }
     set({ user: null, isAuthenticated: false });
-    void fetch('/api/auth/sign-out', { method: 'POST', keepalive: true }).catch(() => {
-      // Server revocation is best-effort; local logout has already completed.
+    pendingSignOut = pendingSignOut.then(async () => {
+      try {
+        await fetch('/api/auth/sign-out', { method: 'POST', keepalive: true });
+      } catch {
+        // Local logout remains immediate even when the server is unavailable.
+      }
     });
   },
 

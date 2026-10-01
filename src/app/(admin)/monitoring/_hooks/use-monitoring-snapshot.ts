@@ -7,6 +7,10 @@ import { MONITORING_SNAPSHOT_STAGES, type MonitoringFilter, type MonitoringSnaps
 export const MONITORING_SNAPSHOT_REFETCH_INTERVAL = 15_000;
 export const MONITORING_SNAPSHOT_RETRY = 1;
 
+function isAuthorizationError(error: unknown): boolean {
+  return error instanceof MonitoringSnapshotError && (error.status === 401 || error.status === 403);
+}
+
 export class MonitoringSnapshotError extends Error {
   readonly status: number | null;
   readonly code: MonitoringSnapshotStage | null;
@@ -97,8 +101,10 @@ export function useMonitoringSnapshot(filter: MonitoringFilter) {
         throw safeError;
       }
     },
-    refetchInterval: MONITORING_SNAPSHOT_REFETCH_INTERVAL,
-    retry: MONITORING_SNAPSHOT_RETRY,
+    refetchInterval: (currentQuery) => isAuthorizationError(currentQuery.state.error) ? false : MONITORING_SNAPSHOT_REFETCH_INTERVAL,
+    retry: (failureCount, error) => !isAuthorizationError(error) && failureCount < MONITORING_SNAPSHOT_RETRY,
+    refetchOnWindowFocus: (currentQuery) => !isAuthorizationError(currentQuery.state.error),
+    refetchOnReconnect: (currentQuery) => !isAuthorizationError(currentQuery.state.error),
     placeholderData: (previous) => previous,
   });
   const snapshot = query.data;

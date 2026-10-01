@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import type { MonitoringFilter, MonitoringOrder } from '@/lib/monitoring/types';
 import { useMonitoringController, type MonitoringKpi, type MonitoringSelection } from '../_hooks/use-monitoring-controller';
+import { MonitoringSnapshotError } from '../_hooks/use-monitoring-snapshot';
 import { DataHealthBanner } from './data-health-banner';
 import { FleetList } from './fleet-list';
 import { IncidentQueue } from './incident-queue';
@@ -39,6 +40,7 @@ export function MonitoringOperationsDesk() {
   const [incidentsOpen, setIncidentsOpen] = useState(false);
 
   const snapshot = controller.snapshot;
+  const sessionExpired = controller.error instanceof MonitoringSnapshotError && controller.error.status === 401;
   const orders = useMemo(() => snapshot?.orders ?? [], [snapshot?.orders]);
   const riders = controller.riders;
   const staleMinutes = snapshot?.thresholds.gpsStaleCriticalMinutes ?? 10;
@@ -105,8 +107,12 @@ export function MonitoringOperationsDesk() {
     <OperationsSummary kpis={snapshot?.kpis} selectedKpi={(controller.filter.risk ?? 'all') as MonitoringKpi} selectedKpiCard={selectedKpiCard} isLoading={controller.isLoading && !snapshot} onSelectKpi={(value) => { controller.selectKpi(value); setSelectedKpiCard(value === 'all' ? 'openOrders' : value === 'onTheWay' ? 'onTheWay' : value as MonitoringKpiCardKey); }} onSelectKpiCard={setSelectedKpiCard} />
     <MonitoringFilters zone={controller.filter.zoneId ?? 'all'} fleetStatus={controller.filter.fleetStatus ?? 'all'} signal={controller.filter.signal ?? 'all'} zones={zones} onZoneChange={(value) => updateFilter({ zoneId: value === 'all' ? undefined : value })} onFleetStatusChange={(value) => updateFilter({ fleetStatus: value as MonitoringFilter['fleetStatus'] })} onSignalChange={(value) => updateFilter({ signal: value as MonitoringFilter['signal'] })} />
     {snapshot || controller.isError ? <DataHealthBanner health={controller.health} serverTimestamp={snapshot?.serverTimestamp} /> : null}
+    {sessionExpired ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <span>Tu sesión del servidor expiró o no está disponible. Renueva el acceso para continuar monitoreando.</span>
+      <Button asChild variant="outline"><a href="/sign-in?reauthenticate=1">Renovar sesión</a></Button>
+    </div> : null}
     {!snapshot && controller.isLoading ? <div className="grid min-h-[32rem] place-items-center rounded-xl border border-dashed text-sm text-muted-foreground">Cargando flota...</div> : null}
-    {controller.isError && !snapshot ? <div role="alert" className="grid min-h-[20rem] place-items-center rounded-xl border border-red-200 bg-red-50 text-sm text-red-800">No se pudo cargar el monitoreo.</div> : null}
+    {controller.isError && !snapshot && !sessionExpired ? <div role="alert" className="grid min-h-[20rem] place-items-center rounded-xl border border-red-200 bg-red-50 text-sm text-red-800">No se pudo cargar el monitoreo.</div> : null}
 
     {snapshot ? <div className="grid min-h-[36rem] flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)]">
       <div className="flex min-h-[18rem] flex-col lg:min-h-0">

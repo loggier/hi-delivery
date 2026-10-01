@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAuthStore } from "@/store/auth-store";
+import { useAuthStore, waitForPendingSignOut } from "@/store/auth-store";
 import { signInSchema } from "@/lib/schemas";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -47,9 +47,14 @@ export default function SignInPage() {
   const router = useRouter();
   const { login, logout, user, isLoading, isAuthenticated } = useAuthStore();
   const { toast } = useToast();
+  const [reauthenticate, setReauthenticate] = useState(false);
 
   // Redirige si el usuario ya está autenticado
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('reauthenticate') === '1') {
+      setReauthenticate(true);
+      return;
+    }
     if (!isLoading && isAuthenticated && isRiderRole(user)) {
       logout();
       toast({
@@ -76,8 +81,10 @@ export default function SignInPage() {
 
   async function onSubmit(data: SignInFormValues) {
     try {
+      await waitForPendingSignOut();
       const response = await fetch('/api/auth/sign-in', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
@@ -100,7 +107,11 @@ export default function SignInPage() {
         variant: 'success'
       });
       
-      router.push("/dashboard");
+      if (reauthenticate) {
+        window.location.replace('/monitoring');
+      } else {
+        router.push("/dashboard");
+      }
 
     } catch (error) {
        toast({
@@ -112,7 +123,7 @@ export default function SignInPage() {
   }
 
   // Muestra un loader general mientras se verifica el estado de autenticación inicial.
-  if (isLoading || isAuthenticated) {
+   if (isLoading || (isAuthenticated && !reauthenticate)) {
      if (isAuthenticated && isRiderRole(user)) {
        return (
          <div className="flex h-screen w-full items-center justify-center bg-background">
