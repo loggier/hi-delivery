@@ -14,6 +14,12 @@ export interface AdminOperationUser {
   status: string;
 }
 
+export interface OrderManagementUser {
+  id: string;
+  roleId: string;
+  businessId: string | null;
+}
+
 export class AdminSessionError extends Error {
   readonly status: 401 | 403;
 
@@ -92,6 +98,42 @@ export async function requireAdminOperationSession(): Promise<AdminOperationUser
   }
 
   return { id: user.id, roleId: user.role_id, status: user.status };
+}
+
+export async function requireOrderManagementSession(): Promise<OrderManagementUser> {
+  const cookieStore = await cookies();
+  const rawToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!rawToken) throw new AdminSessionError('Authentication required', 401);
+
+  const supabase = createSupabaseAdminClient();
+  const { data: session, error: sessionError } = await supabase
+    .from('admin_web_sessions')
+    .select('user_id, expires_at, revoked_at')
+    .eq('token_hash', hashSessionToken(rawToken))
+    .maybeSingle();
+  const expiresAt = session ? new Date(session.expires_at).getTime() : Number.NaN;
+  if (sessionError || !session || session.revoked_at !== null || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    throw new AdminSessionError('Invalid or expired session', 401);
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('id, role_id, status')
+    .eq('id', session.user_id)
+    .maybeSingle();
+  if (userError || !user || user.status !== 'ACTIVE') {
+    throw new AdminSessionError('Active web account required', 403);
+  }
+  if (user.role_id === 'role-admin') return { id: user.id, roleId: user.role_id, businessId: null };
+  if (user.role_id !== 'role-owner') throw new AdminSessionError('Order management access required', 403);
+
+  const { data: business, error: businessError } = await supabase
+    .from('businesses')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (businessError || !business) throw new AdminSessionError('Business scope unavailable', 403);
+  return { id: user.id, roleId: user.role_id, businessId: String(business.id) };
 }
 
 export async function revokeCurrentAdminWebSession(): Promise<void> {

@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const TOKEN_VERSION = 'v1';
 const TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
+const RIDER_ORDERS_TOKEN_TTL_SECONDS = 60 * 60;
 
 export type RiderLocationTokenPayload = {
   riderId: string;
@@ -12,6 +13,15 @@ export type RiderLocationTokenPayload = {
   tokenId: string;
   scope: 'rider_location:write';
   tokenType?: 'access' | 'refresh';
+};
+
+export type RiderOrdersTokenPayload = {
+  riderId: string;
+  deviceId: string;
+  issuedAt: number;
+  expiresAt: number;
+  tokenId: string;
+  scope: 'rider_orders:read_write';
 };
 
 function getTokenSecret() {
@@ -119,4 +129,53 @@ export function verifyRiderLocationRefreshToken(
   return payload?.tokenType === 'refresh' ? payload : null;
 }
 
-export { REFRESH_TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS };
+export function createRiderOrdersToken({
+  riderId,
+  deviceId,
+  tokenId,
+}: {
+  riderId: string;
+  deviceId: string;
+  tokenId: string;
+}): string {
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const payload: RiderOrdersTokenPayload = {
+    riderId,
+    deviceId,
+    issuedAt,
+    expiresAt: issuedAt + RIDER_ORDERS_TOKEN_TTL_SECONDS,
+    tokenId,
+    scope: 'rider_orders:read_write',
+  };
+  const content = `${TOKEN_VERSION}.${encode(payload)}`;
+  return `${content}.${signContent(content)}`;
+}
+
+export function verifyRiderOrdersToken(token: string): RiderOrdersTokenPayload | null {
+  try {
+    const [version, encodedPayload, signature] = token.split('.');
+    if (!version || !encodedPayload || !signature || version !== TOKEN_VERSION) return null;
+
+    const content = `${version}.${encodedPayload}`;
+    const expectedBuffer = Buffer.from(signContent(content));
+    const providedBuffer = Buffer.from(signature);
+    if (expectedBuffer.length !== providedBuffer.length || !timingSafeEqual(expectedBuffer, providedBuffer)) return null;
+
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as RiderOrdersTokenPayload;
+    const now = Math.floor(Date.now() / 1000);
+    if (
+      typeof payload.riderId !== 'string' || !payload.riderId ||
+      typeof payload.deviceId !== 'string' || !payload.deviceId ||
+      typeof payload.issuedAt !== 'number' ||
+      typeof payload.expiresAt !== 'number' || payload.expiresAt <= now ||
+      payload.issuedAt > now + 60 ||
+      typeof payload.tokenId !== 'string' ||
+      payload.scope !== 'rider_orders:read_write'
+    ) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export { REFRESH_TOKEN_TTL_SECONDS, RIDER_ORDERS_TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS };

@@ -37,17 +37,6 @@ import {
 
 const libraries: ('places')[] = ['places'];
 const OSRM_ROUTE_URL = process.env.NEXT_PUBLIC_OSRM_ROUTE_URL || 'https://nominatim.vemontech.com/route/v1/driving';
-const activeDeliveryStatuses: OrderStatus[] = [
-    'pending_acceptance',
-    'accepted',
-    'at_store',
-    'cooking',
-    'ready_for_pickup',
-    'picked_up',
-    'out_for_delivery',
-    'on_the_way',
-    'arrived_at_destination',
-];
 const manuallyAssignableStatuses: OrderStatus[] = [
     'pending_acceptance',
     'accepted',
@@ -538,13 +527,13 @@ export default function ViewOrderPage() {
       }
 
       const riderIds = riderRows.map((rider) => rider.id);
-      const { data: activeOrders, error: activeOrdersError } = await supabase
-        .from('orders')
-        .select('id, rider_id, status')
-        .in('rider_id', riderIds)
-        .in('status', activeDeliveryStatuses);
-      if (activeOrdersError) {
-        throw activeOrdersError;
+      const activeOrdersResponse = await fetch(
+        `/api/orders?view=active-rider-load&riderIds=${encodeURIComponent(riderIds.join(','))}`,
+        { credentials: 'same-origin', cache: 'no-store' },
+      );
+      const activeOrders = await activeOrdersResponse.json().catch(() => null);
+      if (!activeOrdersResponse.ok || !Array.isArray(activeOrders)) {
+        throw new Error(activeOrders?.message || 'No se pudo consultar la carga de repartidores.');
       }
 
       const loadByRider = new Map<string, number>();

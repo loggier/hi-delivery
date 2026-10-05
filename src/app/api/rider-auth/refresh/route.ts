@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import {
   createRiderLocationToken,
+  createRiderOrdersToken,
+  RIDER_ORDERS_TOKEN_TTL_SECONDS,
   TOKEN_TTL_SECONDS,
   verifyRiderLocationRefreshToken,
 } from '@/lib/rider-location-token';
@@ -43,10 +45,17 @@ export async function POST(request: Request) {
       deviceId: payload.deviceId,
       tokenId: crypto.randomUUID(),
     });
+    const ordersAccessToken = createRiderOrdersToken({
+      riderId: payload.riderId,
+      deviceId: payload.deviceId,
+      tokenId: crypto.randomUUID(),
+    });
 
     return NextResponse.json({
       accessToken,
       expiresIn: TOKEN_TTL_SECONDS,
+      ordersAccessToken,
+      ordersExpiresIn: RIDER_ORDERS_TOKEN_TTL_SECONDS,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes('RIDER_LOCATION_TOKEN_SECRET')) {

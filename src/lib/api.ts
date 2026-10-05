@@ -579,36 +579,61 @@ const useCreateOrUpdateRole = () => {
 }
 
 
-const orderSelect = `*,
-  business:businesses(name),
-  customer:customers!inner(*),
-  rider:riders(id,first_name,last_name),
-  order_items:order_items(*, products:products(name)),
-  notified_riders,
-  rejected_riders
-`;
-
-const orderDetailSelect = `*,
-  business:businesses(name),
-  customer:customers!inner(*),
-  rider:riders(id,first_name,last_name),
-  order_items:order_items(*, products:products(name)),
-  notified_riders,
-  active_notified_riders,
-  rejected_riders,
-  notification_expires_at,
-  last_dispatch_at,
-  assignment_exhausted_at,
-  dispatch_attempt_count,
-  order_assignment_attempts:order_assignment_attempts(
-    *,
-    rider:riders(id,first_name,last_name)
-  )
-`;
-
 const rolesSelect = `*, role_permissions(*)`
 const zonesSelect = `*, areas(*)`
 const businessSelect = `*, plan:plans(name), zone:zones(name), business_branches(*)`
+
+const useGetOrders = (filters: Record<string, unknown> = {}, queryOptions: { enabled?: boolean } = {}) =>
+  useQuery<Order[]>({
+    queryKey: ['orders', filters],
+    enabled: queryOptions.enabled ?? true,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+      });
+      const response = await fetch(`/api/orders?${params.toString()}`, { credentials: 'same-origin', cache: 'no-store' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.message || 'No se pudieron consultar los pedidos.');
+      return payload as Order[];
+    },
+  });
+
+const useGetOrder = (id: string, queryOptions?: { enabled?: boolean }) =>
+  useQuery<Order>({
+    queryKey: ['orders', id],
+    enabled: queryOptions?.enabled ?? Boolean(id),
+    queryFn: async () => {
+      const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, { credentials: 'same-origin', cache: 'no-store' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.message || 'No se pudo consultar el pedido.');
+      return payload as Order;
+    },
+  });
+
+const useUpdateOrder = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation<Order, Error, Partial<Order> & { id: string }>({
+    mutationFn: async ({ id, ...updates }) => {
+      const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.message || 'No se pudo actualizar el pedido.');
+      return payload as Order;
+    },
+    onSuccess: (order) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.setQueryData(['orders', order.id], order);
+      toast({ title: 'Éxito', description: 'Pedido actualizado exitosamente.', variant: 'success' });
+    },
+    onError: (error) => toast({ title: 'Error al actualizar', description: error.message, variant: 'destructive' }),
+  });
+};
 
 
 // --- API Hooks ---
@@ -641,10 +666,9 @@ export const api = {
     },
     customer_addresses: createApi<CustomerAddress>('customer_addresses'),
     orders: {
-      ...createApi<Order>('orders', orderSelect),
-      useGetOne: (id: string, queryOptions?: { enabled?: boolean }) => {
-        return createApi<Order>('orders', orderDetailSelect).useGetOne(id, queryOptions);
-      },
+      useGetAll: useGetOrders,
+      useGetOne: useGetOrder,
+      useUpdate: useUpdateOrder,
       useCreate: useCreateOrder,
     },
     roles: {
@@ -737,13 +761,13 @@ export const useCustomerOrders = (customerId: string) => {
   return useQuery<Order[]>({
     queryKey: ['orders', { customerId }],
     queryFn: async () => {
-      const { data, error } = await createClient()
-        .from('orders')
-        .select(orderSelect)
-        .eq('customer_id', customerId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Order[];
+      const params = new URLSearchParams({ customer_id: customerId });
+      const response = await fetch(`/api/orders?${params.toString()}`, { credentials: 'same-origin', cache: 'no-store' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(payload)) {
+        throw new Error(payload?.message || 'No se pudieron consultar los pedidos del cliente.');
+      }
+      return payload as Order[];
     },
     enabled: !!customerId,
   });

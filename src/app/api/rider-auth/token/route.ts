@@ -5,7 +5,9 @@ import { verifyPassword } from '@/lib/auth-utils';
 import {
   createRiderLocationRefreshToken,
   createRiderLocationToken,
+  createRiderOrdersToken,
   REFRESH_TOKEN_TTL_SECONDS,
+  RIDER_ORDERS_TOKEN_TTL_SECONDS,
   TOKEN_TTL_SECONDS,
 } from '@/lib/rider-location-token';
 
@@ -93,12 +95,19 @@ export async function POST(request: Request) {
       deviceId: parsed.data.deviceId,
       tokenId: crypto.randomUUID(),
     });
+    const ordersAccessToken = createRiderOrdersToken({
+      riderId: rider.id,
+      deviceId: parsed.data.deviceId,
+      tokenId: crypto.randomUUID(),
+    });
 
     return NextResponse.json({
       accessToken: token,
       expiresIn: TOKEN_TTL_SECONDS,
       refreshToken,
       refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
+      ordersAccessToken,
+      ordersExpiresIn: RIDER_ORDERS_TOKEN_TTL_SECONDS,
       riderId: rider.id,
       user: {
         id: user.id,

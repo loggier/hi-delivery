@@ -921,3 +921,17 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - El modo historial aísla el recorrido consultado: no superpone la ruta, pickup/delivery del pedido activo ni marcadores de incidentes sobre la trayectoria del rider.
 - Los puntos históricos se trazan en segmentos separados cuando existe un intervalo sin reportes mayor a 15 minutos, evitando dibujar desplazamientos rectos que no fueron registrados por GPS.
 - No se ejecutaron pruebas ni compilación local por indicación operativa; la validación se realizará en el servidor de desarrollo/despliegue.
+
+## 2026-10-05 - Aislamiento de acceso a pedidos de riders
+
+- La app rider ya no consulta `orders` directamente con la clave pública. Las lecturas de pendientes, activos, historial, ganancias y detalle usan `/api/rider-orders` y el backend deriva `rider_id` del token firmado `rider_orders:read_write`.
+- Los pendientes devueltos deben estar sin asignar, en `pending_acceptance`, dentro de vigencia, no agotados/rechazados y notificados al rider actual. El detalle por ID devuelve 404 para pedidos de otro rider.
+- Aceptar, rechazar y avanzar estado usan `/api/rider-orders/actions`, que revalida el token, la asignación/notificación y el estado actual antes del CAS. Los tokens de ubicación conservan su scope separado.
+- Flutter guarda la credencial de pedidos en secure storage y la renueva junto al token de ubicación. Se quitaron las suscripciones Realtime globales de pedidos; la flota del rider se actualiza por consultas scoped y Realtime sólo filtrado a su `rider_id`.
+- El panel web de pedidos ahora lee y actualiza vía `/api/orders` con sesión HttpOnly de admin/owner y scope server-side del negocio.
+- Migración `supabase/migrations/20261005090000_restrict_order_table_clients.sql`: revoca acceso directo `PUBLIC`/`anon`/`authenticated` a `orders` y tablas de detalle/eventos/asignaciones; los servicios server-side usan `service_role`.
+- Aplicar la migración en Supabase después del despliegue de endpoints web y antes de instalar el build rider nuevo. No depender de RLS para el acceso del móvil; siempre usar los endpoints scoped.
+- Pendiente confirmar las policies/grants reales de producción y verificar consultas de admin, owner y rider durante despliegue gradual.
+- Después se implementó `/api/orders` y `/api/orders/[id]` para lectura/actualización web protegida, y el cliente React Query dejó de leer `orders` directamente con anon.
+- `customers` ahora obtiene estadísticas desde la API protegida; la carga de pedidos activos por rider también se resuelve server-side.
+- La migración `20261005090000_restrict_order_table_clients.sql` revoca los grants directos de `PUBLIC`, `anon` y `authenticated` sobre pedidos y tablas relacionadas; aplicar sólo tras desplegar endpoints y cliente web que usa sesión HttpOnly.

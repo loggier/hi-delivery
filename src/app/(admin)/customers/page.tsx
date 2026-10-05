@@ -9,14 +9,12 @@ import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table/data-table";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/store/auth-store";
 import { columns } from "./columns";
 
 export default function CustomersPage() {
   const { user } = useAuthStore();
   const isBusinessOwner = user?.role_id === 'role-owner' || user?.role?.name === 'Dueño de Negocio';
-  const supabase = createClient();
   const [search, setSearch] = React.useState('');
   const [debouncedSearch] = useDebounce(search, 500);
 
@@ -32,16 +30,16 @@ export default function CustomersPage() {
   const { data: orderStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['customers', 'order-stats', isBusinessOwner ? user?.business_id : 'all'],
     queryFn: async () => {
-      let query = supabase
-        .from('orders')
-        .select('customer_id, order_total, business_id');
-
-      if (isBusinessOwner && user?.business_id) {
-        query = query.eq('business_id', user.business_id);
+      const params = new URLSearchParams({ view: 'customer-stats' });
+      if (isBusinessOwner && user?.business_id) params.set('business_id', user.business_id);
+      const response = await fetch(`/api/orders?${params.toString()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error(data?.message || 'No se pudieron consultar las estadísticas de pedidos.');
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
 
       const statsByCustomer = new Map<string, { order_count: number; total_spent: number }>();
       for (const order of data ?? []) {

@@ -5,6 +5,54 @@ import { createServerClient } from '@supabase/ssr';
 import { faker } from '@faker-js/faker';
 import { type OrderPayload } from '@/types';
 import { sendOrderEventPushes } from '@/lib/push-order-events';
+import { AdminSessionError, requireOrderManagementSession } from '@/lib/auth/admin-session';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+
+const adminOrderSelect = `*, business:businesses(name), customer:customers!inner(*), rider:riders(id,first_name,last_name), order_items:order_items(*, products:products(name)), notified_riders, active_notified_riders, rejected_riders, notification_expires_at, last_dispatch_at, assignment_exhausted_at, dispatch_attempt_count`;
+
+export async function GET(request: Request) {
+  try {
+    const actor = await requireOrderManagementSession();
+    const params = new URL(request.url).searchParams;
+    const view = params.get('view');
+    const supabaseAdmin = createSupabaseAdminClient();
+
+    if (view === 'customer-stats') {
+      let query = supabaseAdmin.from('orders').select('customer_id, order_total, business_id');
+      if (actor.roleId === 'role-owner') query = query.eq('business_id', actor.businessId!);
+      const { data, error } = await query;
+      if (error) return NextResponse.json({ message: 'No se pudieron consultar las estadísticas de pedidos.' }, { status: 502 });
+      return NextResponse.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    if (view === 'active-rider-load') {
+      const riderIds = (params.get('riderIds') ?? '').split(',').filter(Boolean).slice(0, 100);
+      if (actor.roleId !== 'role-admin') return NextResponse.json({ message: 'Acceso de administrador requerido.' }, { status: 403 });
+      if (riderIds.length === 0) return NextResponse.json([]);
+      const { data, error } = await supabaseAdmin.from('orders').select('id,rider_id,status').in('rider_id', riderIds).in('status', ['accepted', 'at_store', 'cooking', 'ready_for_pickup', 'picked_up', 'out_for_delivery', 'on_the_way', 'arrived_at_destination']);
+      if (error) return NextResponse.json({ message: 'No se pudo consultar la carga de pedidos.' }, { status: 502 });
+      return NextResponse.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    const limit = Math.min(Math.max(Number(params.get('limit')) || 5000, 1), 5000);
+    let query = supabaseAdmin.from('orders').select(adminOrderSelect).order('created_at', { ascending: false }).limit(limit);
+    if (actor.roleId === 'role-owner') query = query.eq('business_id', actor.businessId!);
+    for (const field of ['status', 'customer_id', 'rider_id'] as const) {
+      const value = params.get(field);
+      if (value) query = query.eq(field, value);
+    }
+    if (actor.roleId === 'role-admin') {
+      const requestedBusinessId = params.get('business_id');
+      if (requestedBusinessId) query = query.eq('business_id', requestedBusinessId);
+    }
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ message: 'No se pudieron consultar los pedidos.' }, { status: 502 });
+    return NextResponse.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    if (error instanceof AdminSessionError) return NextResponse.json({ message: error.message }, { status: error.status });
+    return NextResponse.json({ message: 'No se pudo autorizar la consulta de pedidos.' }, { status: 500 });
+  }
+}
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, orderId: string, fileName: string): Promise<string> {
   const filePath = `orders/${orderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
