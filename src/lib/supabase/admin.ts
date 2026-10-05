@@ -7,13 +7,13 @@ export function resolveSupabaseSchema(
   return serverSchema || publicSchema || 'grupohubs';
 }
 
-export function createSupabaseAdminClient() {
+export function createSupabaseAdminClient(schemaOverride?: string) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-      db: { schema: resolveSupabaseSchema() },
+      db: { schema: schemaOverride || resolveSupabaseSchema() },
     },
   );
 }

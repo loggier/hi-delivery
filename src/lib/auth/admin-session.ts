@@ -38,9 +38,13 @@ export function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-export async function createAdminWebSession(userId: string): Promise<void> {
+export function getAdminSessionSchema(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_SCHEMA || process.env.SUPABASE_SCHEMA || 'grupohubs';
+}
+
+export async function createAdminWebSession(userId: string, schema = getAdminSessionSchema()): Promise<void> {
   const rawToken = newSessionToken();
-  const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient(schema);
   const { error } = await supabase.from('admin_web_sessions').insert({
     token_hash: hashSessionToken(rawToken),
     user_id: userId,
@@ -69,7 +73,7 @@ export async function requireAdminOperationSession(): Promise<AdminOperationUser
     throw new AdminSessionError('Authentication required', 401);
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient(getAdminSessionSchema());
   const { data: session, error: sessionError } = await supabase
     .from('admin_web_sessions')
     .select('user_id, expires_at, revoked_at')
@@ -105,7 +109,7 @@ export async function requireOrderManagementSession(): Promise<OrderManagementUs
   const rawToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   if (!rawToken) throw new AdminSessionError('Authentication required', 401);
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = createSupabaseAdminClient(getAdminSessionSchema());
   const { data: session, error: sessionError } = await supabase
     .from('admin_web_sessions')
     .select('user_id, expires_at, revoked_at')
@@ -142,7 +146,7 @@ export async function revokeCurrentAdminWebSession(): Promise<void> {
 
   try {
     if (rawToken) {
-      const supabase = createSupabaseAdminClient();
+      const supabase = createSupabaseAdminClient(getAdminSessionSchema());
       const { error } = await supabase
         .from('admin_web_sessions')
         .update({ revoked_at: new Date().toISOString() })
