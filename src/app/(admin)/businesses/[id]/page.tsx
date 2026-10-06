@@ -20,6 +20,8 @@ import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { BusinessType, BusinessBranch } from "@/types";
 import { BranchFormModal, BranchList } from "./branch-components";
+import { OwnerAccountCard } from "./owner-account-card";
+import { useAuthStore } from "@/store/auth-store";
 
 const libraries: ('places')[] = ['places'];
 const googleMapsScriptId = "hi-delivery-businesses-google-maps";
@@ -76,6 +78,7 @@ const DocumentLink = ({ label, url }: { label: string, url?: string }) => (
 export default function ViewBusinessPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const isMasterAdmin = useAuthStore((state) => state.user?.role_id === 'role-admin');
   
   const { isLoaded, loadError } = useLoadScript({
     id: googleMapsScriptId,
@@ -255,6 +258,7 @@ export default function ViewBusinessPage() {
       </div>
       <div className="lg:col-span-1 space-y-6">
         <SubscriptionManager business={business} />
+        {isMasterAdmin && <OwnerAccountCard businessId={business.id} />}
       </div>
     </div>
     
