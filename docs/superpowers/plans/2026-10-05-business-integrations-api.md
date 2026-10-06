@@ -29,7 +29,7 @@ Before editing, run `git status --short --branch` in the web worktree and preser
 
 **Server integration modules and routes**
 - Create `src/lib/business-integrations/api-key.ts`: cryptographic generation, prefix/hash, constant generic auth failure, resolution of enabled key/business, last-used update.
-- Create `src/lib/business-integrations/api-key-management.ts`: require a signed-in active owner, resolve linked business from `users.id`, accept `owen-business` and the existing `role-owner` alias, and enforce no caller-provided business scope.
+- Create `src/lib/business-integrations/api-key-management.ts`: require a signed-in active owner with exact role ID `owen-business`, resolve the linked ACTIVE business from `users.id`, and enforce no caller-provided business scope. `role-owner` is NOT an integration authorization alias (approved spec, line 22).
 - Create `src/lib/business-integrations/orders.ts`: Zod contracts, decimal monetary arithmetic, cursor encode/decode, explicit public order DTO, safe error mapping.
 - Create `src/app/api/business-integrations/key/route.ts`: owner-only `GET`, `POST` (create or rotate; atomically revoke old key), `PATCH` (`{ enabled: boolean }`), and `DELETE` (revoke). Never return a digest.
 - Create `src/lib/business-integrations/api-auth.ts`: parse Bearer header, authenticate enabled key, enforce active business, rate limit and update last-used without logging secrets.
@@ -40,7 +40,7 @@ Before editing, run `git status --short --branch` in the web worktree and preser
 - Create `src/lib/business-integrations/openapi.ts`: the checked-in OpenAPI 3.1 contract for the three public routes, shared schemas, auth and error responses.
 - Create `src/app/(admin)/profile/business-integrations-card.tsx`: key status, create/rotate confirmation, one-time secret display/copy, toggle and revoke controls.
 - Create `src/app/(admin)/profile/business-api-reference.tsx`: Stoplight-style sidebar/content/code-sample reference driven by OpenAPI.
-- Modify `src/app/(admin)/profile/page.tsx`: render these only for active business owner role (`owen-business` and alias `role-owner`) with a linked `business_id`.
+- Modify `src/app/(admin)/profile/page.tsx`: render these only for exact role ID `owen-business` with a linked ACTIVE business. `role-owner` is NOT an integration authorization alias (approved spec, line 22).
 - Modify `CODEX.md`: record endpoints, migration and deployment sequence.
 
 **Tests**
@@ -127,7 +127,7 @@ Use `node:crypto` `randomBytes(32)` and SHA-256. Do not modify `/api/auth/sign-i
 
 - [ ] **Step 4: Write key-route tests first**
 
-Test `GET` returns only key ID/prefix/enabled/created/last-used metadata, owner without business gets `403`, `POST` returns secret only once and persists only digest, `POST` rotation revokes old key, `PATCH` changes only enabled status, `DELETE` revokes, and admin/rider/unlinked owner cannot manage keys. Include `owen-business` role fixture.
+Test `GET` returns only key ID/prefix/enabled/created/last-used metadata, owner without an ACTIVE linked business gets `403`, `POST` returns secret only once and persists only digest, `POST` rotation revokes old key, `PATCH` requires `key_id` and changes only that key's enabled status, `DELETE` revokes, and admin/rider/`role-owner`/unlinked owner cannot manage keys. Include exact `owen-business` role fixture. `role-owner` is NOT an integration authorization alias (approved spec, line 22).
 
 The route's mocked session resolver must return database-derived `userId`, role and business link. Verify the route never trusts `business_id` from query/body.
 
@@ -138,7 +138,7 @@ Expected: FAIL before the route and helper implementation.
 
 - [ ] **Step 6: Implement owner-only key lifecycle route**
 
-Implement an owner resolver that validates active web session, active user, role ID `owen-business` or `role-owner`, and `businesses.user_id = session user id`; resolve the business from the database, never request input. Create `/api/business-integrations/key` methods: GET metadata, POST new/rotated credential, PATCH `{ enabled: boolean }`, DELETE revoke. POST calls `rotate_business_api_key` in one database transaction so a unique-index race cannot leave two valid credentials or disable the key without returning its replacement. Enforce same-origin `Origin` for cookie-authenticated mutations, return `Cache-Control: no-store`, and never log or return key digest.
+Implement an owner resolver that validates active web session, active user, exact role ID `owen-business`, and `businesses.user_id = session user id` with business status `ACTIVE`; resolve the business from the database, never request input. `role-owner` is NOT an integration authorization alias (approved spec, line 22). Create `/api/business-integrations/key` methods: GET metadata, POST new/rotated credential, PATCH `{ key_id, enabled }` for the specified key, DELETE revoke. PATCH must validate the key belongs to the database-linked business; it does not operate implicitly on whichever key happens to be current. POST calls `rotate_business_api_key` in one database transaction so a unique-index race cannot leave two valid credentials or disable the key without returning its replacement. Enforce same-origin `Origin` for cookie-authenticated mutations, return `Cache-Control: no-store`, and never log or return key digest.
 
 - [ ] **Step 7: Run both key test files**
 
@@ -272,7 +272,7 @@ Use one exported `businessIntegrationsOpenApi` object as source of truth. Add ba
 
 - [ ] **Step 4: Write profile UI tests first**
 
-Test owner role `owen-business` sees integrations and docs; alias `role-owner` works; admin/rider/non-business sees neither; first-time empty key state; one-time secret is shown only from create response; GET never repopulates secret after unmount/refresh; enable toggle updates status; rotate requires confirmation; docs navigation opens endpoint descriptions/snippets.
+Test exact owner role ID `owen-business` with a linked ACTIVE business sees integrations and docs; `role-owner` does not qualify as an integration authorization alias (approved spec, line 22); admin/rider/non-business/unlinked or inactive-business users see neither. Cover first-time empty key state; one-time secret is shown only from create response; GET never repopulates secret after unmount/refresh; enable toggle sends the selected `key_id` and updates only that key; rotate requires confirmation; docs navigation opens endpoint descriptions/snippets.
 
 - [ ] **Step 5: Run UI tests and verify RED**
 
@@ -346,7 +346,7 @@ Deploy app code that contains the integration routes and the same-build owner pr
 ## Final acceptance checklist
 
 - [ ] One enabled, non-revoked key maximum per business; raw key shown once and only digest persisted.
-- [ ] Owner (`owen-business` or supported `role-owner`) can manage only the DB-linked business key; all other roles denied.
+- [ ] Exact role ID `owen-business` with a linked ACTIVE business can manage only its DB-linked business key; all other roles, including `role-owner`, are denied. `role-owner` is NOT an integration authorization alias (approved spec, line 22).
 - [ ] Disabled/revoked/missing/invalid key fails generically; active key has shared 60/minute rate limit.
 - [ ] `GET` list/detail are paginated, no-store, sanitized, and business-scoped.
 - [ ] `POST` validates strict request, creates/reuses same-business customer, calculates totals, uses initial status, dispatches best-effort, and is transactionally idempotent.
