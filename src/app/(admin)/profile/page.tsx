@@ -29,6 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BusinessIntegrationsCard } from "./business-integrations-card";
+import { BusinessApiReference } from "./business-api-reference";
 
 const validityDays: Record<PlanValidity, number> = {
   mensual: 30,
@@ -150,6 +152,9 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const isBusinessOwner = user?.role_id === "role-owner" || user?.role?.name === "Dueño de Negocio";
   const businessId = isBusinessOwner ? user?.business_id : undefined;
+  const canUseBusinessIntegrations = user?.role_id === "owen-business"
+    && user.status === "ACTIVE"
+    && Boolean(user.business_id);
 
   const { data: business, isLoading: isLoadingBusiness } = api.businesses.useGetOne(
     businessId || "",
@@ -391,6 +396,13 @@ export default function ProfilePage() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {canUseBusinessIntegrations && business?.user_id === user?.id && business.status === "ACTIVE" && (
+            <>
+              <BusinessIntegrationsCard />
+              <BusinessApiReference />
+            </>
           )}
         </div>
 
