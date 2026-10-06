@@ -111,6 +111,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const updateData = await parseBusinessFormData(formData, supabaseAdmin, businessId);
+    // This entitlement is writable only through the admin-authorized api-access endpoint.
+    delete updateData.api_enabled;
     const password = updateData.password;
     const passwordConfirmation = updateData.passwordConfirmation;
     const ownerName = updateData.owner_name;

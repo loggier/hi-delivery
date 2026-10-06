@@ -39,6 +39,8 @@ import { FormImageUpload, FormFileUpload } from "@/app/site/apply/_components/fo
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { z } from "zod";
+import { useAuthStore } from "@/store/auth-store";
+import { BusinessApiAccessControl } from "./business-api-access-control";
 
 type BusinessFormValues = z.infer<typeof businessSchema>;
 
@@ -149,6 +151,7 @@ const BusinessMap = ({ isLoaded, loadError }: { isLoaded: boolean, loadError?: E
 
 function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategory[]; zones: Zone[]}) {
   const router = useRouter();
+  const isAdmin = useAuthStore((state) => state.user?.role_id === 'role-admin');
   const methods = useFormContext<BusinessFormValues>();
   const createMutation = api.businesses.useCreateWithFormData();
   const updateMutation = api.businesses.useUpdateWithFormData();
@@ -159,6 +162,8 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
     });
   
   const isEditing = !!methods.getValues("id");
+  const businessId = methods.getValues('id') ?? null;
+  const apiEnabled = useWatch({ control: methods.control, name: 'api_enabled' });
   const formAction = isEditing ? "Guardar cambios" : "Crear negocio";
 
   const selectedType = useWatch({ control: methods.control, name: 'type' });
@@ -183,6 +188,7 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
 
         Object.keys(currentValues).forEach(key => {
             const fieldKey = key as keyof BusinessFormValues;
+            if (fieldKey === 'api_enabled') return;
             const value = currentValues[fieldKey];
 
             // Skip passwords on edit if they are empty
@@ -494,7 +500,13 @@ function BusinessForm({ allCategories, zones }: { allCategories: BusinessCategor
                  <FormField control={methods.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea placeholder="Anotaciones internas sobre el negocio." className="resize-none" {...field} disabled={isPending} /></FormControl><FormMessage /></FormItem>)} />
             </CardContent>
         </Card>
-        
+
+        <BusinessApiAccessControl
+          businessId={isEditing ? businessId : null}
+          initialEnabled={apiEnabled ?? false}
+          isAdmin={isAdmin}
+        />
+
         <div className="flex items-center justify-end gap-2">
             <FormField
                     control={methods.control}
@@ -558,6 +570,7 @@ const defaultFormValues: BusinessFormValues = {
     delivery_time_max: undefined,
     average_ticket: undefined,
     has_delivery_service: false,
+    api_enabled: false,
     weekly_demand: undefined,
     tax_id: "",
     website: "",
@@ -605,6 +618,7 @@ export function BusinessFormWrapper({ initialData, categories, zones }: { initia
         delivery_time_max: initialData.delivery_time_max,
         average_ticket: initialData.average_ticket,
         has_delivery_service: initialData.has_delivery_service ?? false,
+        api_enabled: initialData.api_enabled ?? false,
         weekly_demand: initialData.weekly_demand,
         tax_id: initialData.tax_id ?? "",
         website: initialData.website ?? "",
