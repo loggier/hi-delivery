@@ -11,7 +11,8 @@ import { GET, POST, PATCH, DELETE } from '@/app/api/business-integrations/key/ro
 import { AdminSessionError } from '@/lib/auth/admin-session';
 
 const owner = { userId: 'user-1', businessId: 'biz-1' };
-const existing = { id: 'key-1', key_prefix: 'hid_live_abcd1234…', enabled: false, created_at: '2026-10-01T00:00:00Z', last_used_at: null };
+const currentKeyId = '11111111-1111-4111-8111-111111111111';
+const existing = { id: currentKeyId, key_prefix: 'hid_live_abcd1234…', enabled: false, created_at: '2026-10-01T00:00:00Z', last_used_at: null };
 let queryResult: { data?: unknown; error?: unknown } | undefined;
 function query(result: { data?: unknown; error?: unknown } = { data: existing, error: null }) {
   const q: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -29,7 +30,7 @@ function req(method: string, body?: unknown, origin = 'http://localhost') {
 
 describe('business integration key lifecycle', () => {
   beforeEach(() => {
-    vi.clearAllMocks(); queryResult = undefined; ownerMock.mockResolvedValue(owner); rpcMock.mockResolvedValue({ data: 'key-new', error: null });
+    vi.clearAllMocks(); queryResult = undefined; ownerMock.mockResolvedValue(owner); rpcMock.mockResolvedValue({ data: '22222222-2222-4222-8222-222222222222', error: null });
     metadataMock.mockResolvedValue(existing);
     const q = query(); fromMock.mockReturnValue(q); clientMock.mockReturnValue({ from: fromMock, rpc: rpcMock });
   });
@@ -37,7 +38,7 @@ describe('business integration key lifecycle', () => {
     const response = await GET();
     expect(response.status).toBe(200); expect(response.headers.get('cache-control')).toContain('no-store');
     const body = await response.json();
-    expect(body).toEqual({ key: { id: 'key-1', prefix: existing.key_prefix, enabled: false, created_at: existing.created_at, last_used_at: null } });
+    expect(body).toEqual({ key: { id: currentKeyId, prefix: existing.key_prefix, enabled: false, created_at: existing.created_at, last_used_at: null } });
     expect(JSON.stringify(body)).not.toMatch(/digest|hid_live_[A-Za-z0-9_-]{20}/);
     expect(metadataMock).toHaveBeenCalledWith('biz-1');
   });
@@ -73,34 +74,37 @@ describe('business integration key lifecycle', () => {
     expect(await response.json()).toEqual({ error: 'Authentication required' });
   });
   it.each([true, false])('PATCH sets enabled=%s only on the requested live key in the linked business', async (enabled) => {
-    const response = await PATCH(req('PATCH', { key_id: 'key-1', enabled, business_id: 'other' }));
+    const response = await PATCH(req('PATCH', { key_id: currentKeyId, enabled, business_id: 'other' }));
     expect(response.status).toBe(200);
     const q = fromMock.mock.results[0].value;
     expect(q.update).toHaveBeenCalledWith({ enabled });
-    expect(q.eq).toHaveBeenCalledWith('id', 'key-1');
+    expect(q.eq).toHaveBeenCalledWith('id', currentKeyId);
     expect(q.eq).toHaveBeenCalledWith('business_id', 'biz-1');
     expect(q.is).toHaveBeenCalledWith('revoked_at', null);
   });
   it('PATCH cannot update a replacement key when a stale key id is submitted after rotation', async () => {
     queryResult = { data: null, error: null };
-    const response = await PATCH(req('PATCH', { key_id: 'revoked-key-before-rotation', enabled: true }));
+    const staleKeyId = '33333333-3333-4333-8333-333333333333';
+    const response = await PATCH(req('PATCH', { key_id: staleKeyId, enabled: true }));
     expect(response.status).toBe(404);
-    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('id', 'revoked-key-before-rotation');
+    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('id', staleKeyId);
     expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('business_id', 'biz-1');
   });
   it('PATCH rejects an id belonging to another business without changing any key', async () => {
     queryResult = { data: null, error: null };
-    const response = await PATCH(req('PATCH', { key_id: 'foreign-key', enabled: true }));
+    const foreignKeyId = '44444444-4444-4444-8444-444444444444';
+    const response = await PATCH(req('PATCH', { key_id: foreignKeyId, enabled: true }));
     expect(response.status).toBe(404);
-    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('id', 'foreign-key');
+    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('id', foreignKeyId);
     expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('business_id', 'biz-1');
   });
-  it.each([
+  it.each<[unknown, string]>([
     [{ enabled: true }, 'missing key_id'],
     [{ key_id: '', enabled: true }, 'empty key_id'],
     [{ key_id: 123, enabled: true }, 'non-string key_id'],
-    [{ key_id: 'key-1', enabled: 'true' }, 'non-boolean enabled'],
-  ])('PATCH rejects malformed payload (%s)', async (body) => {
+    [{ key_id: 'malformed-uuid', enabled: true }, 'malformed UUID key_id'],
+    [{ key_id: currentKeyId, enabled: 'true' }, 'non-boolean enabled'],
+  ])('PATCH rejects malformed payload: %s', async (body, _description) => {
     const response = await PATCH(req('PATCH', body));
     expect(response.status).toBe(400);
     expect(fromMock).not.toHaveBeenCalled();
@@ -112,14 +116,14 @@ describe('business integration key lifecycle', () => {
   });
   it.each(['PATCH', 'DELETE'] as const)('%s returns 404 when there is no live key', async (method) => {
     queryResult = { data: null, error: null };
-    const response = method === 'PATCH' ? await PATCH(req(method, { key_id: 'key-1', enabled: true })) : await DELETE(req(method));
+    const response = method === 'PATCH' ? await PATCH(req(method, { key_id: currentKeyId, enabled: true })) : await DELETE(req(method));
     expect(response.status).toBe(404);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(await response.json()).toEqual({ error: 'No active business API key' });
   });
   it.each(['PATCH', 'DELETE'] as const)('%s returns a generic no-store error on persistence failure', async (method) => {
     queryResult = { data: null, error: new Error('sensitive database details') };
-    const response = method === 'PATCH' ? await PATCH(req(method, { key_id: 'key-1', enabled: true })) : await DELETE(req(method));
+    const response = method === 'PATCH' ? await PATCH(req(method, { key_id: currentKeyId, enabled: true })) : await DELETE(req(method));
     expect(response.status).toBe(503);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(JSON.stringify(await response.json())).not.toContain('sensitive');

@@ -6,6 +6,7 @@ import { listBusinessApiKeyMetadata, requireBusinessIntegrationOwner } from '@/l
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: NO_STORE });
@@ -82,7 +83,7 @@ export async function PATCH(request: Request) {
   try { body = await request.json(); } catch { return json({ error: 'Invalid request body' }, 400); }
   if (!body || typeof body !== 'object') return json({ error: 'key_id and enabled are required' }, 400);
   const { key_id: keyId, enabled } = body as { key_id?: unknown; enabled?: unknown };
-  if (typeof keyId !== 'string' || !keyId.trim() || typeof enabled !== 'boolean') {
+  if (typeof keyId !== 'string' || !UUID_PATTERN.test(keyId) || typeof enabled !== 'boolean') {
     return json({ error: 'key_id and enabled are required' }, 400);
   }
   try {
