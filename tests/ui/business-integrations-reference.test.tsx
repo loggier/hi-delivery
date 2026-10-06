@@ -14,6 +14,7 @@ describe('business API reference', () => {
     expect(screen.getByText('Idempotency-Key')).toBeInTheDocument();
     expect(screen.getByText(/Idempotency-Key: pedido-externo-001/)).toBeInTheDocument();
     expect(screen.getAllByText('201').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/business_api_disabled/).length).toBeGreaterThan(0);
   });
 
   it('renders the implemented query and response contract from OpenAPI', () => {

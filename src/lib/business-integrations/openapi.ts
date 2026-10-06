@@ -1,7 +1,14 @@
 const errors = {
   '400': { description: 'Solicitud o datos inválidos', example: { error: { code: 'invalid_body', message: 'Invalid order details' } } },
   '401': { description: 'Falta una clave API válida', example: { error: { code: 'unauthorized', message: 'Unauthorized' } } },
-  '403': { description: 'El negocio está inactivo', example: { error: { code: 'inactive_business', message: 'Forbidden' } } },
+  '403': {
+    description: 'El negocio está inactivo o el administrador no habilitó el uso de la API',
+    example: { error: { code: 'inactive_business', message: 'Forbidden' } },
+    examples: {
+      inactive_business: { value: { error: { code: 'inactive_business', message: 'Forbidden' } } },
+      business_api_disabled: { value: { error: { code: 'business_api_disabled', message: 'API access is disabled for this business' } } },
+    },
+  },
   '404': { description: 'Pedido inexistente o fuera del negocio', example: { error: { code: 'order_not_found', message: 'Order not found' } } },
   '409': { description: 'La clave de idempotencia se usó con otro contenido', example: { error: { code: 'idempotency_conflict', message: 'Idempotency key conflict' } } },
   '413': { description: 'El cuerpo supera el límite de tamaño (64 KiB)', example: { error: { code: 'body_too_large', message: 'Request body too large' } } },
@@ -19,9 +26,11 @@ const errorResponses = (statuses: readonly (keyof typeof errors)[], badRequestCo
   description: errors[status].description,
   content: { 'application/json': {
     schema: { $ref: '#/components/schemas/Error' },
-    ...(status === '400' ? {
-      examples: Object.fromEntries(badRequestCodes.map((code) => [code, { value: badRequestExamples[code] }])),
-    } : { example: errors[status].example }),
+      ...(status === '400' ? {
+        examples: Object.fromEntries(badRequestCodes.map((code) => [code, { value: badRequestExamples[code] }])),
+      } : status === '403' ? {
+        examples: errors[status].examples,
+      } : { example: errors[status].example }),
   } },
 }]));
 

@@ -6,7 +6,7 @@ type ContractResponse = {
   content: {
     'application/json': {
       schema: { $ref: string };
-      examples: Record<string, { value: { error: { code: string; message: string } } }>;
+      examples?: Record<string, { value: { error: { code: string; message: string } } }>;
       example?: unknown;
     };
   };
@@ -36,6 +36,15 @@ describe('business integrations OpenAPI contract', () => {
     expect(businessIntegrationsOpenApi.paths['/orders'].get.responses['200'].content['application/json'].example).toHaveProperty('has_more');
     expect(businessIntegrationsOpenApi.paths['/orders/{id}'].get.responses['200'].content['application/json'].example).toHaveProperty('data');
     expect(businessIntegrationsOpenApi.paths['/orders'].post.responses['200'].headers['Idempotency-Replayed'].schema.const).toBe('true');
+    for (const response of [
+      contractDocument.paths['/orders'].get.responses['403'],
+      contractDocument.paths['/orders'].post.responses['403'],
+      contractDocument.paths['/orders/{id}'].get.responses['403'],
+    ]) {
+      expect(response.content['application/json'].examples?.business_api_disabled.value).toEqual({
+        error: { code: 'business_api_disabled', message: 'API access is disabled for this business' },
+      });
+    }
   });
 
   it('documents every 400 code/status emitted by the list, detail, and create handlers', () => {
@@ -53,7 +62,7 @@ describe('business integrations OpenAPI contract', () => {
       expect(handlerErrors).toEqual(expect.arrayContaining([...endpoint.codes]));
       expect(responseSpec).toBeDefined();
       expect(responseSpec.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');
-      const documentedExamples = responseSpec.content['application/json'].examples;
+      const documentedExamples = responseSpec.content['application/json'].examples ?? {};
       for (const code of endpoint.codes) {
         expect(documentedExamples[code].value.error.code).toBe(code);
         expect(documentedExamples[code].value.error.message).toEqual(expect.any(String));
@@ -75,7 +84,7 @@ describe('business integrations OpenAPI contract', () => {
     expect(create.responses).toHaveProperty('400');
     expect(create.responses).toHaveProperty('413');
     expect(badRequest.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');
-    expect(badRequest.content['application/json'].examples.invalid_idempotency_key.value).toEqual({
+    expect(badRequest.content['application/json'].examples?.invalid_idempotency_key?.value).toEqual({
       error: { code: 'invalid_idempotency_key', message: 'Invalid Idempotency-Key' },
     });
     expect(tooLarge.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');

@@ -19,7 +19,7 @@ vi.mock('@/app/(admin)/profile/business-api-reference', () => ({ BusinessApiRefe
 
 import ProfilePage from '@/app/(admin)/profile/page';
 
-const activeBusiness = { id: 'biz-1', user_id: 'user-1', name: 'Negocio demo', status: 'ACTIVE', plan_id: undefined };
+const activeBusiness = { id: 'biz-1', user_id: 'user-1', name: 'Negocio demo', status: 'ACTIVE', api_enabled: true, plan_id: undefined };
 function setUser(role_id: string, status = 'ACTIVE', business_id: string | null = 'biz-1', roleName = 'Otro nombre') {
   authState.user = { id: 'user-1', name: 'Dueño', email: 'owner@example.test', role_id, status, business_id: business_id ?? undefined, role: { name: roleName } };
   businessQuery.mockReturnValue({ data: activeBusiness, isLoading: false });
@@ -44,6 +44,17 @@ describe('business integration profile eligibility', () => {
     expect(businessQuery).toHaveBeenCalledWith('biz-1', { enabled: true });
     expect(await screen.findByText('Integraciones API test')).toBeInTheDocument();
     expect(screen.getByText('Documentación API test')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cambiar contraseña' })).toBeInTheDocument();
+    expect(screen.getByText('Mi suscripción')).toBeInTheDocument();
+  });
+
+  it('explains that an administrator must enable API access without showing key controls or docs', () => {
+    setUser('owen-business');
+    businessQuery.mockReturnValue({ data: { ...activeBusiness, api_enabled: false }, isLoading: false });
+    render(<ProfilePage />);
+    expect(screen.getByText('El administrador debe habilitar el acceso a la API para este negocio.')).toBeInTheDocument();
+    expect(screen.queryByText('Integraciones API test')).not.toBeInTheDocument();
+    expect(screen.queryByText('Documentación API test')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cambiar contraseña' })).toBeInTheDocument();
     expect(screen.getByText('Mi suscripción')).toBeInTheDocument();
   });

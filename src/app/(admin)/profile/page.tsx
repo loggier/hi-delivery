@@ -398,7 +398,15 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {canUseBusinessIntegrations && business?.user_id === user?.id && business.status === "ACTIVE" && (
+          {canUseBusinessIntegrations && business?.user_id === user?.id && business.status === "ACTIVE" && business.api_enabled === false && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">El administrador debe habilitar el acceso a la API para este negocio.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {canUseBusinessIntegrations && business?.user_id === user?.id && business.status === "ACTIVE" && business.api_enabled === true && (
             <>
               <BusinessIntegrationsCard />
               <BusinessApiReference />
