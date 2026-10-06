@@ -29,7 +29,7 @@ describe('requireBusinessIntegrationOwnerSession', () => {
     cookieStore.get.mockReturnValue({ value: 'session-token' }); cookiesMock.mockResolvedValue(cookieStore);
     session = { data: { user_id: 'db-user', expires_at: new Date(Date.now() + 60_000).toISOString(), revoked_at: null }, error: null };
     user = { data: { id: 'db-user', role_id: 'owen-business', status: 'ACTIVE' }, error: null };
-    business = { data: { id: 'business-db' }, error: null }; setup();
+    business = { data: { id: 'business-db', status: 'ACTIVE' }, error: null }; setup();
   });
 
   it('accepts active owen-business and returns the database-linked business identity', async () => {
@@ -60,6 +60,11 @@ describe('requireBusinessIntegrationOwnerSession', () => {
 
   it('denies an owner with no linked business', async () => {
     business = { data: null, error: null }; setup();
+    await expect(requireBusinessIntegrationOwnerSession()).rejects.toMatchObject({ name: 'AdminSessionError', status: 403 });
+  });
+
+  it('denies an owner whose linked business is inactive', async () => {
+    business = { data: { id: 'business-db', status: 'INACTIVE' }, error: null }; setup();
     await expect(requireBusinessIntegrationOwnerSession()).rejects.toMatchObject({ name: 'AdminSessionError', status: 403 });
   });
 });
