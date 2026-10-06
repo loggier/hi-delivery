@@ -48,4 +48,24 @@ describe('business integrations OpenAPI contract', () => {
       expect(businessIntegrationsOpenApi.components.schemas.Error.properties.error.required).toEqual(['code', 'message']);
     }
   });
+
+  it('documents create idempotency and oversized-body errors with their runtime statuses and nested schemas', () => {
+    const create = businessIntegrationsOpenApi.paths['/orders'].post;
+    const badRequest = create.responses['400'];
+    const tooLarge = create.responses['413'];
+    const handler = readFileSync('src/app/api/v1/orders/route.ts', 'utf8');
+
+    expect(handler).toMatch(/apiError\('invalid_idempotency_key',[^\n]+\),\s*400\)/);
+    expect(handler).toMatch(/apiError\('body_too_large',[^\n]+\),\s*413\)/);
+    expect(create.responses).toHaveProperty('400');
+    expect(create.responses).toHaveProperty('413');
+    expect(badRequest.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');
+    expect(badRequest.content['application/json'].examples.invalid_idempotency_key.value).toEqual({
+      error: { code: 'invalid_idempotency_key', message: 'Invalid Idempotency-Key' },
+    });
+    expect(tooLarge.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');
+    expect(tooLarge.content['application/json'].example).toEqual({
+      error: { code: 'body_too_large', message: 'Request body too large' },
+    });
+  });
 });
