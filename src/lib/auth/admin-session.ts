@@ -20,6 +20,12 @@ export interface OrderManagementUser {
   businessId: string | null;
 }
 
+export interface BusinessIntegrationOwnerSession {
+  id: string;
+  roleId: 'owen-business';
+  businessId: string;
+}
+
 export class AdminSessionError extends Error {
   readonly status: 401 | 403;
 
@@ -138,6 +144,40 @@ export async function requireOrderManagementSession(): Promise<OrderManagementUs
     .maybeSingle();
   if (businessError || !business) throw new AdminSessionError('Business scope unavailable', 403);
   return { id: user.id, roleId: user.role_id, businessId: String(business.id) };
+}
+
+export async function requireBusinessIntegrationOwnerSession(): Promise<BusinessIntegrationOwnerSession> {
+  const cookieStore = await cookies();
+  const rawToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!rawToken) throw new AdminSessionError('Authentication required', 401);
+
+  const supabase = createSupabaseAdminClient(getAdminSessionSchema());
+  const { data: session, error: sessionError } = await supabase
+    .from('admin_web_sessions')
+    .select('user_id, expires_at, revoked_at')
+    .eq('token_hash', hashSessionToken(rawToken))
+    .maybeSingle();
+  const expiresAt = session ? new Date(session.expires_at).getTime() : Number.NaN;
+  if (sessionError || !session || session.revoked_at !== null || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    throw new AdminSessionError('Invalid or expired session', 401);
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('id, role_id, status')
+    .eq('id', session.user_id)
+    .maybeSingle();
+  if (userError || !user || user.status !== 'ACTIVE' || user.role_id !== 'owen-business') {
+    throw new AdminSessionError('Business owner access required', 403);
+  }
+
+  const { data: business, error: businessError } = await supabase
+    .from('businesses')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (businessError || !business) throw new AdminSessionError('Linked business required', 403);
+  return { id: String(user.id), roleId: 'owen-business', businessId: String(business.id) };
 }
 
 export async function revokeCurrentAdminWebSession(): Promise<void> {
