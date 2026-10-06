@@ -29,7 +29,7 @@ describe('requireBusinessIntegrationOwnerSession', () => {
     cookieStore.get.mockReturnValue({ value: 'session-token' }); cookiesMock.mockResolvedValue(cookieStore);
     session = { data: { user_id: 'db-user', expires_at: new Date(Date.now() + 60_000).toISOString(), revoked_at: null }, error: null };
     user = { data: { id: 'db-user', role_id: 'owen-business', status: 'ACTIVE' }, error: null };
-    business = { data: { id: 'business-db', status: 'ACTIVE' }, error: null }; setup();
+    business = { data: { id: 'business-db', status: 'ACTIVE', api_enabled: true }, error: null }; setup();
   });
 
   it('accepts active owen-business and returns the database-linked business identity', async () => {
@@ -66,5 +66,17 @@ describe('requireBusinessIntegrationOwnerSession', () => {
   it('denies an owner whose linked business is inactive', async () => {
     business = { data: { id: 'business-db', status: 'INACTIVE' }, error: null }; setup();
     await expect(requireBusinessIntegrationOwnerSession()).rejects.toMatchObject({ name: 'AdminSessionError', status: 403 });
+  });
+
+  it('denies an active owner when the administrator has not enabled API access', async () => {
+    business = { data: { id: 'business-db', status: 'ACTIVE', api_enabled: false }, error: null }; setup();
+    await expect(requireBusinessIntegrationOwnerSession()).rejects.toMatchObject({ name: 'AdminSessionError', status: 403 });
+  });
+
+  it('selects the entitlement from the linked business row', async () => {
+    business = { data: { id: 'business-db', status: 'ACTIVE', api_enabled: true }, error: null }; setup();
+    await expect(requireBusinessIntegrationOwnerSession()).resolves.toMatchObject({ businessId: 'business-db' });
+    const businessQuery = (fromMock.mock.results.find((_result, index) => fromMock.mock.calls[index][0] === 'businesses')?.value);
+    expect(businessQuery.select).toHaveBeenCalledWith('id, status, api_enabled');
   });
 });

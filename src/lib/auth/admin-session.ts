@@ -173,11 +173,14 @@ export async function requireBusinessIntegrationOwnerSession(): Promise<Business
 
   const { data: business, error: businessError } = await supabase
     .from('businesses')
-    .select('id, status')
+    .select('id, status, api_enabled')
     .eq('user_id', user.id)
     .maybeSingle();
   if (businessError || !business || business.status !== 'ACTIVE') {
     throw new AdminSessionError('Active linked business required', 403);
+  }
+  if (business.api_enabled !== true) {
+    throw new AdminSessionError('Business API access is not enabled', 403);
   }
   return { id: String(user.id), roleId: 'owen-business', businessId: String(business.id) };
 }

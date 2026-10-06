@@ -81,7 +81,7 @@ describe('POST /api/v1/orders', () => {
   });
 
   it('requires authentication and an idempotency key', async () => {
-    authMock.mockResolvedValue({ ok: false, status: 401, error: 'Unauthorized' });
+    authMock.mockResolvedValue({ ok: false, status: 401, code: 'unauthorized', error: 'Unauthorized' });
     const unauthorized = await POST(req());
     expect(unauthorized.status).toBe(401);
     expect(await unauthorized.json()).toEqual({ error: { code: 'unauthorized', message: 'Unauthorized' } });
@@ -90,6 +90,15 @@ describe('POST /api/v1/orders', () => {
     expect(missingKey.status).toBe(400);
     expect(await missingKey.json()).toEqual({ error: { code: 'invalid_idempotency_key', message: 'Invalid Idempotency-Key' } });
     expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it('returns a safe entitlement-disabled error and does not create or push orders', async () => {
+    authMock.mockResolvedValue({ ok: false, status: 403, code: 'business_api_disabled', error: 'API access is disabled for this business' });
+    const response = await POST(req());
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: { code: 'business_api_disabled', message: 'API access is disabled for this business' } });
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it('bounds raw request size before parsing and hides unexpected database errors', async () => {

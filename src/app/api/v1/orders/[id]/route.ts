@@ -8,7 +8,7 @@ function json(body: unknown, status = 200) { return NextResponse.json(body, { st
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json(apiError(({ 401: 'unauthorized', 403: 'inactive_business', 429: 'rate_limited' } as Record<number, string>)[auth.status] ?? 'service_unavailable', auth.error), auth.status);
+  if (!auth.ok) return json(apiError(auth.code, auth.error), auth.status);
   const { id } = await context.params;
   if (!/^[A-Za-z0-9_-]{1,255}$/.test(id)) return json(apiError('invalid_parameters', 'Invalid order id'), 400);
   const { data, error } = await createSupabaseAdminClient().from('orders').select(PUBLIC_ORDER_SELECT)

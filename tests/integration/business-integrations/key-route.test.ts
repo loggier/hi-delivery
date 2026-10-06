@@ -77,6 +77,16 @@ describe('business integration key lifecycle', () => {
     expect(metadataMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
   });
+  it.each(['GET', 'POST', 'PATCH', 'DELETE'] as const)('%s safely rejects an owner whose API entitlement is disabled before key operations', async (method) => {
+    ownerMock.mockRejectedValue(new AdminSessionError('API entitlement is disabled', 403));
+    const request = method === 'GET' ? undefined : req(method, method === 'PATCH' ? { key_id: currentKeyId, enabled: true } : {});
+    const response = method === 'GET' ? await GET() : method === 'POST' ? await POST(request!) : method === 'PATCH' ? await PATCH(request!) : await DELETE(request!);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Forbidden' });
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(metadataMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+  });
   it('maps authentication-required errors to a generic safe response', async () => {
     ownerMock.mockRejectedValue(new AdminSessionError('cookie hash / session details', 401));
     const response = await GET();

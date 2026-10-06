@@ -5,28 +5,33 @@ import { extractBearerToken } from '@/lib/business-integrations/orders';
 export interface BusinessApiAccess { businessId: string; apiKeyId: string }
 export type BusinessApiAuthResult =
   | { ok: true; access: BusinessApiAccess }
-  | { ok: false; status: 401 | 403 | 429 | 503; error: 'Unauthorized' | 'Forbidden' | 'Rate limit exceeded' | 'Service unavailable' };
+  | { ok: false; status: 401; code: 'unauthorized'; error: 'Unauthorized' }
+  | { ok: false; status: 403; code: 'inactive_business'; error: 'Forbidden' }
+  | { ok: false; status: 403; code: 'business_api_disabled'; error: 'API access is disabled for this business' }
+  | { ok: false; status: 429; code: 'rate_limited'; error: 'Rate limit exceeded' }
+  | { ok: false; status: 503; code: 'service_unavailable'; error: 'Service unavailable' };
 
 export async function authenticateBusinessApi(request: Request): Promise<BusinessApiAuthResult> {
   const token = extractBearerToken(request.headers.get('authorization'));
-  if (!token) return { ok: false, status: 401, error: 'Unauthorized' };
+  if (!token) return { ok: false, status: 401, code: 'unauthorized', error: 'Unauthorized' };
 
   const client = createSupabaseAdminClient();
   const digest = createHash('sha256').update(token, 'utf8').digest('hex');
   const { data: key, error: keyError } = await client.from('business_api_keys')
     .select('id,business_id,enabled,revoked_at').eq('key_digest', digest).eq('enabled', true).is('revoked_at', null).maybeSingle();
-  if (keyError) return { ok: false, status: 503, error: 'Service unavailable' };
-  if (!key) return { ok: false, status: 401, error: 'Unauthorized' };
+  if (keyError) return { ok: false, status: 503, code: 'service_unavailable', error: 'Service unavailable' };
+  if (!key) return { ok: false, status: 401, code: 'unauthorized', error: 'Unauthorized' };
 
   const { data: business, error: businessError } = await client.from('businesses')
-    .select('id,status').eq('id', key.business_id).maybeSingle();
-  if (businessError) return { ok: false, status: 503, error: 'Service unavailable' };
-  if (!business) return { ok: false, status: 401, error: 'Unauthorized' };
-  if (business.status !== 'ACTIVE') return { ok: false, status: 403, error: 'Forbidden' };
+    .select('id,status,api_enabled').eq('id', key.business_id).maybeSingle();
+  if (businessError) return { ok: false, status: 503, code: 'service_unavailable', error: 'Service unavailable' };
+  if (!business) return { ok: false, status: 401, code: 'unauthorized', error: 'Unauthorized' };
+  if (business.status !== 'ACTIVE') return { ok: false, status: 403, code: 'inactive_business', error: 'Forbidden' };
+  if (business.api_enabled !== true) return { ok: false, status: 403, code: 'business_api_disabled', error: 'API access is disabled for this business' };
 
   const { data: withinLimit, error: rateError } = await client.rpc('consume_business_api_rate_limit', { api_key_id_in: key.id });
-  if (rateError) return { ok: false, status: 503, error: 'Service unavailable' };
-  if (withinLimit === false) return { ok: false, status: 429, error: 'Rate limit exceeded' };
+  if (rateError) return { ok: false, status: 503, code: 'service_unavailable', error: 'Service unavailable' };
+  if (withinLimit === false) return { ok: false, status: 429, code: 'rate_limited', error: 'Rate limit exceeded' };
 
   void (async () => {
     try {

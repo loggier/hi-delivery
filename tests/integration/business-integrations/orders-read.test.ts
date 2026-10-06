@@ -49,7 +49,7 @@ describe('business order reads', () => {
     vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'integration-test-business-cursor-secret-at-least-32-chars');
     vi.clearAllMocks();
     keyResult = { data: { id: 'key-a', business_id: 'biz-a', enabled: true, revoked_at: null }, error: null };
-    businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
+    businessResult = { data: { id: 'biz-a', status: 'ACTIVE', api_enabled: true }, error: null };
     rateResult = { data: true, error: null };
     orderResult = { data: [order], error: null };
     itemRows = [{ order_id: 'ord-1', item_description: 'Producto', quantity: 2, price: '4.50', id: 3, product_id: 'secret-product' }, { order_id: 'foreign-order', item_description: 'Other biz', quantity: 8, price: '99.00' }];
@@ -103,11 +103,26 @@ describe('business order reads', () => {
     const inactive = await listOrders(request());
     expect(inactive.status).toBe(403);
     expect(await inactive.json()).toEqual({ error: { code: 'inactive_business', message: 'Forbidden' } });
-    businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
+    businessResult = { data: { id: 'biz-a', status: 'ACTIVE', api_enabled: true }, error: null };
     rateResult = { data: false, error: null };
     const limited = await listOrders(request());
     expect(limited.status).toBe(429);
     expect(await limited.json()).toEqual({ error: { code: 'rate_limited', message: 'Rate limit exceeded' } });
+  });
+
+  it('denies enabled keys when the administrator disables business API access', async () => {
+    businessResult = { data: { id: 'biz-a', status: 'ACTIVE', api_enabled: false }, error: null };
+    const list = await listOrders(request());
+    const detail = await getOrder(request('http://localhost/api/v1/orders/ord-1'), { params: Promise.resolve({ id: 'ord-1' }) });
+
+    for (const response of [list, detail]) {
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({ error: { code: 'business_api_disabled', message: 'API access is disabled for this business' } });
+    }
+    const businessQuery = fromMock.mock.results.find((_result, index) => fromMock.mock.calls[index][0] === 'businesses')!.value;
+    expect(businessQuery.select).toHaveBeenCalledWith('id,status,api_enabled');
+    expect(fromMock).not.toHaveBeenCalledWith('orders');
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it('rejects lowercase active status under the uppercase database convention', async () => {
@@ -170,6 +185,8 @@ describe('business order reads', () => {
     expect(body.data[0]).toMatchObject({ customer_name: 'Private Customer', customer_phone: '5551234567', delivery_address: {}, items: [{ description: 'Producto', quantity: 2, unit_price: 4.5 }] });
     const orderQuery = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'orders')!.value;
     const itemsQuery = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'order_items')!.value;
+    const businessQuery = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'businesses')!.value;
+    expect(businessQuery.select).toHaveBeenCalledWith('id,status,api_enabled');
     expect(itemsQuery.select).toHaveBeenCalledWith('order_id,item_description,quantity,price');
     expect(itemsQuery.in).toHaveBeenCalledWith('order_id', ['ord-1']);
     expect(orderQuery.eq).toHaveBeenCalledWith('business_id', 'biz-a');
@@ -188,7 +205,7 @@ describe('business order reads', () => {
     const context = { businessId: 'biz-a', filters: { status: 'accepted' } } as const;
     const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-0' }, context);
     keyResult = { data: { id: 'key-b', business_id: 'biz-b', enabled: true, revoked_at: null }, error: null };
-    businessResult = { data: { id: 'biz-b', status: 'ACTIVE' }, error: null };
+    businessResult = { data: { id: 'biz-b', status: 'ACTIVE', api_enabled: true }, error: null };
     const response = await listOrders(request(`http://localhost/api/v1/orders?status=accepted&cursor=${encodeURIComponent(cursor)}`));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: { code: 'invalid_parameters', message: 'Invalid query parameters' } });

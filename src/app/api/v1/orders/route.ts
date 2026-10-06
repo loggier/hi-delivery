@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   if (!parsed.success) return json(apiError('invalid_parameters', 'Invalid query parameters'), 400);
   const filters = parsed.data;
   const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json(apiError(({ 401: 'unauthorized', 403: 'inactive_business', 429: 'rate_limited' } as Record<number, string>)[auth.status] ?? 'service_unavailable', auth.error), auth.status);
+  if (!auth.ok) return json(apiError(auth.code, auth.error), auth.status);
   const cursorContext = { businessId: auth.access.businessId, filters };
   const decodedCursor = filters.cursor ? decodeOrderCursor(filters.cursor, cursorContext) : null;
   if (filters.cursor && !decodedCursor) return json(apiError('invalid_parameters', 'Invalid query parameters'), 400);
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return json(apiError('invalid_body', 'Invalid order details'), 400);
   const value = parsed.data;
   const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json(apiError(({ 401: 'unauthorized', 403: 'inactive_business', 429: 'rate_limited' } as Record<number, string>)[auth.status] ?? 'service_unavailable', auth.error), auth.status);
+  if (!auth.ok) return json(apiError(auth.code, auth.error), auth.status);
   const key = request.headers.get('idempotency-key');
   if (!key || !key.trim() || key.length > 255) return json(apiError('invalid_idempotency_key', 'Invalid Idempotency-Key'), 400);
   const canonical = canonicalOrderRequest(value);
