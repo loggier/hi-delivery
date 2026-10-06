@@ -19,14 +19,18 @@ describe('business integration order helpers', () => {
 
   it('rejects modified cursor payloads, signatures, invalid base64, and invalid shapes', () => {
     vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'unit-test-business-cursor-secret-at-least-32-chars');
-    const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
-    expect(decodeOrderCursor(cursor)).toEqual({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
+    const context = { businessId: 'biz-a', filters: { status: 'accepted', created_from: '2026-10-01T00:00:00.000Z' } } as const;
+    const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' }, context);
+    expect(decodeOrderCursor(cursor, context)).toEqual({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
+    expect(decodeOrderCursor(cursor, { businessId: 'biz-a', filters: { status: 'accepted', created_from: '2026-09-30T17:00:00-07:00' } } as const)).toEqual({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
+    expect(decodeOrderCursor(cursor, { ...context, businessId: 'biz-b' })).toBeNull();
+    expect(decodeOrderCursor(cursor, { ...context, filters: { status: 'cancelled', created_from: '2026-10-01T00:00:00.000Z' } as const })).toBeNull();
     const changedPayload = Buffer.from(JSON.stringify({ created_at: '2026-10-02T00:00:00.000Z', id: 'ord-1' })).toString('base64url');
-    expect(decodeOrderCursor(changedPayload)).toBeNull();
+    expect(decodeOrderCursor(changedPayload, context)).toBeNull();
     const [payload, signature] = cursor.split('.');
-    if (signature) expect(decodeOrderCursor(`${payload}.${signature.slice(0, -1)}${signature.endsWith('A') ? 'B' : 'A'}`)).toBeNull();
-    expect(decodeOrderCursor('%%%')).toBeNull();
-    expect(decodeOrderCursor(Buffer.from(JSON.stringify({ id: 'ord-1' })).toString('base64url'))).toBeNull();
+    if (signature) expect(decodeOrderCursor(`${payload}.${signature.slice(0, -1)}${signature.endsWith('A') ? 'B' : 'A'}`, context)).toBeNull();
+    expect(decodeOrderCursor('%%%', context)).toBeNull();
+    expect(decodeOrderCursor(Buffer.from(JSON.stringify({ id: 'ord-1' })).toString('base64url'), context)).toBeNull();
   });
 
   it('validates allowed filters and caps list size at 100', () => {
@@ -43,7 +47,7 @@ describe('business integration order helpers', () => {
 
   it('requires a dedicated sufficiently long cursor signing secret', () => {
     vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'short');
-    expect(() => encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' })).toThrow('Business order cursor signing is unavailable');
+    expect(() => encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' }, { businessId: 'biz-a', filters: {} })).toThrow('Business order cursor signing is unavailable');
   });
 
   it('uses integer cents and rejects imprecise or invalid money', () => {

@@ -153,7 +153,8 @@ describe('business order reads', () => {
 
   it('lists with database-derived business scope, deterministic pagination and no-store DTOs', async () => {
     orderResult = { data: [order, { ...order, id: 'ord-2' }], error: null };
-    const cursor = encodeOrderCursor({ created_at: '2026-09-30T23:00:00.000Z', id: 'ord-0' });
+    const context = { businessId: 'biz-a', filters: { status: 'accepted', created_from: '2026-09-01T00:00:00.000Z', created_to: '2026-10-01T00:00:00.000Z', updated_since: '2026-09-15T00:00:00.000Z' } } as const;
+    const cursor = encodeOrderCursor({ created_at: '2026-09-30T23:00:00.000Z', id: 'ord-0' }, context);
     const response = await listOrders(request(`http://localhost/api/v1/orders?status=accepted&created_from=2026-09-01T00%3A00%3A00.000Z&created_to=2026-10-01T00%3A00%3A00.000Z&updated_since=2026-09-15T00%3A00%3A00.000Z&limit=1&cursor=${encodeURIComponent(cursor)}`));
     const body = await response.json();
     expect(response.status).toBe(200);
@@ -169,6 +170,25 @@ describe('business order reads', () => {
     expect(orderQuery.limit).toHaveBeenCalledWith(2);
     expect(orderQuery.order.mock.calls).toEqual([['created_at', { ascending: false }], ['id', { ascending: false }]]);
     for (const field of Object.keys(sensitiveOrderFields)) expect(body.data[0]).not.toHaveProperty(field);
+  });
+
+  it('rejects cursor replay by a different authenticated business without leaking details', async () => {
+    const context = { businessId: 'biz-a', filters: { status: 'accepted' } } as const;
+    const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-0' }, context);
+    keyResult = { data: { id: 'key-b', business_id: 'biz-b', enabled: true, revoked_at: null }, error: null };
+    businessResult = { data: { id: 'biz-b', status: 'ACTIVE' }, error: null };
+    const response = await listOrders(request(`http://localhost/api/v1/orders?status=accepted&cursor=${encodeURIComponent(cursor)}`));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(fromMock).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('rejects cursor replay with changed filters without leaking details', async () => {
+    const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-0' }, { businessId: 'biz-a', filters: { status: 'accepted' } } as const);
+    const response = await listOrders(request(`http://localhost/api/v1/orders?status=cancelled&cursor=${encodeURIComponent(cursor)}`));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(fromMock).not.toHaveBeenCalledWith('orders');
   });
 
   it('uses indistinguishable 404 responses for foreign and missing order IDs', async () => {

@@ -21,6 +21,9 @@ export async function GET(request: Request) {
   const filters = parsed.data;
   const auth = await authenticateBusinessApi(request);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
+  const cursorContext = { businessId: auth.access.businessId, filters };
+  const decodedCursor = filters.cursor ? decodeOrderCursor(filters.cursor, cursorContext) : null;
+  if (filters.cursor && !decodedCursor) return json({ error: 'Invalid query parameters' }, 400);
   let query = createSupabaseAdminClient().from('orders').select(ORDER_WITH_BUSINESS_SELECT)
     .eq('business_id', auth.access.businessId)
     .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(filters.limit + 1);
@@ -29,8 +32,7 @@ export async function GET(request: Request) {
   if (filters.created_to) query = query.lte('created_at', filters.created_to);
   if (filters.updated_since) query = query.gte('updated_at', filters.updated_since);
   if (filters.cursor) {
-    const cursor = decodeOrderCursor(filters.cursor)!;
-    query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`);
+    query = query.or(`created_at.lt.${decodedCursor!.created_at},and(created_at.eq.${decodedCursor!.created_at},id.lt.${decodedCursor!.id})`);
   }
   const { data, error } = await query;
   if (error) return json({ error: 'Unable to retrieve orders' }, 503);
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
   const page = rows.slice(0, filters.limit);
   const last = page[page.length - 1];
   try {
-    return json({ data: page.map((row: Record<string, unknown>) => toPublicOrder(row)), has_more: hasMore, next_cursor: hasMore && last ? encodeOrderCursor({ created_at: last.created_at as string, id: last.id as string }) : null });
+    return json({ data: page.map((row: Record<string, unknown>) => toPublicOrder(row)), has_more: hasMore, next_cursor: hasMore && last ? encodeOrderCursor({ created_at: last.created_at as string, id: last.id as string }, cursorContext) : null });
   } catch {
     return json({ error: 'Unable to retrieve orders' }, 503);
   }

@@ -12,27 +12,44 @@ export function extractBearerToken(header: string | null): string | null {
 }
 
 export interface OrderCursor { created_at: string; id: string }
+export interface OrderCursorContext {
+  businessId: string;
+  filters: { status?: typeof ORDER_STATUSES[number]; created_from?: string; created_to?: string; updated_since?: string };
+}
 function cursorSigningKey(): string {
   const secret = process.env.BUSINESS_API_CURSOR_SECRET;
   if (!secret || secret.length < 32) throw new Error('Business order cursor signing is unavailable');
   return createHmac('sha256', secret).update('business-orders-cursor:v1').digest('hex');
 }
 
-function signCursor(payload: string): string {
-  return createHmac('sha256', cursorSigningKey()).update(payload).digest('base64url');
+function canonicalCursorContext(context: OrderCursorContext): string {
+  const filters = context.filters;
+  return JSON.stringify({
+    businessId: context.businessId,
+    filters: {
+      status: filters.status ?? null,
+      created_from: filters.created_from ? new Date(filters.created_from).toISOString() : null,
+      created_to: filters.created_to ? new Date(filters.created_to).toISOString() : null,
+      updated_since: filters.updated_since ? new Date(filters.updated_since).toISOString() : null,
+    },
+  });
 }
 
-export function encodeOrderCursor(cursor: OrderCursor): string {
+function signCursor(payload: string, context: OrderCursorContext): string {
+  return createHmac('sha256', cursorSigningKey()).update(canonicalCursorContext(context)).update('.').update(payload).digest('base64url');
+}
+
+export function encodeOrderCursor(cursor: OrderCursor, context: OrderCursorContext): string {
   const payload = Buffer.from(JSON.stringify({ created_at: cursor.created_at, id: cursor.id }), 'utf8').toString('base64url');
-  return `${payload}.${signCursor(payload)}`;
+  return `${payload}.${signCursor(payload, context)}`;
 }
 
-export function decodeOrderCursor(value: string): OrderCursor | null {
+export function decodeOrderCursor(value: string, context: OrderCursorContext): OrderCursor | null {
   try {
     const parts = value.split('.');
     if (parts.length !== 2 || !/^[A-Za-z0-9_-]+$/.test(parts[0]) || !/^[A-Za-z0-9_-]{43}$/.test(parts[1])) return null;
     const [payload, providedSignature] = parts;
-    const expectedSignature = signCursor(payload);
+    const expectedSignature = signCursor(payload, context);
     const expected = Buffer.from(expectedSignature);
     const provided = Buffer.from(providedSignature);
     if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
@@ -58,7 +75,6 @@ export const orderListQuerySchema = z.object({
   if (filters.created_from && filters.created_to && Date.parse(filters.created_from) > Date.parse(filters.created_to)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['created_to'], message: 'created_to must not precede created_from' });
   }
-  if (filters.cursor && !decodeOrderCursor(filters.cursor)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['cursor'], message: 'Invalid cursor' });
 });
 
 export function calculateCents(value: number | string): number {
