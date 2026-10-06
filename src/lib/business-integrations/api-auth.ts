@@ -15,11 +15,13 @@ export async function authenticateBusinessApi(request: Request): Promise<Busines
   const digest = createHash('sha256').update(token, 'utf8').digest('hex');
   const { data: key, error: keyError } = await client.from('business_api_keys')
     .select('id,business_id,enabled,revoked_at').eq('key_digest', digest).eq('enabled', true).is('revoked_at', null).maybeSingle();
-  if (keyError || !key) return { ok: false, status: 401, error: 'Unauthorized' };
+  if (keyError) return { ok: false, status: 503, error: 'Service unavailable' };
+  if (!key) return { ok: false, status: 401, error: 'Unauthorized' };
 
   const { data: business, error: businessError } = await client.from('businesses')
     .select('id,status').eq('id', key.business_id).maybeSingle();
-  if (businessError || !business) return { ok: false, status: 401, error: 'Unauthorized' };
+  if (businessError) return { ok: false, status: 503, error: 'Service unavailable' };
+  if (!business) return { ok: false, status: 401, error: 'Unauthorized' };
   if (business.status !== 'active') return { ok: false, status: 403, error: 'Forbidden' };
 
   const { data: withinLimit, error: rateError } = await client.rpc('consume_business_api_rate_limit', { api_key_id_in: key.id });

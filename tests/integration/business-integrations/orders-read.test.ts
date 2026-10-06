@@ -68,6 +68,24 @@ describe('business order reads', () => {
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
   });
 
+  it('returns a safe service-unavailable response when key lookup fails', async () => {
+    keyResult = { data: null, error: { message: 'private key-table connection details' } };
+    const response = await listOrders(request());
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body).toEqual({ error: 'Service unavailable' });
+    expect(JSON.stringify(body)).not.toContain('private key-table connection details');
+  });
+
+  it('returns a safe service-unavailable response when business status lookup fails', async () => {
+    businessResult = { data: null, error: { message: 'private business-table connection details' } };
+    const response = await listOrders(request());
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body).toEqual({ error: 'Service unavailable' });
+    expect(JSON.stringify(body)).not.toContain('private business-table connection details');
+  });
+
   it('rejects inactive businesses and rate-limit overflow', async () => {
     businessResult = { data: { id: 'biz-a', status: 'suspended' }, error: null };
     expect((await listOrders(request())).status).toBe(403);
