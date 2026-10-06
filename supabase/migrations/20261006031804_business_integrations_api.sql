@@ -31,6 +31,8 @@ CREATE TABLE grupohubs.business_api_rate_limits (
 );
 CREATE INDEX business_api_rate_limits_key_requested_at_idx
   ON grupohubs.business_api_rate_limits (api_key_id, requested_at DESC);
+CREATE INDEX business_api_rate_limits_requested_at_idx
+  ON grupohubs.business_api_rate_limits (requested_at);
 
 CREATE INDEX customers_business_phone_digits_idx
   ON grupohubs.customers (business_id, (regexp_replace(phone, '\D', '', 'g')));
@@ -231,25 +233,39 @@ SET search_path = pg_catalog, grupohubs
 AS $$
 DECLARE
   new_key_id uuid;
+  candidate_api_key_id uuid;
   old_api_key_id uuid;
 BEGIN
-  SELECT id INTO old_api_key_id
+  -- Serialize rotations even when the business has no current key row.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('business_api_key_rotation:' || business_id_in, 0)
+  );
+
+  SELECT id INTO candidate_api_key_id
     FROM grupohubs.business_api_keys
    WHERE business_id = business_id_in
-     AND revoked_at IS NULL
-   FOR UPDATE;
+     AND revoked_at IS NULL;
 
-  IF old_api_key_id IS NOT NULL THEN
+  IF candidate_api_key_id IS NOT NULL THEN
     PERFORM pg_advisory_xact_lock(
-      hashtextextended('business_api_rate_limit:' || old_api_key_id::text, 0)
+      hashtextextended('business_api_rate_limit:' || candidate_api_key_id::text, 0)
     );
 
-    DELETE FROM grupohubs.business_api_rate_limits
-     WHERE api_key_id = old_api_key_id;
+    SELECT id INTO old_api_key_id
+      FROM grupohubs.business_api_keys
+     WHERE id = candidate_api_key_id
+       AND business_id = business_id_in
+       AND revoked_at IS NULL
+     FOR UPDATE;
 
-    UPDATE grupohubs.business_api_keys
-       SET revoked_at = now(), enabled = false
-     WHERE id = old_api_key_id;
+    IF old_api_key_id IS NOT NULL THEN
+      DELETE FROM grupohubs.business_api_rate_limits
+       WHERE api_key_id = old_api_key_id;
+
+      UPDATE grupohubs.business_api_keys
+         SET revoked_at = now(), enabled = false
+       WHERE id = old_api_key_id;
+    END IF;
   END IF;
 
   INSERT INTO grupohubs.business_api_keys (business_id, key_digest, key_prefix, enabled, created_by)
