@@ -150,7 +150,7 @@ function SubscriptionProgress({
 export default function ProfilePage() {
   const { user } = useAuthStore();
   const { toast } = useToast();
-  const isBusinessOwner = user?.role_id === "role-owner" || user?.role?.name === "Dueño de Negocio";
+  const isBusinessOwner = user?.role_id === "owen-business" || user?.role_id === "role-owner" || user?.role?.name === "Dueño de Negocio";
   const businessId = isBusinessOwner ? user?.business_id : undefined;
   const canUseBusinessIntegrations = user?.role_id === "owen-business"
     && user.status === "ACTIVE"
