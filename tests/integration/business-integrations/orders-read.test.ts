@@ -20,6 +20,7 @@ let keyResult: { data: unknown; error: unknown };
 let businessResult: { data: unknown; error: unknown };
 let rateResult: { data: unknown; error: unknown };
 let orderResult: { data: unknown; error: unknown };
+let itemRows: unknown[];
 let lastUsedFailure: 'error' | 'reject' | null;
 let query: Record<string, ReturnType<typeof vi.fn>>;
 
@@ -28,8 +29,9 @@ function request(url = 'http://localhost/api/v1/orders', token: string | null = 
 }
 function makeQuery() {
   query = {};
-  for (const method of ['select', 'eq', 'is', 'update', 'order', 'limit', 'gte', 'lte', 'or', 'maybeSingle']) query[method] = vi.fn(() => query);
+  for (const method of ['select', 'in', 'eq', 'is', 'update', 'order', 'limit', 'gte', 'lte', 'or', 'maybeSingle']) query[method] = vi.fn(() => query);
   query.then = vi.fn((resolve: (result: unknown) => unknown) => Promise.resolve(orderResult).then(resolve));
+  query.in.mockImplementation((_column: string, ids: string[]) => { const scopedItems = itemRows.filter((item) => ids.includes(String((item as { order_id: string }).order_id))); query.then = vi.fn((resolve: (result: unknown) => unknown) => Promise.resolve({ data: scopedItems, error: null }).then(resolve)); return query; });
   query.update.mockImplementation(() => {
     query.then = vi.fn((resolve: (result: unknown) => unknown, reject?: (error: unknown) => unknown) => {
       if (lastUsedFailure === 'reject') return Promise.reject(new Error('private last-used update failure')).then(resolve, reject);
@@ -50,6 +52,7 @@ describe('business order reads', () => {
     businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
     rateResult = { data: true, error: null };
     orderResult = { data: [order], error: null };
+    itemRows = [{ order_id: 'ord-1', item_description: 'Producto', quantity: 2, price: '4.50', id: 3, product_id: 'secret-product' }, { order_id: 'foreign-order', item_description: 'Other biz', quantity: 8, price: '99.00' }];
     lastUsedFailure = null;
     fromMock.mockImplementation((table: string) => {
       const q = makeQuery();
@@ -66,7 +69,7 @@ describe('business order reads', () => {
     if (token) keyResult = { data: null, error: null };
     const response = await listOrders(request(undefined, token));
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(await response.json()).toEqual({ error: { code: 'unauthorized', message: 'Unauthorized' } });
     expect(response.headers.get('cache-control')).toContain('no-store');
   });
 
@@ -74,7 +77,7 @@ describe('business order reads', () => {
     keyResult = { data: null, error: null };
     const response = await listOrders(request());
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(await response.json()).toEqual({ error: { code: 'unauthorized', message: 'Unauthorized' } });
   });
 
   it('returns a safe service-unavailable response when key lookup fails', async () => {
@@ -82,7 +85,7 @@ describe('business order reads', () => {
     const response = await listOrders(request());
     expect(response.status).toBe(503);
     const body = await response.json();
-    expect(body).toEqual({ error: 'Service unavailable' });
+    expect(body).toEqual({ error: { code: 'service_unavailable', message: 'Service unavailable' } });
     expect(JSON.stringify(body)).not.toContain('private key-table connection details');
   });
 
@@ -91,23 +94,27 @@ describe('business order reads', () => {
     const response = await listOrders(request());
     expect(response.status).toBe(503);
     const body = await response.json();
-    expect(body).toEqual({ error: 'Service unavailable' });
+    expect(body).toEqual({ error: { code: 'service_unavailable', message: 'Service unavailable' } });
     expect(JSON.stringify(body)).not.toContain('private business-table connection details');
   });
 
   it('rejects inactive businesses and rate-limit overflow', async () => {
     businessResult = { data: { id: 'biz-a', status: 'PENDING_REVIEW' }, error: null };
-    expect((await listOrders(request())).status).toBe(403);
+    const inactive = await listOrders(request());
+    expect(inactive.status).toBe(403);
+    expect(await inactive.json()).toEqual({ error: { code: 'inactive_business', message: 'Forbidden' } });
     businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
     rateResult = { data: false, error: null };
-    expect((await listOrders(request())).status).toBe(429);
+    const limited = await listOrders(request());
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: { code: 'rate_limited', message: 'Rate limit exceeded' } });
   });
 
   it('rejects lowercase active status under the uppercase database convention', async () => {
     businessResult = { data: { id: 'biz-a', status: 'active' }, error: null };
     const response = await listOrders(request());
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: 'Forbidden' });
+    expect(await response.json()).toEqual({ error: { code: 'inactive_business', message: 'Forbidden' } });
   });
 
   it.each(['error', 'reject'] as const)('does not block a valid read when last_used_at update %s', async (failure) => {
@@ -120,7 +127,7 @@ describe('business order reads', () => {
   it('rejects duplicate query keys instead of silently choosing one', async () => {
     const response = await listOrders(request('http://localhost/api/v1/orders?limit=1&limit=2'));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(await response.json()).toEqual({ error: { code: 'invalid_parameters', message: 'Invalid query parameters' } });
     expect(fromMock).not.toHaveBeenCalledWith('orders');
   });
 
@@ -130,7 +137,7 @@ describe('business order reads', () => {
     const entriesSpy = vi.spyOn(URLSearchParams.prototype, 'entries');
     const response = await listOrders(request(`http://localhost/api/v1/orders${rawQuery}`));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(await response.json()).toEqual({ error: { code: 'invalid_parameters', message: 'Invalid query parameters' } });
     expect(entriesSpy).not.toHaveBeenCalled();
     expect(clientMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
@@ -141,14 +148,14 @@ describe('business order reads', () => {
     orderResult = { data: [{ ...order, subtotal: 'not-money' }], error: null };
     const response = await listOrders(request());
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: 'Unable to retrieve orders' });
+    expect(await response.json()).toEqual({ error: { code: 'service_unavailable', message: 'Unable to retrieve orders' } });
   });
 
   it('returns a safe service error when detail DTO money is malformed', async () => {
     orderResult = { data: { ...order, order_total: 'not-money' }, error: null };
     const response = await getOrder(request('http://localhost/api/v1/orders/ord-1'), { params: Promise.resolve({ id: 'ord-1' }) });
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: 'Unable to retrieve order' });
+    expect(await response.json()).toEqual({ error: { code: 'service_unavailable', message: 'Unable to retrieve order' } });
   });
 
   it('lists with database-derived business scope, deterministic pagination and no-store DTOs', async () => {
@@ -160,7 +167,11 @@ describe('business order reads', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(body.data).toHaveLength(1); expect(body.has_more).toBe(true); expect(body.next_cursor).toBeTruthy();
+    expect(body.data[0]).toMatchObject({ customer_name: 'Private Customer', customer_phone: '5551234567', delivery_address: {}, items: [{ description: 'Producto', quantity: 2, unit_price: 4.5 }] });
     const orderQuery = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'orders')!.value;
+    const itemsQuery = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'order_items')!.value;
+    expect(itemsQuery.select).toHaveBeenCalledWith('order_id,item_description,quantity,price');
+    expect(itemsQuery.in).toHaveBeenCalledWith('order_id', ['ord-1']);
     expect(orderQuery.eq).toHaveBeenCalledWith('business_id', 'biz-a');
     expect(orderQuery.eq).toHaveBeenCalledWith('status', 'accepted');
     expect(orderQuery.gte).toHaveBeenCalledWith('created_at', '2026-09-01T00:00:00.000Z');
@@ -169,7 +180,8 @@ describe('business order reads', () => {
     expect(orderQuery.or).toHaveBeenCalledWith('created_at.lt.2026-09-30T23:00:00.000Z,and(created_at.eq.2026-09-30T23:00:00.000Z,id.lt.ord-0)');
     expect(orderQuery.limit).toHaveBeenCalledWith(2);
     expect(orderQuery.order.mock.calls).toEqual([['created_at', { ascending: false }], ['id', { ascending: false }]]);
-    for (const field of Object.keys(sensitiveOrderFields)) expect(body.data[0]).not.toHaveProperty(field);
+    for (const field of Object.keys(sensitiveOrderFields).filter((name) => !['customer_name', 'customer_phone'].includes(name))) expect(body.data[0]).not.toHaveProperty(field);
+    expect(body.data[0]).not.toHaveProperty('customer_email');
   });
 
   it('rejects cursor replay by a different authenticated business without leaking details', async () => {
@@ -179,7 +191,7 @@ describe('business order reads', () => {
     businessResult = { data: { id: 'biz-b', status: 'ACTIVE' }, error: null };
     const response = await listOrders(request(`http://localhost/api/v1/orders?status=accepted&cursor=${encodeURIComponent(cursor)}`));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(await response.json()).toEqual({ error: { code: 'invalid_parameters', message: 'Invalid query parameters' } });
     expect(fromMock).not.toHaveBeenCalledWith('orders');
   });
 
@@ -187,16 +199,23 @@ describe('business order reads', () => {
     const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-0' }, { businessId: 'biz-a', filters: { status: 'accepted' } } as const);
     const response = await listOrders(request(`http://localhost/api/v1/orders?status=cancelled&cursor=${encodeURIComponent(cursor)}`));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(await response.json()).toEqual({ error: { code: 'invalid_parameters', message: 'Invalid query parameters' } });
     expect(fromMock).not.toHaveBeenCalledWith('orders');
   });
 
   it('uses indistinguishable 404 responses for foreign and missing order IDs', async () => {
     orderResult = { data: null, error: null };
     const response = await getOrder(request('http://localhost/api/v1/orders/foreign'), { params: Promise.resolve({ id: 'foreign' }) });
-    expect(response.status).toBe(404); expect(await response.json()).toEqual({ error: 'Order not found' });
+    expect(response.status).toBe(404); expect(await response.json()).toEqual({ error: { code: 'order_not_found', message: 'Order not found' } });
     const q = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'orders')!.value;
     expect(q.eq).toHaveBeenCalledWith('id', 'foreign'); expect(q.eq).toHaveBeenCalledWith('business_id', 'biz-a');
+  });
+
+  it('rejects malformed order ids with the structured 400 contract before querying orders', async () => {
+    const response = await getOrder(request('http://localhost/api/v1/orders/bad%20id'), { params: Promise.resolve({ id: 'bad id' }) });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: { code: 'invalid_parameters', message: 'Invalid order id' } });
+    expect(fromMock).not.toHaveBeenCalledWith('orders');
   });
 
   it('sanitizes sensitive internal fields from detail DTOs', async () => {
@@ -204,6 +223,10 @@ describe('business order reads', () => {
     const response = await getOrder(request('http://localhost/api/v1/orders/ord-1'), { params: Promise.resolve({ id: 'ord-1' }) });
     const body = await response.json();
     expect(response.status).toBe(200);
-    for (const field of Object.keys(sensitiveOrderFields)) expect(body.data).not.toHaveProperty(field);
+    expect(body.data).toMatchObject({ customer_name: 'Private Customer', customer_phone: '5551234567', items: [{ description: 'Producto', quantity: 2, unit_price: 4.5 }] });
+    for (const field of Object.keys(sensitiveOrderFields).filter((name) => !['customer_name', 'customer_phone'].includes(name))) expect(body.data).not.toHaveProperty(field);
+    expect(body.data).not.toHaveProperty('customer_email');
+    expect(body.data.items[0]).not.toHaveProperty('product_id');
+    expect(body.data.items[0]).not.toHaveProperty('id');
   });
 });

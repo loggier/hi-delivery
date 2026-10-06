@@ -45,7 +45,7 @@ describe('POST /api/v1/orders', () => {
     expect(args.canonical_request_hash_in).toMatch(/^[a-f0-9]{64}$/);
     expect(pushMock).toHaveBeenCalledWith({ orderId: 'ord-1', type: 'dispatch_wave' });
     const data = (await response.json()).data;
-    expect(data).not.toHaveProperty('customer_phone');
+    expect(data.customer_phone).toBe('+525551234567');
   });
 
   it('returns 200 on replay without sending another push', async () => {
@@ -60,7 +60,7 @@ describe('POST /api/v1/orders', () => {
     rpcMock.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'IDEMPOTENCY_CONFLICT private' } });
     const response = await POST(req());
     expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: 'Idempotency key conflict' });
+    expect(await response.json()).toEqual({ error: { code: 'idempotency_conflict', message: 'Idempotency key conflict' } });
     expect(pushMock).not.toHaveBeenCalled();
   });
 
@@ -82,15 +82,21 @@ describe('POST /api/v1/orders', () => {
 
   it('requires authentication and an idempotency key', async () => {
     authMock.mockResolvedValue({ ok: false, status: 401, error: 'Unauthorized' });
-    expect((await POST(req())).status).toBe(401);
+    const unauthorized = await POST(req());
+    expect(unauthorized.status).toBe(401);
+    expect(await unauthorized.json()).toEqual({ error: { code: 'unauthorized', message: 'Unauthorized' } });
     authMock.mockResolvedValue({ ok: true, access: { businessId: 'biz-1', apiKeyId: 'key-1' } });
-    expect((await POST(req(validBody, null))).status).toBe(400);
+    const missingKey = await POST(req(validBody, null));
+    expect(missingKey.status).toBe(400);
+    expect(await missingKey.json()).toEqual({ error: { code: 'invalid_idempotency_key', message: 'Invalid Idempotency-Key' } });
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it('bounds raw request size before parsing and hides unexpected database errors', async () => {
     const oversized = new Request('http://localhost/api/v1/orders', { method: 'POST', headers: { authorization: 'Bearer secret', 'Idempotency-Key': 'x', 'content-type': 'application/json' }, body: ' '.repeat(70_000) });
-    expect((await POST(oversized)).status).toBe(413);
+    const tooLarge = await POST(oversized);
+    expect(tooLarge.status).toBe(413);
+    expect(await tooLarge.json()).toEqual({ error: { code: 'body_too_large', message: 'Request body too large' } });
     rpcMock.mockResolvedValue({ data: null, error: { code: 'XX000', message: 'private database diagnostic' } });
     const response = await POST(req());
     expect(response.status).toBe(503);
@@ -124,6 +130,7 @@ describe('POST /api/v1/orders', () => {
     authMock.mockClear();
     const response = await POST(req({ ...validBody, delivery_address: { street: 'Calle Uno' } }));
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: { code: 'invalid_body', message: 'Invalid order details' } });
     expect(authMock).not.toHaveBeenCalled();
     expect(rpcMock).not.toHaveBeenCalled();
   });

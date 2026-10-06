@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateBusinessApi } from '@/lib/business-integrations/api-auth';
-import { decodeOrderCursor, encodeOrderCursor, ORDER_WITH_BUSINESS_SELECT, orderListQuerySchema, toPublicOrder } from '@/lib/business-integrations/orders';
+import { apiError, decodeOrderCursor, encodeOrderCursor, ORDER_ITEMS_SELECT, ORDER_WITH_BUSINESS_SELECT, orderListQuerySchema, toPublicOrder } from '@/lib/business-integrations/orders';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createOrderBodySchema, canonicalOrderRequest, hashOrderRequest } from '@/lib/business-integrations/orders';
 import { sendOrderEventPushes } from '@/lib/push-order-events';
@@ -12,21 +12,21 @@ function json(body: unknown, status = 200, extraHeaders: Record<string, string> 
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  if (url.search.length > MAX_RAW_QUERY_LENGTH) return json({ error: 'Invalid query parameters' }, 400);
+  if (url.search.length > MAX_RAW_QUERY_LENGTH) return json(apiError('invalid_parameters', 'Invalid query parameters'), 400);
   const searchParams = url.searchParams;
   const params: Record<string, string> = {};
   for (const [key, value] of searchParams.entries()) {
-    if (Object.prototype.hasOwnProperty.call(params, key)) return json({ error: 'Invalid query parameters' }, 400);
+    if (Object.prototype.hasOwnProperty.call(params, key)) return json(apiError('invalid_parameters', 'Invalid query parameters'), 400);
     params[key] = value;
   }
   const parsed = orderListQuerySchema.safeParse(params);
-  if (!parsed.success) return json({ error: 'Invalid query parameters' }, 400);
+  if (!parsed.success) return json(apiError('invalid_parameters', 'Invalid query parameters'), 400);
   const filters = parsed.data;
   const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
+  if (!auth.ok) return json(apiError(({ 401: 'unauthorized', 403: 'inactive_business', 429: 'rate_limited' } as Record<number, string>)[auth.status] ?? 'service_unavailable', auth.error), auth.status);
   const cursorContext = { businessId: auth.access.businessId, filters };
   const decodedCursor = filters.cursor ? decodeOrderCursor(filters.cursor, cursorContext) : null;
-  if (filters.cursor && !decodedCursor) return json({ error: 'Invalid query parameters' }, 400);
+  if (filters.cursor && !decodedCursor) return json(apiError('invalid_parameters', 'Invalid query parameters'), 400);
   let query = createSupabaseAdminClient().from('orders').select(ORDER_WITH_BUSINESS_SELECT)
     .eq('business_id', auth.access.businessId)
     .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(filters.limit + 1);
@@ -38,36 +38,44 @@ export async function GET(request: Request) {
     query = query.or(`created_at.lt.${decodedCursor!.created_at},and(created_at.eq.${decodedCursor!.created_at},id.lt.${decodedCursor!.id})`);
   }
   const { data, error } = await query;
-  if (error) return json({ error: 'Unable to retrieve orders' }, 503);
+  if (error) return json(apiError('service_unavailable', 'Unable to retrieve orders'), 503);
   const rows = data ?? [];
   const hasMore = rows.length > filters.limit;
   const page = rows.slice(0, filters.limit);
   const last = page[page.length - 1];
   try {
+    const ids = page.map((row: Record<string, unknown>) => String(row.id));
+    if (ids.length) {
+      const { data: items, error: itemsError } = await createSupabaseAdminClient().from('order_items').select(ORDER_ITEMS_SELECT).in('order_id', ids);
+      if (itemsError) return json(apiError('service_unavailable', 'Unable to retrieve orders'), 503);
+      const byOrder = new Map<string, unknown[]>();
+      for (const item of items ?? []) byOrder.set(String(item.order_id), [...(byOrder.get(String(item.order_id)) ?? []), item]);
+      for (const row of page) (row as Record<string, unknown>).items = byOrder.get(String(row.id)) ?? [];
+    }
     return json({ data: page.map((row: Record<string, unknown>) => toPublicOrder(row)), has_more: hasMore, next_cursor: hasMore && last ? encodeOrderCursor({ created_at: last.created_at as string, id: last.id as string }, cursorContext) : null });
   } catch {
-    return json({ error: 'Unable to retrieve orders' }, 503);
+    return json(apiError('service_unavailable', 'Unable to retrieve orders'), 503);
   }
 }
 
 export async function POST(request: Request) {
   const contentLength = Number(request.headers.get('content-length'));
-  if (Number.isFinite(contentLength) && contentLength > MAX_CREATE_BODY_BYTES) return json({ error: 'Request body too large' }, 413);
+  if (Number.isFinite(contentLength) && contentLength > MAX_CREATE_BODY_BYTES) return json(apiError('body_too_large', 'Request body too large'), 413);
   let raw: string;
   try {
     const bytes = await request.arrayBuffer();
-    if (bytes.byteLength > MAX_CREATE_BODY_BYTES) return json({ error: 'Request body too large' }, 413);
+    if (bytes.byteLength > MAX_CREATE_BODY_BYTES) return json(apiError('body_too_large', 'Request body too large'), 413);
     raw = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  } catch { return json({ error: 'Invalid request body' }, 400); }
+  } catch { return json(apiError('invalid_body', 'Invalid request body'), 400); }
   let body: unknown;
-  try { body = JSON.parse(raw); } catch { return json({ error: 'Invalid request body' }, 400); }
+  try { body = JSON.parse(raw); } catch { return json(apiError('invalid_body', 'Invalid request body'), 400); }
   const parsed = createOrderBodySchema.safeParse(body);
-  if (!parsed.success) return json({ error: 'Invalid order details' }, 400);
+  if (!parsed.success) return json(apiError('invalid_body', 'Invalid order details'), 400);
   const value = parsed.data;
   const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
+  if (!auth.ok) return json(apiError(({ 401: 'unauthorized', 403: 'inactive_business', 429: 'rate_limited' } as Record<number, string>)[auth.status] ?? 'service_unavailable', auth.error), auth.status);
   const key = request.headers.get('idempotency-key');
-  if (!key || !key.trim() || key.length > 255) return json({ error: 'Invalid Idempotency-Key' }, 400);
+  if (!key || !key.trim() || key.length > 255) return json(apiError('invalid_idempotency_key', 'Invalid Idempotency-Key'), 400);
   const canonical = canonicalOrderRequest(value);
   let result;
   try {
@@ -84,15 +92,15 @@ export async function POST(request: Request) {
       notes_in: value.notes ?? null,
       items_in: value.items.map((item) => ({ product_id: null, item_description: item.description, quantity: item.quantity, price: item.unit_price / 100 })),
     });
-  } catch { return json({ error: 'Unable to create order' }, 503); }
+  } catch { return json(apiError('service_unavailable', 'Unable to create order'), 503); }
   if (result?.error) {
     const { code, message } = result.error as { code?: unknown; message?: unknown };
-    if (code === 'P0001' && typeof message === 'string' && message.includes('IDEMPOTENCY_CONFLICT')) return json({ error: 'Idempotency key conflict' }, 409);
-    if (code === '22023' && typeof message === 'string' && message.includes('INVALID_NORMALIZED_MX_PHONE')) return json({ error: 'Invalid order details' }, 400);
-    return json({ error: 'Unable to create order' }, 503);
+    if (code === 'P0001' && typeof message === 'string' && message.includes('IDEMPOTENCY_CONFLICT')) return json(apiError('idempotency_conflict', 'Idempotency key conflict'), 409);
+    if (code === '22023' && typeof message === 'string' && message.includes('INVALID_NORMALIZED_MX_PHONE')) return json(apiError('invalid_body', 'Invalid order details'), 400);
+    return json(apiError('service_unavailable', 'Unable to create order'), 503);
   }
   const payload = result?.data as { order?: Record<string, unknown>; created?: boolean } | null;
-  if (!payload?.order || typeof payload.created !== 'boolean') return json({ error: 'Unable to create order' }, 503);
+  if (!payload?.order || typeof payload.created !== 'boolean') return json(apiError('service_unavailable', 'Unable to create order'), 503);
   const persistedCents = (amount: unknown) => {
     const text = String(amount);
     if (!/^\d+(?:\.\d{1,2})?$/.test(text)) throw new Error('Invalid persisted amount');
@@ -104,13 +112,13 @@ export async function POST(request: Request) {
     if (persistedCents(payload.order.subtotal) !== value.subtotalCents
       || persistedCents(payload.order.delivery_fee) !== value.delivery_fee
       || persistedCents(payload.order.order_total) !== value.totalCents) {
-      return json({ error: 'Unable to create order' }, 503);
+      return json(apiError('service_unavailable', 'Unable to create order'), 503);
     }
-  } catch { return json({ error: 'Unable to create order' }, 503); }
+  } catch { return json(apiError('service_unavailable', 'Unable to create order'), 503); }
   if (payload.created) {
     try { await sendOrderEventPushes({ orderId: String(payload.order.id), type: 'dispatch_wave' }); } catch { /* Dispatch push is best-effort after commit. */ }
   }
   try {
     return json({ data: toPublicOrder(payload.order) }, payload.created ? 201 : 200, payload.created ? {} : { 'Idempotency-Replayed': 'true' });
-  } catch { return json({ error: 'Unable to create order' }, 503); }
+  } catch { return json(apiError('service_unavailable', 'Unable to create order'), 503); }
 }

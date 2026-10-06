@@ -100,13 +100,21 @@ export function toPublicOrder(row: Record<string, unknown>) {
     delivery_fee: publicAmount(row.delivery_fee),
     order_total: publicAmount(row.order_total),
     items_description: row.items_description ?? null,
+    customer_name: row.customer_name ?? null,
+    customer_phone: row.customer_phone ?? null,
+    items: Array.isArray(row.items) ? row.items.map((item: Record<string, unknown>) => ({ description: item.item_description, quantity: item.quantity, unit_price: publicAmount(item.price) })) : [],
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
 }
 
-export const PUBLIC_ORDER_SELECT = 'id,status,pickup_address,delivery_address,subtotal,delivery_fee,order_total,items_description,created_at,updated_at';
+export const PUBLIC_ORDER_SELECT = 'id,status,pickup_address,delivery_address,subtotal,delivery_fee,order_total,items_description,customer_name,customer_phone,created_at,updated_at';
 export const ORDER_WITH_BUSINESS_SELECT = `${PUBLIC_ORDER_SELECT},business_id`;
+export const ORDER_ITEMS_SELECT = 'order_id,item_description,quantity,price';
+
+export function apiError(code: string, message: string, details?: unknown) {
+  return { error: { code, message, ...(details === undefined ? {} : { details }) } };
+}
 
 const moneyInput = z.union([z.number(), z.string().max(16)]).refine((value) => {
   const text = String(value);
