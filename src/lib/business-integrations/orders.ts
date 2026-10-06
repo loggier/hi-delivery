@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export const ORDER_STATUSES = [
   'pending_acceptance', 'accepted', 'at_store', 'cooking', 'ready_for_pickup', 'picked_up',
@@ -107,3 +107,58 @@ export function toPublicOrder(row: Record<string, unknown>) {
 
 export const PUBLIC_ORDER_SELECT = 'id,status,pickup_address,delivery_address,subtotal,delivery_fee,order_total,items_description,created_at,updated_at';
 export const ORDER_WITH_BUSINESS_SELECT = `${PUBLIC_ORDER_SELECT},business_id`;
+
+const moneyInput = z.union([z.number(), z.string().max(16)]).refine((value) => {
+  const text = String(value);
+  return /^\d+(?:\.\d{1,2})?$/.test(text) && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1_000_000;
+}, 'Invalid amount').transform((value) => {
+  return Math.round(Number(value) * 100);
+});
+
+export const createOrderBodySchema = z.object({
+  customer: z.object({
+    name: z.string().trim().min(2).max(160),
+    phone: z.string().trim().min(1).max(40).transform((phone, context) => {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length !== 10 && !(digits.length === 12 && digits.startsWith('52'))) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid Mexican phone' });
+        return z.NEVER;
+      }
+      return `+52${digits.slice(-10)}`;
+    }),
+    email: z.string().trim().email().max(254).optional(),
+  }).strict(),
+  delivery_address: z.record(z.unknown()).refine((value) => Object.keys(value).length > 0),
+  delivery_fee: moneyInput,
+  items: z.array(z.object({ description: z.string().trim().min(1).max(500), quantity: z.number().int().min(1).max(1000), unit_price: moneyInput }).strict()).min(1).max(50),
+  notes: z.string().max(2000).optional(),
+}).strict().transform((body, context) => {
+  const subtotalCents = body.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  if (!Number.isSafeInteger(subtotalCents) || subtotalCents + body.delivery_fee > 100_000_000) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Order total exceeds limit' });
+    return z.NEVER;
+  }
+  return { ...body, subtotalCents };
+});
+
+function sortCanonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortCanonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, entry]) => [key, sortCanonical(entry)]));
+  }
+  return value;
+}
+
+export function canonicalOrderRequest(value: z.infer<typeof createOrderBodySchema>): string {
+  return JSON.stringify({
+    customer: { name: value.customer.name, phone: value.customer.phone, email: value.customer.email ?? null },
+    delivery_address: sortCanonical(value.delivery_address),
+    delivery_fee: value.delivery_fee,
+    items: value.items.map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })),
+    notes: value.notes ?? null,
+  });
+}
+
+export function hashOrderRequest(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
