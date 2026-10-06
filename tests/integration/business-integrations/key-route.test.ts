@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 
 const { ownerMock, metadataMock, clientMock, rpcMock, fromMock } = vi.hoisted(() => ({
   ownerMock: vi.fn(), metadataMock: vi.fn(), clientMock: vi.fn(), rpcMock: vi.fn(), fromMock: vi.fn(),
@@ -11,11 +12,12 @@ import { AdminSessionError } from '@/lib/auth/admin-session';
 
 const owner = { userId: 'user-1', businessId: 'biz-1' };
 const existing = { id: 'key-1', key_prefix: 'hid_live_abcd1234…', enabled: false, created_at: '2026-10-01T00:00:00Z', last_used_at: null };
+let queryResult: { data?: unknown; error?: unknown } | undefined;
 function query(result: { data?: unknown; error?: unknown } = { data: existing, error: null }) {
   const q: Record<string, ReturnType<typeof vi.fn>> = {};
   for (const method of ['select', 'eq', 'is', 'update', 'maybeSingle', 'single']) q[method] = vi.fn(() => q);
-  q.maybeSingle.mockResolvedValue(result); q.single.mockResolvedValue(result);
-  q.then = vi.fn((resolve: (x: unknown) => unknown) => Promise.resolve(result).then(resolve));
+  q.maybeSingle.mockImplementation(async () => queryResult ?? result); q.single.mockImplementation(async () => queryResult ?? result);
+  q.then = vi.fn((resolve: (x: unknown) => unknown) => Promise.resolve(queryResult ?? result).then(resolve));
   return q;
 }
 function req(method: string, body?: unknown, origin = 'http://localhost') {
@@ -27,7 +29,7 @@ function req(method: string, body?: unknown, origin = 'http://localhost') {
 
 describe('business integration key lifecycle', () => {
   beforeEach(() => {
-    vi.clearAllMocks(); ownerMock.mockResolvedValue(owner); rpcMock.mockResolvedValue({ data: 'key-new', error: null });
+    vi.clearAllMocks(); queryResult = undefined; ownerMock.mockResolvedValue(owner); rpcMock.mockResolvedValue({ data: 'key-new', error: null });
     metadataMock.mockResolvedValue(existing);
     const q = query(); fromMock.mockReturnValue(q); clientMock.mockReturnValue({ from: fromMock, rpc: rpcMock });
   });
@@ -45,14 +47,30 @@ describe('business integration key lifecycle', () => {
     expect(body.key).toMatch(/^hid_live_/); expect(body).not.toHaveProperty('digest');
     expect(rpcMock).toHaveBeenCalledWith('rotate_business_api_key', expect.objectContaining({ business_id_in: 'biz-1', actor_user_id_in: 'user-1' }));
     expect(rpcMock.mock.calls[0][1].business_id_in).not.toBe('attacker-business');
+    expect(body.enabled).toBe(false);
+    expect(rpcMock.mock.calls[0][1].new_digest_in).toBe(createHash('sha256').update(body.key).digest('hex'));
+    expect(Object.values(rpcMock.mock.calls[0][1])).not.toContain(body.key);
+    metadataMock.mockResolvedValue(existing);
+    const getResponse = await GET();
+    expect(getResponse.headers.get('cache-control')).toContain('no-store');
+    expect(JSON.stringify(await getResponse.json())).not.toContain(body.key);
   });
   it('requires same-origin on mutations', async () => {
     const response = await POST(req('POST', {}, 'https://evil.example'));
     expect(response.status).toBe(403); expect(rpcMock).not.toHaveBeenCalled();
   });
   it('denies accounts that do not resolve to an authorized active owner', async () => {
-    ownerMock.mockRejectedValue(new AdminSessionError('denied', 403));
-    expect((await GET()).status).toBe(403);
+    ownerMock.mockRejectedValue(new AdminSessionError('sensitive session details', 403));
+    const response = await GET();
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Forbidden' });
+    expect(response.headers.get('cache-control')).toContain('no-store');
+  });
+  it('maps authentication-required errors to a generic safe response', async () => {
+    ownerMock.mockRejectedValue(new AdminSessionError('cookie hash / session details', 401));
+    const response = await GET();
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Authentication required' });
   });
   it('PATCH accepts only a boolean enabled value and scopes to the resolved business', async () => {
     const response = await PATCH(req('PATCH', { enabled: true, business_id: 'other' }));
@@ -64,5 +82,19 @@ describe('business integration key lifecycle', () => {
     expect((await DELETE(req('DELETE'))).status).toBe(200);
     expect(fromMock).toHaveBeenCalledWith('business_api_keys');
     expect(fromMock.mock.results[0].value.update).toHaveBeenCalledWith(expect.objectContaining({ enabled: false, revoked_at: expect.any(String) }));
+  });
+  it.each(['PATCH', 'DELETE'] as const)('%s returns 404 when there is no live key', async (method) => {
+    queryResult = { data: null, error: null };
+    const response = method === 'PATCH' ? await PATCH(req(method, { enabled: true })) : await DELETE(req(method));
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(await response.json()).toEqual({ error: 'No active business API key' });
+  });
+  it.each(['PATCH', 'DELETE'] as const)('%s returns a generic no-store error on persistence failure', async (method) => {
+    queryResult = { data: null, error: new Error('sensitive database details') };
+    const response = method === 'PATCH' ? await PATCH(req(method, { enabled: true })) : await DELETE(req(method));
+    expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(JSON.stringify(await response.json())).not.toContain('sensitive');
   });
 });

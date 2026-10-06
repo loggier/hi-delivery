@@ -12,7 +12,11 @@ function json(body: unknown, status = 200) {
 }
 
 function authError(error: unknown) {
-  if (error instanceof AdminSessionError) return json({ error: error.message }, error.status);
+  if (error instanceof AdminSessionError) {
+    return error.status === 401
+      ? json({ error: 'Authentication required' }, 401)
+      : json({ error: 'Forbidden' }, 403);
+  }
   return json({ error: 'Unable to manage business API key' }, 500);
 }
 
