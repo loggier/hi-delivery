@@ -25,12 +25,12 @@ CREATE UNIQUE INDEX business_api_idempotency_business_key_unique
   ON grupohubs.business_api_idempotency (business_id, idempotency_key_hash);
 
 CREATE TABLE grupohubs.business_api_rate_limits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   api_key_id uuid NOT NULL REFERENCES grupohubs.business_api_keys(id) ON DELETE CASCADE,
-  window_start timestamptz NOT NULL,
-  request_count integer NOT NULL DEFAULT 0 CHECK (request_count >= 0)
+  requested_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
-CREATE UNIQUE INDEX business_api_rate_limits_key_window_unique
-  ON grupohubs.business_api_rate_limits (api_key_id, window_start);
+CREATE INDEX business_api_rate_limits_key_requested_at_idx
+  ON grupohubs.business_api_rate_limits (api_key_id, requested_at DESC);
 
 ALTER TABLE grupohubs.business_api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grupohubs.business_api_idempotency ENABLE ROW LEVEL SECURITY;
@@ -41,11 +41,10 @@ REVOKE ALL ON TABLE grupohubs.business_api_idempotency FROM PUBLIC, anon, authen
 REVOKE ALL ON TABLE grupohubs.business_api_rate_limits FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE grupohubs.business_api_keys TO service_role;
 GRANT SELECT, INSERT ON TABLE grupohubs.business_api_idempotency TO service_role;
-GRANT SELECT, INSERT, UPDATE ON TABLE grupohubs.business_api_rate_limits TO service_role;
+GRANT SELECT, INSERT, DELETE ON TABLE grupohubs.business_api_rate_limits TO service_role;
 
 CREATE OR REPLACE FUNCTION grupohubs.consume_business_api_rate_limit(
-  api_key_id_in uuid,
-  requested_at_in timestamptz DEFAULT now()
+  api_key_id_in uuid
 )
 RETURNS boolean
 LANGUAGE plpgsql
@@ -53,16 +52,31 @@ SECURITY INVOKER
 SET search_path = pg_catalog, grupohubs
 AS $$
 DECLARE
-  bucket_start timestamptz := date_trunc('minute', requested_at_in);
-  new_count integer;
+  event_time timestamptz;
+  active_request_count integer;
 BEGIN
-  INSERT INTO grupohubs.business_api_rate_limits (api_key_id, window_start, request_count)
-  VALUES (api_key_id_in, bucket_start, 1)
-  ON CONFLICT (api_key_id, window_start)
-  DO UPDATE SET request_count = grupohubs.business_api_rate_limits.request_count + 1
-  RETURNING request_count INTO new_count;
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('business_api_rate_limit:' || api_key_id_in::text, 0)
+  );
+  event_time := clock_timestamp();
 
-  RETURN new_count <= 60;
+  DELETE FROM grupohubs.business_api_rate_limits
+   WHERE api_key_id = api_key_id_in
+     AND requested_at < event_time - INTERVAL '60 seconds';
+
+  SELECT count(*) INTO active_request_count
+    FROM grupohubs.business_api_rate_limits
+   WHERE api_key_id = api_key_id_in
+     AND requested_at >= event_time - INTERVAL '60 seconds'
+     AND requested_at <= event_time;
+
+  IF active_request_count >= 60 THEN
+    RETURN false;
+  END IF;
+
+  INSERT INTO grupohubs.business_api_rate_limits (api_key_id, requested_at)
+  VALUES (api_key_id_in, event_time);
+  RETURN true;
 END;
 $$;
 
@@ -96,6 +110,8 @@ DECLARE
   subtotal_value numeric;
   total_value numeric;
   created_order grupohubs.orders%ROWTYPE;
+  normalized_phone_digits text;
+  local_phone_digits text;
 BEGIN
   IF customer_phone_in IS DISTINCT FROM normalized_mx_phone_in
      OR normalized_mx_phone_in !~ '^\+52[0-9]{10}$' THEN
@@ -105,8 +121,12 @@ BEGIN
   PERFORM pg_advisory_xact_lock(
     hashtextextended(business_id_in || ':' || idempotency_key_hash_in, 0)
   );
+  normalized_phone_digits := regexp_replace(normalized_mx_phone_in, '\D', '', 'g');
+  local_phone_digits := right(normalized_phone_digits, 10);
+  -- Lock order: idempotency digest first, then business-scoped normalized phone.
+  -- Distinct idempotency keys for the same phone serialize before find-or-create.
   PERFORM pg_advisory_xact_lock(
-    hashtextextended(business_id_in || ':' || normalized_mx_phone_in, 0)
+    hashtextextended(business_id_in || ':' || local_phone_digits, 0)
   );
 
   SELECT canonical_request_hash, order_id
@@ -127,14 +147,16 @@ BEGIN
     FROM grupohubs.businesses
    WHERE id = business_id_in;
 
-  SELECT split_part(btrim(customer_name_in), ' ', 1),
-         nullif(regexp_replace(btrim(customer_name_in), '^\S+\s*', ''), '')
-    INTO customer_first_name, customer_last_name;
+  customer_first_name := split_part(btrim(customer_name_in), ' ', 1);
+  customer_last_name := coalesce(
+    nullif(regexp_replace(btrim(customer_name_in), '^\S+\s*', ''), ''),
+    ''
+  );
 
   SELECT id INTO resolved_customer_id
     FROM grupohubs.customers
    WHERE business_id = business_id_in
-     AND phone = normalized_mx_phone_in
+     AND regexp_replace(phone, '\D', '', 'g') IN (normalized_phone_digits, local_phone_digits)
    LIMIT 1
    FOR UPDATE;
 
@@ -166,7 +188,7 @@ BEGIN
         'longitude', business_row.longitude
       ),
       delivery_address_in,
-      concat_ws(' ', customer_first_name, customer_last_name),
+      customer_name_in,
       normalized_mx_phone_in,
       items_description,
       subtotal_value,
@@ -218,9 +240,12 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION grupohubs.consume_business_api_rate_limit(uuid, timestamptz) FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION grupohubs.create_business_api_order(varchar, text, text, text, text, text, text, jsonb, numeric, text, jsonb)
+  IS 'Locks idempotency first, then business_id plus normalized 10-digit phone; uncaught failures roll back customer, order, and idempotency writes together.';
+
+REVOKE EXECUTE ON FUNCTION grupohubs.consume_business_api_rate_limit(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION grupohubs.create_business_api_order(varchar, text, text, text, text, text, text, jsonb, numeric, text, jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION grupohubs.rotate_business_api_key(varchar, text, text, varchar) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION grupohubs.consume_business_api_rate_limit(uuid, timestamptz) TO service_role;
+GRANT EXECUTE ON FUNCTION grupohubs.consume_business_api_rate_limit(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION grupohubs.create_business_api_order(varchar, text, text, text, text, text, text, jsonb, numeric, text, jsonb) TO service_role;
 GRANT EXECUTE ON FUNCTION grupohubs.rotate_business_api_key(varchar, text, text, varchar) TO service_role;

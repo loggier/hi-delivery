@@ -22,8 +22,8 @@ Before editing, run `git status --short --branch` in the web worktree and preser
 - Create via `supabase migration new business_integrations_api` and edit the generated `supabase/migrations/<timestamp>_business_integrations_api.sql`:
   - `business_api_keys`: business FK, unique key digest, display prefix, enabled flag, creator, created/last-used/revoked timestamps; RLS on, no access for `PUBLIC`/`anon`/`authenticated`, service-role only.
   - `business_api_idempotency`: business ID, digest of idempotency header, canonical request hash, resulting order ID and timestamp; unique `(business_id, idempotency_key_hash)`.
-  - `business_api_rate_limits`: API-key ID and minute window, atomic request counter; unique `(api_key_id, window_start)`.
-  - `consume_business_api_rate_limit(...)`: atomic fixed-window increment and allow/deny at 60 requests/minute/key.
+  - `business_api_rate_limits`: UUID event rows with API-key ID and request timestamp; indexed by `(api_key_id, requested_at DESC)`.
+  - `consume_business_api_rate_limit(...)`: serialized rolling 60-second event window, allowing at most 60 requests per key.
   - `rotate_business_api_key(...)`: revoke current non-revoked key and insert the replacement in one transaction, preventing partial rotations under the partial unique index.
   - `create_business_api_order(...)`: transaction-safe idempotency lock/check, find-or-create customer scoped by business/normalized phone, call `create_order_with_items`, persist idempotency mapping, and return the resulting order. Use invoker security and grant execution only to `service_role`; do not create an unauthenticated `SECURITY DEFINER` function.
 
@@ -59,7 +59,7 @@ Before editing, run `git status --short --branch` in the web worktree and preser
 
 - [ ] **Step 1: Write migration contract tests first**
 
-Add tests that load the generated migration from `supabase/migrations` and assert it contains all three tables, RLS and service-role-only grants, unique business/idempotency indexes, the fixed-window rate-limit routine, transaction-safe order routine, and execute revocations. Assert there are no `plaintext_key`, `api_key text`, or public function execute grants.
+Add tests that load the generated migration from `supabase/migrations` and assert it contains all three tables, RLS and service-role-only grants, unique business/idempotency indexes, the rolling-window rate-limit routine, transaction-safe order routine, and execute revocations. Assert there are no plaintext key columns or public function execute grants.
 
 - [ ] **Step 2: Run the contract test and verify RED**
 
@@ -77,7 +77,7 @@ Use schema `grupohubs`; reference `businesses(id)` and key ID with foreign keys.
 
 - [ ] **Step 5: Implement atomic rate-limit counter**
 
-The function uses `date_trunc('minute', now())`, upserts `(api_key_id, window_start)`, increments exactly once per request and returns whether the new count is at most 60. Revoke execute from `PUBLIC`, `anon`, and `authenticated`; grant it only to `service_role`.
+The function acquires a transaction advisory lock per key, deletes that key's events older than 60 seconds, counts events in the rolling 60-second window, rejects without inserting when there are already 60, and otherwise inserts one event. Revoke execute from `PUBLIC`, `anon`, and `authenticated`; grant it only to `service_role`.
 
 - [ ] **Step 6: Implement transactional order/idempotency RPC**
 
