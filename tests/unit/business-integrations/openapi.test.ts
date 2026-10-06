@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { businessIntegrationsOpenApi } from '@/lib/business-integrations/openapi';
 
 describe('business integrations OpenAPI contract', () => {
@@ -21,5 +22,30 @@ describe('business integrations OpenAPI contract', () => {
     expect(businessIntegrationsOpenApi.paths['/orders'].get.responses['200'].content['application/json'].example).toHaveProperty('has_more');
     expect(businessIntegrationsOpenApi.paths['/orders/{id}'].get.responses['200'].content['application/json'].example).toHaveProperty('data');
     expect(businessIntegrationsOpenApi.paths['/orders'].post.responses['200'].headers['Idempotency-Replayed'].schema.const).toBe('true');
+  });
+
+  it('documents every 400 code/status emitted by the list, detail, and create handlers', () => {
+    const endpoints = [
+      { path: '/orders', method: 'get', source: 'src/app/api/v1/orders/route.ts', codes: ['invalid_parameters'] },
+      { path: '/orders/{id}', method: 'get', source: 'src/app/api/v1/orders/[id]/route.ts', codes: ['invalid_parameters'] },
+      { path: '/orders', method: 'post', source: 'src/app/api/v1/orders/route.ts', codes: ['invalid_body', 'invalid_idempotency_key'] },
+    ] as const;
+
+    for (const endpoint of endpoints) {
+      const handler = readFileSync(endpoint.source, 'utf8');
+      const responseSpec = businessIntegrationsOpenApi.paths[endpoint.path][endpoint.method].responses['400'];
+      const handlerErrors = [...handler.matchAll(/apiError\('([^']+)'[^\n]+\),\s*400\)/g)].map((match) => match[1]);
+
+      expect(handlerErrors).toEqual(expect.arrayContaining(endpoint.codes));
+      expect(responseSpec).toBeDefined();
+      expect(responseSpec.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');
+      const documentedExamples = responseSpec.content['application/json'].examples;
+      for (const code of endpoint.codes) {
+        expect(documentedExamples[code].value.error.code).toBe(code);
+        expect(documentedExamples[code].value.error.message).toEqual(expect.any(String));
+      }
+      expect(businessIntegrationsOpenApi.components.schemas.Error.required).toContain('error');
+      expect(businessIntegrationsOpenApi.components.schemas.Error.properties.error.required).toEqual(['code', 'message']);
+    }
   });
 });

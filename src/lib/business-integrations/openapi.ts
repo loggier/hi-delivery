@@ -9,9 +9,20 @@ const errors = {
   '503': { description: 'Falló una dependencia requerida', example: { error: { code: 'service_unavailable', message: 'Service unavailable' } } },
 } as const;
 
-const errorResponses = (statuses: readonly (keyof typeof errors)[]) => Object.fromEntries(statuses.map((status) => [status, {
+const badRequestExamples = {
+  invalid_parameters: { error: { code: 'invalid_parameters', message: 'Invalid query parameters' } },
+  invalid_idempotency_key: { error: { code: 'invalid_idempotency_key', message: 'Invalid Idempotency-Key' } },
+  invalid_body: { error: { code: 'invalid_body', message: 'Invalid order details' } },
+} as const;
+
+const errorResponses = (statuses: readonly (keyof typeof errors)[], badRequestCodes: readonly (keyof typeof badRequestExamples)[] = ['invalid_body']) => Object.fromEntries(statuses.map((status) => [status, {
   description: errors[status].description,
-  content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' }, example: errors[status].example } },
+  content: { 'application/json': {
+    schema: { $ref: '#/components/schemas/Error' },
+    ...(status === '400' ? {
+      examples: Object.fromEntries(badRequestCodes.map((code) => [code, { value: badRequestExamples[code] }])),
+    } : { example: errors[status].example }),
+  } },
 }]));
 
 const orderExample = {
@@ -41,7 +52,7 @@ export const businessIntegrationsOpenApi = {
         ],
         responses: {
           '200': { description: 'Página de pedidos', content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderList' }, example: { data: [orderExample], has_more: false, next_cursor: null } } } },
-          ...errorResponses(['400', '401', '403', '429', '503']),
+          ...errorResponses(['400', '401', '403', '429', '503'], ['invalid_parameters']),
         },
       },
       post: {
@@ -53,7 +64,7 @@ export const businessIntegrationsOpenApi = {
         responses: {
           '201': { description: 'Pedido creado', content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderEnvelope' }, example: { data: orderExample } } } },
           '200': { description: 'Respuesta original reproducida; Idempotency-Replayed: true', headers: { 'Idempotency-Replayed': { schema: { type: 'string', const: 'true' }, description: 'Indica que se reprodujo la creación anterior.' } }, content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderEnvelope' }, example: { data: orderExample } } } },
-          ...errorResponses(['400', '401', '403', '409', '413', '429', '503']),
+          ...errorResponses(['400', '401', '403', '409', '413', '429', '503'], ['invalid_body', 'invalid_idempotency_key']),
         },
       },
     },
@@ -63,7 +74,7 @@ export const businessIntegrationsOpenApi = {
         security: [{ BearerAuth: [] }],
         'x-codeSamples': [{ lang: 'cURL', source: 'curl -H "Authorization: Bearer ${API_KEY}" "https://api.hidelivery.mx/api/v1/orders/ord_example"' }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        responses: { '200': { description: 'Detalle del pedido', content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderEnvelope' }, example: { data: orderExample } } } }, ...errorResponses(['400', '401', '403', '404', '429', '503']) },
+        responses: { '200': { description: 'Detalle del pedido', content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderEnvelope' }, example: { data: orderExample } } } }, ...errorResponses(['400', '401', '403', '404', '429', '503'], ['invalid_parameters']) },
       },
     },
   },
