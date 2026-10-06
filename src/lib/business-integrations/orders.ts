@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const ORDER_STATUSES = [
   'pending_acceptance', 'accepted', 'at_store', 'cooking', 'ready_for_pickup', 'picked_up',
@@ -11,14 +12,33 @@ export function extractBearerToken(header: string | null): string | null {
 }
 
 export interface OrderCursor { created_at: string; id: string }
+function cursorSigningKey(): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) throw new Error('Business order cursor signing is unavailable');
+  return createHmac('sha256', secret).update('business-orders-cursor:v1').digest('hex');
+}
+
+function signCursor(payload: string): string {
+  return createHmac('sha256', cursorSigningKey()).update(payload).digest('base64url');
+}
+
 export function encodeOrderCursor(cursor: OrderCursor): string {
-  return Buffer.from(JSON.stringify({ created_at: cursor.created_at, id: cursor.id }), 'utf8').toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ created_at: cursor.created_at, id: cursor.id }), 'utf8').toString('base64url');
+  return `${payload}.${signCursor(payload)}`;
 }
 
 export function decodeOrderCursor(value: string): OrderCursor | null {
   try {
-    if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
-    const decoded: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    const parts = value.split('.');
+    if (parts.length !== 2 || !/^[A-Za-z0-9_-]+$/.test(parts[0]) || !/^[A-Za-z0-9_-]{43}$/.test(parts[1])) return null;
+    const [payload, providedSignature] = parts;
+    const expectedSignature = signCursor(payload);
+    const expected = Buffer.from(expectedSignature);
+    const provided = Buffer.from(providedSignature);
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+    const payloadBuffer = Buffer.from(payload, 'base64url');
+    if (payloadBuffer.toString('base64url') !== payload) return null;
+    const decoded: unknown = JSON.parse(payloadBuffer.toString('utf8'));
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return null;
     const cursor = decoded as Record<string, unknown>;
     if (Object.keys(cursor).length !== 2 || typeof cursor.created_at !== 'string' || !Number.isFinite(Date.parse(cursor.created_at)) || typeof cursor.id !== 'string' || !/^[A-Za-z0-9_-]{1,255}$/.test(cursor.id)) return null;

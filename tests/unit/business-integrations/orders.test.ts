@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   calculateCents,
   decodeOrderCursor,
@@ -9,6 +9,7 @@ import {
 } from '@/lib/business-integrations/orders';
 
 describe('business integration order helpers', () => {
+  afterEach(() => vi.unstubAllEnvs());
   it('extracts only a well-formed bearer credential', () => {
     expect(extractBearerToken(null)).toBeNull();
     expect(extractBearerToken('Basic abc')).toBeNull();
@@ -16,11 +17,16 @@ describe('business integration order helpers', () => {
     expect(extractBearerToken('Bearer hid_live_secret')).toBe('hid_live_secret');
   });
 
-  it('encodes and validates an opaque cursor containing only created_at and id', () => {
+  it('rejects modified cursor payloads, signatures, invalid base64, and invalid shapes', () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'unit-test-service-role-secret');
     const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
     expect(decodeOrderCursor(cursor)).toEqual({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
-    expect(decodeOrderCursor(`${cursor.slice(0, -1)}!`)).toBeNull();
-    expect(decodeOrderCursor(Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(cursor, 'base64url').toString()), business_id: 'x' })).toString('base64url'))).toBeNull();
+    const changedPayload = Buffer.from(JSON.stringify({ created_at: '2026-10-02T00:00:00.000Z', id: 'ord-1' })).toString('base64url');
+    expect(decodeOrderCursor(changedPayload)).toBeNull();
+    const [payload, signature] = cursor.split('.');
+    if (signature) expect(decodeOrderCursor(`${payload}.${signature.slice(0, -1)}${signature.endsWith('A') ? 'B' : 'A'}`)).toBeNull();
+    expect(decodeOrderCursor('%%%')).toBeNull();
+    expect(decodeOrderCursor(Buffer.from(JSON.stringify({ id: 'ord-1' })).toString('base64url'))).toBeNull();
   });
 
   it('validates allowed filters and caps list size at 100', () => {

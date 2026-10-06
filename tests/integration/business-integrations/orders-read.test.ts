@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fromMock, clientMock, rpcMock } = vi.hoisted(() => ({ fromMock: vi.fn(), clientMock: vi.fn(), rpcMock: vi.fn() }));
 vi.mock('@/lib/supabase/admin', () => ({ createSupabaseAdminClient: clientMock }));
 import { GET as listOrders } from '@/app/api/v1/orders/route';
 import { GET as getOrder } from '@/app/api/v1/orders/[id]/route';
+import { encodeOrderCursor } from '@/lib/business-integrations/orders';
 
-const order = { id: 'ord-1', status: 'accepted', pickup_address: {}, delivery_address: {}, subtotal: '10.00', delivery_fee: '2.00', order_total: '12.00', items_description: null, created_at: '2026-10-01T00:00:00.000Z', updated_at: '2026-10-01T00:00:00.000Z', business_id: 'biz-a' };
+const order = { id: 'ord-1', status: 'accepted', pickup_address: {}, delivery_address: {}, subtotal: '10.00', delivery_fee: '2.00', order_total: '12.00', items_description: null, created_at: '2026-10-01T00:00:00.000Z', updated_at: '2026-10-01T00:00:00.000Z', business_id: 'biz-a', rider_latitude: 19.43, rider_longitude: -99.13, rider_location: { lat: 19.43, lng: -99.13 }, assignment_attempt_count: 7, active_notified_riders: ['rider-1'], key_digest: 'internal-digest' };
 let keyResult: { data: unknown; error: unknown };
 let businessResult: { data: unknown; error: unknown };
 let rateResult: { data: unknown; error: unknown };
@@ -24,7 +25,9 @@ function makeQuery() {
 }
 
 describe('business order reads', () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'integration-test-service-role-secret');
     vi.clearAllMocks();
     keyResult = { data: { id: 'key-a', business_id: 'biz-a', enabled: true, revoked_at: null }, error: null };
     businessResult = { data: { id: 'biz-a', status: 'active' }, error: null };
@@ -66,7 +69,8 @@ describe('business order reads', () => {
 
   it('lists with database-derived business scope, deterministic pagination and no-store DTOs', async () => {
     orderResult = { data: [order, { ...order, id: 'ord-2' }], error: null };
-    const response = await listOrders(request('http://localhost/api/v1/orders?status=accepted&limit=1'));
+    const cursor = encodeOrderCursor({ created_at: '2026-09-30T23:00:00.000Z', id: 'ord-0' });
+    const response = await listOrders(request(`http://localhost/api/v1/orders?status=accepted&created_from=2026-09-01T00%3A00%3A00.000Z&created_to=2026-10-01T00%3A00%3A00.000Z&updated_since=2026-09-15T00%3A00%3A00.000Z&limit=1&cursor=${encodeURIComponent(cursor)}`));
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('no-store');
@@ -74,8 +78,18 @@ describe('business order reads', () => {
     const orderQuery = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'orders')!.value;
     expect(orderQuery.eq).toHaveBeenCalledWith('business_id', 'biz-a');
     expect(orderQuery.eq).toHaveBeenCalledWith('status', 'accepted');
+    expect(orderQuery.gte).toHaveBeenCalledWith('created_at', '2026-09-01T00:00:00.000Z');
+    expect(orderQuery.lte).toHaveBeenCalledWith('created_at', '2026-10-01T00:00:00.000Z');
+    expect(orderQuery.gte).toHaveBeenCalledWith('updated_at', '2026-09-15T00:00:00.000Z');
+    expect(orderQuery.or).toHaveBeenCalledWith('created_at.lt.2026-09-30T23:00:00.000Z,and(created_at.eq.2026-09-30T23:00:00.000Z,id.lt.ord-0)');
+    expect(orderQuery.limit).toHaveBeenCalledWith(2);
     expect(orderQuery.order.mock.calls).toEqual([['created_at', { ascending: false }], ['id', { ascending: false }]]);
     expect(body.data[0]).not.toHaveProperty('business_id');
+    expect(body.data[0]).not.toHaveProperty('rider_latitude');
+    expect(body.data[0]).not.toHaveProperty('rider_longitude');
+    expect(body.data[0]).not.toHaveProperty('assignment_attempt_count');
+    expect(body.data[0]).not.toHaveProperty('active_notified_riders');
+    expect(body.data[0]).not.toHaveProperty('key_digest');
   });
 
   it('uses indistinguishable 404 responses for foreign and missing order IDs', async () => {
@@ -84,5 +98,18 @@ describe('business order reads', () => {
     expect(response.status).toBe(404); expect(await response.json()).toEqual({ error: 'Order not found' });
     const q = fromMock.mock.results.find((_x, index) => fromMock.mock.calls[index][0] === 'orders')!.value;
     expect(q.eq).toHaveBeenCalledWith('id', 'foreign'); expect(q.eq).toHaveBeenCalledWith('business_id', 'biz-a');
+  });
+
+  it('sanitizes sensitive internal fields from detail DTOs', async () => {
+    orderResult = { data: { ...order }, error: null };
+    const response = await getOrder(request('http://localhost/api/v1/orders/ord-1'), { params: Promise.resolve({ id: 'ord-1' }) });
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.data).not.toHaveProperty('rider_latitude');
+    expect(body.data).not.toHaveProperty('rider_longitude');
+    expect(body.data).not.toHaveProperty('rider_location');
+    expect(body.data).not.toHaveProperty('assignment_attempt_count');
+    expect(body.data).not.toHaveProperty('active_notified_riders');
+    expect(body.data).not.toHaveProperty('key_digest');
   });
 });
