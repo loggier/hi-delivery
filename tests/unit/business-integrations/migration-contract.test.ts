@@ -6,6 +6,9 @@ const migrationsDir = join(process.cwd(), 'supabase/migrations');
 const migrationName = readdirSync(migrationsDir).find((name) =>
   /_business_integrations_api\.sql$/.test(name),
 );
+const entitlementMigrationName = readdirSync(migrationsDir).find((name) =>
+  /_business_api_entitlement\.sql$/.test(name),
+);
 
 function functionDefinition(sql: string, name: string): string {
   const start = sql.indexOf(`FUNCTION grupohubs.${name}`);
@@ -20,6 +23,15 @@ function admitsRollingWindowRequest(eventTimesMs: number[], nowMs: number): bool
 
 // Static SQL contract checks only; these do not execute the migration against PostgreSQL.
 describe('business integrations API static migration contract', () => {
+  it('adds a default-disabled business API entitlement without changing unrelated credentials or order data', () => {
+    expect(entitlementMigrationName, 'business API entitlement migration file').toBeTruthy();
+    const sql = readFileSync(join(migrationsDir, entitlementMigrationName ?? ''), 'utf8');
+
+    expect(sql).toMatch(/ALTER TABLE grupohubs\.businesses\s+ADD COLUMN api_enabled boolean NOT NULL DEFAULT false/i);
+    expect(sql).not.toMatch(/ALTER TABLE grupohubs\.(?:users|business_api_keys|business_api_idempotency|orders)\b/i);
+    expect(sql).not.toMatch(/users\.password|password\s+(?:text|varchar)/i);
+  });
+
   it('defines protected tables, atomic routines, idempotency, and rate limiting', () => {
     expect(migrationName, 'generated migration file').toBeTruthy();
     const sql = readFileSync(join(migrationsDir, migrationName ?? ''), 'utf8');

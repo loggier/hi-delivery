@@ -279,6 +279,7 @@ export type Business = {
   logo_url?: string;
   notes?: string;
   status: "ACTIVE" | "INACTIVE" | "PENDING_REVIEW" | "INCOMPLETE";
+  api_enabled: boolean;
   plan_id?: string;
   subscription_status?: SubscriptionStatus;
   current_period_ends_at?: string;
