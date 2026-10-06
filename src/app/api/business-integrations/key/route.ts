@@ -30,7 +30,15 @@ function isSameOrigin(request: Request): boolean {
   }
 }
 
-function metadata(data: any) {
+interface BusinessApiKeyMetadata {
+  id: string;
+  key_prefix: string;
+  enabled: boolean;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+function metadata(data: BusinessApiKeyMetadata | null) {
   if (!data) return null;
   return {
     id: data.id,
@@ -72,14 +80,16 @@ export async function PATCH(request: Request) {
   if (!isSameOrigin(request)) return json({ error: 'Same-origin request required' }, 403);
   let body: unknown;
   try { body = await request.json(); } catch { return json({ error: 'Invalid request body' }, 400); }
-  if (!body || typeof body !== 'object' || typeof (body as { enabled?: unknown }).enabled !== 'boolean') {
-    return json({ error: 'enabled must be a boolean' }, 400);
+  if (!body || typeof body !== 'object') return json({ error: 'key_id and enabled are required' }, 400);
+  const { key_id: keyId, enabled } = body as { key_id?: unknown; enabled?: unknown };
+  if (typeof keyId !== 'string' || !keyId.trim() || typeof enabled !== 'boolean') {
+    return json({ error: 'key_id and enabled are required' }, 400);
   }
   try {
     const owner = await requireBusinessIntegrationOwner();
     const { data, error } = await createSupabaseAdminClient().from('business_api_keys')
-      .update({ enabled: (body as { enabled: boolean }).enabled })
-      .eq('business_id', owner.businessId).is('revoked_at', null)
+      .update({ enabled })
+      .eq('id', keyId).eq('business_id', owner.businessId).is('revoked_at', null)
       .select('id, key_prefix, enabled, created_at, last_used_at').maybeSingle();
     if (error) return json({ error: 'Unable to update business API key' }, 503);
     if (!data) return json({ error: 'No active business API key' }, 404);

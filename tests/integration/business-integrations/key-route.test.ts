@@ -72,11 +72,38 @@ describe('business integration key lifecycle', () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Authentication required' });
   });
-  it('PATCH accepts only a boolean enabled value and scopes to the resolved business', async () => {
-    const response = await PATCH(req('PATCH', { enabled: true, business_id: 'other' }));
+  it.each([true, false])('PATCH sets enabled=%s only on the requested live key in the linked business', async (enabled) => {
+    const response = await PATCH(req('PATCH', { key_id: 'key-1', enabled, business_id: 'other' }));
     expect(response.status).toBe(200);
     const q = fromMock.mock.results[0].value;
-    expect(q.update).toHaveBeenCalledWith({ enabled: true }); expect(q.eq).toHaveBeenCalledWith('business_id', 'biz-1');
+    expect(q.update).toHaveBeenCalledWith({ enabled });
+    expect(q.eq).toHaveBeenCalledWith('id', 'key-1');
+    expect(q.eq).toHaveBeenCalledWith('business_id', 'biz-1');
+    expect(q.is).toHaveBeenCalledWith('revoked_at', null);
+  });
+  it('PATCH cannot update a replacement key when a stale key id is submitted after rotation', async () => {
+    queryResult = { data: null, error: null };
+    const response = await PATCH(req('PATCH', { key_id: 'revoked-key-before-rotation', enabled: true }));
+    expect(response.status).toBe(404);
+    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('id', 'revoked-key-before-rotation');
+    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('business_id', 'biz-1');
+  });
+  it('PATCH rejects an id belonging to another business without changing any key', async () => {
+    queryResult = { data: null, error: null };
+    const response = await PATCH(req('PATCH', { key_id: 'foreign-key', enabled: true }));
+    expect(response.status).toBe(404);
+    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('id', 'foreign-key');
+    expect(fromMock.mock.results[0].value.eq).toHaveBeenCalledWith('business_id', 'biz-1');
+  });
+  it.each([
+    [{ enabled: true }, 'missing key_id'],
+    [{ key_id: '', enabled: true }, 'empty key_id'],
+    [{ key_id: 123, enabled: true }, 'non-string key_id'],
+    [{ key_id: 'key-1', enabled: 'true' }, 'non-boolean enabled'],
+  ])('PATCH rejects malformed payload (%s)', async (body) => {
+    const response = await PATCH(req('PATCH', body));
+    expect(response.status).toBe(400);
+    expect(fromMock).not.toHaveBeenCalled();
   });
   it('DELETE revokes the linked business key', async () => {
     expect((await DELETE(req('DELETE'))).status).toBe(200);
@@ -85,14 +112,14 @@ describe('business integration key lifecycle', () => {
   });
   it.each(['PATCH', 'DELETE'] as const)('%s returns 404 when there is no live key', async (method) => {
     queryResult = { data: null, error: null };
-    const response = method === 'PATCH' ? await PATCH(req(method, { enabled: true })) : await DELETE(req(method));
+    const response = method === 'PATCH' ? await PATCH(req(method, { key_id: 'key-1', enabled: true })) : await DELETE(req(method));
     expect(response.status).toBe(404);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(await response.json()).toEqual({ error: 'No active business API key' });
   });
   it.each(['PATCH', 'DELETE'] as const)('%s returns a generic no-store error on persistence failure', async (method) => {
     queryResult = { data: null, error: new Error('sensitive database details') };
-    const response = method === 'PATCH' ? await PATCH(req(method, { enabled: true })) : await DELETE(req(method));
+    const response = method === 'PATCH' ? await PATCH(req(method, { key_id: 'key-1', enabled: true })) : await DELETE(req(method));
     expect(response.status).toBe(503);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(JSON.stringify(await response.json())).not.toContain('sensitive');
