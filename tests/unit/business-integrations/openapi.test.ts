@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { businessIntegrationsOpenApi } from '@/lib/business-integrations/openapi';
 
+type ContractResponse = {
+  content: {
+    'application/json': {
+      schema: { $ref: string };
+      examples: Record<string, { value: { error: { code: string; message: string } } }>;
+      example?: unknown;
+    };
+  };
+};
+type ContractDocument = {
+  paths: Record<string, Record<string, { responses: Record<string, ContractResponse> }>>;
+};
+const contractDocument = businessIntegrationsOpenApi as unknown as ContractDocument;
+
 describe('business integrations OpenAPI contract', () => {
   it('documents exactly the supported order operations and required security', () => {
     expect(businessIntegrationsOpenApi.openapi).toBe('3.1.0');
@@ -33,10 +47,10 @@ describe('business integrations OpenAPI contract', () => {
 
     for (const endpoint of endpoints) {
       const handler = readFileSync(endpoint.source, 'utf8');
-      const responseSpec = businessIntegrationsOpenApi.paths[endpoint.path][endpoint.method].responses['400'];
+      const responseSpec = contractDocument.paths[endpoint.path][endpoint.method].responses['400'];
       const handlerErrors = [...handler.matchAll(/apiError\('([^']+)'[^\n]+\),\s*400\)/g)].map((match) => match[1]);
 
-      expect(handlerErrors).toEqual(expect.arrayContaining(endpoint.codes));
+      expect(handlerErrors).toEqual(expect.arrayContaining([...endpoint.codes]));
       expect(responseSpec).toBeDefined();
       expect(responseSpec.content['application/json'].schema.$ref).toBe('#/components/schemas/Error');
       const documentedExamples = responseSpec.content['application/json'].examples;
@@ -51,8 +65,9 @@ describe('business integrations OpenAPI contract', () => {
 
   it('documents create idempotency and oversized-body errors with their runtime statuses and nested schemas', () => {
     const create = businessIntegrationsOpenApi.paths['/orders'].post;
-    const badRequest = create.responses['400'];
-    const tooLarge = create.responses['413'];
+    const responses = contractDocument.paths['/orders'].post.responses;
+    const badRequest = responses['400'];
+    const tooLarge = responses['413'];
     const handler = readFileSync('src/app/api/v1/orders/route.ts', 'utf8');
 
     expect(handler).toMatch(/apiError\('invalid_idempotency_key',[^\n]+\),\s*400\)/);

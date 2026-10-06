@@ -65,7 +65,14 @@ describe('business integration order helpers', () => {
       subtotal: '10.00', delivery_fee: '2.00', order_total: '12.00', items_description: 'Food', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T01:00:00Z',
       rider_latitude: 1, rider_longitude: 2, assignment_attempt_count: 8, key_hash: 'secret', business_name: 'private', customer_email: 'private',
     });
-    expect(dto).toEqual({ id: 'ord-1', status: 'accepted', pickup_address: { address: 'Shop' }, delivery_address: { address: 'Home' }, subtotal: 10, delivery_fee: 2, order_total: 12, items_description: 'Food', created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T01:00:00Z' });
-    expect(JSON.stringify(dto)).not.toMatch(/rider|customer|business|hash|assignment/i);
+    expect(dto).toEqual({ id: 'ord-1', status: 'accepted', pickup_address: { address: 'Shop' }, delivery_address: { address: 'Home' }, customer_name: 'Alex', customer_phone: '555', subtotal: 10, delivery_fee: 2, order_total: 12, items_description: 'Food', items: [], created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T01:00:00Z' });
+    expect(dto).not.toHaveProperty('rider_id');
+    expect(dto).not.toHaveProperty('business_id');
+    expect(dto).not.toHaveProperty('customer_id');
+    expect(dto).not.toHaveProperty('key_hash');
+    expect(dto).not.toHaveProperty('business_name');
+    expect(dto).not.toHaveProperty('customer_email');
+    expect(dto).not.toHaveProperty('rider_latitude');
+    expect(dto).not.toHaveProperty('assignment_attempt_count');
   });
 });
