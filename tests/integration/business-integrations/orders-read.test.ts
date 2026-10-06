@@ -20,6 +20,7 @@ let keyResult: { data: unknown; error: unknown };
 let businessResult: { data: unknown; error: unknown };
 let rateResult: { data: unknown; error: unknown };
 let orderResult: { data: unknown; error: unknown };
+let lastUsedFailure: 'error' | 'reject' | null;
 let query: Record<string, ReturnType<typeof vi.fn>>;
 
 function request(url = 'http://localhost/api/v1/orders', token: string | null = 'hid_live_opaque_secret') {
@@ -29,6 +30,13 @@ function makeQuery() {
   query = {};
   for (const method of ['select', 'eq', 'is', 'update', 'order', 'limit', 'gte', 'lte', 'or', 'maybeSingle']) query[method] = vi.fn(() => query);
   query.then = vi.fn((resolve: (result: unknown) => unknown) => Promise.resolve(orderResult).then(resolve));
+  query.update.mockImplementation(() => {
+    query.then = vi.fn((resolve: (result: unknown) => unknown, reject?: (error: unknown) => unknown) => {
+      if (lastUsedFailure === 'reject') return Promise.reject(new Error('private last-used update failure')).then(resolve, reject);
+      return Promise.resolve(lastUsedFailure === 'error' ? { error: { message: 'private last-used update failure' } } : { error: null }).then(resolve);
+    });
+    return query;
+  });
   query.maybeSingle.mockImplementation(async () => orderResult);
   return query;
 }
@@ -42,6 +50,7 @@ describe('business order reads', () => {
     businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
     rateResult = { data: true, error: null };
     orderResult = { data: [order], error: null };
+    lastUsedFailure = null;
     fromMock.mockImplementation((table: string) => {
       const q = makeQuery();
       if (table === 'business_api_keys') q.maybeSingle.mockImplementation(async () => keyResult);
@@ -92,6 +101,20 @@ describe('business order reads', () => {
     businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
     rateResult = { data: false, error: null };
     expect((await listOrders(request())).status).toBe(429);
+  });
+
+  it('rejects lowercase active status under the uppercase database convention', async () => {
+    businessResult = { data: { id: 'biz-a', status: 'active' }, error: null };
+    const response = await listOrders(request());
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'Forbidden' });
+  });
+
+  it.each(['error', 'reject'] as const)('does not block a valid read when last_used_at update %s', async (failure) => {
+    lastUsedFailure = failure;
+    const response = await listOrders(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toHaveProperty('data');
   });
 
   it('rejects duplicate query keys instead of silently choosing one', async () => {
