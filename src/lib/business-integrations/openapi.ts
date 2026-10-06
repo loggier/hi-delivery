@@ -44,13 +44,13 @@ const orderExample = {
 export const businessIntegrationsOpenApi = {
   openapi: '3.1.0',
   info: { title: 'Hi Delivery Business API', version: '1.0.0', description: 'Consulta y crea pedidos del negocio asociado.' },
-  servers: [{ url: '/api/v1' }],
+  servers: [{ url: 'https://hid.com.mx/api/v1' }],
   paths: {
     '/orders': {
       get: {
         summary: 'Listar pedidos', description: 'Lista los pedidos del negocio con cursor opaco. El cursor está ligado al contexto de filtros.',
         security: [{ BearerAuth: [] }],
-        'x-codeSamples': [{ lang: 'cURL', source: 'curl -H "Authorization: Bearer ${API_KEY}" "https://api.hidelivery.mx/api/v1/orders?limit=50&updated_since=2026-10-01T00%3A00%3A00Z"' }],
+        'x-codeSamples': [{ lang: 'cURL', source: 'curl -H "Authorization: Bearer ${API_KEY}" "https://hid.com.mx/api/v1/orders?limit=50&updated_since=2026-10-01T00%3A00%3A00Z"' }],
         parameters: [
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending_acceptance', 'accepted', 'at_store', 'cooking', 'ready_for_pickup', 'picked_up', 'on_the_way', 'arrived_at_destination', 'completed', 'delivered', 'cancelled', 'refunded', 'failed'] } },
           { name: 'created_from', in: 'query', schema: { type: 'string', format: 'date-time' } },
@@ -67,7 +67,7 @@ export const businessIntegrationsOpenApi = {
       post: {
         summary: 'Crear pedido', description: 'Crea un pedido nuevo (201). Una repetición idempotente responde 200 con Idempotency-Replayed: true. Los importes se calculan en servidor.',
         security: [{ BearerAuth: [] }],
-        'x-codeSamples': [{ lang: 'cURL', source: 'curl -X POST "https://api.hidelivery.mx/api/v1/orders" -H "Authorization: Bearer ${API_KEY}" -H "Idempotency-Key: pedido-externo-001" -H "Content-Type: application/json" --data @pedido.json' }],
+        'x-codeSamples': [{ lang: 'cURL', source: 'curl -X POST "https://hid.com.mx/api/v1/orders" -H "Authorization: Bearer ${API_KEY}" -H "Idempotency-Key: pedido-externo-001" -H "Content-Type: application/json" --data @pedido.json' }],
         parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', maxLength: 255 }, description: 'Clave para reintentos seguros.' }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CreateOrder' }, example: { customer: { name: 'Ana Pérez', phone: '+525500000000', email: 'ana@example.com' }, delivery_address: { street: 'Av. Ejemplo 123', neighborhood: 'Centro', city: 'Ciudad', state: 'Estado', postal_code: '00000', references: 'Casa azul', latitude: 19.4, longitude: -99.1 }, delivery_fee: 35, items: [{ description: 'Producto externo', quantity: 2, unit_price: 120.5 }], notes: 'Sin cebolla' } } } },
         responses: {
@@ -81,7 +81,7 @@ export const businessIntegrationsOpenApi = {
       get: {
         summary: 'Consultar pedido', description: 'Devuelve el detalle del pedido dentro del negocio; un pedido invisible responde 404.',
         security: [{ BearerAuth: [] }],
-        'x-codeSamples': [{ lang: 'cURL', source: 'curl -H "Authorization: Bearer ${API_KEY}" "https://api.hidelivery.mx/api/v1/orders/ord_example"' }],
+        'x-codeSamples': [{ lang: 'cURL', source: 'curl -H "Authorization: Bearer ${API_KEY}" "https://hid.com.mx/api/v1/orders/ord_example"' }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { '200': { description: 'Detalle del pedido', content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderEnvelope' }, example: { data: orderExample } } } }, ...errorResponses(['400', '401', '403', '404', '429', '503'], ['invalid_parameters']) },
       },
