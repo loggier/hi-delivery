@@ -42,7 +42,7 @@ function makeQuery() {
 }
 
 describe('business order reads', () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
   beforeEach(() => {
     vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'integration-test-business-cursor-secret-at-least-32-chars');
     vi.clearAllMocks();
@@ -122,6 +122,19 @@ describe('business order reads', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
     expect(fromMock).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('rejects oversized raw query strings before iterating params or touching auth/database', async () => {
+    const rawQuery = `?${Array.from({ length: 100 }, (_, index) => `unknown${index}=xxxxxxxxxxxxxxxxxxxxxxxx`).join('&')}`;
+    expect(rawQuery.length).toBeGreaterThan(2048);
+    const entriesSpy = vi.spyOn(URLSearchParams.prototype, 'entries');
+    const response = await listOrders(request(`http://localhost/api/v1/orders${rawQuery}`));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(entriesSpy).not.toHaveBeenCalled();
+    expect(clientMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it('returns a safe service error when list DTO money is malformed', async () => {

@@ -4,10 +4,13 @@ import { decodeOrderCursor, encodeOrderCursor, ORDER_WITH_BUSINESS_SELECT, order
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
+const MAX_RAW_QUERY_LENGTH = 2048;
 function json(body: unknown, status = 200) { return NextResponse.json(body, { status, headers: NO_STORE }); }
 
 export async function GET(request: Request) {
-  const searchParams = new URL(request.url).searchParams;
+  const url = new URL(request.url);
+  if (url.search.length > MAX_RAW_QUERY_LENGTH) return json({ error: 'Invalid query parameters' }, 400);
+  const searchParams = url.searchParams;
   const params: Record<string, string> = {};
   for (const [key, value] of searchParams.entries()) {
     if (Object.prototype.hasOwnProperty.call(params, key)) return json({ error: 'Invalid query parameters' }, 400);
