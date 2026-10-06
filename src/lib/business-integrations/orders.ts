@@ -128,17 +128,33 @@ export const createOrderBodySchema = z.object({
     }),
     email: z.string().trim().email().max(254).optional(),
   }).strict(),
-  delivery_address: z.record(z.unknown()).refine((value) => Object.keys(value).length > 0),
+  delivery_address: z.object({
+    street: z.string().trim().min(1).max(200),
+    city: z.string().trim().min(1).max(120),
+    state: z.string().trim().min(1).max(120),
+    postal_code: z.string().trim().min(1).max(20),
+    neighborhood: z.string().trim().max(120).optional(),
+    references: z.string().trim().max(500).optional(),
+    text: z.string().trim().max(500).optional(),
+    latitude: z.number().finite().min(-90).max(90).optional(),
+    longitude: z.number().finite().min(-180).max(180).optional(),
+    coordinates: z.object({ lat: z.number().finite().min(-90).max(90), lng: z.number().finite().min(-180).max(180) }).strict().optional(),
+  }).strict().superRefine((address, context) => {
+    if ((address.latitude === undefined) !== (address.longitude === undefined)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['longitude'], message: 'Latitude and longitude must be provided together' });
+    }
+  }),
   delivery_fee: moneyInput,
   items: z.array(z.object({ description: z.string().trim().min(1).max(500), quantity: z.number().int().min(1).max(1000), unit_price: moneyInput }).strict()).min(1).max(50),
   notes: z.string().max(2000).optional(),
 }).strict().transform((body, context) => {
   const subtotalCents = body.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  if (!Number.isSafeInteger(subtotalCents) || subtotalCents + body.delivery_fee > 100_000_000) {
+  const totalCents = subtotalCents + body.delivery_fee;
+  if (!Number.isSafeInteger(subtotalCents) || !Number.isSafeInteger(totalCents) || totalCents > 100_000_000) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Order total exceeds limit' });
     return z.NEVER;
   }
-  return { ...body, subtotalCents };
+  return { ...body, subtotalCents, totalCents };
 });
 
 function sortCanonical(value: unknown): unknown {

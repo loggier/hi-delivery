@@ -51,10 +51,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
-  const key = request.headers.get('idempotency-key');
-  if (!key || !key.trim() || key.length > 255) return json({ error: 'Invalid Idempotency-Key' }, 400);
   const contentLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(contentLength) && contentLength > MAX_CREATE_BODY_BYTES) return json({ error: 'Request body too large' }, 413);
   let raw: string;
@@ -68,6 +64,10 @@ export async function POST(request: Request) {
   const parsed = createOrderBodySchema.safeParse(body);
   if (!parsed.success) return json({ error: 'Invalid order details' }, 400);
   const value = parsed.data;
+  const auth = await authenticateBusinessApi(request);
+  if (!auth.ok) return json({ error: auth.error }, auth.status);
+  const key = request.headers.get('idempotency-key');
+  if (!key || !key.trim() || key.length > 255) return json({ error: 'Invalid Idempotency-Key' }, 400);
   const canonical = canonicalOrderRequest(value);
   let result;
   try {
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       delivery_address_in: value.delivery_address,
       delivery_fee_in: value.delivery_fee / 100,
       notes_in: value.notes ?? null,
-      items_in: value.items.map((item) => ({ item_description: item.description, quantity: item.quantity, price: item.unit_price / 100 })),
+      items_in: value.items.map((item) => ({ product_id: null, item_description: item.description, quantity: item.quantity, price: item.unit_price / 100 })),
     });
   } catch { return json({ error: 'Unable to create order' }, 503); }
   if (result?.error) {
@@ -93,6 +93,20 @@ export async function POST(request: Request) {
   }
   const payload = result?.data as { order?: Record<string, unknown>; created?: boolean } | null;
   if (!payload?.order || typeof payload.created !== 'boolean') return json({ error: 'Unable to create order' }, 503);
+  const persistedCents = (amount: unknown) => {
+    const text = String(amount);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(text)) throw new Error('Invalid persisted amount');
+    const cents = Math.round(Number(text) * 100);
+    if (!Number.isSafeInteger(cents)) throw new Error('Invalid persisted amount');
+    return cents;
+  };
+  try {
+    if (persistedCents(payload.order.subtotal) !== value.subtotalCents
+      || persistedCents(payload.order.delivery_fee) !== value.delivery_fee
+      || persistedCents(payload.order.order_total) !== value.totalCents) {
+      return json({ error: 'Unable to create order' }, 503);
+    }
+  } catch { return json({ error: 'Unable to create order' }, 503); }
   if (payload.created) {
     try { await sendOrderEventPushes({ orderId: String(payload.order.id), type: 'dispatch_wave' }); } catch { /* Dispatch push is best-effort after commit. */ }
   }
