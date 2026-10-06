@@ -6,7 +6,16 @@ import { GET as listOrders } from '@/app/api/v1/orders/route';
 import { GET as getOrder } from '@/app/api/v1/orders/[id]/route';
 import { encodeOrderCursor } from '@/lib/business-integrations/orders';
 
-const order = { id: 'ord-1', status: 'accepted', pickup_address: {}, delivery_address: {}, subtotal: '10.00', delivery_fee: '2.00', order_total: '12.00', items_description: null, created_at: '2026-10-01T00:00:00.000Z', updated_at: '2026-10-01T00:00:00.000Z', business_id: 'biz-a', rider_latitude: 19.43, rider_longitude: -99.13, rider_location: { lat: 19.43, lng: -99.13 }, assignment_attempt_count: 7, active_notified_riders: ['rider-1'], key_digest: 'internal-digest' };
+const sensitiveOrderFields = {
+  business_id: 'biz-a', business_name: 'Private Business', customer_id: 'customer-1', customer_name: 'Private Customer',
+  customer_phone: '5551234567', customer_email: 'private@example.test', rider_id: 'rider-1', rider_latitude: 19.43,
+  rider_longitude: -99.13, rider_gps: { lat: 19.43, lng: -99.13 }, rider_location: { lat: 19.43, lng: -99.13 },
+  assignment_attempt_count: 7, assignment_exhausted_at: '2026-10-01T00:00:00.000Z', dispatch_attempt_count: 4,
+  active_notified_riders: ['rider-1'], notified_riders: ['rider-1'], rejected_riders: ['rider-2'],
+  notification_expires_at: '2026-10-01T00:05:00.000Z', last_dispatch_at: '2026-10-01T00:00:00.000Z',
+  key_hash: 'internal-hash', key_digest: 'internal-digest',
+};
+const order = { id: 'ord-1', status: 'accepted', pickup_address: {}, delivery_address: {}, subtotal: '10.00', delivery_fee: '2.00', order_total: '12.00', items_description: null, created_at: '2026-10-01T00:00:00.000Z', updated_at: '2026-10-01T00:00:00.000Z', ...sensitiveOrderFields };
 let keyResult: { data: unknown; error: unknown };
 let businessResult: { data: unknown; error: unknown };
 let rateResult: { data: unknown; error: unknown };
@@ -84,12 +93,7 @@ describe('business order reads', () => {
     expect(orderQuery.or).toHaveBeenCalledWith('created_at.lt.2026-09-30T23:00:00.000Z,and(created_at.eq.2026-09-30T23:00:00.000Z,id.lt.ord-0)');
     expect(orderQuery.limit).toHaveBeenCalledWith(2);
     expect(orderQuery.order.mock.calls).toEqual([['created_at', { ascending: false }], ['id', { ascending: false }]]);
-    expect(body.data[0]).not.toHaveProperty('business_id');
-    expect(body.data[0]).not.toHaveProperty('rider_latitude');
-    expect(body.data[0]).not.toHaveProperty('rider_longitude');
-    expect(body.data[0]).not.toHaveProperty('assignment_attempt_count');
-    expect(body.data[0]).not.toHaveProperty('active_notified_riders');
-    expect(body.data[0]).not.toHaveProperty('key_digest');
+    for (const field of Object.keys(sensitiveOrderFields)) expect(body.data[0]).not.toHaveProperty(field);
   });
 
   it('uses indistinguishable 404 responses for foreign and missing order IDs', async () => {
@@ -105,11 +109,6 @@ describe('business order reads', () => {
     const response = await getOrder(request('http://localhost/api/v1/orders/ord-1'), { params: Promise.resolve({ id: 'ord-1' }) });
     const body = await response.json();
     expect(response.status).toBe(200);
-    expect(body.data).not.toHaveProperty('rider_latitude');
-    expect(body.data).not.toHaveProperty('rider_longitude');
-    expect(body.data).not.toHaveProperty('rider_location');
-    expect(body.data).not.toHaveProperty('assignment_attempt_count');
-    expect(body.data).not.toHaveProperty('active_notified_riders');
-    expect(body.data).not.toHaveProperty('key_digest');
+    for (const field of Object.keys(sensitiveOrderFields)) expect(body.data).not.toHaveProperty(field);
   });
 });
