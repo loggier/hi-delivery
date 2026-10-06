@@ -60,6 +60,22 @@ describe('business integration key lifecycle', () => {
     const response = await POST(req('POST', {}, 'https://evil.example'));
     expect(response.status).toBe(403); expect(rpcMock).not.toHaveBeenCalled();
   });
+  it('accepts same-origin mutations when the app is behind a reverse proxy', async () => {
+    const request = new Request('http://next-internal/api/business-integrations/key', {
+      method: 'POST',
+      headers: {
+        Origin: 'https://admin.example.com',
+        Host: 'next-internal',
+        'x-forwarded-host': 'admin.example.com',
+        'x-forwarded-proto': 'https',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+    expect(rpcMock).toHaveBeenCalled();
+  });
   it('denies accounts that do not resolve to an authorized active owner', async () => {
     ownerMock.mockRejectedValue(new AdminSessionError('sensitive session details', 403));
     const response = await GET();

@@ -1,22 +1,13 @@
 import { NextResponse } from 'next/server';
 
 import { AdminSessionError, requireAdminOperationSession } from '@/lib/auth/admin-session';
+import { isSameOriginRequest } from '@/lib/security/same-origin';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: NO_STORE });
-}
-
-function isSameOrigin(request: Request) {
-  const origin = request.headers.get('origin');
-  if (!origin) return false;
-  try {
-    return new URL(origin).origin === new URL(request.url).origin;
-  } catch {
-    return false;
-  }
 }
 
 function authError(error: unknown) {
@@ -27,7 +18,7 @@ function authError(error: unknown) {
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!isSameOrigin(request)) return json({ error: 'Same-origin request required' }, 403);
+  if (!isSameOriginRequest(request)) return json({ error: 'Same-origin request required' }, 403);
 
   let body: unknown;
   try {

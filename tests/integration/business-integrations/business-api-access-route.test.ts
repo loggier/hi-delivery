@@ -29,6 +29,20 @@ function request(body: unknown, origin = 'http://localhost') {
   });
 }
 
+function requestBehindProxy(body: unknown) {
+  return new Request(`http://next-internal/api/businesses/${businessId}/api-access`, {
+    method: 'PATCH',
+    headers: {
+      origin: 'https://admin.example.com',
+      host: 'next-internal',
+      'x-forwarded-host': 'admin.example.com',
+      'x-forwarded-proto': 'https',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 function setupQuery() {
   const builder = {
     update: vi.fn(() => builder),
@@ -57,6 +71,14 @@ describe('PATCH /api/businesses/[id]/api-access', () => {
       expect(builder.eq).toHaveBeenCalledWith('id', businessId);
       expect(builder.select).toHaveBeenCalledWith('id, api_enabled');
     }
+  });
+
+  it('accepts same-origin admin requests when the app is behind a reverse proxy', async () => {
+    const builder = setupQuery();
+    const response = await PATCH(requestBehindProxy({ enabled: true }), { params: Promise.resolve({ id: businessId }) });
+
+    expect(response.status).toBe(200);
+    expect(builder.update).toHaveBeenCalledWith({ api_enabled: true });
   });
 
   it('rejects unauthenticated and non-admin sessions without updating the business', async () => {

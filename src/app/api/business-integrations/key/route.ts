@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { AdminSessionError } from '@/lib/auth/admin-session';
+import { isSameOriginRequest } from '@/lib/security/same-origin';
 import { createBusinessApiKey } from '@/lib/business-integrations/api-key';
 import { listBusinessApiKeyMetadata, requireBusinessIntegrationOwner } from '@/lib/business-integrations/api-key-management';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -19,16 +20,6 @@ function authError(error: unknown) {
       : json({ error: 'Forbidden' }, 403);
   }
   return json({ error: 'Unable to manage business API key' }, 500);
-}
-
-function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin');
-  if (!origin) return false;
-  try {
-    return new URL(origin).origin === new URL(request.url).origin;
-  } catch {
-    return false;
-  }
 }
 
 interface BusinessApiKeyMetadata {
@@ -60,7 +51,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) return json({ error: 'Same-origin request required' }, 403);
+  if (!isSameOriginRequest(request)) return json({ error: 'Same-origin request required' }, 403);
   try {
     const owner = await requireBusinessIntegrationOwner();
     const generated = createBusinessApiKey();
@@ -78,7 +69,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isSameOrigin(request)) return json({ error: 'Same-origin request required' }, 403);
+  if (!isSameOriginRequest(request)) return json({ error: 'Same-origin request required' }, 403);
   let body: unknown;
   try { body = await request.json(); } catch { return json({ error: 'Invalid request body' }, 400); }
   if (!body || typeof body !== 'object') return json({ error: 'key_id and enabled are required' }, 400);
@@ -101,7 +92,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isSameOrigin(request)) return json({ error: 'Same-origin request required' }, 403);
+  if (!isSameOriginRequest(request)) return json({ error: 'Same-origin request required' }, 403);
   try {
     const owner = await requireBusinessIntegrationOwner();
     const { data, error } = await createSupabaseAdminClient().from('business_api_keys')
