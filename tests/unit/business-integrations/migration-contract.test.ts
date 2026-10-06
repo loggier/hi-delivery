@@ -51,7 +51,7 @@ describe('business integrations API static migration contract', () => {
     const rateLimit = functionDefinition(sql, 'consume_business_api_rate_limit');
     expect(rateLimit).toMatch(/SECURITY INVOKER/i);
     expect(rateLimit).toMatch(/pg_advisory_xact_lock[\s\S]*api_key_id_in/i);
-    expect(rateLimit).toMatch(/DELETE FROM grupohubs\.business_api_rate_limits[\s\S]*api_key_id = api_key_id_in[\s\S]*requested_at <[\s\S]*INTERVAL '60 seconds'/i);
+    expect(rateLimit).toMatch(/DELETE FROM grupohubs\.business_api_rate_limits\s+WHERE requested_at < event_time - INTERVAL '60 seconds'/i);
     expect(rateLimit).toMatch(/count\(\*\)[\s\S]*requested_at >=[\s\S]*INTERVAL '60 seconds'[\s\S]*requested_at <= event_time/i);
     expect(rateLimit).toMatch(/IF active_request_count >= 60 THEN[\s\S]*RETURN false[\s\S]*INSERT INTO grupohubs\.business_api_rate_limits[\s\S]*RETURN true/i);
     expect(rateLimit.indexOf('pg_advisory_xact_lock')).toBeLessThan(rateLimit.indexOf('DELETE FROM grupohubs.business_api_rate_limits'));
@@ -71,7 +71,7 @@ describe('business integrations API static migration contract', () => {
     expect(sql).toMatch(/FUNCTION grupohubs\.rotate_business_api_key/is);
     const rotateKey = functionDefinition(sql, 'rotate_business_api_key');
     expect(rotateKey).toMatch(/SECURITY INVOKER/i);
-    expect(rotateKey).toMatch(/UPDATE grupohubs\.business_api_keys[\s\S]*SET revoked_at = now\(\), enabled = false[\s\S]*revoked_at IS NULL/i);
+    expect(rotateKey).toMatch(/SELECT id INTO old_api_key_id[\s\S]*FOR UPDATE[\s\S]*pg_advisory_xact_lock[\s\S]*DELETE FROM grupohubs\.business_api_rate_limits[\s\S]*UPDATE grupohubs\.business_api_keys[\s\S]*SET revoked_at = now\(\), enabled = false/i);
     expect(rotateKey).toMatch(/INSERT INTO grupohubs\.business_api_keys[\s\S]*enabled, created_by[\s\S]*false, actor_user_id_in/i);
     expect(sql).toMatch(/REVOKE EXECUTE ON FUNCTION grupohubs\.consume_business_api_rate_limit\(uuid\) FROM PUBLIC, anon, authenticated/i);
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION grupohubs\.consume_business_api_rate_limit\(uuid\) TO service_role/i);
@@ -84,6 +84,7 @@ describe('business integrations API static migration contract', () => {
     expect(sql).not.toMatch(/GRANT EXECUTE[^;]*TO PUBLIC\b/i);
     expect(createOrder).toMatch(/IF prior_hash <> canonical_request_hash_in[\s\S]*IDEMPOTENCY_CONFLICT[\s\S]*RETURN jsonb_build_object\('order', to_jsonb\(created_order\), 'created', false\)/i);
     expect(createOrder).toMatch(/IF prior_hash <> canonical_request_hash_in THEN[\s\S]*?END IF;\s*SELECT \* INTO STRICT created_order FROM grupohubs\.orders WHERE id = prior_order_id;\s*RETURN jsonb_build_object\('order', to_jsonb\(created_order\), 'created', false\)/i);
+    expect(createOrder).toMatch(/IF prior_order_id IS NULL THEN[\s\S]*IDEMPOTENT_ORDER_UNAVAILABLE[\s\S]*END IF/i);
     expect(createOrder).toMatch(/INSERT INTO grupohubs\.customers[\s\S]*create_order_with_items[\s\S]*INSERT INTO grupohubs\.business_api_idempotency/i);
     expect(createOrder).not.toMatch(/\b(?:COMMIT|ROLLBACK)\b/i);
     expect(createOrder).not.toMatch(/EXCEPTION\s+WHEN/i);
@@ -92,13 +93,18 @@ describe('business integrations API static migration contract', () => {
     expect(createOrder.indexOf('idempotency_key_hash_in, 0)')).toBeLessThan(createOrder.indexOf("business_id_in || ':' || local_phone_digits"));
     expect(createOrder).toContain(String.raw`normalized_mx_phone_in !~ '^\+52[0-9]{10}$'`);
     expect(createOrder).toMatch(/customer_phone_in IS DISTINCT FROM normalized_mx_phone_in/is);
-    expect(sql).toMatch(/order_id varchar NOT NULL REFERENCES grupohubs\.orders\(id\) ON DELETE RESTRICT/i);
+    expect(sql).toMatch(/order_id varchar REFERENCES grupohubs\.orders\(id\) ON DELETE SET NULL/i);
     expect(sql).toMatch(/created_by varchar/is);
     expect(sql).toMatch(/actor_user_id_in varchar/is);
     expect(createOrder).toMatch(/business_row\.address_line[\s\S]*business_row\.zip_code/is);
     expect(createOrder).toMatch(/customer_last_name := coalesce\([\s\S]*?nullif\([\s\S]*?, ''\)[\s\S]*?,\s*''\s*\)/i);
     expect(createOrder).toMatch(/VALUES \(resolved_customer_id, customer_first_name, customer_last_name,/i);
     expect(createOrder).toMatch(/customer_name_in,\s*normalized_mx_phone_in/is);
+    expect(sql).toContain(String.raw`CREATE INDEX customers_business_phone_digits_idx
+  ON grupohubs.customers (business_id, (regexp_replace(phone, '\D', '', 'g')));`);
+
+    expect(rotateKey).toMatch(/SELECT id INTO old_api_key_id[\s\S]*FOR UPDATE[\s\S]*pg_advisory_xact_lock[\s\S]*DELETE FROM grupohubs\.business_api_rate_limits[\s\S]*UPDATE grupohubs\.business_api_keys[\s\S]*INSERT INTO grupohubs\.business_api_keys/i);
+    expect(rotateKey.indexOf('DELETE FROM grupohubs.business_api_rate_limits')).toBeLessThan(rotateKey.indexOf('UPDATE grupohubs.business_api_keys'));
   });
 
   it('models a strict 60-second rolling window, including the exact boundary', () => {

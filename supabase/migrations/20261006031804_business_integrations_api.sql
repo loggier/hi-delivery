@@ -18,7 +18,7 @@ CREATE TABLE grupohubs.business_api_idempotency (
   business_id varchar NOT NULL REFERENCES grupohubs.businesses(id) ON DELETE CASCADE,
   idempotency_key_hash text NOT NULL,
   canonical_request_hash text NOT NULL,
-  order_id varchar NOT NULL REFERENCES grupohubs.orders(id) ON DELETE RESTRICT,
+  order_id varchar REFERENCES grupohubs.orders(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX business_api_idempotency_business_key_unique
@@ -31,6 +31,9 @@ CREATE TABLE grupohubs.business_api_rate_limits (
 );
 CREATE INDEX business_api_rate_limits_key_requested_at_idx
   ON grupohubs.business_api_rate_limits (api_key_id, requested_at DESC);
+
+CREATE INDEX customers_business_phone_digits_idx
+  ON grupohubs.customers (business_id, (regexp_replace(phone, '\D', '', 'g')));
 
 ALTER TABLE grupohubs.business_api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grupohubs.business_api_idempotency ENABLE ROW LEVEL SECURITY;
@@ -61,8 +64,7 @@ BEGIN
   event_time := clock_timestamp();
 
   DELETE FROM grupohubs.business_api_rate_limits
-   WHERE api_key_id = api_key_id_in
-     AND requested_at < event_time - INTERVAL '60 seconds';
+   WHERE requested_at < event_time - INTERVAL '60 seconds';
 
   SELECT count(*) INTO active_request_count
     FROM grupohubs.business_api_rate_limits
@@ -138,6 +140,9 @@ BEGIN
   IF FOUND THEN
     IF prior_hash <> canonical_request_hash_in THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'IDEMPOTENCY_CONFLICT';
+    END IF;
+    IF prior_order_id IS NULL THEN
+      RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'IDEMPOTENT_ORDER_UNAVAILABLE';
     END IF;
     SELECT * INTO STRICT created_order FROM grupohubs.orders WHERE id = prior_order_id;
     RETURN jsonb_build_object('order', to_jsonb(created_order), 'created', false);
@@ -226,11 +231,26 @@ SET search_path = pg_catalog, grupohubs
 AS $$
 DECLARE
   new_key_id uuid;
+  old_api_key_id uuid;
 BEGIN
-  UPDATE grupohubs.business_api_keys
-     SET revoked_at = now(), enabled = false
+  SELECT id INTO old_api_key_id
+    FROM grupohubs.business_api_keys
    WHERE business_id = business_id_in
-     AND revoked_at IS NULL;
+     AND revoked_at IS NULL
+   FOR UPDATE;
+
+  IF old_api_key_id IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended('business_api_rate_limit:' || old_api_key_id::text, 0)
+    );
+
+    DELETE FROM grupohubs.business_api_rate_limits
+     WHERE api_key_id = old_api_key_id;
+
+    UPDATE grupohubs.business_api_keys
+       SET revoked_at = now(), enabled = false
+     WHERE id = old_api_key_id;
+  END IF;
 
   INSERT INTO grupohubs.business_api_keys (business_id, key_digest, key_prefix, enabled, created_by)
   VALUES (business_id_in, new_digest_in, new_prefix_in, false, actor_user_id_in)
