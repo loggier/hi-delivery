@@ -42,17 +42,39 @@ describe('business integrations key lifecycle', () => {
 
   it('confirms rotation and revocation before mutating', async () => {
     vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ key: null }) as Response)
+      .mockResolvedValueOnce(jsonResponse({ id: 'first-id', key: 'hid_live_first_secret', prefix: 'hid_live_first' }, 201) as Response)
       .mockResolvedValueOnce(jsonResponse({ key: keyMetadata }) as Response)
-      .mockResolvedValueOnce(jsonResponse({ id: 'new-id', key: 'hid_live_new', prefix: 'hid_live_new' }, 201) as Response)
-      .mockResolvedValueOnce(jsonResponse({ key: { ...keyMetadata, id: 'new-id', prefix: 'hid_live_new' } }) as Response)
-      .mockResolvedValueOnce(jsonResponse({ key: { ...keyMetadata, id: 'new-id', prefix: 'hid_live_new' } }) as Response)
-      .mockResolvedValueOnce(jsonResponse({ revoked: true }) as Response);
+      .mockResolvedValueOnce(jsonResponse({ id: 'new-id', key: 'hid_live_rotated_secret', prefix: 'hid_live_rotated' }, 201) as Response)
+      .mockResolvedValueOnce(jsonResponse({ key: { ...keyMetadata, id: 'new-id', prefix: 'hid_live_rotated' } }) as Response)
+      .mockResolvedValueOnce(jsonResponse({ revoked: true }) as Response)
+      .mockResolvedValueOnce(jsonResponse({ key: null }) as Response);
     render(<BusinessIntegrationsCard />);
+    fireEvent.click(await screen.findByRole('button', { name: /Generar clave/ }));
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('hid_live_first_secret')).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: /Regenerar clave/ }));
-    expect(window.confirm).toHaveBeenCalled();
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/business-integrations/key', expect.objectContaining({ method: 'POST' })));
-    fireEvent.click(await screen.findByRole('button', { name: /Revocar/ }));
     expect(window.confirm).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/business-integrations/key', expect.objectContaining({ method: 'POST' })));
+    expect(screen.queryByText('hid_live_first_secret')).not.toBeInTheDocument();
+    expect(await screen.findByText('hid_live_rotated_secret')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Revocar/ }));
+    expect(window.confirm).toHaveBeenCalledTimes(3);
     await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/business-integrations/key', expect.objectContaining({ method: 'DELETE' })));
+    expect(screen.queryByText('hid_live_rotated_secret')).not.toBeInTheDocument();
+  });
+
+  it('copies the currently displayed one-time secret to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ key: null }) as Response)
+      .mockResolvedValueOnce(jsonResponse({ id: 'key-uuid', key: 'hid_live_clipboard_secret', prefix: 'hid_live_clipboard' }, 201) as Response)
+      .mockResolvedValueOnce(jsonResponse({ key: keyMetadata }) as Response);
+    render(<BusinessIntegrationsCard />);
+    fireEvent.click(await screen.findByRole('button', { name: /Generar clave/ }));
+    await screen.findByText('hid_live_clipboard_secret');
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar clave' }));
+    expect(writeText).toHaveBeenCalledWith('hid_live_clipboard_secret');
   });
 });
