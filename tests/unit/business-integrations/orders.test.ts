@@ -18,7 +18,7 @@ describe('business integration order helpers', () => {
   });
 
   it('rejects modified cursor payloads, signatures, invalid base64, and invalid shapes', () => {
-    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'unit-test-service-role-secret');
+    vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'unit-test-business-cursor-secret-at-least-32-chars');
     const cursor = encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
     expect(decodeOrderCursor(cursor)).toEqual({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' });
     const changedPayload = Buffer.from(JSON.stringify({ created_at: '2026-10-02T00:00:00.000Z', id: 'ord-1' })).toString('base64url');
@@ -35,6 +35,15 @@ describe('business integration order helpers', () => {
     expect(orderListQuerySchema.safeParse({ limit: '101' }).success).toBe(false);
     expect(orderListQuerySchema.safeParse({ created_from: 'not-a-date' }).success).toBe(false);
     expect(orderListQuerySchema.safeParse({ created_from: '2026-10-02', created_to: '2026-10-01' }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ created_from: 'October 1 2026' }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ created_from: '2'.repeat(41) }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ limit: '0001' }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ cursor: 'x'.repeat(513) }).success).toBe(false);
+  });
+
+  it('requires a dedicated sufficiently long cursor signing secret', () => {
+    vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'short');
+    expect(() => encodeOrderCursor({ created_at: '2026-10-01T00:00:00.000Z', id: 'ord-1' })).toThrow('Business order cursor signing is unavailable');
   });
 
   it('uses integer cents and rejects imprecise or invalid money', () => {

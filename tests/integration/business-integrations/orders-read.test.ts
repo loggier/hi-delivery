@@ -36,10 +36,10 @@ function makeQuery() {
 describe('business order reads', () => {
   afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
-    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'integration-test-service-role-secret');
+    vi.stubEnv('BUSINESS_API_CURSOR_SECRET', 'integration-test-business-cursor-secret-at-least-32-chars');
     vi.clearAllMocks();
     keyResult = { data: { id: 'key-a', business_id: 'biz-a', enabled: true, revoked_at: null }, error: null };
-    businessResult = { data: { id: 'biz-a', status: 'active' }, error: null };
+    businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
     rateResult = { data: true, error: null };
     orderResult = { data: [order], error: null };
     fromMock.mockImplementation((table: string) => {
@@ -87,11 +87,32 @@ describe('business order reads', () => {
   });
 
   it('rejects inactive businesses and rate-limit overflow', async () => {
-    businessResult = { data: { id: 'biz-a', status: 'suspended' }, error: null };
+    businessResult = { data: { id: 'biz-a', status: 'PENDING_REVIEW' }, error: null };
     expect((await listOrders(request())).status).toBe(403);
-    businessResult = { data: { id: 'biz-a', status: 'active' }, error: null };
+    businessResult = { data: { id: 'biz-a', status: 'ACTIVE' }, error: null };
     rateResult = { data: false, error: null };
     expect((await listOrders(request())).status).toBe(429);
+  });
+
+  it('rejects duplicate query keys instead of silently choosing one', async () => {
+    const response = await listOrders(request('http://localhost/api/v1/orders?limit=1&limit=2'));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid query parameters' });
+    expect(fromMock).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('returns a safe service error when list DTO money is malformed', async () => {
+    orderResult = { data: [{ ...order, subtotal: 'not-money' }], error: null };
+    const response = await listOrders(request());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'Unable to retrieve orders' });
+  });
+
+  it('returns a safe service error when detail DTO money is malformed', async () => {
+    orderResult = { data: { ...order, order_total: 'not-money' }, error: null };
+    const response = await getOrder(request('http://localhost/api/v1/orders/ord-1'), { params: Promise.resolve({ id: 'ord-1' }) });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'Unable to retrieve order' });
   });
 
   it('lists with database-derived business scope, deterministic pagination and no-store DTOs', async () => {

@@ -22,14 +22,17 @@ export async function authenticateBusinessApi(request: Request): Promise<Busines
     .select('id,status').eq('id', key.business_id).maybeSingle();
   if (businessError) return { ok: false, status: 503, error: 'Service unavailable' };
   if (!business) return { ok: false, status: 401, error: 'Unauthorized' };
-  if (business.status !== 'active') return { ok: false, status: 403, error: 'Forbidden' };
+  if (business.status !== 'ACTIVE') return { ok: false, status: 403, error: 'Forbidden' };
 
   const { data: withinLimit, error: rateError } = await client.rpc('consume_business_api_rate_limit', { api_key_id_in: key.id });
   if (rateError) return { ok: false, status: 503, error: 'Service unavailable' };
   if (withinLimit === false) return { ok: false, status: 429, error: 'Rate limit exceeded' };
 
   void (async () => {
-    try { await client.from('business_api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', key.id); } catch { /* last-used tracking is best-effort */ }
+    try {
+      const { error } = await client.from('business_api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', key.id);
+      if (error) return;
+    } catch { /* last-used tracking is best-effort */ }
   })();
   return { ok: true, access: { businessId: key.business_id, apiKeyId: key.id } };
 }

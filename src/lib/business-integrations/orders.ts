@@ -13,8 +13,8 @@ export function extractBearerToken(header: string | null): string | null {
 
 export interface OrderCursor { created_at: string; id: string }
 function cursorSigningKey(): string {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!secret) throw new Error('Business order cursor signing is unavailable');
+  const secret = process.env.BUSINESS_API_CURSOR_SECRET;
+  if (!secret || secret.length < 32) throw new Error('Business order cursor signing is unavailable');
   return createHmac('sha256', secret).update('business-orders-cursor:v1').digest('hex');
 }
 
@@ -46,14 +46,14 @@ export function decodeOrderCursor(value: string): OrderCursor | null {
   } catch { return null; }
 }
 
-const dateInput = z.string().refine((value) => Number.isFinite(Date.parse(value)), 'Invalid date');
+const dateInput = z.string().max(40).datetime({ offset: true });
 export const orderListQuerySchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   created_from: dateInput.optional(),
   created_to: dateInput.optional(),
   updated_since: dateInput.optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  cursor: z.string().optional(),
+  limit: z.string().max(3).regex(/^\d{1,3}$/).transform(Number).pipe(z.number().int().min(1).max(100)).default('50'),
+  cursor: z.string().max(512).optional(),
 }).strict().superRefine((filters, context) => {
   if (filters.created_from && filters.created_to && Date.parse(filters.created_from) > Date.parse(filters.created_to)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['created_to'], message: 'created_to must not precede created_from' });

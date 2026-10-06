@@ -7,13 +7,17 @@ const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 function json(body: unknown, status = 200) { return NextResponse.json(body, { status, headers: NO_STORE }); }
 
 export async function GET(request: Request) {
-  const auth = await authenticateBusinessApi(request);
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
-
-  const params = Object.fromEntries(new URL(request.url).searchParams.entries());
+  const searchParams = new URL(request.url).searchParams;
+  const params: Record<string, string> = {};
+  for (const [key, value] of searchParams.entries()) {
+    if (Object.prototype.hasOwnProperty.call(params, key)) return json({ error: 'Invalid query parameters' }, 400);
+    params[key] = value;
+  }
   const parsed = orderListQuerySchema.safeParse(params);
   if (!parsed.success) return json({ error: 'Invalid query parameters' }, 400);
   const filters = parsed.data;
+  const auth = await authenticateBusinessApi(request);
+  if (!auth.ok) return json({ error: auth.error }, auth.status);
   let query = createSupabaseAdminClient().from('orders').select(ORDER_WITH_BUSINESS_SELECT)
     .eq('business_id', auth.access.businessId)
     .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(filters.limit + 1);
@@ -31,5 +35,9 @@ export async function GET(request: Request) {
   const hasMore = rows.length > filters.limit;
   const page = rows.slice(0, filters.limit);
   const last = page[page.length - 1];
-  return json({ data: page.map((row: Record<string, unknown>) => toPublicOrder(row)), has_more: hasMore, next_cursor: hasMore && last ? encodeOrderCursor({ created_at: last.created_at as string, id: last.id as string }) : null });
+  try {
+    return json({ data: page.map((row: Record<string, unknown>) => toPublicOrder(row)), has_more: hasMore, next_cursor: hasMore && last ? encodeOrderCursor({ created_at: last.created_at as string, id: last.id as string }) : null });
+  } catch {
+    return json({ error: 'Unable to retrieve orders' }, 503);
+  }
 }

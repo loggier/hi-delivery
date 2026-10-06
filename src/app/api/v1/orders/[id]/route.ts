@@ -14,5 +14,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     .eq('id', id).eq('business_id', auth.access.businessId).maybeSingle();
   if (error) return json({ error: 'Unable to retrieve order' }, 503);
   if (!data) return json({ error: 'Order not found' }, 404);
-  return json({ data: toPublicOrder(data) });
+  try {
+    return json({ data: toPublicOrder(data) });
+  } catch {
+    return json({ error: 'Unable to retrieve order' }, 503);
+  }
 }
