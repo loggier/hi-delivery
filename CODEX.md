@@ -935,3 +935,18 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Después se implementó `/api/orders` y `/api/orders/[id]` para lectura/actualización web protegida, y el cliente React Query dejó de leer `orders` directamente con anon.
 - `customers` ahora obtiene estadísticas desde la API protegida; la carga de pedidos activos por rider también se resuelve server-side.
 - La migración `20261005090000_restrict_order_table_clients.sql` revoca los grants directos de `PUBLIC`, `anon` y `authenticated` sobre pedidos y tablas relacionadas; aplicar sólo tras desplegar endpoints y cliente web que usa sesión HttpOnly.
+
+## 2026-10-06 - API de integraciones para negocios
+
+- Se añadieron endpoints server-side para integraciones externas:
+  - `GET /api/v1/orders`: lista pedidos del negocio autenticado con cursor de paginación.
+  - `POST /api/v1/orders`: crea un pedido con `Idempotency-Key`.
+  - `GET /api/v1/orders/{id}`: detalle scoped; pedidos inexistentes o de otro negocio devuelven `404`.
+  - `GET|POST|PATCH|DELETE /api/business-integrations/key`: administración de la llave desde el perfil web autenticado; este endpoint no es parte de la API externa.
+- La autenticación externa usa `Authorization: Bearer …`. El valor aleatorio completo se muestra una sola vez al crearlo/rotarlo; la base conserva sólo SHA-256 y el prefijo de identificación. No registrar ni compartir el secreto.
+- La llave se administra exclusivamente por el usuario con role ID exacto `owen-business`, vinculado mediante `users.id` a un negocio en estado `ACTIVE`. El negocio se deriva en servidor; no se acepta scope de negocio enviado por el cliente.
+- Límite compartido: 60 solicitudes por llave en cualquier ventana móvil de 60 segundos. Los cursores se firman con `BUSINESS_API_CURSOR_SECRET`, secreto sólo de servidor con al menos 32 caracteres. Configurarlo en todos los entornos de la aplicación antes de habilitar `GET /api/v1/orders`; nunca usar una variable `NEXT_PUBLIC_*`.
+- Contrato OpenAPI 3.1 versionado en `src/lib/business-integrations/openapi.ts`; el perfil presenta la referencia Stoplight-style derivada de ese contrato. Rutas públicas descritas: `GET/POST /api/v1/orders` y `GET /api/v1/orders/{id}`.
+- Migraciones aplicadas y verificadas en Supabase: `20261006054426_business_integrations_api.sql` y `20261006054717_fix_business_integration_phone_normalization.sql`. Las tablas privadas tienen RLS sin acceso `anon`/`authenticated`; las funciones son invoker y su ejecución está restringida a `service_role`.
+- Pendiente: `20261006062909_business_orders_pagination_index.sql` no se pudo aplicar con el rol disponible (`must be owner of table orders`). El propietario de `orders` debe aplicar esa migración antes de escalar el volumen de consultas paginadas; la tabla observada era pequeña durante la validación. No cambiar el propietario ni omitir el índice en la migración.
+- Secuencia de despliegue: (1) configurar `BUSINESS_API_CURSOR_SECRET` como variable privada; (2) desplegar aplicación y contrato/API; (3) aplicar/verificar migraciones de tablas y normalización con rol autorizado; (4) hacer smoke tests sólo contra datos de prueba; (5) coordinar con el propietario de `orders` la aplicación del índice antes de escalar. No exponer `SUPABASE_SERVICE_ROLE_KEY` ni otros secretos al cliente; nunca probar creación de pedidos en producción si dispara dispatch/push.

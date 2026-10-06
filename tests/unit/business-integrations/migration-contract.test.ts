@@ -29,9 +29,9 @@ describe('business integrations API static migration contract', () => {
       'business_api_idempotency',
       'business_api_rate_limits',
     ]) {
-      expect(sql).toMatch(new RegExp(`CREATE TABLE[^;]*${table}`, 'is'));
-      expect(sql).toMatch(new RegExp(`ALTER TABLE[^;]*${table}[^;]*ENABLE ROW LEVEL SECURITY`, 'is'));
-      expect(sql).toMatch(new RegExp(`REVOKE ALL[^;]*${table}[^;]*FROM PUBLIC, anon, authenticated`, 'is'));
+      expect(sql).toMatch(new RegExp(`CREATE TABLE[^;]*${table}`, 'i'));
+      expect(sql).toMatch(new RegExp(`ALTER TABLE[^;]*${table}[^;]*ENABLE ROW LEVEL SECURITY`, 'i'));
+      expect(sql).toMatch(new RegExp(`REVOKE ALL[^;]*${table}[^;]*FROM PUBLIC, anon, authenticated`, 'i'));
     }
     const keyTable = sql.match(/CREATE TABLE grupohubs\.business_api_keys\s*\(([\s\S]*?)\n\);/i)?.[1] ?? '';
     const keyColumns = [...keyTable.matchAll(/^\s*([a-z_]+)\s+/gim)].map((match) => match[1]);
@@ -39,16 +39,16 @@ describe('business integrations API static migration contract', () => {
       'id', 'business_id', 'key_digest', 'key_prefix', 'enabled', 'created_by',
       'created_at', 'last_used_at', 'revoked_at',
     ]);
-    expect(sql).toMatch(/GRANT SELECT, INSERT, UPDATE ON TABLE grupohubs\.business_api_keys TO service_role/is);
-    expect(sql).toMatch(/GRANT SELECT, INSERT ON TABLE grupohubs\.business_api_idempotency TO service_role/is);
-    expect(sql).toMatch(/GRANT SELECT, INSERT, DELETE ON TABLE grupohubs\.business_api_rate_limits TO service_role/is);
+    expect(sql).toMatch(/GRANT SELECT, INSERT, UPDATE ON TABLE grupohubs\.business_api_keys TO service_role/i);
+    expect(sql).toMatch(/GRANT SELECT, INSERT ON TABLE grupohubs\.business_api_idempotency TO service_role/i);
+    expect(sql).toMatch(/GRANT SELECT, INSERT, DELETE ON TABLE grupohubs\.business_api_rate_limits TO service_role/i);
 
-    expect(sql).toMatch(/UNIQUE[^;]*business_id[^;]*WHERE revoked_at IS NULL/is);
-    expect(sql).toMatch(/UNIQUE[^;]*business_id\s*,\s*idempotency_key_hash/is);
-    expect(sql).toMatch(/CREATE TABLE grupohubs\.business_api_rate_limits\s*\([\s\S]*id uuid PRIMARY KEY[\s\S]*api_key_id uuid[\s\S]*requested_at timestamptz/is);
-    expect(sql).toMatch(/CREATE INDEX business_api_rate_limits_key_requested_at_idx\s+ON grupohubs\.business_api_rate_limits \(api_key_id, requested_at DESC\)/is);
-    expect(sql).toMatch(/CREATE INDEX business_api_rate_limits_requested_at_idx\s+ON grupohubs\.business_api_rate_limits \(requested_at\)/is);
-    expect(sql).toMatch(/FUNCTION grupohubs\.consume_business_api_rate_limit/is);
+    expect(sql).toMatch(/UNIQUE[^;]*business_id[^;]*WHERE revoked_at IS NULL/i);
+    expect(sql).toMatch(/UNIQUE[^;]*business_id\s*,\s*idempotency_key_hash/i);
+    expect(sql).toMatch(/CREATE TABLE grupohubs\.business_api_rate_limits\s*\([\s\S]*id uuid PRIMARY KEY[\s\S]*api_key_id uuid[\s\S]*requested_at timestamptz/i);
+    expect(sql).toMatch(/CREATE INDEX business_api_rate_limits_key_requested_at_idx\s+ON grupohubs\.business_api_rate_limits \(api_key_id, requested_at DESC\)/i);
+    expect(sql).toMatch(/CREATE INDEX business_api_rate_limits_requested_at_idx\s+ON grupohubs\.business_api_rate_limits \(requested_at\)/i);
+    expect(sql).toMatch(/FUNCTION grupohubs\.consume_business_api_rate_limit/i);
     const rateLimit = functionDefinition(sql, 'consume_business_api_rate_limit');
     expect(rateLimit).toMatch(/SECURITY INVOKER/i);
     expect(rateLimit).toMatch(/pg_advisory_xact_lock[\s\S]*api_key_id_in/i);
@@ -60,18 +60,18 @@ describe('business integrations API static migration contract', () => {
     expect(rateLimit.indexOf('DELETE FROM grupohubs.business_api_rate_limits')).toBeLessThan(rateLimit.indexOf('SELECT count(*)'));
     expect(rateLimit.indexOf('RETURN false')).toBeLessThan(rateLimit.indexOf('INSERT INTO grupohubs.business_api_rate_limits'));
     expect(rateLimit.indexOf('pg_advisory_xact_lock')).toBeLessThan(rateLimit.indexOf('INSERT INTO grupohubs.business_api_rate_limits'));
-    expect(sql).toMatch(/FUNCTION grupohubs\.create_business_api_order/is);
+    expect(sql).toMatch(/FUNCTION grupohubs\.create_business_api_order/i);
     const createOrder = functionDefinition(sql, 'create_business_api_order');
     expect(createOrder).toMatch(/SECURITY INVOKER/i);
-    expect(sql).toMatch(/pg_advisory_xact_lock\s*\(\s*hashtextextended/is);
-    expect(sql).toMatch(/idempotency_key_hash/is);
-    expect(sql).toMatch(/create_order_with_items/is);
-    expect(sql).toMatch(/pending_acceptance/is);
-    expect(createOrder).toMatch(/WHERE business_id = business_id_in[\s\S]*regexp_replace\(phone[\s\S]*IN \(normalized_phone_digits, local_phone_digits\)/is);
-    expect(sql).toMatch(/sum\(\(item->>'quantity'\)::numeric \* \(item->>'price'\)::numeric\)/is);
-    expect(sql).toMatch(/'product_id', NULL/is);
-    expect(sql).toMatch(/REFERENCES grupohubs\.businesses\(id\)/is);
-    expect(sql).toMatch(/FUNCTION grupohubs\.rotate_business_api_key/is);
+    expect(sql).toMatch(/pg_advisory_xact_lock\s*\(\s*hashtextextended/i);
+    expect(sql).toMatch(/idempotency_key_hash/i);
+    expect(sql).toMatch(/create_order_with_items/i);
+    expect(sql).toMatch(/pending_acceptance/i);
+    expect(createOrder).toMatch(/WHERE business_id = business_id_in[\s\S]*regexp_replace\(phone[\s\S]*IN \(normalized_phone_digits, local_phone_digits\)/i);
+    expect(sql).toMatch(/sum\(\(item->>'quantity'\)::numeric \* \(item->>'price'\)::numeric\)/i);
+    expect(sql).toMatch(/'product_id', NULL/i);
+    expect(sql).toMatch(/REFERENCES grupohubs\.businesses\(id\)/i);
+    expect(sql).toMatch(/FUNCTION grupohubs\.rotate_business_api_key/i);
     const rotateKey = functionDefinition(sql, 'rotate_business_api_key');
     expect(rotateKey).toMatch(/SECURITY INVOKER/i);
     expect(rotateKey).toMatch(/SELECT id INTO candidate_api_key_id[\s\S]*pg_advisory_xact_lock[\s\S]*SELECT id INTO old_api_key_id[\s\S]*FOR UPDATE[\s\S]*DELETE FROM grupohubs\.business_api_rate_limits[\s\S]*UPDATE grupohubs\.business_api_keys[\s\S]*SET revoked_at = now\(\), enabled = false/i);
@@ -93,18 +93,18 @@ describe('business integrations API static migration contract', () => {
     expect(createOrder).toMatch(/INSERT INTO grupohubs\.customers[\s\S]*create_order_with_items[\s\S]*INSERT INTO grupohubs\.business_api_idempotency/i);
     expect(createOrder).not.toMatch(/\b(?:COMMIT|ROLLBACK)\b/i);
     expect(createOrder).not.toMatch(/EXCEPTION\s+WHEN/i);
-    expect(createOrder).toMatch(/pg_advisory_xact_lock\s*\(\s*hashtextextended\(business_id_in \|\| ':' \|\| idempotency_key_hash_in/is);
-    expect(createOrder).toMatch(/pg_advisory_xact_lock\s*\(\s*hashtextextended\(business_id_in \|\| ':' \|\| local_phone_digits/is);
+    expect(createOrder).toMatch(/pg_advisory_xact_lock\s*\(\s*hashtextextended\(business_id_in \|\| ':' \|\| idempotency_key_hash_in/i);
+    expect(createOrder).toMatch(/pg_advisory_xact_lock\s*\(\s*hashtextextended\(business_id_in \|\| ':' \|\| local_phone_digits/i);
     expect(createOrder.indexOf('idempotency_key_hash_in, 0)')).toBeLessThan(createOrder.indexOf("business_id_in || ':' || local_phone_digits"));
     expect(createOrder).toContain(String.raw`normalized_mx_phone_in !~ '^\+52[0-9]{10}$'`);
-    expect(createOrder).toMatch(/customer_phone_in IS DISTINCT FROM normalized_mx_phone_in/is);
+    expect(createOrder).toMatch(/customer_phone_in IS DISTINCT FROM normalized_mx_phone_in/i);
     expect(sql).toMatch(/order_id varchar REFERENCES grupohubs\.orders\(id\) ON DELETE SET NULL/i);
-    expect(sql).toMatch(/created_by varchar/is);
-    expect(sql).toMatch(/actor_user_id_in varchar/is);
-    expect(createOrder).toMatch(/business_row\.address_line[\s\S]*business_row\.zip_code/is);
+    expect(sql).toMatch(/created_by varchar/i);
+    expect(sql).toMatch(/actor_user_id_in varchar/i);
+    expect(createOrder).toMatch(/business_row\.address_line[\s\S]*business_row\.zip_code/i);
     expect(createOrder).toMatch(/customer_last_name := coalesce\([\s\S]*?nullif\([\s\S]*?, ''\)[\s\S]*?,\s*''\s*\)/i);
     expect(createOrder).toMatch(/VALUES \(resolved_customer_id, customer_first_name, customer_last_name,/i);
-    expect(createOrder).toMatch(/customer_name_in,\s*normalized_mx_phone_in/is);
+    expect(createOrder).toMatch(/customer_name_in,\s*normalized_mx_phone_in/i);
     expect(sql).toContain(String.raw`CREATE INDEX customers_business_phone_digits_idx
   ON grupohubs.customers (business_id, (regexp_replace(phone, '\D', '', 'g')));`);
 
