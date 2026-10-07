@@ -57,7 +57,7 @@
 .site-hero-main-image img { object-position: 62% center; }
 .site-hero-rider-image { position: absolute; left: 0; bottom: 0; width: 57%; height: 190px; border: 7px solid #fff; border-radius: 17px; overflow: hidden; box-shadow: 0 15px 28px #102f4e20; }
 .site-hero-seal { position: absolute; right: -8px; top: 24px; width: 116px; height: 116px; border: 5px solid #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: #f8fbf0; color: #06345f; box-shadow: 0 5px 20px #102f4e24, inset 0 0 0 2px #06345f; transform: rotate(8deg); }
-.site-hero-seal strong { font-size: 31px; line-height: .95; letter-spacing: -2px; }
+.site-hero-seal img { position: relative; z-index: 1; width: 48px; height: 53px; object-fit: contain; border-radius: 3px; }
 .site-hero-seal-top, .site-hero-seal-bottom { font-size: 9px; font-weight: 800; line-height: 1.1; text-transform: uppercase; letter-spacing: .55px; }
 .site-hero-seal::after { content: ''; position: absolute; inset: 6px; border: 1px dashed #06345f80; border-radius: 50%; pointer-events: none; }
 .site-photo-caption { position: absolute; bottom: 36px; right: 15px; margin: 0; color: white; font-size: 15px; font-weight: 800; line-height: 1.35; text-shadow: 0 2px 8px #000; }
@@ -194,7 +194,7 @@
   .site-hero-main-image { inset: 0 0 16px 15px; border-radius: 65px 12px 12px 12px; }
   .site-hero-rider-image { width: 55%; height: 35%; border-width: 5px; border-radius: 13px; }
   .site-hero-seal { right: -3px; top: 11px; width: 86px; height: 86px; border-width: 4px; }
-  .site-hero-seal strong { font-size: 24px; }
+  .site-hero-seal img { width: 36px; height: 40px; }
   .site-hero-seal-top, .site-hero-seal-bottom { font-size: 7px; letter-spacing: .35px; }
   .site-photo-caption { right: 10px; bottom: 26px; font-size: 12px; }
   .site-benefit-strip { grid-template-columns: 1fr; gap: 13px; padding-block: 17px; }
