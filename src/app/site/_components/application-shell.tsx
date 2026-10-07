@@ -22,7 +22,7 @@ export function ApplicationShell({ audience, step, totalSteps, title, descriptio
     : step === 1 ? '/site' : step === 2 ? '/site/deliveryman/apply' : step === 3 ? '/site/deliveryman/apply/personal-info' : step === 4 ? '/site/deliveryman/apply/vehicle-info' : step === 5 ? '/site/deliveryman/apply/policy-info' : '/site/deliveryman/apply/extras';
   const previousLabel = step === 1 ? 'Volver al inicio' : 'Anterior';
   return <div className={`hid-site site-application ${audience === 'business' ? 'site-application-business' : 'site-application-rider'}`}>
-    <header className="site-application-header"><Link className="site-brand" href="/site"><Image src="/logo-hid.png" alt="" width={40} height={44} />Hi! Delivery</Link><span>{business ? 'Registro de negocio' : 'Registro de repartidor'}</span><Link className="site-application-exit" href="/site"><ArrowLeft aria-hidden="true" />Salir</Link></header>
+    <header className="site-application-header"><Link className="site-application-brand" href="/site" aria-label="Hi! Delivery — Inicio">Hi! <span>Delivery</span></Link><span>{business ? 'Registro de negocio' : 'Registro de repartidor'}</span><Link className="site-application-exit" href="/site"><ArrowLeft aria-hidden="true" />Salir</Link></header>
     <div className="site-application-layout">
       <aside className="site-application-aside">
         <p className="site-eyebrow">{business ? 'Crece con Hi! Delivery' : 'Súmate a la flota'}</p>
