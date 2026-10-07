@@ -195,8 +195,8 @@ export function Step2_BusinessInfo() {
                     <div className="space-y-2">
                         <FormLabel>Tiempo aproximado de entrega (minutos)</FormLabel>
                         <div className="flex items-center gap-2">
-                            <FormInput name="delivery_time_min" type="number" placeholder="Mín." />
-                            <FormInput name="delivery_time_max" type="number" placeholder="Máx." />
+                            <FormInput name="delivery_time_min" label="Mínimo" type="number" placeholder="Mín." />
+                            <FormInput name="delivery_time_max" label="Máximo" type="number" placeholder="Máx." />
                         </div>
                     </div>
                     <FormInput name="average_ticket" type="number" label="Ticket promedio diario" placeholder="Ej. 150.00" />

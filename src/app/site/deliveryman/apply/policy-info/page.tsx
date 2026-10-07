@@ -1,37 +1,12 @@
-
 "use client";
 import { Suspense } from 'react';
-import { Bike } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Step4_PolicyInfo } from "../_components/step-4-policy-info";
+import { Step4_PolicyInfo } from '../_components/step-4-policy-info';
+import { ApplicationShell } from '../../../_components/application-shell';
 
 function PolicyInfoPageContent() {
-  return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <Card className="w-full">
-          <CardHeader className="text-center">
-             <div className="mb-4 flex justify-center">
-              <Bike className="h-12 w-12 text-primary" />
-            </div>
-            <CardTitle className="text-3xl font-bold">Paso 4: Póliza de Seguro</CardTitle>
-            <CardDescription className="text-lg text-slate-600 dark:text-slate-400">
-             Sube la información de tu seguro de moto vigente.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Step4_PolicyInfo />
-          </CardContent>
-        </Card>
-      </div>
-    </main>
-  );
+  return <ApplicationShell audience="rider" step={4} totalSteps={6} title="Póliza de seguro" description="Sube la información de tu seguro de moto vigente."><Step4_PolicyInfo /></ApplicationShell>;
 }
 
 export default function PolicyInfoPage() {
-    return (
-        <Suspense fallback={<div>Cargando...</div>}>
-            <PolicyInfoPageContent />
-        </Suspense>
-    )
+  return <Suspense fallback={<div className="site-application-loading">Cargando registro…</div>}><PolicyInfoPageContent /></Suspense>;
 }

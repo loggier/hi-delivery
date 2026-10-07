@@ -1,196 +1,33 @@
-"use client";
-
-import { motion, useScroll, useTransform } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight, BadgeCheck, Bike, Store, Wallet } from "lucide-react";
-
-const heroStats = [
-  { label: "Pagos semanales", icon: Wallet },
-  { label: "Rutas en tu zona", icon: Bike },
-  { label: "Soporte operativo", icon: BadgeCheck },
-];
+import Link from 'next/link';
+import Image from 'next/image';
+import { ArrowRight, ArrowUpRight, MapPin, Truck, WalletCards } from 'lucide-react';
+import { Reveal } from './reveal';
 
 export function Hero() {
-  const { scrollYProgress } = useScroll();
-  const videoY = useTransform(scrollYProgress, [0, 0.25], [0, 36]);
-  const contentY = useTransform(scrollYProgress, [0, 0.25], [0, -16]);
-
-  return (
-    <section className="relative min-h-[88vh] overflow-hidden bg-[#071a33] text-white">
-      <motion.video
-        className="absolute inset-0 h-full w-full scale-[1.04] object-cover object-center"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        poster="/banner-site-hid.png"
-        aria-hidden="true"
-        style={{ y: videoY }}
-      >
-        <source src="/banner-site-hid.mp4" type="video/mp4" />
-      </motion.video>
-
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,18,42,0.92)_0%,rgba(5,35,79,0.82)_42%,rgba(5,35,79,0.42)_100%)]" />
-      <motion.div
-        aria-hidden="true"
-        className="absolute left-[8%] top-[18%] h-[34rem] w-[34rem] rounded-full bg-sky-300/12 blur-3xl"
-        animate={{ opacity: [0.35, 0.65, 0.35], scale: [1, 1.08, 1] }}
-        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white via-white/70 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-24 bg-[radial-gradient(70%_120%_at_50%_100%,rgba(255,255,255,0.96)_0%,rgba(255,255,255,0.74)_42%,transparent_76%)]" />
-      <div className="absolute -left-24 top-24 h-80 w-80 rounded-full bg-sky-400/25 blur-3xl" />
-      <div className="absolute right-0 top-1/3 h-96 w-96 rounded-full bg-sky-300/18 blur-3xl" />
-
-      <div className="relative z-10 flex min-h-[88vh] items-center pt-10">
-        <motion.div
-          className="container mx-auto grid items-center gap-10 px-4 py-20 lg:grid-cols-[1fr_420px]"
-          style={{ y: contentY }}
-        >
-          <div className="max-w-4xl">
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, ease: "easeOut" }}
-              className="mb-6 inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-semibold text-white shadow-xl shadow-blue-950/20 backdrop-blur-md"
-            >
-              <Image src="/logo-hid.png" alt="Hi! Delivery" width={24} height={24} className="h-6 w-6" />
-              Repartidores asociados en Culiacán
-            </motion.div>
-
-            <motion.h1
-              className="max-w-4xl text-5xl font-black leading-[0.95] tracking-[-0.05em] text-white drop-shadow-2xl sm:text-6xl lg:text-7xl"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.65, ease: "easeOut" }}
-            >
-              Conviértete en repartidor y gana a tu ritmo.
-            </motion.h1>
-
-            <motion.p
-              className="mt-6 max-w-2xl text-lg leading-8 text-blue-50/90 sm:text-xl"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.65, ease: "easeOut" }}
-            >
-              Únete a la red de Hi! Delivery. Recibe pedidos cerca de ti,
-              administra tus horarios y entrega con una plataforma local hecha
-              para moverte mejor.
-            </motion.p>
-
-            <motion.div
-              className="mt-9 flex flex-col gap-4 sm:flex-row"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.65, ease: "easeOut" }}
-            >
-              <Button asChild size="lg" className="h-14 rounded-full bg-blue-600 px-8 text-base font-bold text-white shadow-2xl shadow-blue-700/30 hover:bg-blue-700">
-                <Link href="/site/deliveryman/apply">
-                  Regístrate como Repartidor
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="secondary" className="h-14 rounded-full bg-white px-8 text-base font-bold text-blue-950 shadow-2xl hover:bg-blue-50">
-                <Link href="/site/store/apply">
-                  <Store className="mr-2 h-5 w-5" />
-                  Soy un Negocio
-                </Link>
-              </Button>
-            </motion.div>
-
-            <motion.div
-              className="mt-10 grid max-w-3xl gap-3 sm:grid-cols-3"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.65, ease: "easeOut" }}
-            >
-              {heroStats.map((item) => (
-                <div key={item.label} className="rounded-2xl border border-white/15 bg-white/12 p-4 shadow-xl shadow-blue-950/20 backdrop-blur-md">
-                  <item.icon className="mb-3 h-5 w-5 text-sky-200" />
-                  <p className="text-sm font-semibold text-white">{item.label}</p>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          <motion.div
-            className="hidden lg:block"
-            initial={{ opacity: 0, x: 40, rotate: 2 }}
-            animate={{ opacity: 1, x: 0, rotate: 0 }}
-            transition={{ delay: 0.35, duration: 0.75, ease: "easeOut" }}
-          >
-            <div className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-white/14 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl">
-              <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl" />
-              <motion.div
-                className="relative rounded-[1.5rem] bg-white p-5 text-blue-950"
-                animate={{ y: [0, -6, 0] }}
-                transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Image src="/logo-hid.png" alt="Hi! Delivery" width={44} height={44} className="h-11 w-11" />
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-500">Rider App</p>
-                      <p className="text-lg font-black">Pedido cercano</p>
-                    </div>
-                  </div>
-                  <motion.span
-                    className="rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-blue-700"
-                    animate={{ boxShadow: ["0 0 0 rgba(14,165,233,0)", "0 0 24px rgba(14,165,233,0.35)", "0 0 0 rgba(14,165,233,0)"] }}
-                    transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    Nuevo
-                  </motion.span>
-                </div>
-
-                <motion.div
-                  className="mt-5 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-900 p-5 text-white shadow-xl shadow-blue-900/20"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.75, duration: 0.55, ease: "easeOut" }}
-                >
-                  <p className="text-sm text-sky-100">Ganancia estimada</p>
-                  <motion.p
-                    className="mt-1 text-4xl font-black"
-                    animate={{ scale: [1, 1.035, 1] }}
-                    transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
-                  >
-                    $72.00
-                  </motion.p>
-                  <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl bg-white/12 p-3">
-                      <p className="text-sky-100">Recoger</p>
-                      <p className="font-bold">Restaurante</p>
-                    </div>
-                    <div className="rounded-xl bg-white/12 p-3">
-                      <p className="text-sky-100">Entregar</p>
-                      <p className="font-bold">Cliente</p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div className="rounded-2xl bg-sky-50 p-3 text-center">
-                    <p className="text-lg font-black">8 min</p>
-                    <p className="text-xs text-slate-500">pickup</p>
-                  </div>
-                  <div className="rounded-2xl bg-sky-50 p-3 text-center">
-                    <p className="text-lg font-black">3.2 km</p>
-                    <p className="text-xs text-slate-500">ruta</p>
-                  </div>
-                  <div className="rounded-2xl bg-sky-50 p-3 text-center">
-                    <p className="text-lg font-black">1 tap</p>
-                    <p className="text-xs text-slate-500">aceptar</p>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        </motion.div>
-      </div>
-    </section>
-  );
+  return <section className="site-hero" aria-labelledby="site-hero-title">
+    <div className="site-container site-hero-grid">
+      <Reveal className="site-hero-copy">
+        <p className="site-eyebrow">Para negocios · Hi! Delivery</p>
+        <h1 id="site-hero-title">Potencia tus<br className="site-desktop-break" /> entregas y llega<br className="site-desktop-break" /> <span>a más clientes.</span></h1>
+        <p className="site-hero-description">Con Hi! Delivery conectas tu negocio con repartidores confiables y tecnología operativa para entregar más rápido.</p>
+        <div className="site-signup" id="registro">
+          <h2>Registra tu negocio</h2>
+          <ol aria-label="Etapas de registro"><li><b>1</b>Tu cuenta</li><li><b>2</b>Tu negocio</li><li><b>3</b>Ubicación</li><li><b>4</b>Envío</li></ol>
+          <Link className="site-button" href="/site/store/apply">Comenzar mi registro <ArrowUpRight aria-hidden="true" /></Link>
+          <p>¿Quieres ser repartidor? <Link href="#benefits">Conoce los beneficios <ArrowRight aria-hidden="true" /></Link></p>
+        </div>
+      </Reveal>
+      <Reveal className="site-hero-visual" delay={0.12}>
+        <div className="site-hero-main-image"><Image src="/businesses-hid.png" alt="Negocio preparando sus pedidos para entrega" fill sizes="(max-width: 760px) 90vw, 46vw" priority /></div>
+        <div className="site-hero-seal" aria-hidden="true"><strong>Hi!</strong><span>Delivery</span></div>
+        <div className="site-hero-rider-image"><Image src="/banner-site-hid.png" alt="Repartidor de Hi! Delivery en ruta" fill sizes="(max-width: 760px) 52vw, 27vw" /></div>
+        <p className="site-photo-caption">Mayor cobertura<br />sin flota propia.</p>
+      </Reveal>
+    </div>
+    <div className="site-container"><div className="site-benefit-strip">
+      <div><span className="site-icon"><WalletCards aria-hidden="true" /></span><p>Tarifas competitivas<br />y transparentes</p></div>
+      <div><span className="site-icon"><MapPin aria-hidden="true" /></span><p>Seguimiento de pedidos<br />en tiempo real</p></div>
+      <div><span className="site-icon"><Truck aria-hidden="true" /></span><p>Mayor cobertura<br />sin contratar flota propia</p></div>
+    </div></div>
+  </section>;
 }

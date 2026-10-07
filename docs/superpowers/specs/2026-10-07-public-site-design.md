@@ -2,7 +2,7 @@
 
 ## Objetivo aprobado
 
-Renovar la experiencia pública para captar negocios. Dirección A: identidad editorial local, azul HID, blanco cálido, fotografía protagonista y Manrope. Acceso secundario para repartidores. Incluir favicon basado en el logo HID existente.
+Renovar la experiencia pública para captar negocios. El usuario eligió la propuesta `hid-campaign-v3.html`: azul HID, blanco puro, Manrope, composición de negocio y repartidor y registro destacado. Referencia de comunicación visual: SoyRappi, adaptada a la identidad HID. Utilizar el contenido existente del sitio, sin agregar contenido comercial sobre API. Acceso secundario para repartidores. Incluir favicon basado en el logo HID existente.
 
 ## Alcance
 
@@ -14,23 +14,24 @@ Renovar la experiencia pública para captar negocios. Dirección A: identidad ed
 
 ## Dirección visual
 
-- Fondo blanco cálido `#f8f7f3`, texto azul profundo `#092b48`, acción azul HID `#0065ed`.
-- Manrope para titulares y DM Sans para texto. Fuentes cargadas con mecanismos de Next, delimitadas al layout público.
-- Titulares grandes, espaciado editorial, líneas finas, composiciones asimétricas y fotografía sin cubrirla con tarjetas.
+- Fondo blanco puro `#ffffff`, texto azul profundo `#092b48`, acción azul HID `#0065ed`.
+- Manrope para titulares y texto. Fuentes cargadas con mecanismos de Next, delimitadas al layout público. Texto principal de 18–20 px, navegación y botones de 16–17 px, etiquetas auxiliares de al menos 15 px. Titulares responsivos.
+- Titulares grandes, secciones compactas, líneas finas y composición fotográfica de negocio con un recuadro de repartidor. Evitar separaciones excesivas y bloques vacíos. Espaciado vertical aproximado de 58 px en escritorio y 36 px en móvil.
 - Logo real, proporciones conservadas. Favicon en tamaños adecuados, derivado del archivo de marca.
 - Movimiento breve y discreto, respetando reducción de movimiento. Contenido visible aunque fallen animaciones.
+- Animación con Framer Motion ya instalado: entrada coordinada del hero, reveal de secciones con IntersectionObserver/useAnimate, y hover corto en CTA/visual. Respetar `prefers-reduced-motion`; nada de scroll-jacking ni movimiento continuo.
 - Fotografías optimizadas a partir de recursos existentes; la vista previa usa el banner actual para ilustrar la dirección. No inventar testimonios, métricas, clientes o garantías comerciales.
 
 ## Portada
 
-1. Header: logo, cómo funciona, para tu negocio, preguntas, iniciar sesión y registrar negocio.
-2. Hero: “Tu negocio merece llegar más lejos”, CTA “Registrar mi negocio”, enlace al proceso y fotografía HID.
-3. Tipos de negocio, sin presentarlos como clientes existentes.
-4. Proceso: registro, preparación de pedido, seguimiento de entrega.
-5. Plataforma: estado de pedidos, cálculo de envío y operación centralizada. Ilustración identificada como diagrama, sin datos operativos simulados.
-6. Integración API: cotización, creación y consulta; indicar habilitación requerida.
-7. FAQ con información verificable en flujos actuales.
-8. Cierre de captación, acceso a registro de repartidores y footer.
+1. Header: logo, negocios, beneficios, requisitos, preguntas, iniciar sesión y registro.
+2. Hero: reutilizar “Potencia tus entregas y llega a más clientes”, descripción y CTA “Registra tu negocio” de `for-businesses.tsx`, con su fotografía existente. Panel de acceso al registro con sus tres etapas, sin formulario nuevo ni captura de datos en la portada.
+3. Beneficios para negocios: tarifas competitivas y transparentes, seguimiento en tiempo real y cobertura sin flota propia, conservando los textos actuales.
+4. Beneficios para repartidores: reutilizar los cuatro beneficios y textos actuales, identificados claramente como contenido de repartidores.
+5. Proceso y requisitos: conservar el contenido actual de registro de repartidores y sus ocho requisitos.
+6. Testimonios y FAQ: conservar los contenidos existentes sin escribir testimonios nuevos.
+7. Cierre con CTA de negocio y footer.
+8. No incluir sección de API ni las secciones comerciales inventadas en la primera propuesta. La prioridad de captación se expresa mediante orden, jerarquía y CTAs.
 
 ## Registro público
 
@@ -40,10 +41,12 @@ Usar encabezado claro, progreso por pasos, agrupación de campos, superficies se
 
 El layout público controla fuentes y tokens locales. Header, footer, secciones de portada y envoltorio de registros mantienen responsabilidades separadas. Reutilizar componentes UI existentes cuando sean adecuados, con estilos delimitados al sitio. Inspeccionar rutas activas antes de modificar duplicados en `(site)`.
 
+Los registros conservan stores, query params, validadores y secuencia existente. Envoltorio compartido sólo estiliza; el progreso indica enlaces únicamente a pasos anteriores completados y no inventa navegación de avance que evada validaciones.
+
 ## Accesibilidad y verificación
 
 Navegación por teclado, foco visible, menú móvil accesible, contraste legible y FAQ semántica. Revisar escritorio y móvil, overflow, imágenes, enlaces y proporciones del logo. Ejecutar lint y typecheck e informar errores ajenos preexistentes. No ejecutar suites de pruebas según la instrucción previa del usuario. Las verificaciones de formularios no deben enviar altas reales.
 
 ## Vista de revisión
 
-Maqueta HTML local: `.superpowers/brainstorm/90946-1791349501/content/business-editorial.html`. Es una propuesta visual, no la aplicación final. Botones de registro indican este estado sin enviar datos. El alcance y la dirección están listos para revisión del usuario antes del plan de implementación.
+Maqueta seleccionada: `.superpowers/brainstorm/90946-1791349501/content/hid-campaign-v3.html`. Sustituye las versiones anteriores. Revisada en navegador a 1440 px y 390 px: imágenes cargadas y sin desbordamiento horizontal. Es una propuesta visual, no la aplicación final; sus botones no envían datos. El usuario respondió “esa me gusta mas”.

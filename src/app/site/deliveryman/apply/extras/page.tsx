@@ -1,37 +1,12 @@
-
 "use client";
 import { Suspense } from 'react';
-import { Bike } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Step5_Extras } from "../_components/step-5-extras";
+import { Step5_Extras } from '../_components/step-5-extras';
+import { ApplicationShell } from '../../../_components/application-shell';
 
 function ExtrasPageContent() {
-  return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <Card className="w-full">
-          <CardHeader className="text-center">
-             <div className="mb-4 flex justify-center">
-              <Bike className="h-12 w-12 text-primary" />
-            </div>
-            <CardTitle className="text-3xl font-bold">Paso 5: Equipo Adicional</CardTitle>
-            <CardDescription className="text-lg text-slate-600 dark:text-slate-400">
-             Indícanos si ya cuentas con equipo de reparto.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Step5_Extras />
-          </CardContent>
-        </Card>
-      </div>
-    </main>
-  );
+  return <ApplicationShell audience="rider" step={5} totalSteps={6} title="Equipo adicional" description="Indícanos si ya cuentas con equipo de reparto."><Step5_Extras /></ApplicationShell>;
 }
 
 export default function ExtrasPage() {
-    return (
-        <Suspense fallback={<div>Cargando...</div>}>
-            <ExtrasPageContent />
-        </Suspense>
-    )
+  return <Suspense fallback={<div className="site-application-loading">Cargando registro…</div>}><ExtrasPageContent /></Suspense>;
 }
