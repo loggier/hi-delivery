@@ -19,7 +19,7 @@ export function Hero() {
       </Reveal>
       <Reveal className="site-hero-visual" delay={0.12}>
         <div className="site-hero-main-image"><Image src="/businesses-hid.png" alt="Negocio preparando sus pedidos para entrega" fill sizes="(max-width: 760px) 90vw, 46vw" priority /></div>
-        <div className="site-hero-seal" aria-label="Sello Hi! Delivery"><span className="site-hero-seal-top">Tu entrega</span><Image src="/logo-hid-seal.webp" alt="Hi! Delivery" width={48} height={53} /><span className="site-hero-seal-bottom">con confianza</span></div>
+        <div className="site-hero-seal" aria-label="Sello de garantía Hi! Delivery"><Image src="/logo-hid-seal.webp" alt="Hi! Delivery" width={48} height={53} /><span>Entrega confiable</span></div>
         <div className="site-hero-rider-image"><Image src="/banner-site-hid.png" alt="Repartidor de Hi! Delivery en ruta" fill sizes="(max-width: 760px) 52vw, 27vw" /></div>
         <p className="site-photo-caption">Mayor cobertura<br />sin flota propia.</p>
       </Reveal>
