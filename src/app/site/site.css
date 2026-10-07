@@ -56,10 +56,10 @@
 .site-hero-main-image img, .site-hero-rider-image img, .site-card-image img, .site-rider-image img, .site-requirements-image img { object-fit: cover; }
 .site-hero-main-image img { object-position: 62% center; }
 .site-hero-rider-image { position: absolute; left: 0; bottom: 0; width: 57%; height: 190px; border: 7px solid #fff; border-radius: 17px; overflow: hidden; box-shadow: 0 15px 28px #102f4e20; }
-.site-hero-seal { position: absolute; right: -8px; top: 24px; width: 122px; height: 122px; border: 5px solid #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; background: #06345f; color: #fff; box-shadow: 0 5px 20px #102f4e35, inset 0 0 0 2px #56a6ff; }
+.site-hero-seal { position: absolute; right: -8px; top: 24px; width: 116px; height: 116px; border: 5px solid #fff; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; overflow: hidden; background: #06345f; color: #fff; box-shadow: 0 5px 20px #102f4e35, inset 0 0 0 2px #56a6ff; transform: rotate(8deg); }
 .site-hero-seal img { position: relative; z-index: 1; display: block; width: 54px; height: 60px; object-fit: contain; border-radius: 3px; }
-.site-hero-seal span { max-width: calc(100% - 22px); color: #fff; font-size: 9px; font-weight: 800; line-height: 1.2; text-align: center; letter-spacing: .65px; text-transform: uppercase; white-space: nowrap; }
-.site-hero-seal::after { content: ''; position: absolute; inset: 7px; border: 1px solid #ffffff80; border-radius: 50%; pointer-events: none; }
+.site-hero-seal-top, .site-hero-seal-bottom { max-width: calc(100% - 22px); color: #fff; font-size: 8px; font-weight: 800; line-height: 1.1; text-align: center; letter-spacing: .45px; text-transform: uppercase; white-space: nowrap; }
+.site-hero-seal::after { content: ''; position: absolute; inset: 6px; border: 1px dashed #ffffff80; border-radius: 50%; pointer-events: none; }
 .site-photo-caption { position: absolute; bottom: 36px; right: 15px; margin: 0; color: white; font-size: 15px; font-weight: 800; line-height: 1.35; text-shadow: 0 2px 8px #000; }
 .site-benefit-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; padding-block: 22px; border-top: 1px solid var(--site-line); border-bottom: 1px solid var(--site-line); }
 .site-benefit-strip > div { display: flex; align-items: center; gap: 13px; }
@@ -193,9 +193,9 @@
   .site-hero-visual { height: min(95vw, 390px); }
   .site-hero-main-image { inset: 0 0 16px 15px; border-radius: 65px 12px 12px 12px; }
   .site-hero-rider-image { width: 55%; height: 35%; border-width: 5px; border-radius: 13px; }
-  .site-hero-seal { right: -3px; top: 11px; width: 88px; height: 88px; border-width: 4px; gap: 3px; }
+  .site-hero-seal { right: -3px; top: 11px; width: 86px; height: 86px; border-width: 4px; gap: 2px; }
   .site-hero-seal img { width: 36px; height: 40px; }
-  .site-hero-seal span { max-width: calc(100% - 14px); font-size: 6px; letter-spacing: .35px; }
+  .site-hero-seal-top, .site-hero-seal-bottom { max-width: calc(100% - 16px); font-size: 6px; letter-spacing: .25px; }
   .site-photo-caption { right: 10px; bottom: 26px; font-size: 12px; }
   .site-benefit-strip { grid-template-columns: 1fr; gap: 13px; padding-block: 17px; }
   .site-benefit-strip p { font-size: 14px; }
