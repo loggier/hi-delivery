@@ -122,9 +122,9 @@
 
 .site-application { min-height: 100vh; background: #fff; color: var(--site-ink); }
 .site-application-header { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--site-line); padding-inline: max(24px, calc((100vw - 1320px) / 2)); }
-.site-application-header > span { color: var(--site-muted); font-size: 14px; font-weight: 700; }
-.site-application-brand { color: var(--site-ink); font-size: 22px; font-weight: 800; letter-spacing: -1px; }
-.site-application-brand span { color: var(--site-blue); }
+.site-application-header-title { color: var(--site-muted); font-size: 14px; font-weight: 700; }
+.site-application-section-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: #edf5ff; color: var(--site-blue); }
+.site-application-section-icon svg { width: 22px; height: 22px; }
 .site-application-exit { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; }
 .site-application-exit svg { width: 17px; height: 17px; }
 .site-application-layout { width: min(100% - 48px, 1280px); min-height: calc(100vh - 130px); margin: 0 auto; display: grid; grid-template-columns: .78fr 1.22fr; gap: clamp(38px, 7vw, 100px); align-items: start; padding-block: 52px; }
@@ -135,10 +135,12 @@
 .site-application-main { min-width: 0; padding: 10px 0; }
 .site-application-progress { display: flex; align-items: start; justify-content: space-between; gap: 5px; padding-bottom: 26px; border-bottom: 1px solid var(--site-line); }
 .site-application-progress > div { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; color: #8491a0; text-align: center; }
-.site-application-progress b { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #d8e0e9; border-radius: 50%; background: white; font-size: 13px; }
+.site-application-progress b { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #d8e0e9; border-radius: 11px; background: white; font-size: 13px; }
+.site-application-progress b svg { width: 17px; height: 17px; }
 .site-application-progress span { font-size: 12px; font-weight: 700; }
 .site-application-progress .current { color: var(--site-blue); }
-.site-application-progress .current b, .site-application-progress .complete b { border-color: var(--site-blue); background: var(--site-blue); color: white; }
+.site-application-progress .current b { border-color: var(--site-blue); background: var(--site-blue); color: white; }
+.site-application-progress .complete b { border-color: #cce2ff; background: #e9f2ff; color: var(--site-blue); }
 .site-application-heading { padding-block: 28px 20px; }
 .site-application-heading h2 { margin: 8px 0; font-size: clamp(27px, 3vw, 36px); line-height: 1.2; letter-spacing: -.04em; }
 .site-application-heading > p:last-child { margin: 0; color: var(--site-muted); font-size: 16px; }
@@ -237,13 +239,15 @@
   .site-footer-grid nav { gap: 7px; font-size: 13px; }
   .site-copyright { font-size: 12px; }
   .site-application-header { min-height: 67px; padding-inline: 18px; }
-  .site-application-header > span { display: none; }
-  .site-application-brand { font-size: 20px; }
+  .site-application-header-title { display: block; margin-right: auto; margin-left: 10px; font-size: 13px; }
+  .site-application-section-icon { width: 37px; height: 37px; border-radius: 10px; }
+  .site-application-section-icon svg { width: 19px; height: 19px; }
   .site-application-layout { width: min(100% - 32px, 580px); min-height: calc(100vh - 110px); grid-template-columns: 1fr; gap: 0; padding-block: 22px; }
   .site-application-aside { display: none; }
   .site-application-main { padding: 0; }
   .site-application-progress { gap: 2px; padding-bottom: 18px; }
-  .site-application-progress b { width: 26px; height: 26px; font-size: 12px; }
+  .site-application-progress b { width: 28px; height: 28px; border-radius: 9px; font-size: 12px; }
+  .site-application-progress b svg { width: 15px; height: 15px; }
   .site-application-progress span { font-size: 10px; }
   .site-application-heading { padding-block: 21px 16px; }
   .site-application-heading h2 { font-size: 28px; }
