@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { authenticateBusinessApi } from '@/lib/business-integrations/api-auth';
-import { apiError, decodeOrderCursor, encodeOrderCursor, ORDER_ITEMS_SELECT, ORDER_WITH_BUSINESS_SELECT, orderListQuerySchema, toPublicOrder } from '@/lib/business-integrations/orders';
+import { apiError, decodeOrderCursor, encodeOrderCursor, getOrderDestinationCoordinates, ORDER_ITEMS_SELECT, ORDER_WITH_BUSINESS_SELECT, orderListQuerySchema, toPublicOrder } from '@/lib/business-integrations/orders';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { createOrderBodySchema, canonicalOrderRequest, hashOrderRequest } from '@/lib/business-integrations/orders';
+import { calculateBusinessShippingQuote } from '@/lib/business-integrations/shipping';
 import { sendOrderEventPushes } from '@/lib/push-order-events';
 
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
@@ -76,6 +77,20 @@ export async function POST(request: Request) {
   if (!auth.ok) return json(apiError(auth.code, auth.error), auth.status);
   const key = request.headers.get('idempotency-key');
   if (!key || !key.trim() || key.length > 255) return json(apiError('invalid_idempotency_key', 'Invalid Idempotency-Key'), 400);
+  const destination = getOrderDestinationCoordinates(value.delivery_address);
+  if (!destination) return json(apiError('invalid_body', 'Customer coordinates are required to calculate shipping'), 400);
+
+  let shippingQuote;
+  try {
+    shippingQuote = await calculateBusinessShippingQuote(auth.access.businessId, destination);
+  } catch {
+    return json(apiError('service_unavailable', 'Unable to calculate shipping'), 503);
+  }
+  const totalCents = value.subtotalCents + shippingQuote.delivery_fee_cents;
+  if (!Number.isSafeInteger(totalCents) || totalCents > 100_000_000) {
+    return json(apiError('invalid_body', 'Order total exceeds limit'), 400);
+  }
+
   const canonical = canonicalOrderRequest(value);
   let result;
   try {
@@ -88,7 +103,7 @@ export async function POST(request: Request) {
       customer_email_in: value.customer.email ?? null,
       normalized_mx_phone_in: value.customer.phone,
       delivery_address_in: value.delivery_address,
-      delivery_fee_in: value.delivery_fee / 100,
+      delivery_fee_in: shippingQuote.delivery_fee,
       notes_in: value.notes ?? null,
       items_in: value.items.map((item) => ({ product_id: null, item_description: item.description, quantity: item.quantity, price: item.unit_price / 100 })),
     });
@@ -109,9 +124,12 @@ export async function POST(request: Request) {
     return cents;
   };
   try {
-    if (persistedCents(payload.order.subtotal) !== value.subtotalCents
-      || persistedCents(payload.order.delivery_fee) !== value.delivery_fee
-      || persistedCents(payload.order.order_total) !== value.totalCents) {
+    const storedSubtotal = persistedCents(payload.order.subtotal);
+    const storedDeliveryFee = persistedCents(payload.order.delivery_fee);
+    const storedOrderTotal = persistedCents(payload.order.order_total);
+    if (storedSubtotal !== value.subtotalCents
+      || storedOrderTotal !== storedSubtotal + storedDeliveryFee
+      || (payload.created && storedDeliveryFee !== shippingQuote.delivery_fee_cents)) {
       return json(apiError('service_unavailable', 'Unable to create order'), 503);
     }
   } catch { return json(apiError('service_unavailable', 'Unable to create order'), 503); }

@@ -151,14 +151,20 @@ export const createOrderBodySchema = z.object({
     if ((address.latitude === undefined) !== (address.longitude === undefined)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ['longitude'], message: 'Latitude and longitude must be provided together' });
     }
+    if (address.latitude === undefined && address.coordinates === undefined) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['coordinates'], message: 'Customer coordinates are required to calculate shipping' });
+    }
+    if (address.coordinates && address.latitude !== undefined
+      && (address.coordinates.lat !== address.latitude || address.coordinates.lng !== address.longitude)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['coordinates'], message: 'Customer coordinates must match' });
+    }
   }),
-  delivery_fee: moneyInput,
+  delivery_fee: moneyInput.optional(),
   items: z.array(z.object({ description: z.string().trim().min(1).max(500), quantity: z.number().int().min(1).max(1000), unit_price: moneyInput }).strict()).min(1).max(50),
   notes: z.string().max(2000).optional(),
 }).strict().transform((body, context) => {
   const subtotalCents = body.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  const totalCents = subtotalCents + body.delivery_fee;
-  if (!Number.isSafeInteger(subtotalCents) || !Number.isSafeInteger(totalCents) || totalCents > 100_000_000) {
+  if (!Number.isSafeInteger(subtotalCents) || subtotalCents > 100_000_000) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Order total exceeds limit' });
     return z.NEVER;
   }
@@ -177,10 +183,16 @@ export function canonicalOrderRequest(value: z.infer<typeof createOrderBodySchem
   return JSON.stringify({
     customer: { name: value.customer.name, phone: value.customer.phone, email: value.customer.email ?? null },
     delivery_address: sortCanonical(value.delivery_address),
-    delivery_fee: value.delivery_fee,
     items: value.items.map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })),
     notes: value.notes ?? null,
   });
+}
+
+export function getOrderDestinationCoordinates(value: z.infer<typeof createOrderBodySchema>['delivery_address']) {
+  const latitude = value.latitude ?? value.coordinates?.lat;
+  const longitude = value.longitude ?? value.coordinates?.lng;
+  if (latitude === undefined || longitude === undefined) return null;
+  return { latitude, longitude };
 }
 
 export function hashOrderRequest(value: string): string {
