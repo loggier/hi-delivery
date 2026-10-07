@@ -135,7 +135,9 @@ export async function requireOrderManagementSession(): Promise<OrderManagementUs
     throw new AdminSessionError('Active web account required', 403);
   }
   if (user.role_id === 'role-admin') return { id: user.id, roleId: user.role_id, businessId: null };
-  if (user.role_id !== 'role-owner') throw new AdminSessionError('Order management access required', 403);
+  if (user.role_id !== 'role-owner' && user.role_id !== 'owen-business') {
+    throw new AdminSessionError('Order management access required', 403);
+  }
 
   const { data: business, error: businessError } = await supabase
     .from('businesses')

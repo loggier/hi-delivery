@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     if (view === 'customer-stats') {
       let query = supabaseAdmin.from('orders').select('customer_id, order_total, business_id');
-      if (actor.roleId === 'role-owner') query = query.eq('business_id', actor.businessId!);
+      if (actor.roleId !== 'role-admin') query = query.eq('business_id', actor.businessId!);
       const { data, error } = await query;
       if (error) return NextResponse.json({ message: 'No se pudieron consultar las estadísticas de pedidos.' }, { status: 502 });
       return NextResponse.json(data ?? [], { headers: { 'Cache-Control': 'no-store' } });
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
     const limit = Math.min(Math.max(Number(params.get('limit')) || 5000, 1), 5000);
     let query = supabaseAdmin.from('orders').select(adminOrderSelect).order('created_at', { ascending: false }).limit(limit);
-    if (actor.roleId === 'role-owner') query = query.eq('business_id', actor.businessId!);
+    if (actor.roleId !== 'role-admin') query = query.eq('business_id', actor.businessId!);
     for (const field of ['status', 'customer_id', 'rider_id'] as const) {
       const value = params.get(field);
       if (value) query = query.eq(field, value);
