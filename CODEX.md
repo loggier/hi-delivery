@@ -953,3 +953,41 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Migraciones aplicadas y verificadas en Supabase: `20261006054426_business_integrations_api.sql`, `20261006054717_fix_business_integration_phone_normalization.sql` y `20261006165155_business_orders_pagination_index.sql`. El índice compuesto de paginación aparece válido/listo en `grupohubs.orders`. Las tablas privadas tienen RLS sin acceso `anon`/`authenticated`; las funciones son invoker y su ejecución está restringida a `service_role`.
 - Aplicada y verificada en Supabase: `20261006184151_business_api_entitlement.sql` agrega `businesses.api_enabled` como `boolean NOT NULL DEFAULT false`.
 - Secuencia de despliegue para el control de acceso: (1) aplicar y verificar `businesses.api_enabled`; (2) configurar `BUSINESS_API_CURSOR_SECRET` como variable privada; (3) desplegar aplicación y contrato/API; (4) hacer smoke tests sólo contra datos de prueba; (5) habilitar el negocio desde Editar Negocio sólo tras autorización comercial. No exponer `SUPABASE_SERVICE_ROLE_KEY` ni otros secretos al cliente; nunca probar creación de pedidos en producción si dispara dispatch/push.
+
+## Plantillas de correo de notificación (2026-10-31)
+
+- Migración `src/sql/2026-10-31_email_notification_templates.sql`: inserta en `grupohubs.notification_templates` las plantillas con `channel = 'email'` y `status = 'ACTIVE'`, con `ON CONFLICT (template_key, channel) DO NOTHING`: `password.reset_request`, `password.reset_code`, `password.changed` y `account.welcome` (audience `system`).
+- No requiere constantes nuevas: `app.name`, `app.site_url`, `app.brand_signature` y las variables de usuario/contraseña ya existen en el seed de `src/db/migrations/007_create_notification_templates.sql` y se envían desde `src/lib/password-reset.ts`.
+- Estado: escrita, no aplicada en Supabase. Sin callers: `sendPasswordResetLink`, `sendPasswordResetCode` y `sendPasswordChangedNotice` siguen con `channel: 'whatsapp'`, y `account.welcome` no tiene código que lo envíe.
+- Rollback: eliminar las 4 filas con `channel = 'email'` y esos `template_key`, sólo si no se requieren los registros de `notification_logs` vinculados (`template_id` tiene `ON DELETE SET NULL`).
+
+## Correo con diseño de marca y envíos por correo (2026-10-30)
+
+- `src/lib/mail/email-layout.ts`: `renderBrandedEmail` genera HTML con tablas y estilos inline (máx. 600px). Todo el contenido dinámico se escapa; los enlaces sólo se generan para http(s).
+- `sendEmail` (`src/lib/mail/mailer.ts`) acepta `html` opcional además de `text`. La rama `email` de `sendNotification` construye el HTML.
+- `APP_PUBLIC_URL`: URL pública del panel, usada para el logo `${APP_PUBLIC_URL}/logo-hid.png` en los correos. Si no está definida, se usa la constante `app.site_url`; si tampoco existe, el encabezado muestra sólo el nombre del sistema. Definir en `.env` y en el entorno de despliegue; ejemplo en `.env.example`. No es un secreto.
+- Reset de contraseña: `password.reset_request`, `password.reset_code` y `password.changed` también envían correo (`channel: 'email'`) al correo del usuario, además del WhatsApp. El envío es best-effort: si el usuario no tiene correo, se omite sin error.
+- Bienvenida: `account.welcome` se envía al correo del alta en `POST /api/riders` y `POST /api/businesses` (`src/lib/notifications/account-welcome.ts`), sin bloquear la respuesta.
+- Requiere que la migración `src/sql/2026-10-31_email_notification_templates.sql` esté aplicada en Supabase. No se aplicó desde código.
+- Riesgos pendientes: sin límite de tasa ni idempotencia en el envío de bienvenida (alta pública); los reintentos del wizard pueden duplicar el correo. Los envíos de correo se esperan con tiempo límite de 8 s (`src/lib/mail/send-with-timeout.ts`); si fallan o expiran, sólo se registra la plantilla y el error, sin destinatario, y el alta o el flujo de reset continúan. La operación subyacente no se cancela al expirar, así que el registro en `notification_logs` puede quedar `pending` o actualizarse después.
+
+## Seguridad del registro de repartidores (2026-10-30)
+
+- Token de registro: 32 bytes base64url, enviado en el enlace `APP_PUBLIC_URL/site/deliveryman/apply/personal-info?token=…` y devuelto al creador en el 201 de `POST /api/riders`. Sólo se guarda el SHA-256 en `riders.registration_token_hash`; la vigencia está en `riders.registration_token_expires_at` (7 días). Helper: `src/lib/rider-registration-token.ts`.
+- Autorización por ruta:
+  - `POST /api/riders/[id]` (datos, documentos, envío final): `Authorization: Bearer <token>` válido para ese `riderId`. Sin token válido: 401. Token de otro repartidor: 403.
+  - `GET /api/riders/by-token?token=…`: devuelve `riderId`, `status` y sólo las columnas de precarga del wizard. 404 si el token no es válido.
+  - `DELETE /api/riders/[id]`: sólo admin, con `requireAdminOperationSession()` (sesión `hid-admin-session`). 401 sin sesión, 403 si no es `role-admin`.
+- Lista blanca en `POST /api/riders/[id]` (`src/lib/rider-self-service.ts`): sólo datos personales, vehículo, póliza, extras, foto de perfil y documentos. Campos como `status`, `user_id`, `zone_id`, `password_hash` o `email` se descartan sin error. La selección de zona del paso 2 ya no se guarda desde el wizard; debe asignarla un administrador.
+- Estado: el repartidor sólo cambia de `incomplete` a `pending_review` con el envío final (`submit=true`), que además invalida el token (`registration_token_expires_at = now`). Ya no hay transición automática al subir documentos. El resto de cambios de estado es administrativo.
+- Subidas: máximo 5 MB; se valida la firma binaria (PDF, JPG, PNG, WEBP), el MIME declarado y la extensión. Las fotos sólo aceptan imágenes. El nombre del archivo en Storage es un UUID generado en servidor (`riders/<riderId>/<uuid>.<ext>`).
+- La respuesta de `POST /api/riders/[id]` ya no incluye `password_hash` ni tokens.
+- Wizard (`src/app/site/deliveryman/apply/_components/`): los pasos usan `?token=`. `?id=` se trata como enlace inválido. Los datos se cargan por `GET /api/riders/by-token` y no con consultas directas a Supabase.
+- Pendiente: el enlace con el token queda registrado en `notification_logs` (`rendered_body` y `variables`). Ver también la sección de correo. Bucket de Storage: no se modificó; si es público, las URLs de documentos son públicas.
+
+## Token de registro de repartidores (2026-10-31)
+
+- Migración `src/sql/2026-10-31_rider_registration_token.sql` (forward-only, sin DROP ni DELETE): agrega `grupohubs.riders.registration_token_hash TEXT` y `registration_token_expires_at TIMESTAMPTZ` con `IF NOT EXISTS`, más el índice único parcial `riders_registration_token_hash_key` sobre `registration_token_hash` donde no es nulo. Sólo se guarda el hash del token.
+- Plantillas de correo para repartidores (`channel = 'email'`, `status = 'ACTIVE'`, audience `rider`, `ON CONFLICT (template_key, channel) DO NOTHING`): `rider.registration_link` (variables: `user.name`, `registration.link`, `registration.expires_at`, `app.brand_signature`) y `rider.documents_received` (variables: `user.name`, `app.brand_signature`).
+- Estado: escrita, **no aplicada** en la base. La verificación previa y la aplicación quedaron bloqueadas por permisos de lectura sobre producción.
+- Rollback: el cambio es sólo aditivo. Para revertir hay que quitar el índice, las dos columnas y las dos filas de plantilla. Eso implica DROP y debe autorizarse aparte, porque la regla de esta migración es no borrar.

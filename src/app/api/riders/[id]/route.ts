@@ -1,150 +1,217 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
+
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, riderId: string, fileName: string): Promise<string> {
-    const filePath = `riders/${riderId}/${fileName}-${Date.now()}.${file.name.split('.').pop()}`;
-    
-    const { error: uploadError } = await supabaseAdmin.storage
-        .from(process.env.SUPABASE_BUCKET!)
-        .upload(filePath, file, { upsert: true });
+import { AdminSessionError, requireAdminOperationSession } from '@/lib/auth/admin-session';
+import { sendRiderDocumentsReceivedEmail } from '@/lib/notifications/rider-registration-emails';
+import { readBearerToken, verifyRegistrationToken } from '@/lib/rider-registration-token';
+import {
+  buildRiderTextColumns,
+  getRiderUploadKind,
+  RIDER_AVATAR_FIELD,
+  RIDER_DOCUMENT_COLUMNS,
+  RIDER_MOTO_PHOTO_FIELDS,
+  riderSelfTextSchema,
+  validateRiderUpload,
+  type ValidatedUpload,
+} from '@/lib/rider-self-service';
 
-    if (uploadError) {
-        console.error(`Upload Error for ${fileName}:`, uploadError);
-        throw new Error(`Failed to upload ${fileName}. Details: ${uploadError.message}`);
-    }
+type RiderSupabaseClient = ReturnType<typeof createServerClient>;
 
-    const { data } = supabaseAdmin.storage.from(process.env.SUPABASE_BUCKET!).getPublicUrl(filePath);
-    return data.publicUrl;
+function createRiderServiceClient(): RiderSupabaseClient {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: { get: () => undefined, set: () => {}, remove: () => {} },
+      db: { schema: process.env.SUPABASE_SCHEMA! },
+    },
+  );
 }
 
+/** Sube un archivo validado con nombre generado en servidor (UUID). Nunca usa el nombre enviado por el cliente. */
+async function uploadRiderFile(
+  supabase: RiderSupabaseClient,
+  riderId: string,
+  validated: Extract<ValidatedUpload, { ok: true }>,
+): Promise<string> {
+  const bucket = process.env.SUPABASE_BUCKET;
+  if (!bucket) throw new Error('El almacenamiento no está configurado.');
+
+  const filePath = `riders/${riderId}/${randomUUID()}.${validated.ext}`;
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, new Blob([validated.bytes], { type: validated.mime }), { upsert: false, contentType: validated.mime });
+
+  if (error) throw new Error('No se pudo subir el archivo.');
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  return data.publicUrl;
+}
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const riderId = params.id;
-  
-  if (!riderId) {
-      return NextResponse.json({ message: 'Rider ID es requerido.' }, { status: 400 });
-  }
-
-  const supabaseAdmin = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-        db: { schema: process.env.SUPABASE_SCHEMA! }
-      }
-    );
-
-  const formData = await request.formData();
-  const updateData: Record<string, any> = {};
-  const dateFields = ['birth_date', 'license_valid_until', 'policy_valid_until'];
-  const avatarFields = new Set(['avatar1x1Url', 'avatar1x1_url', 'avatar_1x1_url']);
-
-  try {
-    const { data: existingRiderData, error: fetchError } = await supabaseAdmin.from('riders').select('status, moto_photos').eq('id', riderId).single();
-    
-    if(fetchError) {
-      console.error('Error fetching existing rider for update:', fetchError);
-      return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
-    }
-
-    let motoPhotos: string[] = existingRiderData.moto_photos || [];
-
-    // Procesar archivos
-    for (const [key, value] of formData.entries()) {
-        if (value instanceof File && value.size > 0) {
-            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-            if (key.startsWith('motoPhoto')) {
-                const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
-                if (!motoPhotos.includes(url)) {
-                    motoPhotos.push(url);
-                }
-            } else {
-                 const url = await uploadFileAndGetUrl(supabaseAdmin, value, riderId, key);
-                 if (avatarFields.has(key)) {
-                    updateData.avatar1x1_url = url;
-                    updateData.avatar_1x1_url = url;
-                 } else {
-                    updateData[dbKey] = url;
-                 }
-            }
-        }
-    }
-    
-    if (motoPhotos.length > 0) {
-        updateData['moto_photos'] = motoPhotos;
-    }
-
-    // Procesar otros campos
-    for (const [key, value] of formData.entries()) {
-      if (!(value instanceof File)) {
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        if(key === 'hasHelmet' || key === 'hasUniform' || key === 'hasBox') {
-            updateData[dbKey] = value === 'true';
-        } else if (avatarFields.has(key)) {
-            updateData.avatar1x1_url = value;
-            updateData.avatar_1x1_url = value;
-        } else if (dateFields.includes(dbKey)) {
-            updateData[dbKey] = new Date(value as string).toISOString();
-        } else if (key !== 'brandOther') {
-            updateData[dbKey] = value;
-        }
-      }
-    }
-    
-    if (formData.get('brand') === 'Otra' && formData.get('brandOther')) {
-        updateData['brand'] = formData.get('brandOther');
-    }
-    
-    if (Object.keys(updateData).length === 0) {
-        return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 400 });
-    }
-
-    updateData.updated_at = new Date().toISOString();
-    
-    if (existingRiderData && existingRiderData.status === 'incomplete' && Object.keys(updateData).length > 1) { 
-        updateData.status = 'pending_review';
-    } else if (formData.has('status')) {
-        updateData.status = formData.get('status');
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('riders')
-      .update(updateData)
-      .eq('id', riderId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating rider profile:', error);
-      return NextResponse.json({ message: error.message || 'Error al actualizar el perfil.', error: error.details }, { status: 500 });
-    }
-
-    return NextResponse.json({ message: 'Perfil actualizado con éxito.', rider: data }, { status: 200 });
-
-  } catch (error) {
-    console.error('Unexpected error in POST rider API (update mode):', error);
-    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
-  }
-}
-
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   const riderId = params.id;
 
   if (!riderId) {
     return NextResponse.json({ message: 'Rider ID es requerido.' }, { status: 400 });
   }
 
-  const supabaseAdmin = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: { get: () => undefined, set: () => {}, remove: () => {} },
-      db: { schema: process.env.SUPABASE_SCHEMA! }
+  // Autorización: el token de registro (Authorization: Bearer) debe pertenecer a este repartidor.
+  const registrationToken = readBearerToken(request);
+  const authorizedRiderId = registrationToken ? await verifyRegistrationToken(registrationToken) : null;
+  if (!authorizedRiderId) {
+    return NextResponse.json({ message: 'Autenticación requerida o enlace vencido.' }, { status: 401 });
+  }
+  if (authorizedRiderId !== riderId) {
+    return NextResponse.json({ message: 'No tienes permiso para modificar este repartidor.' }, { status: 403 });
+  }
+
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json({ message: 'Formulario inválido.' }, { status: 400 });
+  }
+
+  // Separar texto y archivos. Los campos fuera de la lista blanca se ignoran (no se escriben).
+  const textInput: Record<string, string> = {};
+  const fileEntries: Array<{ field: string; file: File }> = [];
+  for (const [key, value] of formData.entries()) {
+    if (value instanceof File) {
+      if (value.size > 0) fileEntries.push({ field: key, file: value });
+    } else if (value !== '') {
+      textInput[key] = value;
     }
-  );
+  }
+
+  const parsedText = riderSelfTextSchema.safeParse(textInput);
+  if (!parsedText.success) {
+    const firstIssue = parsedText.error.issues[0];
+    return NextResponse.json({ message: firstIssue?.message ?? 'Datos inválidos.' }, { status: 400 });
+  }
+
+  // `submit` es la única marca de control: envío final del wizard.
+  const isFinalSubmit = textInput.submit === 'true';
+
+  // Validar todos los archivos antes de subir ninguno, para no dejar subidas parciales.
+  const validatedUploads: Array<{ field: string; upload: Extract<ValidatedUpload, { ok: true }> }> = [];
+  for (const { field, file } of fileEntries) {
+    const kind = getRiderUploadKind(field);
+    if (!kind) continue;
+
+    const validated = await validateRiderUpload(file, kind);
+    if (!validated.ok) {
+      return NextResponse.json({ message: validated.message }, { status: 400 });
+    }
+    validatedUploads.push({ field, upload: validated });
+  }
+
+  const supabaseAdmin = createRiderServiceClient();
+
+  try {
+    const { data: existingRider, error: fetchError } = await supabaseAdmin
+      .from('riders')
+      .select('status, moto_photos, email, first_name, last_name')
+      .eq('id', riderId)
+      .single();
+
+    if (fetchError || !existingRider) {
+      return NextResponse.json({ message: 'No se pudo encontrar el repartidor para actualizar.' }, { status: 404 });
+    }
+
+    if (isFinalSubmit && existingRider.status !== 'incomplete') {
+      return NextResponse.json({ message: 'Tu solicitud ya fue enviada.' }, { status: 409 });
+    }
+
+    const updateData: Record<string, unknown> = { ...buildRiderTextColumns(parsedText.data) };
+
+    const motoPhotos: string[] = Array.isArray(existingRider.moto_photos) ? [...existingRider.moto_photos] : [];
+    let hasMotoPhotoUpload = false;
+
+    for (const { field, upload } of validatedUploads) {
+      const url = await uploadRiderFile(supabaseAdmin, riderId, upload);
+
+      if (field === RIDER_AVATAR_FIELD) {
+        updateData.avatar1x1_url = url;
+        updateData.avatar_1x1_url = url;
+      } else if (RIDER_MOTO_PHOTO_FIELDS.has(field)) {
+        hasMotoPhotoUpload = true;
+        if (!motoPhotos.includes(url)) motoPhotos.push(url);
+      } else {
+        updateData[RIDER_DOCUMENT_COLUMNS[field]] = url;
+      }
+    }
+
+    if (hasMotoPhotoUpload) {
+      updateData.moto_photos = motoPhotos;
+    }
+
+    if (Object.keys(updateData).length === 0 && !isFinalSubmit) {
+      return NextResponse.json({ message: 'No hay datos para actualizar.' }, { status: 400 });
+    }
+
+    const now = new Date().toISOString();
+    updateData.updated_at = now;
+
+    // El repartidor sólo puede pasar de `incomplete` a `pending_review`, y sólo con el envío final.
+    // Invalida el token de registro al enviar. Cualquier otro cambio de estado es administrativo.
+    if (isFinalSubmit) {
+      updateData.status = 'pending_review';
+      updateData.registration_token_expires_at = now;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('riders')
+      .update(updateData)
+      .eq('id', riderId)
+      .select('id, status, updated_at')
+      .single();
+
+    if (error) {
+      console.error('Error updating rider profile.');
+      return NextResponse.json({ message: 'Error al actualizar el perfil.' }, { status: 500 });
+    }
+
+    if (isFinalSubmit) {
+      // Best-effort con tiempo límite: no altera la respuesta.
+      const fullName = [existingRider.first_name, existingRider.last_name].filter(Boolean).join(' ').trim();
+      await sendRiderDocumentsReceivedEmail({
+        email: existingRider.email,
+        userName: fullName || 'repartidor',
+      });
+    }
+
+    return NextResponse.json({ message: 'Perfil actualizado con éxito.', rider: data }, { status: 200 });
+  } catch (error) {
+    console.error('Unexpected error in POST rider API (update mode).');
+    const message = error instanceof Error && error.message === 'No se pudo subir el archivo.'
+      ? error.message
+      : 'Error interno del servidor.';
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const riderId = params.id;
+
+  // Sólo administradores: sesión admin vigente (401 si no hay sesión, 403 si no es admin).
+  try {
+    await requireAdminOperationSession();
+  } catch (error) {
+    if (error instanceof AdminSessionError) {
+      return NextResponse.json({ message: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ message: 'No se pudo verificar la sesión.' }, { status: 500 });
+  }
+
+  if (!riderId) {
+    return NextResponse.json({ message: 'Rider ID es requerido.' }, { status: 400 });
+  }
+
+  const supabaseAdmin = createRiderServiceClient();
 
   try {
     const { data: riderRecord, error: fetchError } = await supabaseAdmin
@@ -154,7 +221,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
       .single();
 
     if (fetchError) {
-      return NextResponse.json({ message: fetchError.message || 'No se pudo encontrar el repartidor.' }, { status: 404 });
+      return NextResponse.json({ message: 'No se pudo encontrar el repartidor.' }, { status: 404 });
     }
 
     if (riderRecord?.user_id) {
@@ -165,7 +232,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
       if (deleteUserError) {
         return NextResponse.json(
-          { message: deleteUserError.message || 'No se pudo eliminar el usuario asociado al repartidor.' },
+          { message: 'No se pudo eliminar el usuario asociado al repartidor.' },
           { status: 500 }
         );
       }
@@ -177,12 +244,12 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
       .eq('id', riderId);
 
     if (deleteRiderError) {
-      return NextResponse.json({ message: deleteRiderError.message || 'Error al eliminar el repartidor.' }, { status: 500 });
+      return NextResponse.json({ message: 'Error al eliminar el repartidor.' }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Repartidor y usuario asociado eliminados con éxito.' }, { status: 200 });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
+  } catch {
+    console.error('Unexpected error in DELETE rider API.');
+    return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 });
   }
 }

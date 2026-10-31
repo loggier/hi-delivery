@@ -7,13 +7,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { FormInput, FormSelect, FormFutureDatePicker, FormFileUpload, FormMultiImageUpload } from '@/app/site/apply/_components/form-components';
 import { vehicleBrands, vehicleYears } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  buildRegistrationStepUrl,
+  fetchRegistrationRider,
+  INVALID_REGISTRATION_LINK_MESSAGE,
+  registrationAuthHeaders,
+} from '../_lib/registration-client';
 
 const vehicleInfoSchema = riderApplicationBaseSchema.pick({
   ownership: true,
@@ -47,7 +52,8 @@ type VehicleInfoFormValues = z.infer<typeof vehicleInfoSchema>;
 export function Step3_VehicleInfo() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const riderId = searchParams.get('id');
+  const token = searchParams.get('token');
+  const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
@@ -77,29 +83,23 @@ export function Step3_VehicleInfo() {
   
   useEffect(() => {
     async function fetchRiderData() {
-      if (!riderId) {
-        toast({ title: "Error de ID", description: "No se encontró el ID del repartidor. Por favor, vuelve al paso 1.", variant: "destructive" });
+      if (!token) {
+        toast({ title: "Enlace inválido", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
         router.push('/site/deliveryman/apply');
         return;
       }
       setIsFetchingData(true);
       try {
-        const supabase = createClient();
-        const { data: riderData, error } = await supabase
-          .from('riders')
-          .select('ownership, brand, year, model, color, plate, license_valid_until')
-          .eq('id', riderId)
-          .single();
-        
-        if (error && error.code !== 'PGRST116') {
-          throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
-        }
+        const payload = await fetchRegistrationRider(token);
+        setRiderId(payload.riderId);
+        const riderData = payload.rider;
 
         if (riderData) {
+          const isKnownBrand = (vehicleBrands as readonly string[]).includes(riderData.brand ?? '');
           methods.reset({
-            ownership: riderData.ownership || undefined,
-            brand: vehicleBrands.includes(riderData.brand as any) ? riderData.brand : 'Otra',
-            brandOther: !vehicleBrands.includes(riderData.brand as any) ? riderData.brand : '',
+            ownership: (riderData.ownership || undefined) as VehicleInfoFormValues['ownership'],
+            brand: (isKnownBrand ? riderData.brand : 'Otra') as VehicleInfoFormValues['brand'],
+            brandOther: !isKnownBrand ? (riderData.brand ?? '') : '',
             year: riderData.year || undefined,
             model: riderData.model || '',
             color: riderData.color || '',
@@ -118,7 +118,7 @@ export function Step3_VehicleInfo() {
       }
     }
     fetchRiderData();
-  }, [riderId, methods, toast, router]);
+  }, [token, methods, toast, router]);
 
   const brand = useWatch({ control: methods.control, name: 'brand' });
 
@@ -130,8 +130,8 @@ export function Step3_VehicleInfo() {
   }, [brand, methods]);
 
   const onSubmit = async (data: VehicleInfoFormValues) => {
-    if (!riderId) {
-      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
+    if (!token || !riderId) {
+      toast({ title: "Error de autenticación", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
       router.push('/site/deliveryman/apply');
       return;
     }
@@ -158,6 +158,7 @@ export function Step3_VehicleInfo() {
       
       const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
+        headers: registrationAuthHeaders(token),
         body: formData,
       });
 
@@ -167,7 +168,7 @@ export function Step3_VehicleInfo() {
       }
       
       toast({ title: "Información de Vehículo Guardada", variant: "success" });
-      router.push(`/site/deliveryman/apply/policy-info?id=${riderId}`);
+      router.push(buildRegistrationStepUrl('policy-info', token));
 
     } catch (error) {
       toast({

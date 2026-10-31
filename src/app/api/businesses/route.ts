@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 import { businessAccountCreationSchema, businessSchema } from '@/lib/schemas';
 import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
+import { sendAccountWelcomeEmail } from '@/lib/notifications/account-welcome';
 import type { Business, User } from '@/types';
 
 async function uploadFileAndGetUrl(supabaseAdmin: any, file: File, businessId: string, fileName: string): Promise<string> {
@@ -155,6 +156,9 @@ async function handleCreateBusiness(request: Request, supabaseAdmin: any) {
         throw new Error(insertError.message || 'Error al crear el perfil del negocio.');
     }
     
+    // Best-effort con tiempo límite: el helper nunca lanza, así que no altera el 201.
+    await sendAccountWelcomeEmail({ email: createdUser.email, userName: createdUser.name });
+
     const userForSession: User = {
         id: createdUser.id, name: createdUser.name, email: createdUser.email,
         created_at: createdUser.created_at, role_id: createdUser.role_id, status: createdUser.status,

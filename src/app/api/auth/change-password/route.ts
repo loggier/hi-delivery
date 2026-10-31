@@ -57,9 +57,10 @@ export async function POST(request: Request) {
       password: string;
       name: string;
       role_id: string;
+      email: string | null;
     }> = await supabaseAdmin
       .from('users')
-      .select('id, password, name, role_id')
+      .select('id, password, name, role_id, email')
       .eq('id', userId)
       .single();
 
@@ -96,12 +97,11 @@ export async function POST(request: Request) {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (business?.phone_whatsapp) {
-        await sendPasswordChangedNotice({
-          recipient: business.phone_whatsapp,
-          userName: user.name || 'usuario',
-        });
-      }
+      await sendPasswordChangedNotice({
+        recipient: business?.phone_whatsapp || null,
+        userName: user.name || 'usuario',
+        userEmail: user.email,
+      });
     } catch (notificationError) {
       console.error('Password changed notification failed:', notificationError);
     }

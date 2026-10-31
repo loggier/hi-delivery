@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
     const { data: user } = await supabase
       .from('users')
-      .select('name')
+      .select('name, email')
       .eq('id', resetRequest.user_id)
       .maybeSingle();
 
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       await sendPasswordChangedNotice({
         recipient: resetRequest.recipient,
         userName: user?.name || 'usuario',
+        userEmail: user?.email ?? null,
       });
     } catch (notificationError) {
       console.error('Password changed notification failed:', notificationError);

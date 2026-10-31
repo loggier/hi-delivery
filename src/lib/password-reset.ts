@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { addHours, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+import { withTimeout } from '@/lib/mail/send-with-timeout';
 import { sendNotification } from '@/lib/notifications/notification-service';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
@@ -17,6 +18,7 @@ type ResetUser = {
   id: string;
   name: string;
   status?: string | null;
+  email?: string | null;
 };
 
 export type PasswordResetRecipient = {
@@ -118,14 +120,14 @@ export async function findWebResetRecipientByPhone(phone: string): Promise<Passw
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, status')
+    .select('id, name, status, email')
     .eq('id', business.user_id)
     .maybeSingle();
 
   if (!user || user.status !== 'ACTIVE') return null;
 
   return {
-    user: { id: user.id, name: user.name || 'usuario', status: user.status },
+    user: { id: user.id, name: user.name || 'usuario', status: user.status, email: user.email ?? null },
     targetType: 'web',
     recipient: normalizeWhatsappRecipient(business.phone_whatsapp || phone),
   };
@@ -146,7 +148,7 @@ export async function findRiderResetRecipientByPhone(phone: string): Promise<Pas
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, status')
+    .select('id, name, status, email')
     .eq('id', rider.user_id)
     .maybeSingle();
 
@@ -155,7 +157,12 @@ export async function findRiderResetRecipientByPhone(phone: string): Promise<Pas
   const riderName = [rider.first_name, rider.last_name].filter(Boolean).join(' ').trim();
 
   return {
-    user: { id: user.id, name: user.name || riderName || 'repartidor', status: user.status },
+    user: {
+      id: user.id,
+      name: user.name || riderName || 'repartidor',
+      status: user.status,
+      email: user.email ?? null,
+    },
     targetType: 'rider',
     recipient: normalizeWhatsappRecipient(rider.phone_e164 || phone),
   };
@@ -174,50 +181,107 @@ export async function hasRecentPasswordResetRequests(recipient: string) {
   return (count ?? 0) >= PASSWORD_RESET_MAX_REQUESTS_PER_WINDOW;
 }
 
+/**
+ * Envío por correo best-effort con tiempo límite. Si el usuario no tiene correo, no hace nada.
+ * Nunca lanza: si falla o expira, registra sólo la plantilla y el error, sin destinatario.
+ */
+async function sendPasswordEmailBestEffort(input: {
+  userEmail?: string | null;
+  templateKey: string;
+  variables: Record<string, unknown>;
+}): Promise<void> {
+  const recipient = input.userEmail?.trim();
+  if (!recipient) return;
+
+  try {
+    await withTimeout(
+      sendNotification({
+        templateKey: input.templateKey,
+        channel: 'email',
+        recipient,
+        variables: input.variables,
+      }),
+    );
+  } catch (error: unknown) {
+    console.error(
+      `Password email notification failed (${input.templateKey}):`,
+      error instanceof Error ? error.message : 'error desconocido',
+    );
+  }
+}
+
 export async function sendPasswordResetLink(input: {
   recipient: string;
   userName: string;
+  userEmail?: string | null;
   resetLink: string;
   expiresAt: Date;
 }) {
-  return sendNotification({
-    templateKey: 'password.reset_request',
-    channel: 'whatsapp',
-    recipient: input.recipient,
-    variables: {
-      'user.name': input.userName,
-      'password.reset_link': input.resetLink,
-      'password.reset_expires_at': formatResetExpiry(input.expiresAt),
-    },
-  });
+  const variables = {
+    'user.name': input.userName,
+    'password.reset_link': input.resetLink,
+    'password.reset_expires_at': formatResetExpiry(input.expiresAt),
+  };
+
+  // WhatsApp primero. El correo se intenta siempre (finally), aunque WhatsApp falle;
+  // el error de WhatsApp sigue propagándose al llamador.
+  try {
+    return await sendNotification({
+      templateKey: 'password.reset_request',
+      channel: 'whatsapp',
+      recipient: input.recipient,
+      variables,
+    });
+  } finally {
+    await sendPasswordEmailBestEffort({ userEmail: input.userEmail, templateKey: 'password.reset_request', variables });
+  }
 }
 
 export async function sendPasswordResetCode(input: {
   recipient: string;
   userName: string;
+  userEmail?: string | null;
   code: string;
 }) {
-  return sendNotification({
-    templateKey: 'password.reset_code',
-    channel: 'whatsapp',
-    recipient: input.recipient,
-    variables: {
-      'user.name': input.userName,
-      'password.reset_code': input.code,
-    },
-  });
+  const variables = {
+    'user.name': input.userName,
+    'password.reset_code': input.code,
+  };
+
+  try {
+    return await sendNotification({
+      templateKey: 'password.reset_code',
+      channel: 'whatsapp',
+      recipient: input.recipient,
+      variables,
+    });
+  } finally {
+    await sendPasswordEmailBestEffort({ userEmail: input.userEmail, templateKey: 'password.reset_code', variables });
+  }
 }
 
+/**
+ * Aviso de contraseña cambiada. `recipient` es el WhatsApp; si es null se omite ese canal.
+ */
 export async function sendPasswordChangedNotice(input: {
-  recipient: string;
+  recipient: string | null;
   userName: string;
-}) {
-  return sendNotification({
-    templateKey: 'password.changed',
-    channel: 'whatsapp',
-    recipient: input.recipient,
-    variables: {
-      'user.name': input.userName,
-    },
-  });
+  userEmail?: string | null;
+}): Promise<void> {
+  const variables = {
+    'user.name': input.userName,
+  };
+
+  try {
+    if (input.recipient) {
+      await sendNotification({
+        templateKey: 'password.changed',
+        channel: 'whatsapp',
+        recipient: input.recipient,
+        variables,
+      });
+    }
+  } finally {
+    await sendPasswordEmailBestEffort({ userEmail: input.userEmail, templateKey: 'password.changed', variables });
+  }
 }

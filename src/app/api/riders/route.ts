@@ -5,6 +5,13 @@ import { createServerClient } from '@supabase/ssr';
 import { riderAccountCreationSchema } from '@/lib/schemas';
 import { faker } from '@faker-js/faker';
 import { hashPassword } from '@/lib/auth-utils';
+import { sendAccountWelcomeEmail } from '@/lib/notifications/account-welcome';
+import { sendRiderRegistrationLinkEmail } from '@/lib/notifications/rider-registration-emails';
+import {
+  createRegistrationToken,
+  getRegistrationTokenExpiry,
+  hashRegistrationToken,
+} from '@/lib/rider-registration-token';
 import type { User } from '@/types';
 
 async function handleCreateRider(request: Request, supabaseAdmin: any) {
@@ -51,6 +58,8 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
     createdUserId = createdUser.id;
 
     const riderId = `rider-${faker.string.uuid()}`;
+    const registrationToken = createRegistrationToken();
+    const registrationTokenExpiresAt = getRegistrationTokenExpiry();
     const newRiderForDb = {
       id: riderId,
       user_id: createdUser.id,
@@ -60,9 +69,11 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
       phone_e164: data.phoneE164,
       status: 'incomplete' as const,
       password_hash: hashedPassword,
+      registration_token_hash: hashRegistrationToken(registrationToken),
+      registration_token_expires_at: registrationTokenExpiresAt.toISOString(),
     };
 
-    const { data: createdRider, error: insertError } = await supabaseAdmin
+    const { error: insertError } = await supabaseAdmin
       .from('riders')
       .insert(newRiderForDb)
       .select()
@@ -81,6 +92,15 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
         return NextResponse.json({ message: 'Error al crear el perfil del repartidor.', error: insertError.message }, { status: 500 });
     }
     
+    // Best-effort con tiempo límite: los helpers nunca lanzan, así que no alteran el 201.
+    await sendAccountWelcomeEmail({ email: createdUser.email, userName: createdUser.name });
+    await sendRiderRegistrationLinkEmail({
+      email: createdUser.email,
+      userName: createdUser.name,
+      registrationToken,
+      expiresAt: registrationTokenExpiresAt,
+    });
+
     const userForSession: User = {
         id: createdUser.id,
         name: createdUser.name,
@@ -90,7 +110,13 @@ async function handleCreateRider(request: Request, supabaseAdmin: any) {
         status: createdUser.status,
     };
 
-    return NextResponse.json({ message: "Cuenta creada con éxito. Ahora completa tu perfil.", user: userForSession, riderId: createdRider.id }, { status: 201 });
+    // El token se devuelve sólo al creador (mismo navegador). El UUID del repartidor no se expone en la URL.
+    return NextResponse.json({
+      message: "Cuenta creada con éxito. Ahora completa tu perfil.",
+      user: userForSession,
+      registrationToken,
+      registrationExpiresAt: registrationTokenExpiresAt.toISOString(),
+    }, { status: 201 });
 
   } catch (error) {
     console.error('Unexpected error in rider registration API (create mode):', error);

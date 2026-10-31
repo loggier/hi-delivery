@@ -1,6 +1,7 @@
 import type { NotificationChannel, NotificationTemplate } from '@/types';
 import { sendEvolutionTextMessage } from '@/lib/evolution';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { renderBrandedEmail } from '@/lib/mail/email-layout';
 import { sendEmail } from '@/lib/mail/mailer';
 import {
   extractNotificationVariables,
@@ -15,6 +16,17 @@ export type SendNotificationInput = {
   recipient: string;
   variables: Record<string, unknown>;
 };
+
+/**
+ * Base pública para recursos del correo (logo). Prioriza APP_PUBLIC_URL y,
+ * si no existe, usa la constante app.site_url. Devuelve null si no hay ninguna.
+ */
+function resolvePublicBaseUrl(siteUrlConstant: unknown): string | null {
+  const fromEnv = process.env.APP_PUBLIC_URL?.trim().replace(/\/+$/, '');
+  if (fromEnv) return fromEnv;
+  const fromConstant = String(siteUrlConstant ?? '').trim().replace(/\/+$/, '');
+  return fromConstant || null;
+}
 
 export async function sendNotification(input: SendNotificationInput) {
   const supabase = createSupabaseAdminClient();
@@ -100,10 +112,20 @@ export async function sendNotification(input: SendNotificationInput) {
         throw new Error('La plantilla de correo necesita un asunto.');
       }
 
+      const publicBaseUrl = resolvePublicBaseUrl(mergedVariables['app.site_url']);
+      const html = renderBrandedEmail({
+        subject: renderedSubject,
+        bodyText: renderedBody,
+        appName: String(mergedVariables['app.name'] ?? '').trim(),
+        siteUrl: String(mergedVariables['app.site_url'] ?? '').trim() || null,
+        logoUrl: publicBaseUrl ? `${publicBaseUrl}/logo-hid.png` : null,
+      });
+
       const emailResult = await sendEmail({
         to: input.recipient,
         subject: renderedSubject,
         text: renderedBody,
+        html,
       });
 
       providerResponse = {

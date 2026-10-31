@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       await sendPasswordResetLink({
         recipient: recipient.recipient,
         userName: recipient.user.name,
+        userEmail: recipient.user.email,
         resetLink,
         expiresAt,
       });
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
       await sendPasswordResetCode({
         recipient: recipient.recipient,
         userName: recipient.user.name,
+        userEmail: recipient.user.email,
         code,
       });
     }

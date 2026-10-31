@@ -13,6 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { FormInput, FormFutureDatePicker, FormFileUpload } from '@/app/site/apply/_components/form-components';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  buildRegistrationStepUrl,
+  fetchRegistrationRider,
+  INVALID_REGISTRATION_LINK_MESSAGE,
+  registrationAuthHeaders,
+} from '../_lib/registration-client';
 
 const policyInfoSchema = riderApplicationBaseSchema.pick({
   insurer: true,
@@ -26,7 +32,8 @@ type PolicyInfoFormValues = z.infer<typeof policyInfoSchema>;
 export function Step4_PolicyInfo() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const riderId = searchParams.get('id');
+  const token = searchParams.get('token');
+  const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
@@ -44,24 +51,17 @@ export function Step4_PolicyInfo() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!riderId) {
-        toast({ title: "Error de ID", description: "No se encontró el ID del repartidor. Por favor, vuelve al paso 1.", variant: "destructive" });
+      if (!token) {
+        toast({ title: "Enlace inválido", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
         router.push('/site/deliveryman/apply');
         return;
       }
       setIsFetchingData(true);
       try {
-        const supabase = createClient();
-        const { data: riderData, error } = await supabase
-          .from('riders')
-          .select('insurer, policy_number, policy_valid_until')
-          .eq('id', riderId)
-          .single();
-        
-        if (error && error.code !== 'PGRST116') {
-            throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
-        }
-        
+        const payload = await fetchRegistrationRider(token);
+        setRiderId(payload.riderId);
+        const riderData = payload.rider;
+
         if (riderData) {
           methods.reset({
             insurer: riderData.insurer || '',
@@ -80,11 +80,11 @@ export function Step4_PolicyInfo() {
       }
     }
     fetchRiderData();
-  }, [riderId, methods, toast, router]);
+  }, [token, methods, toast, router]);
 
   const onSubmit = async (data: PolicyInfoFormValues) => {
-    if (!riderId) {
-      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
+    if (!token || !riderId) {
+      toast({ title: "Error de autenticación", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
       router.push('/site/deliveryman/apply');
       return;
     }
@@ -105,6 +105,7 @@ export function Step4_PolicyInfo() {
       
       const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
+        headers: registrationAuthHeaders(token),
         body: formData,
       });
 
@@ -114,7 +115,7 @@ export function Step4_PolicyInfo() {
       }
       
       toast({ title: "Póliza Guardada", variant: "success" });
-      router.push(`/site/deliveryman/apply/extras?id=${riderId}`);
+      router.push(buildRegistrationStepUrl('extras', token));
 
     } catch (error) {
       toast({

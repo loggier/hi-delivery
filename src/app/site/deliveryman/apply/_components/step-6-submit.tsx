@@ -15,6 +15,11 @@ import { FormImageUpload } from '@/app/site/apply/_components/form-components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  fetchRegistrationRider,
+  INVALID_REGISTRATION_LINK_MESSAGE,
+  registrationAuthHeaders,
+} from '../_lib/registration-client';
 
 const submitSchema = riderApplicationBaseSchema.pick({
   avatar1x1Url: true,
@@ -37,7 +42,8 @@ type SubmitFormValues = z.infer<typeof submitSchema>;
 export function Step6_Submit() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const riderId = searchParams.get('id');
+  const token = searchParams.get('token');
+  const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -51,15 +57,25 @@ export function Step6_Submit() {
   });
 
   useEffect(() => {
-    if (!riderId) {
-        toast({ title: "Error de sesión", description: "No se pudo encontrar tu ID. Por favor, inicia sesión de nuevo.", variant: "destructive" });
-        router.push('/site/deliveryman/apply');
+    if (!token) {
+      toast({ title: "Enlace inválido", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
+      router.push('/site/deliveryman/apply');
+      return;
     }
-  }, [riderId, router, toast]);
+    fetchRegistrationRider(token)
+      .then((payload) => setRiderId(payload.riderId))
+      .catch((error: unknown) => {
+        toast({
+          title: "Enlace inválido",
+          description: error instanceof Error ? error.message : INVALID_REGISTRATION_LINK_MESSAGE,
+          variant: "destructive",
+        });
+      });
+  }, [token, router, toast]);
 
   const onSubmit = async (data: SubmitFormValues) => {
-    if (!riderId) {
-      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para continuar.", variant: "destructive" });
+    if (!token || !riderId) {
+      toast({ title: "Error de autenticación", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
       router.push('/site/deliveryman/apply');
       return;
     }
@@ -73,10 +89,12 @@ export function Step6_Submit() {
       } else if(data.avatar1x1Url instanceof FileList && data.avatar1x1Url.length > 0) {
         formData.append('avatar1x1Url', data.avatar1x1Url[0]);
       }
-      formData.append('status', 'pending_review');
-      
+      // Envío final: el servidor pasa a revisión e invalida el token. El cliente no envía `status`.
+      formData.append('submit', 'true');
+
       const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
+        headers: registrationAuthHeaders(token),
         body: formData,
       });
 

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Form } from '@/components/ui/form';
+import { buildRegistrationStepUrl } from '../_lib/registration-client';
 
 type AccountCreationFormValues = z.infer<typeof riderAccountCreationSchema>;
 
@@ -52,7 +53,10 @@ export function Step1_AccountCreation() {
         description: "Ahora completa el resto de tu información.",
         variant: "success",
       });
-      router.push(`/site/deliveryman/apply/personal-info?id=${result.riderId}`);
+      if (typeof result.registrationToken !== 'string' || !result.registrationToken) {
+        throw new Error('No se pudo iniciar tu registro. Intenta de nuevo.');
+      }
+      router.push(buildRegistrationStepUrl('personal-info', result.registrationToken));
 
     } catch (error) {
       toast({

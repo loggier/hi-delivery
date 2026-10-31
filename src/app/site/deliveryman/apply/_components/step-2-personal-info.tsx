@@ -7,13 +7,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { FormInput, FormBirthDatePicker, FormSelect, FormFileUpload } from '@/app/site/apply/_components/form-components';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  buildRegistrationStepUrl,
+  fetchRegistrationRider,
+  INVALID_REGISTRATION_LINK_MESSAGE,
+  registrationAuthHeaders,
+} from '../_lib/registration-client';
 
 const personalInfoSchema = riderApplicationBaseSchema.pick({
   motherLastName: true,
@@ -29,7 +34,8 @@ type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 export function Step2_PersonalInfo() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const riderId = searchParams.get('id');
+  const token = searchParams.get('token');
+  const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
@@ -52,32 +58,23 @@ export function Step2_PersonalInfo() {
 
   useEffect(() => {
     async function fetchRiderData() {
-      if (!riderId) {
-        toast({ title: "Error de ID", description: "No se encontró el ID del repartidor. Por favor, vuelve al paso 1.", variant: "destructive" });
+      if (!token) {
+        toast({ title: "Enlace inválido", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
         router.push('/site/deliveryman/apply');
         return;
       };
       setIsFetchingData(true);
       try {
-        const supabase = createClient();
-        const { data: riderData, error } = await supabase
-          .from('riders')
-          .select('mother_last_name, birth_date, zone_id, address')
-          .eq('id', riderId)
-          .single();
-        
-        if (error && error.code !== 'PGRST116') { // Ignore 'exact one row' error if profile is empty
-          throw new Error("No se pudo recuperar tu información. Por favor, intenta de nuevo.");
-        }
-        
-        if (riderData) {
-          methods.reset({
-            motherLastName: riderData.mother_last_name || '',
-            birthDate: riderData.birth_date ? new Date(riderData.birth_date) : undefined,
-            zone_id: riderData.zone_id || '',
-            address: riderData.address || '',
-          });
-        }
+        const payload = await fetchRegistrationRider(token);
+        setRiderId(payload.riderId);
+        const riderData = payload.rider;
+
+        methods.reset({
+          motherLastName: riderData.mother_last_name || '',
+          birthDate: riderData.birth_date ? new Date(riderData.birth_date) : undefined,
+          zone_id: riderData.zone_id || '',
+          address: riderData.address || '',
+        });
       } catch (error) {
         toast({
           variant: "destructive",
@@ -89,11 +86,11 @@ export function Step2_PersonalInfo() {
       }
     }
     fetchRiderData();
-  }, [riderId, methods, toast, router]);
+  }, [token, methods, toast, router]);
 
   const onSubmit = async (data: PersonalInfoFormValues) => {
-    if (!riderId) {
-      toast({ title: "Error de autenticación", description: "No se encontró ID de repartidor. Debes iniciar sesión para continuar.", variant: "destructive" });
+    if (!token || !riderId) {
+      toast({ title: "Error de autenticación", description: INVALID_REGISTRATION_LINK_MESSAGE, variant: "destructive" });
       router.push('/site/deliveryman/apply');
       return;
     }
@@ -114,6 +111,7 @@ export function Step2_PersonalInfo() {
       
       const response = await fetch(`/api/riders/${riderId}`, {
         method: 'POST',
+        headers: registrationAuthHeaders(token),
         body: formData,
       });
 
@@ -121,9 +119,9 @@ export function Step2_PersonalInfo() {
       if (!response.ok) {
         throw new Error(result.message || "Error al guardar tu información.");
       }
-      
+
       toast({ title: "Información Guardada", variant: "success" });
-      router.push(`/site/deliveryman/apply/vehicle-info?id=${riderId}`);
+      router.push(buildRegistrationStepUrl('vehicle-info', token));
 
     } catch (error) {
       toast({
