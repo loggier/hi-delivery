@@ -30,27 +30,46 @@ export function readBearerToken(request: Request): string | null {
   return token && token.length <= MAX_TOKEN_LENGTH ? token : null;
 }
 
+export type RegistrationTokenState =
+  | { state: 'active'; riderId: string }
+  | { state: 'submitted'; riderId: string }
+  | { state: 'invalid' };
+
 /**
- * Verifica un token de registro. Devuelve el riderId si el hash coincide y el token
- * no ha expirado (o no fue invalidado al enviar la solicitud). Devuelve null en otro caso.
+ * Estado de un token de registro:
+ * - `active`: coincide con un repartidor en `incomplete` y no ha expirado. Puede usar el wizard.
+ * - `submitted`: coincide con un repartidor que ya no está en `incomplete` (envío final o revisión).
+ * - `invalid`: no coincide, o está vencido sin envío.
  */
-export async function verifyRegistrationToken(token: string | null | undefined): Promise<string | null> {
+export async function getRegistrationTokenState(token: string | null | undefined): Promise<RegistrationTokenState> {
   const trimmed = token?.trim();
-  if (!trimmed || trimmed.length > MAX_TOKEN_LENGTH) return null;
+  if (!trimmed || trimmed.length > MAX_TOKEN_LENGTH) return { state: 'invalid' };
 
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from('riders')
-    .select('id, registration_token_expires_at')
+    .select('id, status, registration_token_expires_at')
     .eq('registration_token_hash', hashRegistrationToken(trimmed))
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data) return { state: 'invalid' };
+
+  const riderId = String(data.id);
+  if (data.status !== 'incomplete') return { state: 'submitted', riderId };
 
   const expiresAt = data.registration_token_expires_at
     ? new Date(data.registration_token_expires_at).getTime()
     : Number.NaN;
-  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return { state: 'invalid' };
 
-  return String(data.id);
+  return { state: 'active', riderId };
+}
+
+/**
+ * Verifica un token para escrituras y lecturas del wizard. Devuelve el riderId sólo si el
+ * token está `active`. Un repartidor que ya no está en `incomplete` no puede escribir con su token.
+ */
+export async function verifyRegistrationToken(token: string | null | undefined): Promise<string | null> {
+  const result = await getRegistrationTokenState(token);
+  return result.state === 'active' ? result.riderId : null;
 }

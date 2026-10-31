@@ -84,6 +84,96 @@ export function buildRiderTextColumns(fields: RiderSelfTextFields): Record<strin
   return columns;
 }
 
+const isoDateString = z
+  .string()
+  .trim()
+  .refine((value) => !Number.isNaN(Date.parse(value)), 'La fecha no es válida.');
+
+/**
+ * Campos que un administrador puede editar desde el panel (rider-form). Nunca incluye
+ * `email`, `password_hash`, `user_id` ni `status`: el estado sólo cambia por `/api/riders/[id]/status`.
+ * Acepta fechas ISO completas, que es el formato que envía el formulario admin.
+ */
+export const riderAdminTextSchema = z.object({
+  first_name: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres.').max(80).optional(),
+  last_name: z.string().trim().min(2, 'El apellido debe tener al menos 2 caracteres.').max(80).optional(),
+  mother_last_name: z.string().trim().max(80).optional(),
+  motherLastName: z.string().trim().max(80).optional(),
+  phone_e164: z.string().trim().regex(/^\+[1-9]\d{7,14}$/, 'El teléfono debe estar en formato internacional (+52...).').optional(),
+  birthDate: isoDateString.optional(),
+  zone_id: z.string().trim().min(1).max(100).optional(),
+  address: z.string().trim().min(5, 'La dirección debe tener al menos 5 caracteres.').max(300).optional(),
+  ownership: z.enum(VEHICLE_OWNERSHIP).optional(),
+  brand: z.string().trim().min(1).max(60).optional(),
+  year: z.coerce.number().int().min(1990).max(CURRENT_YEAR + 1).optional(),
+  model: z.string().trim().max(60).optional(),
+  color: z.string().trim().max(40).optional(),
+  plate: z.string().trim().min(4).max(12).optional(),
+  licenseValidUntil: isoDateString.optional(),
+  insurer: z.string().trim().max(100).optional(),
+  policyNumber: z.string().trim().max(60).optional(),
+  policyValidUntil: isoDateString.optional(),
+  hasHelmet: booleanString.optional(),
+  hasUniform: booleanString.optional(),
+  hasBox: booleanString.optional(),
+  is_active_for_orders: booleanString.optional(),
+});
+
+export type RiderAdminTextFields = z.infer<typeof riderAdminTextSchema>;
+
+const ADMIN_TEXT_COLUMNS: Record<Exclude<keyof RiderAdminTextFields, 'motherLastName'>, string> = {
+  first_name: 'first_name',
+  last_name: 'last_name',
+  mother_last_name: 'mother_last_name',
+  phone_e164: 'phone_e164',
+  birthDate: 'birth_date',
+  zone_id: 'zone_id',
+  address: 'address',
+  ownership: 'ownership',
+  brand: 'brand',
+  year: 'year',
+  model: 'model',
+  color: 'color',
+  plate: 'plate',
+  licenseValidUntil: 'license_valid_until',
+  insurer: 'insurer',
+  policyNumber: 'policy_number',
+  policyValidUntil: 'policy_valid_until',
+  hasHelmet: 'has_helmet',
+  hasUniform: 'has_uniform',
+  hasBox: 'has_box',
+  is_active_for_orders: 'is_active_for_orders',
+};
+
+const ADMIN_DATE_FIELDS = new Set<keyof RiderAdminTextFields>(['birthDate', 'licenseValidUntil', 'policyValidUntil']);
+const ADMIN_BOOLEAN_FIELDS = new Set<keyof RiderAdminTextFields>(['hasHelmet', 'hasUniform', 'hasBox', 'is_active_for_orders']);
+
+/** Convierte los campos admin validados a columnas de `riders`. `motherLastName` es alias de `mother_last_name`. */
+export function buildRiderAdminTextColumns(fields: RiderAdminTextFields): Record<string, string | number | boolean> {
+  const columns: Record<string, string | number | boolean> = {};
+
+  for (const field of Object.keys(ADMIN_TEXT_COLUMNS) as Array<keyof typeof ADMIN_TEXT_COLUMNS>) {
+    const raw = fields[field];
+    if (raw === undefined) continue;
+
+    const column = ADMIN_TEXT_COLUMNS[field];
+    if (ADMIN_DATE_FIELDS.has(field)) {
+      columns[column] = new Date(String(raw)).toISOString();
+    } else if (ADMIN_BOOLEAN_FIELDS.has(field)) {
+      columns[column] = raw === 'true';
+    } else {
+      columns[column] = raw as string | number;
+    }
+  }
+
+  // Alias del esquema: si llega `motherLastName` y no `mother_last_name`, se usa.
+  if (fields.motherLastName !== undefined && fields.mother_last_name === undefined) {
+    columns.mother_last_name = fields.motherLastName;
+  }
+
+  return columns;
+}
+
 /** Archivos de documentos del repartidor: nombre del campo -> columna de `riders`. */
 export const RIDER_DOCUMENT_COLUMNS: Record<string, string> = {
   ineFrontUrl: 'ine_front_url',

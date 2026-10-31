@@ -984,6 +984,12 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - La respuesta de `POST /api/riders/[id]` ya no incluye `password_hash` ni tokens.
 - Wizard (`src/app/site/deliveryman/apply/_components/`): los pasos usan `?token=`. `?id=` se trata como enlace inválido. Los datos se cargan por `GET /api/riders/by-token` y no con consultas directas a Supabase.
 - Pendiente: el enlace con el token queda registrado en `notification_logs` (`rendered_body` y `variables`). Ver también la sección de correo. Bucket de Storage: no se modificó; si es público, las URLs de documentos son públicas.
+- Estado del token (`getRegistrationTokenState`): `active` (repartidor en `incomplete` y vigente), `submitted` (repartidor ya fuera de `incomplete`) e `invalid` (no coincide o venció sin envío). Las escrituras con token exigen `active`.
+- Páginas del wizard (`personal-info`, `vehicle-info`, `policy-info`, `extras`, `submit`): son servidor. Validan el token antes de renderizar; si no es `active`, muestran sólo el aviso de `_components/registration-notice.tsx` (enlace no válido o solicitud enviada), sin formulario. El envío final lleva a `/site/deliveryman/apply/submitted`.
+- Activación administrativa: `POST /api/riders/[id]/status` (sólo `requireAdminOperationSession()`), con body `{ status: 'approved' | 'rejected' | 'inactive' }`. Transiciones: `pending_review` a `approved` o `rejected`; `inactive` a `approved`; `approved` a `inactive`. Al aprobar envía `rider.account_activated` (best-effort, con timeout). Se usa `approved` y no `active` porque `riders_status_check` no acepta `active` y el resto de la app trata `approved` como repartidor activo.
+- `api.riders.useUpdate` (`src/lib/api.ts`): los cambios de `status` de repartidor pasan por la ruta admin. Los demás campos siguen con update directo.
+- `POST /api/riders/[id]` acepta dos credenciales. (1) Token de registro del mismo repartidor: lista blanca de repartidor (`riderSelfTextSchema` y archivos). (2) Sesión admin (`requireAdminOperationSession`): lista blanca administrativa (`riderAdminTextSchema`) que cubre lo que edita `rider-form.tsx`: `first_name`, `last_name`, `mother_last_name`, `phone_e164`, `birthDate`, `zone_id`, `address`, vehículo (`ownership`, `brand`, `year`, `model`, `color`, `plate`, `licenseValidUntil`), póliza (`insurer`, `policyNumber`, `policyValidUntil`), extras (`hasHelmet`, `hasUniform`, `hasBox`), `is_active_for_orders`, documentos, fotos y `avatar1x1Url`. Sin credencial válida: 401. Token de otro repartidor sin sesión admin: 403. Ni el token ni la sesión admin escriben `email`, `password_hash`, `user_id` ni `status` desde esta ruta; el estado sólo cambia por `POST /api/riders/[id]/status`.
+- Pendiente: el campo `status` del formulario admin ya no se aplica desde esta ruta. Debe llamar a `/api/riders/[id]/status`.
 
 ## Token de registro de repartidores (2026-10-31)
 
@@ -991,3 +997,9 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Plantillas de correo para repartidores (`channel = 'email'`, `status = 'ACTIVE'`, audience `rider`, `ON CONFLICT (template_key, channel) DO NOTHING`): `rider.registration_link` (variables: `user.name`, `registration.link`, `registration.expires_at`, `app.brand_signature`) y `rider.documents_received` (variables: `user.name`, `app.brand_signature`).
 - Estado: escrita, **no aplicada** en la base. La verificación previa y la aplicación quedaron bloqueadas por permisos de lectura sobre producción.
 - Rollback: el cambio es sólo aditivo. Para revertir hay que quitar el índice, las dos columnas y las dos filas de plantilla. Eso implica DROP y debe autorizarse aparte, porque la regla de esta migración es no borrar.
+
+## Plantilla de cuenta de repartidor activa (2026-10-31)
+
+- Migración `src/sql/2026-10-31_rider_account_activated.sql` (forward-only, sólo INSERT): plantilla `rider.account_activated` con `channel = 'email'`, `audience = 'rider'`, `status = 'ACTIVE'`, asunto "Tu cuenta de repartidor está activa", `ON CONFLICT (template_key, channel) DO NOTHING`. Variables: `user.name`, `app.brand_signature`.
+- Estado: escrita, **no aplicada** en la base. La verificación previa (que no exista) y la aplicación quedaron bloqueadas por permisos de lectura sobre producción.
+- Rollback: quitar la fila `rider.account_activated` con `channel = 'email'`. Requiere DELETE, así que necesita autorización aparte.

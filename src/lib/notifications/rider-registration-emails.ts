@@ -5,7 +5,7 @@ import { withTimeout } from '@/lib/mail/send-with-timeout';
 import { sendNotification } from '@/lib/notifications/notification-service';
 
 async function sendRiderEmailBestEffort(
-  templateKey: 'rider.registration_link' | 'rider.documents_received',
+  templateKey: 'rider.registration_link' | 'rider.documents_received' | 'rider.account_activated',
   recipient: string,
   variables: Record<string, unknown>,
 ): Promise<void> {
@@ -51,6 +51,21 @@ export async function sendRiderRegistrationLinkEmail(input: {
     'user.name': input.userName,
     'registration.link': registrationLink,
     'registration.expires_at': format(input.expiresAt, "d 'de' MMMM, yyyy, h:mm a", { locale: es }),
+  });
+}
+
+/**
+ * Cuenta activada (rider.account_activated), enviada al aprobar al repartidor. Best-effort: nunca lanza.
+ */
+export async function sendRiderAccountActivatedEmail(input: {
+  email: string | null | undefined;
+  userName: string;
+}): Promise<void> {
+  const recipient = input.email?.trim();
+  if (!recipient) return;
+
+  await sendRiderEmailBestEffort('rider.account_activated', recipient, {
+    'user.name': input.userName,
   });
 }
 

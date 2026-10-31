@@ -10,10 +10,9 @@ import { Form } from '@/components/ui/form';
 import { riderApplicationBaseSchema } from '@/lib/schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Loader2, Check, ShieldCheck, CheckCircle } from 'lucide-react';
+import { Loader2, Check, ShieldCheck } from 'lucide-react';
 import { FormImageUpload } from '@/app/site/apply/_components/form-components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   fetchRegistrationRider,
@@ -46,7 +45,6 @@ export function Step6_Submit() {
   const [riderId, setRiderId] = useState<string | null>(null);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   
   const methods = useForm<SubmitFormValues>({
     resolver: zodResolver(submitSchema),
@@ -103,7 +101,7 @@ export function Step6_Submit() {
         throw new Error(result.message || "Error al guardar tu información.");
       }
       
-      setIsSuccess(true);
+      router.replace('/site/deliveryman/apply/submitted');
 
     } catch (error) {
       toast({
@@ -115,21 +113,6 @@ export function Step6_Submit() {
       setIsSubmitting(false);
     }
   };
-
-  if (isSuccess) {
-    return (
-        <div className="text-center py-16">
-            <CheckCircle className="mx-auto h-16 w-16 text-green-500"/>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">¡Solicitud Enviada!</h2>
-            <p className="mt-2 text-lg text-slate-600 dark:text-slate-400">
-                Hemos recibido tu información correctamente. Revisaremos tu solicitud y nos pondremos en contacto contigo pronto.
-            </p>
-            <Button asChild className="mt-8">
-                <Link href="/site">Volver al inicio</Link>
-            </Button>
-        </div>
-    )
-  }
 
   return (
     <FormProvider {...methods}>

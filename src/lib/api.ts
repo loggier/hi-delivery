@@ -265,6 +265,41 @@ function createApi<T extends { id: string | number }>(
     return useMutation<T, Error, Partial<T_DTO>>({
         mutationFn: async (itemData) => {
             const { id, ...updateData } = itemData;
+
+            // Cambios de estado de repartidor: pasan por la ruta admin (valida transición y envía correo).
+            if (entity === 'riders' && Object.prototype.hasOwnProperty.call(updateData, 'status')) {
+                const { status, ...otherFields } = updateData as Record<string, unknown>;
+                const response = await fetch(`/api/riders/${encodeURIComponent(String(id))}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status }),
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(extractApiErrorMessage(result, `Error al actualizar ${translatedEntity}`));
+                }
+
+                if (Object.keys(otherFields).length === 0) {
+                    // Se relee la fila completa para no reemplazar el caché con un objeto parcial.
+                    const { data: rider, error: readError } = await supabase
+                        .from(entity)
+                        .select()
+                        .eq('id', id)
+                        .single();
+                    if (readError) throw readError;
+                    return rider as T;
+                }
+
+                const { data, error } = await supabase
+                    .from(entity)
+                    .update(otherFields)
+                    .eq('id', id)
+                    .select()
+                    .single();
+                if (error) throw error;
+                return data as T;
+            }
+
             const { data, error } = await supabase
                 .from(entity)
                 .update(updateData)

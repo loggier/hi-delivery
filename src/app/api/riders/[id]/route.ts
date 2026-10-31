@@ -9,17 +9,26 @@ import { AdminSessionError, requireAdminOperationSession } from '@/lib/auth/admi
 import { sendRiderDocumentsReceivedEmail } from '@/lib/notifications/rider-registration-emails';
 import { readBearerToken, verifyRegistrationToken } from '@/lib/rider-registration-token';
 import {
+  buildRiderAdminTextColumns,
   buildRiderTextColumns,
   getRiderUploadKind,
   RIDER_AVATAR_FIELD,
   RIDER_DOCUMENT_COLUMNS,
   RIDER_MOTO_PHOTO_FIELDS,
+  riderAdminTextSchema,
   riderSelfTextSchema,
   validateRiderUpload,
   type ValidatedUpload,
 } from '@/lib/rider-self-service';
 
 type RiderSupabaseClient = ReturnType<typeof createServerClient>;
+
+/**
+ * Modo de escritura según la credencial:
+ * - `rider`: token de registro del mismo repartidor. Lista blanca de repartidor (incluye envío final).
+ * - `admin`: sesión admin válida. Lista blanca administrativa. Nunca cambia `status`.
+ */
+type WriteMode = 'rider' | 'admin';
 
 function createRiderServiceClient(): RiderSupabaseClient {
   return createServerClient(
@@ -30,6 +39,15 @@ function createRiderServiceClient(): RiderSupabaseClient {
       db: { schema: process.env.SUPABASE_SCHEMA! },
     },
   );
+}
+
+async function hasAdminSession(): Promise<boolean> {
+  try {
+    await requireAdminOperationSession();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Sube un archivo validado con nombre generado en servidor (UUID). Nunca usa el nombre enviado por el cliente. */
@@ -52,21 +70,26 @@ async function uploadRiderFile(
   return data.publicUrl;
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const riderId = params.id;
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: riderId } = await params;
 
   if (!riderId) {
     return NextResponse.json({ message: 'Rider ID es requerido.' }, { status: 400 });
   }
 
-  // Autorización: el token de registro (Authorization: Bearer) debe pertenecer a este repartidor.
+  // Autorización: token de registro del mismo repartidor, o sesión admin.
   const registrationToken = readBearerToken(request);
-  const authorizedRiderId = registrationToken ? await verifyRegistrationToken(registrationToken) : null;
-  if (!authorizedRiderId) {
-    return NextResponse.json({ message: 'Autenticación requerida o enlace vencido.' }, { status: 401 });
-  }
-  if (authorizedRiderId !== riderId) {
+  const tokenRiderId = registrationToken ? await verifyRegistrationToken(registrationToken) : null;
+
+  let mode: WriteMode;
+  if (tokenRiderId && tokenRiderId === riderId) {
+    mode = 'rider';
+  } else if (await hasAdminSession()) {
+    mode = 'admin';
+  } else if (tokenRiderId) {
     return NextResponse.json({ message: 'No tienes permiso para modificar este repartidor.' }, { status: 403 });
+  } else {
+    return NextResponse.json({ message: 'Autenticación requerida o enlace vencido.' }, { status: 401 });
   }
 
   let formData: FormData;
@@ -76,7 +99,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ message: 'Formulario inválido.' }, { status: 400 });
   }
 
-  // Separar texto y archivos. Los campos fuera de la lista blanca se ignoran (no se escriben).
+  // Separar texto y archivos. Los campos fuera de la lista blanca del modo se ignoran (no se escriben).
   const textInput: Record<string, string> = {};
   const fileEntries: Array<{ field: string; file: File }> = [];
   for (const [key, value] of formData.entries()) {
@@ -87,14 +110,25 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  const parsedText = riderSelfTextSchema.safeParse(textInput);
-  if (!parsedText.success) {
-    const firstIssue = parsedText.error.issues[0];
-    return NextResponse.json({ message: firstIssue?.message ?? 'Datos inválidos.' }, { status: 400 });
+  let textColumns: Record<string, string | number | boolean>;
+  if (mode === 'rider') {
+    const parsedText = riderSelfTextSchema.safeParse(textInput);
+    if (!parsedText.success) {
+      const firstIssue = parsedText.error.issues[0];
+      return NextResponse.json({ message: firstIssue?.message ?? 'Datos inválidos.' }, { status: 400 });
+    }
+    textColumns = buildRiderTextColumns(parsedText.data);
+  } else {
+    const parsedText = riderAdminTextSchema.safeParse(textInput);
+    if (!parsedText.success) {
+      const firstIssue = parsedText.error.issues[0];
+      return NextResponse.json({ message: firstIssue?.message ?? 'Datos inválidos.' }, { status: 400 });
+    }
+    textColumns = buildRiderAdminTextColumns(parsedText.data);
   }
 
-  // `submit` es la única marca de control: envío final del wizard.
-  const isFinalSubmit = textInput.submit === 'true';
+  // `submit` sólo tiene efecto con el token del repartidor: envío final del wizard.
+  const isFinalSubmit = mode === 'rider' && textInput.submit === 'true';
 
   // Validar todos los archivos antes de subir ninguno, para no dejar subidas parciales.
   const validatedUploads: Array<{ field: string; upload: Extract<ValidatedUpload, { ok: true }> }> = [];
@@ -126,7 +160,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ message: 'Tu solicitud ya fue enviada.' }, { status: 409 });
     }
 
-    const updateData: Record<string, unknown> = { ...buildRiderTextColumns(parsedText.data) };
+    const updateData: Record<string, unknown> = { ...textColumns };
 
     const motoPhotos: string[] = Array.isArray(existingRider.moto_photos) ? [...existingRider.moto_photos] : [];
     let hasMotoPhotoUpload = false;
@@ -156,13 +190,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const now = new Date().toISOString();
     updateData.updated_at = now;
 
-    // El repartidor sólo puede pasar de `incomplete` a `pending_review`, y sólo con el envío final.
-    // Invalida el token de registro al enviar. Cualquier otro cambio de estado es administrativo.
+    // Sólo el repartidor, con el envío final, pasa de `incomplete` a `pending_review` e invalida su token.
+    // El admin nunca cambia el estado aquí: eso es `POST /api/riders/[id]/status`.
     if (isFinalSubmit) {
       updateData.status = 'pending_review';
       updateData.registration_token_expires_at = now;
     }
 
+    // Sólo columnas no sensibles: nunca devolver password_hash ni tokens.
     const { data, error } = await supabaseAdmin
       .from('riders')
       .update(updateData)
@@ -194,8 +229,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
-  const riderId = params.id;
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: riderId } = await params;
 
   // Sólo administradores: sesión admin vigente (401 si no hay sesión, 403 si no es admin).
   try {

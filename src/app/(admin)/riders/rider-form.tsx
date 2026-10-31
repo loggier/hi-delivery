@@ -13,6 +13,7 @@ import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { riderApplicationBaseSchema, riderAdminUpdateSchema } from "@/lib/schemas";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import { type Rider, type Zone, type RiderStatus } from "@/types";
 import { FormBirthDatePicker, FormFileUpload, FormFutureDatePicker, FormInput, FormMultiImageUpload, FormSelect, FormImageUpload, FormCheckbox } from "@/app/site/apply/_components/form-components";
 import { vehicleBrands, vehicleYears } from "@/lib/constants";
@@ -28,6 +29,7 @@ interface RiderFormProps {
 export function RiderForm({ initialData, zones }: RiderFormProps) {
   const router = useRouter();
   const updateMutation = api.riders.useUpdateWithFormData();
+  const { toast } = useToast();
 
   const methods = useForm<RiderFormValues>({
     resolver: zodResolver(riderAdminUpdateSchema),
@@ -83,11 +85,38 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
   const onSubmit = async (data: RiderFormValues) => {
     if (!initialData) return;
 
+    // El estado se cambia por su propia ruta. Sólo si el admin lo modificó.
+    // Si falla (409 u otro error), no se guardan el resto de campos.
+    const nextStatus = data.status;
+    if (nextStatus && nextStatus !== initialData.status) {
+      try {
+        const statusResponse = await fetch(`/api/riders/${encodeURIComponent(initialData.id)}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        const statusResult = await statusResponse.json().catch(() => ({}));
+        if (!statusResponse.ok) {
+          toast({
+            variant: "destructive",
+            title: "No se cambió el estado",
+            description: typeof statusResult?.message === 'string' ? statusResult.message : "No se pudo cambiar el estado del repartidor.",
+          });
+          return;
+        }
+      } catch {
+        toast({ variant: "destructive", title: "No se cambió el estado", description: "No se pudo conectar para cambiar el estado." });
+        return;
+      }
+    }
+
     try {
       const formData = new FormData();
       const motoPhotoKeys: (keyof RiderFormValues)[] = ['motoPhotoFront', 'motoPhotoBack', 'motoPhotoLeft', 'motoPhotoRight'];
-      
+
       Object.keys(data).forEach(key => {
+        // `status` ya se cambió por su ruta; no se envía a la edición.
+        if (key === 'status') return;
         const fieldKey = key as keyof RiderFormValues;
         const value = data[fieldKey];
 
@@ -113,7 +142,10 @@ export function RiderForm({ initialData, zones }: RiderFormProps) {
         }
       });
       
-      await updateMutation.mutateAsync({ formData, id: initialData.id });
+      // Si el único cambio fue el estado, no hay nada más que guardar.
+      if (Array.from(formData.keys()).length > 0) {
+        await updateMutation.mutateAsync({ formData, id: initialData.id });
+      }
       router.push(`/riders/${initialData.id}`);
       router.refresh();
     } catch (error) {
