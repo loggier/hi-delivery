@@ -13,6 +13,7 @@ export const PASSWORD_RESET_EXPIRY_HOURS = 1;
 export const PASSWORD_RESET_MAX_CODE_ATTEMPTS = 5;
 export const PASSWORD_RESET_REQUEST_WINDOW_MINUTES = 10;
 export const PASSWORD_RESET_MAX_REQUESTS_PER_WINDOW = 3;
+export const PASSWORD_RESET_MAX_REQUESTS_PER_IP = 10;
 
 type ResetUser = {
   id: string;
@@ -26,6 +27,20 @@ export type PasswordResetRecipient = {
   targetType: PasswordResetTargetType;
   recipient: string;
 };
+
+/**
+ * Cuenta encontrada por correo o teléfono. Puede tener WhatsApp, correo o ambos.
+ * `storedRecipient` es el valor que se guarda en `password_reset_requests.recipient` (WhatsApp si existe; si no, el correo).
+ */
+export type PasswordResetAccount = {
+  user: ResetUser;
+  targetType: PasswordResetTargetType;
+  whatsappRecipient: string | null;
+  email: string | null;
+  storedRecipient: string;
+};
+
+const EMAIL_IDENTIFIER_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function buildPhoneCandidates(rawPhone: string) {
   const trimmed = rawPhone.trim();
@@ -168,17 +183,170 @@ export async function findRiderResetRecipientByPhone(phone: string): Promise<Pas
   };
 }
 
-export async function hasRecentPasswordResetRequests(recipient: string) {
+function buildAccount(
+  user: ResetUser,
+  targetType: PasswordResetTargetType,
+  whatsappRecipient: string | null,
+  email: string | null | undefined,
+): PasswordResetAccount | null {
+  const normalizedEmail = email?.trim() || null;
+  const storedRecipient = whatsappRecipient || normalizedEmail;
+  if (!storedRecipient) return null;
+
+  return { user, targetType, whatsappRecipient, email: normalizedEmail, storedRecipient };
+}
+
+/** Busca la cuenta del canal indicado por correo (users.email y perfil del canal). */
+async function findAccountByEmail(channel: PasswordResetChannel, rawEmail: string): Promise<PasswordResetAccount | null> {
+  const email = rawEmail.trim();
+  if (!EMAIL_IDENTIFIER_PATTERN.test(email)) return null;
+
+  const supabase = createSupabaseAdminClient();
+  // Escapa los comodines de LIKE para que el correo se compare literalmente.
+  const escapedEmail = email.replace(/[\\%_]/g, (char) => `\\${char}`);
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, name, status, email')
+    .ilike('email', escapedEmail)
+    .limit(1)
+    .maybeSingle();
+
+  if (!user || user.status !== 'ACTIVE') return null;
+
+  if (channel === 'web') {
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('phone_whatsapp, status')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!business || business.status !== 'ACTIVE') return null;
+
+    return buildAccount(
+      { id: user.id, name: user.name || 'usuario', status: user.status, email: user.email ?? null },
+      'web',
+      business.phone_whatsapp ? normalizeWhatsappRecipient(business.phone_whatsapp) : null,
+      user.email,
+    );
+  }
+
+  const { data: rider } = await supabase
+    .from('riders')
+    .select('phone_e164, first_name, last_name')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (!rider) return null;
+
+  const riderName = [rider.first_name, rider.last_name].filter(Boolean).join(' ').trim();
+  return buildAccount(
+    {
+      id: user.id,
+      name: user.name || riderName || 'repartidor',
+      status: user.status,
+      email: user.email ?? null,
+    },
+    'rider',
+    rider.phone_e164 ? normalizeWhatsappRecipient(rider.phone_e164) : null,
+    user.email,
+  );
+}
+
+/**
+ * Encuentra la cuenta por correo o teléfono para el canal indicado.
+ * `web` busca negocios; `app` busca repartidores. Devuelve null si no hay cuenta válida.
+ */
+export async function findPasswordResetAccount(input: {
+  channel: PasswordResetChannel;
+  identifier: string;
+}): Promise<PasswordResetAccount | null> {
+  const identifier = input.identifier.trim();
+  if (!identifier) return null;
+
+  if (identifier.includes('@')) {
+    return findAccountByEmail(input.channel, identifier);
+  }
+
+  const recipient = input.channel === 'web'
+    ? await findWebResetRecipientByPhone(identifier)
+    : await findRiderResetRecipientByPhone(identifier);
+  if (!recipient) return null;
+
+  return buildAccount(recipient.user, recipient.targetType, recipient.recipient, recipient.user.email);
+}
+
+/** Contactos actuales de un usuario (para confirmaciones). WhatsApp según el perfil del canal. */
+export async function getResetContactsForUser(
+  userId: string,
+  targetType: PasswordResetTargetType,
+): Promise<{ name: string; email: string | null; whatsappRecipient: string | null }> {
+  const supabase = createSupabaseAdminClient();
+  const { data: user } = await supabase
+    .from('users')
+    .select('name, email')
+    .eq('id', userId)
+    .maybeSingle();
+
+  let whatsappRecipient: string | null = null;
+  if (targetType === 'web') {
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('phone_whatsapp')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    whatsappRecipient = business?.phone_whatsapp ? normalizeWhatsappRecipient(business.phone_whatsapp) : null;
+  } else {
+    const { data: rider } = await supabase
+      .from('riders')
+      .select('phone_e164')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    whatsappRecipient = rider?.phone_e164 ? normalizeWhatsappRecipient(rider.phone_e164) : null;
+  }
+
+  return {
+    name: user?.name || 'usuario',
+    email: user?.email?.trim() || null,
+    whatsappRecipient,
+  };
+}
+
+/** Límite por cuenta: cuenta las solicitudes recientes del usuario para ese tipo de cuenta. */
+export async function hasTooManyRecentResetRequestsForUser(
+  userId: string,
+  targetType: PasswordResetTargetType,
+): Promise<boolean> {
   const supabase = createSupabaseAdminClient();
   const since = new Date(Date.now() - PASSWORD_RESET_REQUEST_WINDOW_MINUTES * 60 * 1000).toISOString();
 
   const { count } = await supabase
     .from('password_reset_requests')
     .select('id', { count: 'exact', head: true })
-    .eq('recipient', recipient)
+    .eq('user_id', userId)
+    .eq('target_type', targetType)
     .gte('created_at', since);
 
   return (count ?? 0) >= PASSWORD_RESET_MAX_REQUESTS_PER_WINDOW;
+}
+
+/** Límite por IP de origen. Si no hay IP, no aplica. */
+export async function hasTooManyRecentResetRequestsFromIp(ip: string | null): Promise<boolean> {
+  if (!ip) return false;
+
+  const supabase = createSupabaseAdminClient();
+  const since = new Date(Date.now() - PASSWORD_RESET_REQUEST_WINDOW_MINUTES * 60 * 1000).toISOString();
+
+  const { count } = await supabase
+    .from('password_reset_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('request_ip', ip)
+    .gte('created_at', since);
+
+  return (count ?? 0) >= PASSWORD_RESET_MAX_REQUESTS_PER_IP;
 }
 
 /**
@@ -210,78 +378,89 @@ async function sendPasswordEmailBestEffort(input: {
   }
 }
 
+/**
+ * Entrega el mismo mensaje por WhatsApp (si hay número) y por correo (si hay dirección).
+ * Los dos canales corren en paralelo, cada uno con timeout. Un fallo de uno no detiene al otro.
+ * Si WhatsApp falla, el error se relanza al llamador; el correo ya se intentó.
+ */
+async function deliverPasswordResetMessage(input: {
+  templateKey: 'password.reset_request' | 'password.reset_code' | 'password.changed';
+  whatsappRecipient: string | null;
+  userEmail?: string | null;
+  variables: Record<string, unknown>;
+}): Promise<void> {
+  const whatsappTask = input.whatsappRecipient
+    ? withTimeout(
+        sendNotification({
+          templateKey: input.templateKey,
+          channel: 'whatsapp',
+          recipient: input.whatsappRecipient,
+          variables: input.variables,
+        }),
+      )
+    : Promise.resolve(null);
+
+  const emailTask = sendPasswordEmailBestEffort({
+    userEmail: input.userEmail,
+    templateKey: input.templateKey,
+    variables: input.variables,
+  });
+
+  const [whatsappResult] = await Promise.allSettled([whatsappTask, emailTask]);
+  if (whatsappResult.status === 'rejected') throw whatsappResult.reason;
+}
+
 export async function sendPasswordResetLink(input: {
-  recipient: string;
+  recipient: string | null;
   userName: string;
   userEmail?: string | null;
   resetLink: string;
   expiresAt: Date;
-}) {
-  const variables = {
-    'user.name': input.userName,
-    'password.reset_link': input.resetLink,
-    'password.reset_expires_at': formatResetExpiry(input.expiresAt),
-  };
-
-  // WhatsApp primero. El correo se intenta siempre (finally), aunque WhatsApp falle;
-  // el error de WhatsApp sigue propagándose al llamador.
-  try {
-    return await sendNotification({
-      templateKey: 'password.reset_request',
-      channel: 'whatsapp',
-      recipient: input.recipient,
-      variables,
-    });
-  } finally {
-    await sendPasswordEmailBestEffort({ userEmail: input.userEmail, templateKey: 'password.reset_request', variables });
-  }
+}): Promise<void> {
+  await deliverPasswordResetMessage({
+    templateKey: 'password.reset_request',
+    whatsappRecipient: input.recipient,
+    userEmail: input.userEmail,
+    variables: {
+      'user.name': input.userName,
+      'password.reset_link': input.resetLink,
+      'password.reset_expires_at': formatResetExpiry(input.expiresAt),
+    },
+  });
 }
 
 export async function sendPasswordResetCode(input: {
-  recipient: string;
+  recipient: string | null;
   userName: string;
   userEmail?: string | null;
   code: string;
-}) {
-  const variables = {
-    'user.name': input.userName,
-    'password.reset_code': input.code,
-  };
-
-  try {
-    return await sendNotification({
-      templateKey: 'password.reset_code',
-      channel: 'whatsapp',
-      recipient: input.recipient,
-      variables,
-    });
-  } finally {
-    await sendPasswordEmailBestEffort({ userEmail: input.userEmail, templateKey: 'password.reset_code', variables });
-  }
+}): Promise<void> {
+  await deliverPasswordResetMessage({
+    templateKey: 'password.reset_code',
+    whatsappRecipient: input.recipient,
+    userEmail: input.userEmail,
+    variables: {
+      'user.name': input.userName,
+      'password.reset_code': input.code,
+    },
+  });
 }
 
 /**
- * Aviso de contraseña cambiada. `recipient` es el WhatsApp; si es null se omite ese canal.
+ * Aviso de contraseña cambiada por ambos canales. Si `recipient` es null se omite WhatsApp;
+ * si `userEmail` es null se omite el correo.
  */
 export async function sendPasswordChangedNotice(input: {
   recipient: string | null;
   userName: string;
   userEmail?: string | null;
 }): Promise<void> {
-  const variables = {
-    'user.name': input.userName,
-  };
-
-  try {
-    if (input.recipient) {
-      await sendNotification({
-        templateKey: 'password.changed',
-        channel: 'whatsapp',
-        recipient: input.recipient,
-        variables,
-      });
-    }
-  } finally {
-    await sendPasswordEmailBestEffort({ userEmail: input.userEmail, templateKey: 'password.changed', variables });
-  }
+  await deliverPasswordResetMessage({
+    templateKey: 'password.changed',
+    whatsappRecipient: input.recipient,
+    userEmail: input.userEmail,
+    variables: {
+      'user.name': input.userName,
+    },
+  });
 }

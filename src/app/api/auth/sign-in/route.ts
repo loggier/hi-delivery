@@ -5,6 +5,12 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { verifyPassword, hashPassword } from '@/lib/auth-utils';
 import { createAdminWebSession, getAdminSessionSchema } from '@/lib/auth/admin-session';
+import {
+  assertOwnerSessionConfigured,
+  createOwnerSession,
+  OwnerSessionConfigError,
+} from '@/lib/auth/owner-session';
+import { isOwnerRole, isRiderRole } from '@/lib/auth/roles';
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import type { User } from '@/types';
 
@@ -15,22 +21,10 @@ type UserData = {
   role_id: string;
 };
 
-function isRiderRole(user: { role_id?: string; role?: { name?: string } | null }) {
-  const roleId = user.role_id ?? '';
-  const roleName = user.role?.name ?? '';
-  return (
-    roleId === 'role-rider' ||
-    /repartidor|rider|delivery/i.test(roleName)
-  );
-}
-
 function isBusinessRole(user: { role_id?: string; role?: { name?: string } | null }) {
-  const roleId = user.role_id ?? '';
+  if (isOwnerRole(user)) return true;
   const roleName = (user.role?.name ?? '').toLowerCase();
-  return (
-    roleId === 'role-owner' ||
-    /dueño de negocio|negocio|merchant|business/.test(roleName)
-  );
+  return /negocio|merchant|business/.test(roleName);
 }
 
 export async function POST(request: Request) {
@@ -125,7 +119,31 @@ export async function POST(request: Request) {
     // Remove password from the returned user object
     delete (fullUser as any).password;
 
+    // Dueño: sesión de servidor firmada (cookie httpOnly). Sin secreto configurado, el login falla.
+    const ownerBusinessId = isOwnerRole(fullUser as { role_id?: string; role?: { name?: string } | null })
+      ? (fullUser as User).business_id
+      : undefined;
+
+    if (ownerBusinessId) {
+      try {
+        assertOwnerSessionConfigured();
+      } catch (configError) {
+        if (configError instanceof OwnerSessionConfigError) {
+          console.error('Login de dueño rechazado:', configError.message);
+        }
+        return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 });
+      }
+    }
+
     await createAdminWebSession(fullUser.id, authSchema);
+
+    if (ownerBusinessId) {
+      await createOwnerSession({
+        userId: String(fullUser.id),
+        businessId: String(ownerBusinessId),
+        roleId: String(fullUser.role_id),
+      });
+    }
 
     return NextResponse.json({ message: 'Inicio de sesión exitoso', user: fullUser as User }, { status: 200 });
 

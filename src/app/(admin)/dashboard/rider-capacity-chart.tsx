@@ -110,7 +110,7 @@ export function RiderCapacityChart({
                         y={(viewBox.cy || 0) + 16}
                         className="fill-muted-foreground text-xs"
                       >
-                        En uso
+                        Conectados / registrados
                       </tspan>
                     </text>
                   )

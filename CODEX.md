@@ -989,7 +989,27 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Activación administrativa: `POST /api/riders/[id]/status` (sólo `requireAdminOperationSession()`), con body `{ status: 'approved' | 'rejected' | 'inactive' }`. Transiciones: `pending_review` a `approved` o `rejected`; `inactive` a `approved`; `approved` a `inactive`. Al aprobar envía `rider.account_activated` (best-effort, con timeout). Se usa `approved` y no `active` porque `riders_status_check` no acepta `active` y el resto de la app trata `approved` como repartidor activo.
 - `api.riders.useUpdate` (`src/lib/api.ts`): los cambios de `status` de repartidor pasan por la ruta admin. Los demás campos siguen con update directo.
 - `POST /api/riders/[id]` acepta dos credenciales. (1) Token de registro del mismo repartidor: lista blanca de repartidor (`riderSelfTextSchema` y archivos). (2) Sesión admin (`requireAdminOperationSession`): lista blanca administrativa (`riderAdminTextSchema`) que cubre lo que edita `rider-form.tsx`: `first_name`, `last_name`, `mother_last_name`, `phone_e164`, `birthDate`, `zone_id`, `address`, vehículo (`ownership`, `brand`, `year`, `model`, `color`, `plate`, `licenseValidUntil`), póliza (`insurer`, `policyNumber`, `policyValidUntil`), extras (`hasHelmet`, `hasUniform`, `hasBox`), `is_active_for_orders`, documentos, fotos y `avatar1x1Url`. Sin credencial válida: 401. Token de otro repartidor sin sesión admin: 403. Ni el token ni la sesión admin escriben `email`, `password_hash`, `user_id` ni `status` desde esta ruta; el estado sólo cambia por `POST /api/riders/[id]/status`.
-- Pendiente: el campo `status` del formulario admin ya no se aplica desde esta ruta. Debe llamar a `/api/riders/[id]/status`.
+- El formulario admin llama a `/api/riders/[id]/status` cuando cambia `status`, y después guarda el resto de campos. Si la ruta de estado falla, no se guarda el resto.
+
+## Recuperación de contraseña por correo o teléfono (2026-10-31)
+
+- Formularios y rutas: la página `forgot-password` acepta correo o WhatsApp en un solo campo (`identifier`). `POST /api/auth/password-reset/request` y `verify-code` aceptan `identifier`; `phone` se mantiene como alias para la app.
+- Búsqueda de cuenta (`findPasswordResetAccount`): el correo busca en `users.email` (sin distinguir mayúsculas, con comodines escapados) y valida el perfil del canal (negocio ACTIVE para `web`, repartidor para `app`). El teléfono usa la búsqueda existente.
+- Envío: el mismo enlace (web) o código (app) se envía por WhatsApp al número registrado y por correo a la dirección registrada, en paralelo y con timeout de 8 s. Si un canal falla o no existe, el otro se envía. La respuesta siempre es genérica.
+- Límites: 3 solicitudes por cuenta en 10 minutos (`user_id` y tipo de cuenta) y 10 por IP en 10 minutos (`request_ip`). Ambos son silenciosos: responden la misma respuesta genérica.
+- `delivery_channel` sigue en `'whatsapp'` porque la restricción de la tabla sólo admite ese valor. `recipient` guarda el WhatsApp si existe; si no, el correo.
+- Confirmación (`password.changed`): va por WhatsApp y correo usando los contactos actuales del usuario según el tipo de cuenta.
+- Restablecimiento de repartidor: `confirm` responde `accountType: 'rider'`, y la página muestra que ya puede ingresar desde la app de repartidores. Las cuentas web muestran el mensaje normal.
+
+## Reenvío administrativo del enlace de registro (2026-10-31)
+
+- `POST /api/riders/[id]/resend-registration`: sólo `requireAdminOperationSession()` (401 sin sesión, 403 si no es admin). Sólo para `status = 'incomplete'`; otro estado responde 409.
+- Crea un token nuevo y guarda su hash y su expiración de 7 días. El enlace anterior deja de funcionar. El token nunca sale en la respuesta.
+- Envía `rider.registration_link` por correo (al email del repartidor) y por WhatsApp (al `phone_e164`), en paralelo y con timeout. Un canal no afecta al otro.
+- Límite: máximo 3 reenvíos por repartidor en una ventana fija de 24 horas que empieza en el primer reenvío. Al cuarto, responde 429. Si ningún canal envía, responde 502.
+- Auditoría: `registration_last_resent_at` y `registration_last_resent_by` (id del admin) en `riders`.
+- Requiere la migración `src/sql/2026-10-31_rider_registration_resend.sql` (columnas `registration_resend_count`, `registration_resend_window_started_at`, `registration_last_resent_at`, `registration_last_resent_by`). Está escrita y **no aplicada**; la aplica db-supabase. Hasta entonces la ruta responde 500 al consultar el repartidor.
+- Menú de `src/app/(admin)/riders/columns.tsx`: "Reenviar enlace de registro" sólo para repartidores `incomplete`, con confirmación y toast con el mensaje del servidor.
 
 ## Token de registro de repartidores (2026-10-31)
 
@@ -1003,3 +1023,30 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Migración `src/sql/2026-10-31_rider_account_activated.sql` (forward-only, sólo INSERT): plantilla `rider.account_activated` con `channel = 'email'`, `audience = 'rider'`, `status = 'ACTIVE'`, asunto "Tu cuenta de repartidor está activa", `ON CONFLICT (template_key, channel) DO NOTHING`. Variables: `user.name`, `app.brand_signature`.
 - Estado: escrita, **no aplicada** en la base. La verificación previa (que no exista) y la aplicación quedaron bloqueadas por permisos de lectura sobre producción.
 - Rollback: quitar la fila `rider.account_activated` con `channel = 'email'`. Requiere DELETE, así que necesita autorización aparte.
+
+## Columnas de pedidos para dashboards (2026-10-31)
+
+- Migración `src/sql/2026-10-31_orders_dashboard_columns.sql` (forward-only, sin DROP ni DELETE): agrega a `grupohubs.orders` las columnas `delivery_failure_reason TEXT`, `cancellation_reason TEXT`, `expected_delivery_at TIMESTAMPTZ` y `cancelled_by TEXT`, todas con `IF NOT EXISTS`, nullable y sin default.
+- `cancelled_by` tiene el CHECK `orders_cancelled_by_check` (`'negocio'`, `'repartidor'`, `'cliente'`, `'admin'`, `'sistema'`). Sólo se agrega si la columna es nueva, dentro de un bloque `DO` que verifica en `information_schema`.
+- Verificación previa reportada por el coordinador: las cuatro columnas no existían en `orders`. Esta sesión no volvió a verificarla en la base.
+- Estado: escrita, **no aplicada**.
+- Rollback: quitar el CHECK y las cuatro columnas. Requiere DROP y necesita autorización aparte.
+- Nota de código: `src/lib/monitoring/snapshot-service.ts` fija `expectedDeliveryAt: null` y no selecciona `expected_delivery_at`. Hasta que se corrija, la regla `late-delivery` no se evalúa.
+
+## Dashboard: seguridad del endpoint y vista por rol (2026-10-31)
+
+- `GET /api/dashboard-stats` ya no es público. Antes usaba la service role key sin verificar sesión y devolvía ingresos y clientes de cualquier negocio con `?business_id=`.
+  - Admin: `requireAdminOperationSession()`. Sin cookie o sesión inválida: 401. Sesión válida sin rol admin: 403. Sin `business_id` devuelve los agregados de siempre; con `business_id` usa `get_business_dashboard_stats_v2`.
+  - Dueño: cookie de sesión de servidor `hid-owner-session` verificada por `requireOwnerSession()` (`src/lib/auth/owner-session.ts`). Ignora cualquier `business_id` del query y usa el negocio de la cookie. Si el query trae otro negocio, responde 403.
+  - Dueño: estadísticas con `get_business_dashboard_stats_v2` (día en hora de México, ingresos y ticket con `completed` y `delivered`, `daily_rider_earnings` null) más consultas acotadas al negocio para cola de acciones, comparación con el mismo día de la semana anterior, tasa de cancelación y tiempo de entrega (oculto si no hay `picked_up_at` y `completed_at`). No devuelve teléfonos, GPS, documentos ni nombres de clientes.
+  - Error 500: mensaje genérico. En logs sólo se registra el tipo de error, nunca mensajes de Supabase ni datos personales.
+- Cookie de dueño: token `base64url(payload).HMAC-SHA256`, payload `{uid, bid, rol, exp}`. Dura 12 h, `httpOnly`, `secure` en producción, `sameSite=lax`, `path=/`. Se emite en `POST /api/auth/sign-in` sólo para rol dueño con negocio vinculado, después de validar credenciales. `POST /api/auth/sign-out` la borra.
+- Variable nueva obligatoria: `OWNER_SESSION_SECRET` (mínimo 32 caracteres, sin valor por defecto). Sin ella el login de dueño responde 500 y el endpoint de dueño no autentica. Está documentada en `.env.example`. Hay que definirla en el entorno antes de probar.
+- Pendiente: la cookie de admin (`hid-admin-session`) sigue emitiéndose también al dueño por el flujo de sign-in existente. El admin no la acepta porque el rol no es admin.
+- Vista del dueño (`src/app/(admin)/dashboard/owner-dashboard.tsx`): ventas, pedidos y ticket del día con comparación contra el mismo día de la semana anterior; cola de acciones; estado de pedidos con etiquetas canónicas; ventas y pedidos de 7 días; cancelación; tiempo de entrega. Sin datos muestra "Hoy aún no hay pedidos. Ayer a esta hora tenías X". Si falla la carga muestra "No pudimos cargar tus datos" con reintento.
+- Vista por rol: `getDashboardRole()` en `src/lib/auth/roles.ts` es la única decisión. Repartidor no renderiza nada (el layout ya cierra su sesión y redirige). Dueño ve la vista del dueño. Admin ve la vista HID con agregados. Otros roles de HID ven un estado sin datos y no disparan consulta.
+- Estado de pedidos (`order-status-grid.tsx`) usa etiquetas canónicas: Pendiente, Aceptado, En negocio (`at_store`), En preparación (`cooking`), Listo para recoger, Recogido (incluye `on_the_way` y `out_for_delivery`), En destino, Completado (`completed` y `delivered`), Cancelado, Fallido y Reembolsado. Textos e iconos en tono -700 sobre fondos -50.
+- En la capacidad de repartidores, "En uso" pasa a "Conectados / registrados".
+- Dependencias de base: el tiempo de entrega usa `orders.picked_up_at` y `orders.completed_at` (migración `2026-05-04_homologate_order_statuses.sql`). Si no existen, esa tarjeta se oculta. La cola usa `rider_id` y `status`.
+- Pendiente: `get_daily_dashboard_stats_v2` no se usa aquí. Devuelve sólo KPI del día y no trae los totales del admin (negocios, repartidores, series de 7 días), así que el admin mantiene su agregado actual.
+- Pendiente: la vista de dueño no se ha probado en navegador.

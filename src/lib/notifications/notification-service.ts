@@ -68,25 +68,32 @@ export async function sendNotification(input: SendNotificationInput) {
     : null;
   const renderedBody = renderTemplate(activeTemplate.body, mergedVariables);
 
-  const { data: log, error: logError } = await supabase
-    .from('notification_logs')
-    .insert({
-      template_key: activeTemplate.template_key,
-      template_id: activeTemplate.id,
-      channel: activeTemplate.channel,
-      audience: activeTemplate.audience,
-      recipient: input.recipient,
-      variables: mergedVariables,
-      rendered_subject: renderedSubject,
-      rendered_body: renderedBody,
-      status: 'pending',
-      provider: activeTemplate.channel === 'whatsapp' ? 'evolution' : activeTemplate.channel,
-    })
-    .select()
-    .single();
+  // Los correos no se registran: el texto puede contener enlaces o códigos de acceso.
+  const logsEnabled = activeTemplate.channel !== 'email';
+  let logId: string | null = null;
 
-  if (logError) {
-    throw logError;
+  if (logsEnabled) {
+    const { data: log, error: logError } = await supabase
+      .from('notification_logs')
+      .insert({
+        template_key: activeTemplate.template_key,
+        template_id: activeTemplate.id,
+        channel: activeTemplate.channel,
+        audience: activeTemplate.audience,
+        recipient: input.recipient,
+        variables: mergedVariables,
+        rendered_subject: renderedSubject,
+        rendered_body: renderedBody,
+        status: 'pending',
+        provider: activeTemplate.channel === 'whatsapp' ? 'evolution' : activeTemplate.channel,
+      })
+      .select()
+      .single();
+
+    if (logError) {
+      throw logError;
+    }
+    logId = log.id;
   }
 
   try {
@@ -139,32 +146,36 @@ export async function sendNotification(input: SendNotificationInput) {
       };
     }
 
-    const { error: updateError } = await supabase
-      .from('notification_logs')
-      .update({
-        status: 'sent',
-        provider_response: providerResponse as Record<string, unknown>,
-      })
-      .eq('id', log.id);
+    if (logId) {
+      const { error: updateError } = await supabase
+        .from('notification_logs')
+        .update({
+          status: 'sent',
+          provider_response: providerResponse as Record<string, unknown>,
+        })
+        .eq('id', logId);
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
+    }
 
     return {
       template: activeTemplate,
       renderedSubject,
       renderedBody,
       providerResponse,
-      logId: log.id,
+      logId,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo enviar la notificación.';
-    await supabase
-      .from('notification_logs')
-      .update({
-        status: 'failed',
-        error_message: message,
-      })
-      .eq('id', log.id);
+    if (logId) {
+      await supabase
+        .from('notification_logs')
+        .update({
+          status: 'failed',
+          error_message: message,
+        })
+        .eq('id', logId);
+    }
     throw error;
   }
 }

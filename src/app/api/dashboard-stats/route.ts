@@ -1,9 +1,24 @@
-
-
-'use server';
-
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+
+import {
+  AdminSessionError,
+  getAdminSessionSchema,
+  requireAdminOperationSession,
+} from '@/lib/auth/admin-session';
+import {
+  OwnerSessionConfigError,
+  OwnerSessionError,
+  requireOwnerSession,
+} from '@/lib/auth/owner-session';
+import {
+  buildOwnerSupplementaryStats,
+  mapOwnerRpcBaseStats,
+} from '@/lib/dashboard/owner-stats';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+
+const AUTH_REQUIRED_MESSAGE = 'Autenticación requerida.';
+const FORBIDDEN_MESSAGE = 'No tienes permiso para ver estas estadísticas.';
+
 
 const defaultResponse = {
   dailyRevenue: 0,
@@ -274,58 +289,114 @@ async function buildDashboardStats(
   };
 }
 
-export async function GET(request: Request) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { get: () => undefined, set: () => {}, remove: () => {} }, db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA! } }
-  );
 
+type DashboardScope = { kind: 'admin' } | { kind: 'owner'; businessId: string };
+
+// Admin y dueño se verifican en el servidor. business_id del query nunca define el alcance del dueño.
+async function resolveDashboardScope(): Promise<DashboardScope | { status: 401 | 403 }> {
+  let adminStatus: 401 | 403 = 401;
+  try {
+    await requireAdminOperationSession();
+    return { kind: 'admin' };
+  } catch (error) {
+    if (!(error instanceof AdminSessionError)) throw error;
+    adminStatus = error.status;
+  }
+
+  try {
+    const owner = await requireOwnerSession();
+    return { kind: 'owner', businessId: owner.businessId };
+  } catch (error) {
+    if (!(error instanceof OwnerSessionError)) throw error;
+    return { status: adminStatus === 403 || error.status === 403 ? 403 : 401 };
+  }
+}
+
+async function buildOwnerResponse(request: Request, supabase: any, businessId: string) {
+  const requestedBusinessId = new URL(request.url).searchParams.get('business_id');
+  if (requestedBusinessId && requestedBusinessId !== businessId) {
+    return NextResponse.json({ message: FORBIDDEN_MESSAGE }, { status: 403 });
+  }
+
+  const { data: statsData, error: statsError } = await supabase.rpc('get_business_dashboard_stats_v2', {
+    p_business_id: businessId,
+  });
+  if (statsError) throw statsError;
+
+  const row = Array.isArray(statsData) ? statsData[0] : statsData;
+  if (!row) throw new Error('get_business_dashboard_stats_v2 sin filas');
+
+  const now = new Date();
+  const base = mapOwnerRpcBaseStats(row as Record<string, unknown>, now);
+  const supplementary = await buildOwnerSupplementaryStats(supabase, businessId, now);
+
+  return NextResponse.json({ ...base, ...supplementary });
+}
+
+async function buildAdminResponse(request: Request, supabase: any) {
   const { searchParams } = new URL(request.url);
   const business_id = searchParams.get('business_id') || null;
 
+  if (!business_id) {
+    return NextResponse.json(await buildDashboardStats(supabase, null));
+  }
+
   try {
-    if (!business_id) {
-      return NextResponse.json(await buildDashboardStats(supabase, null));
-    }
+    const { data: statsData, error: statsError } = await supabase.rpc('get_business_dashboard_stats_v2', {
+      p_business_id: business_id,
+    });
 
-    try {
-      const { data: statsData, error: statsError } = await supabase.rpc('get_business_dashboard_stats', {
-        p_business_id: business_id,
+    if (statsError) throw statsError;
+
+    const stats = Array.isArray(statsData) ? statsData[0] : statsData;
+    if (stats) {
+      return NextResponse.json({
+        dailyRevenue: stats.daily_revenue || 0,
+        dailyRiderEarnings: stats.daily_rider_earnings ?? null,
+        dailyOrders: stats.daily_orders || 0,
+        averageTicketToday: stats.average_ticket_today || 0,
+        activeOrders: stats.active_orders || 0,
+        orderStatusSummary: stats.order_status_summary_json || defaultResponse.orderStatusSummary,
+        topBusinesses: stats.top_businesses_json || [],
+        topRiders: stats.top_riders_json || [],
+        topCustomers: stats.top_customers_json || [],
+        revenueLast7Days: stats.revenue_last_7_days_json || [],
+        ordersLast7Days: stats.orders_last_7_days_json || [],
       });
+    }
+  } catch (rpcError) {
+    console.error('Dashboard RPC fallback activated for business:', describeError(rpcError));
+  }
 
-      if (statsError) throw statsError;
+  return NextResponse.json(await buildDashboardStats(supabase, business_id));
+}
 
-      const stats = Array.isArray(statsData) ? statsData[0] : statsData;
-      if (stats) {
-        return NextResponse.json({
-          dailyRevenue: stats.daily_revenue || 0,
-          dailyRiderEarnings: stats.daily_rider_earnings || 0,
-          dailyOrders: stats.daily_orders || 0,
-          monthlyOrders: stats.monthly_orders || 0,
-          averageTicketToday: stats.average_ticket_today || 0,
-          activeOrders: stats.active_orders || 0,
-          totalRiders: stats.total_riders || 0,
-          activeRiders: stats.active_riders || 0,
-          totalBusinesses: stats.total_businesses || 0,
-          activeBusinesses: stats.active_businesses || 0,
-          orderStatusSummary: stats.order_status_summary_json || defaultResponse.orderStatusSummary,
-          topBusinesses: stats.top_businesses_json || [],
-          topRiders: stats.top_riders_json || [],
-          topCustomers: stats.top_customers_json || [],
-          revenueLast7Days: stats.revenue_last_7_days_json || [],
-          ordersLast7Days: stats.orders_last_7_days_json || [],
-        });
-      }
-    } catch (rpcError) {
-      console.error('Dashboard RPC fallback activated for business:', rpcError);
+// Nunca registrar mensajes de error de Supabase ni datos de negocio.
+function describeError(error: unknown): string {
+  if (error instanceof OwnerSessionConfigError) return error.message;
+  return error instanceof Error ? error.name : 'unknown';
+}
+
+export async function GET(request: Request) {
+  try {
+    const scope = await resolveDashboardScope();
+    if ('status' in scope) {
+      return NextResponse.json(
+        { message: scope.status === 401 ? AUTH_REQUIRED_MESSAGE : FORBIDDEN_MESSAGE },
+        { status: scope.status },
+      );
     }
 
-    return NextResponse.json(await buildDashboardStats(supabase, business_id));
-
+    const supabase = createSupabaseAdminClient(getAdminSessionSchema());
+    if (scope.kind === 'owner') {
+      return await buildOwnerResponse(request, supabase, scope.businessId);
+    }
+    return await buildAdminResponse(request, supabase);
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor.';
-    return NextResponse.json({ message: errorMessage }, { status: 500 });
+    console.error('Error fetching dashboard stats:', describeError(error));
+    return NextResponse.json(
+      { message: 'No se pudieron cargar las estadísticas.' },
+      { status: 500 },
+    );
   }
 }

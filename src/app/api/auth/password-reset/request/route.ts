@@ -5,25 +5,35 @@ import {
   buildResetLink,
   createResetCode,
   createResetToken,
-  findRiderResetRecipientByPhone,
-  findWebResetRecipientByPhone,
+  findPasswordResetAccount,
   getPasswordResetBaseUrl,
   getRequestIp,
   getResetExpiresAt,
   hashResetSecret,
-  hasRecentPasswordResetRequests,
+  hasTooManyRecentResetRequestsForUser,
+  hasTooManyRecentResetRequestsFromIp,
   sendPasswordResetCode,
   sendPasswordResetLink,
 } from '@/lib/password-reset';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
-const requestSchema = z.object({
-  channel: z.enum(['web', 'app']),
-  phone: z.string().min(8).max(30),
-});
+/**
+ * `identifier` es el correo o el teléfono registrado. `phone` se acepta como alias para clientes existentes
+ * (la app de repartidores). Basta uno de los dos.
+ */
+const requestSchema = z
+  .object({
+    channel: z.enum(['web', 'app']),
+    identifier: z.string().trim().min(3).max(120).optional(),
+    phone: z.string().trim().min(8).max(30).optional(),
+  })
+  .refine((value) => Boolean(value.identifier || value.phone), {
+    message: 'Escribe tu correo o tu WhatsApp.',
+  });
 
+// Misma respuesta siempre: no revela si la cuenta existe ni si hubo límite.
 const GENERIC_RESPONSE = {
-  message: 'Si el teléfono está registrado, enviaremos instrucciones por WhatsApp.',
+  message: 'Si la cuenta existe, enviaremos instrucciones por WhatsApp y correo.',
 };
 
 export async function POST(request: Request) {
@@ -33,33 +43,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Datos inválidos.' }, { status: 400 });
     }
 
-    const { channel, phone } = parsed.data;
-    const recipient = channel === 'web'
-      ? await findWebResetRecipientByPhone(phone)
-      : await findRiderResetRecipientByPhone(phone);
+    const { channel } = parsed.data;
+    const identifier = (parsed.data.identifier || parsed.data.phone || '').trim();
+    const requestIp = getRequestIp(request);
 
-    if (!recipient) {
+    if (await hasTooManyRecentResetRequestsFromIp(requestIp)) {
       return NextResponse.json(GENERIC_RESPONSE);
     }
 
-    if (await hasRecentPasswordResetRequests(recipient.recipient)) {
+    const account = await findPasswordResetAccount({ channel, identifier });
+    if (!account) {
+      return NextResponse.json(GENERIC_RESPONSE);
+    }
+
+    if (await hasTooManyRecentResetRequestsForUser(account.user.id, account.targetType)) {
       return NextResponse.json(GENERIC_RESPONSE);
     }
 
     const supabase = createSupabaseAdminClient();
     const expiresAt = getResetExpiresAt();
-    const requestIp = getRequestIp(request);
 
+    // delivery_channel sólo admite 'whatsapp' en la base (constraint). El correo se envía en paralelo.
     if (channel === 'web') {
       const token = createResetToken();
       const baseUrl = await getPasswordResetBaseUrl(new URL(request.url).origin);
       const resetLink = buildResetLink(baseUrl, token);
 
       const { error } = await supabase.from('password_reset_requests').insert({
-        user_id: recipient.user.id,
-        target_type: recipient.targetType,
+        user_id: account.user.id,
+        target_type: account.targetType,
         delivery_channel: 'whatsapp',
-        recipient: recipient.recipient,
+        recipient: account.storedRecipient,
         token_hash: hashResetSecret(token),
         expires_at: expiresAt.toISOString(),
         request_ip: requestIp,
@@ -68,9 +82,9 @@ export async function POST(request: Request) {
       if (error) throw error;
 
       await sendPasswordResetLink({
-        recipient: recipient.recipient,
-        userName: recipient.user.name,
-        userEmail: recipient.user.email,
+        recipient: account.whatsappRecipient,
+        userName: account.user.name,
+        userEmail: account.email,
         resetLink,
         expiresAt,
       });
@@ -78,10 +92,10 @@ export async function POST(request: Request) {
       const code = createResetCode();
 
       const { error } = await supabase.from('password_reset_requests').insert({
-        user_id: recipient.user.id,
-        target_type: recipient.targetType,
+        user_id: account.user.id,
+        target_type: account.targetType,
         delivery_channel: 'whatsapp',
-        recipient: recipient.recipient,
+        recipient: account.storedRecipient,
         code_hash: hashResetSecret(code),
         expires_at: expiresAt.toISOString(),
         request_ip: requestIp,
@@ -90,9 +104,9 @@ export async function POST(request: Request) {
       if (error) throw error;
 
       await sendPasswordResetCode({
-        recipient: recipient.recipient,
-        userName: recipient.user.name,
-        userEmail: recipient.user.email,
+        recipient: account.whatsappRecipient,
+        userName: account.user.name,
+        userEmail: account.email,
         code,
       });
     }

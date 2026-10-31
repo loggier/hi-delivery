@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { hashPassword } from '@/lib/auth-utils';
-import { hashResetSecret, sendPasswordChangedNotice } from '@/lib/password-reset';
+import { getResetContactsForUser, hashResetSecret, sendPasswordChangedNotice } from '@/lib/password-reset';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const confirmSchema = z.object({
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const { data: resetRequest, error } = await supabase
       .from('password_reset_requests')
-      .select('id, user_id, recipient')
+      .select('id, user_id, recipient, target_type')
       .eq('token_hash', tokenHash)
       .is('consumed_at', null)
       .gt('expires_at', new Date().toISOString())
@@ -52,23 +52,21 @@ export async function POST(request: Request) {
 
     if (consumeError) throw consumeError;
 
-    const { data: user } = await supabase
-      .from('users')
-      .select('name, email')
-      .eq('id', resetRequest.user_id)
-      .maybeSingle();
+    // Contactos reales del usuario según el tipo de cuenta del flujo (no el valor guardado en `recipient`).
+    const accountType = resetRequest.target_type === 'rider' ? 'rider' : 'web';
+    const contacts = await getResetContactsForUser(resetRequest.user_id, accountType);
 
     try {
       await sendPasswordChangedNotice({
-        recipient: resetRequest.recipient,
-        userName: user?.name || 'usuario',
-        userEmail: user?.email ?? null,
+        recipient: contacts.whatsappRecipient,
+        userName: contacts.name,
+        userEmail: contacts.email,
       });
     } catch (notificationError) {
       console.error('Password changed notification failed:', notificationError);
     }
 
-    return NextResponse.json({ message: 'Contraseña actualizada correctamente.' });
+    return NextResponse.json({ message: 'Contraseña actualizada correctamente.', accountType });
   } catch (error) {
     console.error('Password reset confirmation failed:', error);
     return NextResponse.json({ message: 'No se pudo actualizar la contraseña.' }, { status: 500 });

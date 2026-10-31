@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
       const response = await fetch("/api/auth/password-reset/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: "web", phone }),
+        body: JSON.stringify({ channel: "web", identifier }),
       });
       const result = await response.json().catch(() => ({}));
 
@@ -41,8 +41,8 @@ export default function ForgotPasswordPage() {
 
       setSent(true);
       toast({
-        title: "Revisa WhatsApp",
-        description: result.message || "Si el teléfono está registrado, recibirás un enlace por WhatsApp.",
+        title: "Revisa tu WhatsApp y tu correo",
+        description: result.message || "Si la cuenta existe, recibirás el enlace por WhatsApp y correo.",
         variant: "success",
       });
     } catch (error) {
@@ -74,14 +74,14 @@ export default function ForgotPasswordPage() {
             </Link>
             <CardTitle className="text-2xl text-slate-950">Recuperar contraseña</CardTitle>
             <CardDescription>
-              Escribe el WhatsApp registrado en tu negocio y te enviaremos un enlace temporal.
+              Escribe el correo o el WhatsApp registrado y te enviaremos un enlace temporal por WhatsApp y correo.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {sent ? (
               <div className="space-y-4 text-center">
                 <div className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                  Si el teléfono está registrado, recibirás un enlace por WhatsApp. Expira en 1 hora.
+                  Si la cuenta existe, recibirás el enlace por WhatsApp y correo. Expira en 1 hora.
                 </div>
                 <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
                   <Link href="/sign-in">Volver a iniciar sesión</Link>
@@ -90,21 +90,21 @@ export default function ForgotPasswordPage() {
             ) : (
               <form onSubmit={onSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone">WhatsApp</Label>
+                  <Label htmlFor="identifier">Correo o WhatsApp</Label>
                   <Input
-                    id="phone"
-                    type="tel"
-                    inputMode="tel"
-                    placeholder="Ej. 8112345678"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    id="identifier"
+                    type="text"
+                    autoComplete="username"
+                    placeholder="correo@ejemplo.com o 8112345678"
+                    value={identifier}
+                    onChange={(event) => setIdentifier(event.target.value)}
                     disabled={isSubmitting}
                     required
                   />
                 </div>
                 <Button type="submit" className="w-full bg-sky-700 hover:bg-sky-800" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Enviar enlace por WhatsApp
+                  Enviar enlace
                 </Button>
                 <Button asChild type="button" variant="ghost" className="w-full">
                   <Link href="/sign-in">Volver al inicio de sesión</Link>

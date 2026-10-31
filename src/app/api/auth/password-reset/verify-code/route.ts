@@ -4,15 +4,19 @@ import { z } from 'zod';
 import {
   PASSWORD_RESET_MAX_CODE_ATTEMPTS,
   createResetToken,
-  findRiderResetRecipientByPhone,
+  findPasswordResetAccount,
   hashResetSecret,
 } from '@/lib/password-reset';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
-const verifyCodeSchema = z.object({
-  phone: z.string().min(8).max(30),
-  code: z.string().regex(/^\d{6}$/),
-});
+/** `identifier` es correo o teléfono; `phone` se acepta como alias para la app existente. */
+const verifyCodeSchema = z
+  .object({
+    identifier: z.string().trim().min(3).max(120).optional(),
+    phone: z.string().trim().min(8).max(30).optional(),
+    code: z.string().regex(/^\d{6}$/),
+  })
+  .refine((value) => Boolean(value.identifier || value.phone), { message: 'Datos inválidos.' });
 
 export async function POST(request: Request) {
   try {
@@ -21,8 +25,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Código inválido.' }, { status: 400 });
     }
 
-    const recipient = await findRiderResetRecipientByPhone(parsed.data.phone);
-    if (!recipient) {
+    const identifier = (parsed.data.identifier || parsed.data.phone || '').trim();
+    const account = await findPasswordResetAccount({ channel: 'app', identifier });
+    if (!account || account.targetType !== 'rider') {
       return NextResponse.json({ message: 'Código inválido o expirado.' }, { status: 400 });
     }
 
@@ -30,7 +35,7 @@ export async function POST(request: Request) {
     const { data: resetRequest, error } = await supabase
       .from('password_reset_requests')
       .select('id, code_hash, attempt_count, expires_at')
-      .eq('recipient', recipient.recipient)
+      .eq('recipient', account.storedRecipient)
       .eq('target_type', 'rider')
       .is('consumed_at', null)
       .not('code_hash', 'is', null)

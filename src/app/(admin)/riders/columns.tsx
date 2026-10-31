@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Pencil, Trash2, Eye, CheckCircle, XCircle, Ban, Power } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Eye, CheckCircle, XCircle, Ban, Power, Send } from "lucide-react";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 
@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 import { type Rider, RiderStatus, type Zone } from "@/types";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +114,38 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
       const [ConfirmationDialog, confirm] = useConfirm();
       const deleteMutation = api.riders.useDelete();
       const updateStatusMutation = api.riders.useUpdate();
+      const { toast } = useToast();
+
+      const handleResendRegistration = async () => {
+        const ok = await confirm({
+          title: "¿Reenviar el enlace de registro?",
+          description: `Se enviará un enlace nuevo a "${rider.first_name} ${rider.last_name}" por correo y WhatsApp. El enlace anterior dejará de funcionar.`,
+          confirmText: "Reenviar enlace",
+        });
+        if (!ok) return;
+
+        try {
+          const response = await fetch(`/api/riders/${encodeURIComponent(rider.id)}/resend-registration`, {
+            method: "POST",
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            toast({
+              variant: "destructive",
+              title: "No se reenvió el enlace",
+              description: typeof result?.message === "string" ? result.message : "No se pudo reenviar el enlace.",
+            });
+            return;
+          }
+          toast({
+            variant: "success",
+            title: "Enlace reenviado",
+            description: typeof result?.message === "string" ? result.message : "El enlace fue reenviado.",
+          });
+        } catch {
+          toast({ variant: "destructive", title: "No se reenvió el enlace", description: "No se pudo conectar con el servidor." });
+        }
+      };
 
       const handleDelete = async () => {
         const ok = await confirm({
@@ -163,6 +196,11 @@ export const getColumns = (zones: Zone[]): ColumnDef<Rider>[] => [
                     <Pencil className="mr-2 h-4 w-4" /> Editar
                 </Link>
             </DropdownMenuItem>
+             {rider.status === "incomplete" && (
+                <DropdownMenuItem onClick={handleResendRegistration}>
+                    <Send className="mr-2 h-4 w-4" /> Reenviar enlace de registro
+                </DropdownMenuItem>
+             )}
              {rider.status === "pending_review" && (
                 <>
                     <DropdownMenuItem onClick={() => handleStatusChange('approved')} className="text-green-600 focus:text-green-600">

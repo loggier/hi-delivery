@@ -34,6 +34,7 @@ function ResetPasswordContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [accountType, setAccountType] = useState<"web" | "rider">("web");
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,10 +52,15 @@ function ResetPasswordContent() {
         throw new Error(result.message || "No se pudo actualizar la contraseña.");
       }
 
+      // Tipo de cuenta según el flujo de restablecimiento (no por el correo).
+      const isRider = result.accountType === "rider";
+      setAccountType(isRider ? "rider" : "web");
       setCompleted(true);
       toast({
         title: "Contraseña actualizada",
-        description: "Ya puedes iniciar sesión con tu nueva contraseña.",
+        description: isRider
+          ? "Ya puedes ingresar desde la app de repartidores."
+          : "Ya puedes iniciar sesión con tu nueva contraseña.",
         variant: "success",
       });
     } catch (error) {
@@ -82,11 +88,15 @@ function ResetPasswordContent() {
       ) : completed ? (
         <div className="space-y-4 text-center">
           <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            Tu contraseña se actualizó correctamente.
+            {accountType === "rider"
+              ? "Tu contraseña se actualizó correctamente. Ya puedes ingresar desde la app de repartidores."
+              : "Tu contraseña se actualizó correctamente."}
           </div>
-          <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
-            <Link href="/sign-in">Iniciar sesión</Link>
-          </Button>
+          {accountType === "web" && (
+            <Button asChild className="w-full bg-sky-700 hover:bg-sky-800">
+              <Link href="/sign-in">Iniciar sesión</Link>
+            </Button>
+          )}
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
