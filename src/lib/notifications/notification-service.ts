@@ -1,6 +1,7 @@
 import type { NotificationChannel, NotificationTemplate } from '@/types';
 import { sendEvolutionTextMessage } from '@/lib/evolution';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { sendEmail } from '@/lib/mail/mailer';
 import {
   extractNotificationVariables,
   findMissingVariables,
@@ -94,6 +95,21 @@ export async function sendNotification(input: SendNotificationInput) {
         number: input.recipient,
         text: renderedBody,
       });
+    } else if (activeTemplate.channel === 'email') {
+      if (!renderedSubject) {
+        throw new Error('La plantilla de correo necesita un asunto.');
+      }
+
+      const emailResult = await sendEmail({
+        to: input.recipient,
+        subject: renderedSubject,
+        text: renderedBody,
+      });
+
+      providerResponse = {
+        messageId: emailResult.messageId,
+        rejectedCount: emailResult.rejectedCount,
+      };
     } else {
       providerResponse = {
         skipped: true,
