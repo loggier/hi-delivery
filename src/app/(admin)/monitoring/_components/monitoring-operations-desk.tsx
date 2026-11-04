@@ -312,7 +312,7 @@ export function MonitoringOperationsDesk() {
     <div className="flex min-h-0 flex-1 flex-col gap-3 lg:h-[calc(100dvh-108px)] lg:overflow-hidden">
       {forbidden ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">No tienes permiso para ver el monitoreo.</div> : null}
 
-      <div className={cn('grid min-h-0 flex-1 grid-cols-1 gap-3', detailPanel ? 'lg:grid-cols-[22rem_minmax(0,1fr)_24rem]' : 'lg:grid-cols-[22rem_minmax(0,1fr)]')}>
+      <div className={cn('grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-rows-[minmax(0,1fr)]', detailPanel ? 'lg:grid-cols-[22rem_minmax(0,1fr)_24rem]' : 'lg:grid-cols-[22rem_minmax(0,1fr)]')}>
         <section aria-label="Monitoreo en vivo" className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-xl border bg-white p-3 shadow-sm max-h-[85vh] lg:max-h-none">
           <header className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
