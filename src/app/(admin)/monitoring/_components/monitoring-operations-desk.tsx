@@ -430,7 +430,7 @@ export function MonitoringOperationsDesk() {
               </div>
             )}
             <div className="absolute right-3 top-3 z-20 flex flex-col items-end gap-2">
-              <Button type="button" size="sm" variant={incidentsOpen ? 'default' : 'secondary'} className="bg-white shadow" disabled={!snapshot} onClick={() => setIncidentsOpen((value) => !value)}>
+              <Button type="button" size="sm" variant={incidentsOpen ? "default" : "secondary"} className={incidentsOpen ? "bg-slate-900 text-white shadow hover:bg-slate-800" : "bg-white text-slate-900 shadow hover:bg-slate-900 hover:text-white"} disabled={!snapshot} onClick={() => setIncidentsOpen((value) => !value)}>
                 <AlertTriangle className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {alertsDegraded ? 'Alertas no disponibles' : `Alertas (${snapshot?.incidents.length ?? 0})`}
               </Button>
