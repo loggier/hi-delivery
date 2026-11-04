@@ -229,9 +229,9 @@ export function OperationsMap({
       </GoogleMap>
 
       <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-2">
-        <Button type="button" size="icon" variant="secondary" className="h-9 w-9 bg-white shadow" aria-label="Acercar" onClick={() => zoomBy(1)}><Plus className="h-4 w-4" /></Button>
-        <Button type="button" size="icon" variant="secondary" className="h-9 w-9 bg-white shadow" aria-label="Alejar" onClick={() => zoomBy(-1)}><Minus className="h-4 w-4" /></Button>
-        <Button type="button" size="icon" variant="secondary" className="h-9 w-9 bg-white shadow" aria-label="Ver toda la flota" onClick={() => fitView()}><Crosshair className="h-4 w-4" /></Button>
+        <Button type="button" size="icon" variant="secondary" className="h-9 w-9 bg-white text-slate-900 shadow hover:bg-slate-900 hover:text-white" aria-label="Acercar" onClick={() => zoomBy(1)}><Plus className="h-4 w-4" /></Button>
+        <Button type="button" size="icon" variant="secondary" className="h-9 w-9 bg-white text-slate-900 shadow hover:bg-slate-900 hover:text-white" aria-label="Alejar" onClick={() => zoomBy(-1)}><Minus className="h-4 w-4" /></Button>
+        <Button type="button" size="icon" variant="secondary" className="h-9 w-9 bg-white text-slate-900 shadow hover:bg-slate-900 hover:text-white" aria-label="Ver toda la flota" onClick={() => fitView()}><Crosshair className="h-4 w-4" /></Button>
       </div>
       <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg border bg-white text-xs font-semibold shadow">
         <button type="button" aria-pressed={mapType === 'roadmap'} onClick={() => setMapType('roadmap')} className={mapType === 'roadmap' ? 'bg-blue-600 px-3 py-1.5 text-white' : 'px-3 py-1.5 text-slate-700'}>Mapa</button>
