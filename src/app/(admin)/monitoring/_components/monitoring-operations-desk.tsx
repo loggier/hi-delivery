@@ -309,7 +309,7 @@ export function MonitoringOperationsDesk() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 lg:h-[calc(100dvh-108px)]">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 lg:h-[calc(100dvh-108px)] lg:overflow-hidden">
       {forbidden ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">No tienes permiso para ver el monitoreo.</div> : null}
 
       <div className={cn('grid min-h-0 flex-1 grid-cols-1 gap-3', detailPanel ? 'lg:grid-cols-[22rem_minmax(0,1fr)_24rem]' : 'lg:grid-cols-[22rem_minmax(0,1fr)]')}>
