@@ -386,7 +386,7 @@ export function MonitoringOperationsDesk() {
             </button>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border max-h-[50vh] lg:max-h-[68vh]">
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border max-h-[50vh] lg:max-h-[45vh]">
             {!snapshot ? (
               controller.isError ? null : <p className="p-4 text-center text-sm text-slate-500">Cargando…</p>
             ) : tab === 'orders' ? (
