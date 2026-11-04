@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isRiderOrdersAuthFailure, requireRiderOrdersAccess } from '@/lib/rider-orders-auth';
+import { withSignedDeliveryProof } from '@/lib/rider-proof-storage';
 import { isEligibleUnassignedOrder, RIDER_ACTIVE_ORDER_STATUSES, RIDER_ORDER_SELECT, RIDER_TERMINAL_ORDER_STATUSES, safeRiderOrder } from '@/lib/rider-orders';
 
 const querySchema = z.object({
@@ -44,8 +45,14 @@ export async function GET(request: Request) {
     const scoped = view === 'pending'
       ? rows.filter((order) => isEligibleUnassignedOrder(order, access.riderId, Date.now()))
       : rows;
+    const orders = await Promise.all(
+      scoped.map((order) => withSignedDeliveryProof({
+        ...safeRiderOrder(order),
+        ...(view === 'pending' ? { rider_can_accept: true } : {}),
+      })),
+    );
     return NextResponse.json({
-      orders: scoped.map((order) => ({ ...safeRiderOrder(order), ...(view === 'pending' ? { rider_can_accept: true } : {}) })),
+      orders,
       offset,
       limit,
     }, { headers: { 'Cache-Control': 'no-store' } });

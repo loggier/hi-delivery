@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Area, Business, Category, Product, Rider, User, BusinessCategory, Zone, Customer, Order, Role, Plan, Payment, SystemSettings, CustomerAddress, OrderItem, OrderPayload, DashboardStats, Module, RolePermission, BusinessBranch, NotificationTemplate, NotificationTemplateVariable, NotificationLog, NotificationConstant } from "@/types";
 import { createClient } from "./supabase/client";
+import { RIDER_SAFE_SELECT, USER_SAFE_SELECT } from "./db-columns";
 import { faker } from "@faker-js/faker";
 
 const entityTranslations: { [key: string]: string } = {
@@ -103,13 +104,17 @@ function createApi<T extends { id: string | number }>(
 ) {
   const entityKey = [entity];
   const translatedEntity = entityTranslations[entity] || entity;
+  // Lista de columnas en runtime (la segura para riders y users).
+  const selectColumns: string = select;
   const supabase = createClient();
+  // Vista genérica del cliente para tablas dinámicas (entity). Sólo cambia el tipado; las consultas son las mismas.
+  const db = supabase as unknown as { from(table: string | number): any };
 
   const useGetAll = (filters: Record<string, any> = {}, queryOptions: { enabled?: boolean } = {}) => {
     return useQuery<T[]>({
       queryKey: [entity, filters],
       queryFn: async () => {
-        let query = supabase.from(entity).select(select).order('created_at', { ascending: false });;
+        let query = db.from(entity).select(selectColumns).order('created_at', { ascending: false });;
         for (const key in filters) {
             if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
                 if (key === 'name_search' && (entity === 'customers_with_stats' || entity === 'customers')) {
@@ -138,7 +143,7 @@ function createApi<T extends { id: string | number }>(
     return useQuery<T>({
         queryKey: [entity, id],
         queryFn: async () => {
-            const { data, error } = await supabase.from(entity).select(select).eq('id', id).single();
+            const { data, error } = await db.from(entity).select(selectColumns).eq('id', id).single();
             if (error) throw error;
             return data as T;
         },
@@ -150,7 +155,7 @@ function createApi<T extends { id: string | number }>(
     return useQuery<T>({
       queryKey: [entity],
       queryFn: async () => {
-        const { data, error } = await supabase.from(entity).select('*').limit(1).single();
+        const { data, error } = await db.from(entity).select(selectColumns).limit(1).single();
         if (error) throw error;
         return data as T;
       },
@@ -164,7 +169,7 @@ function createApi<T extends { id: string | number }>(
     return useMutation<T, Error, T_DTO>({
       mutationFn: async (newItemDTO) => {
         const payload = ensureEntityId(entity, (newItemDTO ?? {}) as Record<string, unknown>);
-        const { data, error } = await supabase.from(entity).insert(payload as any).select().single();
+        const { data, error } = await db.from(entity).insert(payload as any).select(selectColumns).single();
         if (error) throw error;
         return data as T;
       },
@@ -281,30 +286,30 @@ function createApi<T extends { id: string | number }>(
 
                 if (Object.keys(otherFields).length === 0) {
                     // Se relee la fila completa para no reemplazar el caché con un objeto parcial.
-                    const { data: rider, error: readError } = await supabase
+                    const { data: rider, error: readError } = await db
                         .from(entity)
-                        .select()
+                        .select(selectColumns)
                         .eq('id', id)
                         .single();
                     if (readError) throw readError;
                     return rider as T;
                 }
 
-                const { data, error } = await supabase
+                const { data, error } = await db
                     .from(entity)
                     .update(otherFields)
                     .eq('id', id)
-                    .select()
+                    .select(selectColumns)
                     .single();
                 if (error) throw error;
                 return data as T;
             }
 
-            const { data, error } = await supabase
+            const { data, error } = await db
                 .from(entity)
                 .update(updateData)
                 .eq('id', id)
-                .select()
+                .select(selectColumns)
                 .single();
             if (error) throw error;
             return data as T;
@@ -345,7 +350,7 @@ function createApi<T extends { id: string | number }>(
                 return;
             }
 
-            const { error } = await supabase.from(entity).delete().eq('id', id);
+            const { error } = await db.from(entity).delete().eq('id', id);
             if (error) throw error;
         },
         onSuccess: (_, id) => {
@@ -683,9 +688,9 @@ export const api = {
     },
     business_branches: createApi<BusinessBranch>('business_branches'),
     products: createApi<Product>('products'),
-    riders: createApi<Rider>('riders'),
+    riders: createApi<Rider>('riders', RIDER_SAFE_SELECT),
     users: {
-        ...createApi<User>('users'),
+        ...createApi<User>('users', USER_SAFE_SELECT),
         useUpdate: useUpdateUser,
     },
     zones: {

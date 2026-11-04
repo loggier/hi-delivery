@@ -64,6 +64,10 @@ export type MonitoringOrder = {
   pickup?: MonitoringCoordinate | null;
   delivery?: MonitoringCoordinate | null;
   path?: MonitoringCoordinate[];
+  deliveryAddressText?: string | null;
+  /** Route duration saved with the order at creation time (OSRM). Not a live ETA. */
+  routeDurationSeconds?: number | null;
+  routeDistanceMeters?: number | null;
 };
 
 export type MonitoringCoordinate = {

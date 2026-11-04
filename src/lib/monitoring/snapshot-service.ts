@@ -198,6 +198,9 @@ function normalizeOrder(row: MonitoringOrderRow): MonitoringOrder {
     pickup: addressCoordinate(row.pickup_address),
     delivery: addressCoordinate(row.delivery_address),
     path: routeCoordinates(row.route_path),
+    deliveryAddressText: deliveryAddressText(row.delivery_address),
+    routeDurationSeconds: routeNumber(row.route_path, 'duration_seconds'),
+    routeDistanceMeters: routeNumber(row.route_path, 'distance'),
   };
 }
 function normalizeRider(row: MonitoringRiderRow): MonitoringRider {
@@ -227,7 +230,10 @@ function coordinate(value: unknown, min: number, max: number): number | undefine
 function relationRecord(value: unknown): Record<string, unknown> | null { if (Array.isArray(value)) return value[0] && typeof value[0] === 'object' ? value[0] as Record<string, unknown> : null; return value && typeof value === 'object' ? value as Record<string, unknown> : null; }
 function sanitizeUrl(value: unknown): string | null { const normalized = stringOrNull(value)?.replace(/^['"]+|['"]+$/g, ''); return normalized && (/^https?:\/\//.test(normalized) || normalized.startsWith('/')) ? normalized : null; }
 function addressCoordinate(value: unknown): { latitude: number; longitude: number } | null { const address = relationRecord(value); const coordinates = relationRecord(address?.coordinates); const latitude = coordinate(coordinates?.lat, -90, 90); const longitude = coordinate(coordinates?.lng, -180, 180); return latitude !== undefined && longitude !== undefined ? { latitude, longitude } : null; }
-function routeCoordinates(value: unknown): Array<{ latitude: number; longitude: number }> { const root = relationRecord(value); const routes = Array.isArray(root?.routes) ? root.routes : []; const firstRoute = relationRecord(routes[0]); const direct = Array.isArray(root?.path) ? root.path : Array.isArray(firstRoute?.overview_path) ? firstRoute.overview_path : Array.isArray(value) ? value : []; return direct.flatMap((point) => { const row = relationRecord(point); const latitude = coordinate(row?.lat ?? row?.latitude, -90, 90); const longitude = coordinate(row?.lng ?? row?.longitude, -180, 180); return latitude !== undefined && longitude !== undefined ? [{ latitude, longitude }] : []; }); }
+function routeCoordinates(value: unknown): Array<{ latitude: number; longitude: number }> { const root = relationRecord(value); const routes = Array.isArray(root?.routes) ? root.routes : []; const firstRoute = relationRecord(routes[0]); const direct = Array.isArray(root?.path) ? root.path : Array.isArray(root?.points) ? root.points : Array.isArray(firstRoute?.overview_path) ? firstRoute.overview_path : Array.isArray(value) ? value : []; return direct.flatMap((point) => { const row = relationRecord(point); const latitude = coordinate(row?.lat ?? row?.latitude, -90, 90); const longitude = coordinate(row?.lng ?? row?.longitude, -180, 180); return latitude !== undefined && longitude !== undefined ? [{ latitude, longitude }] : []; }); }
+function deliveryAddressText(value: unknown): string | null { return stringOrNull(relationRecord(value)?.text); }
+// Values saved with an order by POS/shipping: OSRM duration (seconds) and distance (meters) at creation time.
+function routeNumber(value: unknown, key: 'duration_seconds' | 'distance'): number | null { const parsed = numberOrUndefined(relationRecord(value)?.[key]); return parsed !== undefined && parsed >= 0 ? parsed : null; }
 function isSchemaError(error: DbError): boolean {
   const optionalColumnNames = [
     'monitoring_unassigned_critical_minutes', 'monitoring_gps_stale_critical_minutes',

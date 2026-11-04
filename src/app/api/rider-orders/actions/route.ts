@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isRiderOrdersAuthFailure, requireRiderOrdersAccess } from '@/lib/rider-orders-auth';
 import { isEligibleUnassignedOrder } from '@/lib/rider-orders';
+import {
+  buildDeliveryProofFolder,
+  getDeliveryProofBucket,
+  isDeliveryProofPathFor,
+} from '@/lib/rider-proof-storage';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 const actionSchema = z.discriminatedUnion('action', [
@@ -11,7 +16,8 @@ const actionSchema = z.discriminatedUnion('action', [
     action: z.literal('advance'),
     orderId: z.string().trim().min(1).max(255),
     status: z.enum(['at_store', 'picked_up', 'arrived_at_destination', 'completed', 'failed']),
-    deliveryProofUrl: z.string().url().optional(),
+    // Path de la evidencia devuelto por POST /api/rider-orders/{id}/proof. No es una URL.
+    deliveryProofPath: z.string().trim().min(1).max(512).optional(),
     reason: z.string().trim().min(1).max(500).optional(),
   }),
 ]);
@@ -139,20 +145,23 @@ export async function POST(request: Request) {
     const currentStatus = String(order.status ?? '').toLowerCase();
     const allowedFrom = allowedFromStatuses[parsed.data.status];
     if (!allowedFrom.includes(currentStatus)) return NextResponse.json({ message: 'El estado del pedido cambió.' }, { status: 409 });
-    if (parsed.data.status === 'completed' && !parsed.data.deliveryProofUrl) {
-      return NextResponse.json({ message: 'La evidencia de entrega es obligatoria.' }, { status: 400 });
-    }
     if (parsed.data.status === 'completed') {
-      const proof = new URL(parsed.data.deliveryProofUrl!);
-      const expectedPath = `/orders/${encodeURIComponent(orderId)}/`;
-      const expectedOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).origin;
-      const bucket = process.env.DELIVERY_PROOF_BUCKET || 'hidelivery';
-      if (
-        proof.origin !== expectedOrigin ||
-        !proof.pathname.includes(`/storage/v1/object/public/${bucket}${expectedPath}`) ||
-        !proof.pathname.includes(encodeURIComponent(riderId))
-      ) {
+      const proofPath = parsed.data.deliveryProofPath;
+      if (!proofPath) {
+        return NextResponse.json({ message: 'La evidencia de entrega es obligatoria.' }, { status: 400 });
+      }
+      if (!isDeliveryProofPathFor(proofPath, orderId, riderId)) {
         return NextResponse.json({ message: 'La evidencia de entrega no corresponde al repartidor y pedido.' }, { status: 400 });
+      }
+
+      // Confirma que la foto existe en el bucket antes de marcar el pedido como entregado.
+      const folder = buildDeliveryProofFolder(orderId, riderId);
+      const fileName = proofPath.slice(folder.length + 1);
+      const { data: listed, error: listError } = await supabase.storage
+        .from(getDeliveryProofBucket())
+        .list(folder, { search: fileName, limit: 1 });
+      if (listError || !Array.isArray(listed) || !listed.some((item) => item.name === fileName)) {
+        return NextResponse.json({ message: 'La evidencia no se encontró. Vuelve a subir la foto.' }, { status: 400 });
       }
     }
     const now = new Date().toISOString();
@@ -163,7 +172,8 @@ export async function POST(request: Request) {
     if (parsed.data.status === 'completed') {
       extraFields.completed_at = now;
       extraFields.delivered_at = now;
-      extraFields.delivery_proof_url = parsed.data.deliveryProofUrl;
+      // Se guarda el path privado, no una URL. Las lecturas lo firman con TTL corto.
+      extraFields.delivery_proof_url = parsed.data.deliveryProofPath;
     }
     if (parsed.data.status === 'failed') {
       extraFields.failed_at = now;

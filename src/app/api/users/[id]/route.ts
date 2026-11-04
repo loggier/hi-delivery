@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { hashPassword } from '@/lib/auth-utils';
+import { USER_SAFE_SELECT } from '@/lib/db-columns';
 import { updateUserSchema } from '@/lib/schemas';
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -44,7 +45,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       .from('users')
       .update(finalUpdateData)
       .eq('id', params.id)
-      .select()
+      // Sólo columnas seguras: nunca password ni web_push_token en la respuesta.
+      .select(USER_SAFE_SELECT as '*')
       .single();
 
     if (error) {

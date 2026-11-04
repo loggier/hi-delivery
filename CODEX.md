@@ -1011,6 +1011,27 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Requiere la migración `src/sql/2026-10-31_rider_registration_resend.sql` (columnas `registration_resend_count`, `registration_resend_window_started_at`, `registration_last_resent_at`, `registration_last_resent_by`). Está escrita y **no aplicada**; la aplica db-supabase. Hasta entonces la ruta responde 500 al consultar el repartidor.
 - Menú de `src/app/(admin)/riders/columns.tsx`: "Reenviar enlace de registro" sólo para repartidores `incomplete`, con confirmación y toast con el mensaje del servidor.
 
+## App de repartidores: escrituras por servidor y evidencias privadas (2026-10-31)
+
+Contrato. Todas las rutas usan `Authorization: Bearer <token de pedidos>` (`requireRiderOrdersAccess`): 401 sin token válido, 403 si la cuenta no está aprobada.
+- `POST /api/rider-app/availability` con `{ active: boolean }`: actualiza `riders.is_active_for_orders`. Responde `{ active }`.
+- `POST /api/rider-app/push-token` con `{ token: string | null, platform: 'android' | 'ios' }`: actualiza `push_token`, `push_platform` y `push_token_updated_at`. El token no se devuelve.
+- `POST /api/rider-app/password` con `{ currentPassword, newPassword }`: verifica la actual con bcrypt. 400 si no coincide. Aplica `passwordRegex` (la misma regla del resto del sistema) y guarda el hash en `users.password`, que es el que usa el login.
+- `POST /api/rider-orders/{id}/proof` (multipart, campo `file`): sólo el repartidor asignado, en estados previos a la entrega. Valida 5 MB, firma binaria y tipo (JPG/PNG/WEBP). Sube a `DELIVERY_PROOF_BUCKET` (por defecto `hidelivery`) con ruta `orders/<orderId>/<riderId>/<uuid>.<ext>`. Responde `{ path }`. No devuelve URL.
+- `POST /api/rider-orders/actions` con `advance` y `status: 'completed'`: acepta `deliveryProofPath` (ya no `deliveryProofUrl`). Valida que la ruta pertenezca a ese pedido y repartidor, confirma que el archivo existe y guarda el path en `delivery_proof_url`. No crea archivos, así que no hay huérfano que borrar en esa petición.
+- Lectura: `delivery_proof_url` se devuelve firmado con TTL de 10 minutos (`withSignedDeliveryProof`) en `GET /api/rider-orders` y `GET /api/rider-orders/{id}`. Los valores antiguos con URL pública se convierten a path y se firman.
+
+Pendiente en base (no aplicado): cambiar el bucket de evidencias a privado y revisar las políticas de `storage.objects`; quitar las escrituras directas de la app sobre `riders` y `users` con la clave pública (RLS). Fotos de documentos de repartidor y de tickets siguen en bucket público (`SUPABASE_BUCKET`).
+
+## Lectura pública de riders y users (2026-11-03)
+
+- `src/lib/db-columns.ts` define las listas seguras para el panel. El select por defecto de `api.riders` y `api.users` (y de sus mutaciones) usa esas listas, no `*`.
+- Columnas excluidas de `riders`: `password_hash`, `push_token`, `push_platform`, `push_token_updated_at`, `registration_token_hash`, `registration_token_expires_at`, `registration_last_resent_by`.
+- Columnas excluidas de `users`: `password`, `web_push_token`, `web_push_token_updated_at`.
+- Pendiente en código: `settings/page.tsx` usaba `push_token` y `web_push_token` para contar destinatarios de push. Con la lista segura quedan en cero. Requiere una ruta de servidor que devuelva destinatarios sin tokens.
+- Pendiente en servidor: `PATCH /api/users/[id]` devuelve la fila completa (incluido `password`) al navegador. Corrección de una línea (`.select(USER_SAFE_SELECT)`), no aplicada por ser ruta de servidor.
+- Pendiente en base: la suscripción realtime sobre `riders` (monitoreo) recibe la fila completa. Hay que cerrarla con RLS o privilegios de columna, no sólo en el panel.
+
 ## Token de registro de repartidores (2026-10-31)
 
 - Migración `src/sql/2026-10-31_rider_registration_token.sql` (forward-only, sin DROP ni DELETE): agrega `grupohubs.riders.registration_token_hash TEXT` y `registration_token_expires_at TIMESTAMPTZ` con `IF NOT EXISTS`, más el índice único parcial `riders_registration_token_hash_key` sobre `registration_token_hash` donde no es nulo. Sólo se guarda el hash del token.
@@ -1050,3 +1071,11 @@ Bitácora de cambios realizados por Codex para mantener continuidad técnica en 
 - Dependencias de base: el tiempo de entrega usa `orders.picked_up_at` y `orders.completed_at` (migración `2026-05-04_homologate_order_statuses.sql`). Si no existen, esa tarjeta se oculta. La cola usa `rider_id` y `status`.
 - Pendiente: `get_daily_dashboard_stats_v2` no se usa aquí. Devuelve sólo KPI del día y no trae los totales del admin (negocios, repartidores, series de 7 días), así que el admin mantiene su agregado actual.
 - Pendiente: la vista de dueño no se ha probado en navegador.
+
+## Privilegios de anon en riders y users (2026-11-03)
+
+- Migración `supabase/migrations/20261103010000_anon_column_grants_riders_users.sql`: continúa `20261103000000_revoke_anon_rider_user_writes.sql`, que aplicó parcialmente en producción. Estado en producción según el líder: anon ya no tiene INSERT, pero conserva SELECT y UPDATE en riders y users, y puede leer `users.password`.
+- Paso 1 (en el archivo, activo): `REVOKE UPDATE ON grupohubs.riders, grupohubs.users FROM anon`. Verificado en código: las escrituras de riders y users usan rutas de servidor con clave de servicio. Ningún componente del navegador escribe con anon.
+- Paso 2 (comentado, pendiente): `REVOKE SELECT` de tabla sobre users y riders, y `GRANT SELECT` por columnas. No se aplica hasta que el panel web deje de usar `select('*')` con cliente anon en `src/lib/api.ts` (createApi) y las páginas de usuarios y repartidores. Si no, el panel deja de cargar.
+- Rollback: restaurar UPDATE y SELECT de tabla para anon. Está al final del archivo.
+- Estado: escrita, **no aplicada**. Falta la lista de columnas por information_schema.

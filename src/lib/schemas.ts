@@ -73,7 +73,7 @@ const mxPhoneSchema = (requiredMessage = "El teléfono es requerido.") =>
     .transform(normalizePhone);
 
 // Mínimo 8 caracteres, y al menos una mayúscula, un número o un símbolo.
-const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
+export const passwordRegex = /^(?=.*[A-Z\d@$!%*?&]).{8,}$/;
 
 const baseUserSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
