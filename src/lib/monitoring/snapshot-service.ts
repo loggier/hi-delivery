@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { computeMonitoringKpis } from './kpis';
 import { createSupabaseIncidentStore, reconcileMonitoringIncidents, type SupabaseIncidentClient } from './incident-repository';
+import { getSharedLiveEtaResolver, type LiveEtaRequest, type LiveEtaResolver } from './live-eta';
+import type { LiveEta } from './types';
 import { detectMonitoringConditions, isLocationStale } from './rules';
 import { isInTransitStatus, isTerminalOrderStatus } from './statuses';
 import type {
@@ -62,6 +64,8 @@ export type BuildMonitoringSnapshotInput = {
   filter?: MonitoringFilter;
   now?: Date;
   repositories?: MonitoringSnapshotRepositories;
+  /** Live ETA resolver. Defaults to the OSRM resolver in production; tests that inject repositories get none. */
+  liveEta?: LiveEtaResolver | null;
 };
 
 const FALLBACKS = { unassignedCriticalMinutes: 7, gpsStaleCriticalMinutes: 10, stoppedInTransitMinutes: 15, meaningfulMovementMeters: 50 } as const;
@@ -164,7 +168,37 @@ async function buildMonitoringSnapshotInternal(input: BuildMonitoringSnapshotInp
   }
   const kpis = computeMonitoringKpis(orders, riders, conditions, thresholds, now);
   const filtered = await atSnapshotStage('filters', () => applyFilter(orders, riders, incidents, input.filter, thresholds, now));
-  return { serverTimestamp: now.toISOString(), dataHealth: health, thresholds, kpis, incidents: filtered.incidents, orders: filtered.orders, riders: filtered.riders };
+  const liveEtas = await resolveLiveEtas(input, orders, riders, thresholds, now);
+  const ordersWithEta = filtered.orders.map((order) => ({ ...order, liveEta: liveEtas.get(order.id) ?? null }));
+  return { serverTimestamp: now.toISOString(), dataHealth: health, thresholds, kpis, incidents: filtered.incidents, orders: ordersWithEta, riders: filtered.riders };
+}
+
+// Live ETA only for active orders with an assigned rider, a recent rider position and delivery coordinates.
+// Any failure here degrades to null and never blocks the snapshot.
+async function resolveLiveEtas(
+  input: BuildMonitoringSnapshotInput,
+  activeOrders: readonly MonitoringOrder[],
+  riders: readonly MonitoringRider[],
+  thresholds: MonitoringThresholds,
+  now: Date,
+): Promise<Map<string, LiveEta | null>> {
+  const resolver = input.liveEta !== undefined ? input.liveEta : input.repositories ? null : getSharedLiveEtaResolver();
+  if (!resolver) return new Map();
+  const riderById = new Map(riders.map((rider) => [rider.id, rider] as const));
+  const requests: LiveEtaRequest[] = [];
+  for (const order of activeOrders) {
+    if (!order.riderId || !order.delivery) continue;
+    const rider = riderById.get(order.riderId);
+    if (!rider || rider.latitude === undefined || rider.longitude === undefined) continue;
+    if (isLocationStale(rider, thresholds.gpsStaleCriticalMinutes, now)) continue;
+    requests.push({ orderId: order.id, from: { latitude: rider.latitude, longitude: rider.longitude }, to: order.delivery });
+  }
+  if (requests.length === 0) return new Map();
+  try {
+    return await resolver.resolve(requests, new Set(activeOrders.map((order) => order.id)));
+  } catch {
+    return new Map();
+  }
 }
 
 function readThresholds(row: SettingsRow | null): MonitoringThresholds {

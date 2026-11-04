@@ -64,7 +64,7 @@ export function RiderDetailPanel({ rider, state, openOrders, zoneName, now, onCl
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold">{riderFullName(rider)}</p>
             <StatusPill tone={meta.tone} className="mt-1">{meta.label}</StatusPill>
-            <p className="mt-1 truncate text-[11px] text-slate-400">ID {rider.id.slice(0, 8)}</p>
+            <p className="mt-1 truncate text-[11px] text-slate-500">ID {rider.id.slice(0, 8)}</p>
           </div>
         </section>
 

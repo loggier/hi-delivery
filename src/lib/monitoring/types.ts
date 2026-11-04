@@ -68,6 +68,13 @@ export type MonitoringOrder = {
   /** Route duration saved with the order at creation time (OSRM). Not a live ETA. */
   routeDurationSeconds?: number | null;
   routeDistanceMeters?: number | null;
+  /** Live ETA from the rider's last position to the delivery address (OSRM). null means not available. */
+  liveEta?: LiveEta | null;
+};
+
+export type LiveEta = {
+  durationSeconds: number;
+  computedAt: string;
 };
 
 export type MonitoringCoordinate = {

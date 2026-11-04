@@ -255,7 +255,8 @@ export function MonitoringOperationsDesk() {
 
   const detailOrderRider = detailOrder?.riderId ? riderById.get(detailOrder.riderId) ?? null : null;
 
-  let detailPanel: ReactNode;
+  // Without a selection there is no detail column at all, so the lists and the map take the full width.
+  let detailPanel: ReactNode = null;
   if (mode === 'history' && selectedRider) {
     detailPanel = (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -305,20 +306,14 @@ export function MonitoringOperationsDesk() {
         onHistory={() => openHistory(selectedRider)}
       />
     );
-  } else {
-    detailPanel = (
-      <div className="grid flex-1 place-items-center p-6 text-center text-sm text-slate-500">
-        {snapshot ? 'Selecciona un pedido o un repartidor para ver su detalle.' : 'El detalle aparecerá cuando cargue el monitoreo.'}
-      </div>
-    );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 lg:h-[calc(100dvh-108px)]">
       {forbidden ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">No tienes permiso para ver el monitoreo.</div> : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:h-[calc(100vh-9rem)] lg:min-h-[40rem] lg:grid-cols-[22rem_minmax(0,1fr)_24rem]">
-        <section aria-label="Monitoreo en vivo" className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-xl border bg-white p-3 shadow-sm">
+      <div className={cn('grid min-h-0 flex-1 grid-cols-1 gap-3', detailPanel ? 'lg:grid-cols-[22rem_minmax(0,1fr)_24rem]' : 'lg:grid-cols-[22rem_minmax(0,1fr)]')}>
+        <section aria-label="Monitoreo en vivo" className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-xl border bg-white p-3 shadow-sm max-h-[85vh] lg:max-h-none">
           <header className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900">Monitoreo en vivo</h1>
@@ -332,7 +327,7 @@ export function MonitoringOperationsDesk() {
           </header>
 
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" aria-hidden="true" />
             <Input
               aria-label={tab === 'orders' ? 'Buscar pedido, cliente, negocio o repartidor' : 'Buscar repartidor'}
               value={search}
@@ -391,7 +386,7 @@ export function MonitoringOperationsDesk() {
             </button>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border">
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border max-h-[50vh] lg:max-h-none">
             {!snapshot ? (
               controller.isError ? null : <p className="p-4 text-center text-sm text-slate-500">Cargando…</p>
             ) : tab === 'orders' ? (
@@ -412,7 +407,7 @@ export function MonitoringOperationsDesk() {
           <Button type="button" variant="outline" size="sm" className="lg:hidden" onClick={() => setMapOpen((value) => !value)}>
             {mapOpen ? 'Ocultar mapa' : 'Ver mapa'}
           </Button>
-          <section aria-label="Mapa de monitoreo" className={cn('relative min-h-[22rem] flex-1 overflow-hidden rounded-xl border bg-white shadow-sm', !mapOpen && 'hidden lg:block')}>
+          <section aria-label="Mapa de monitoreo" className={cn('relative min-h-[22rem] flex-1 overflow-hidden rounded-xl border bg-white shadow-sm lg:min-h-0', !mapOpen && 'hidden lg:block')}>
             {snapshot ? (
               <OperationsMap
                 riders={riders}
@@ -457,9 +452,11 @@ export function MonitoringOperationsDesk() {
           </section>
         </div>
 
-        <aside aria-label="Detalle" className="flex min-h-[20rem] flex-col overflow-hidden rounded-xl border bg-white shadow-sm lg:min-h-0">
-          {detailPanel}
-        </aside>
+        {detailPanel ? (
+          <aside aria-label="Detalle" className="flex min-h-[20rem] flex-col overflow-hidden rounded-xl border bg-white shadow-sm lg:min-h-0">
+            {detailPanel}
+          </aside>
+        ) : null}
       </div>
 
       {pending && pendingCopy ? (

@@ -67,7 +67,18 @@ export function OrderDetailPanel({ order, rider, incidents, thresholds, candidat
   if (elapsed !== null) timeItems.push({ label: 'Tiempo transcurrido', value: `${elapsed} min` });
   if (delay !== null) timeItems.push({ label: 'Atraso', value: `+${delay} min`, tone: 'red' });
 
+  // ETA en vivo: rider's last position -> delivery, computed on the server. Without a live value it is
+  // shown as not available; the route saved at order creation is only shown under its own label.
   const routeItems: MetricItem[] = [];
+  if (order.riderId) {
+    const computedAt = order.liveEta ? formatClock(order.liveEta.computedAt) : null;
+    routeItems.push({
+      label: 'ETA en vivo',
+      value: order.liveEta
+        ? `${Math.max(1, Math.round(order.liveEta.durationSeconds / 60))} min${computedAt ? ` · calculada ${computedAt}` : ''}`
+        : 'No disponible',
+    });
+  }
   if (order.routeDurationSeconds && order.routeDurationSeconds > 0) {
     routeItems.push({ label: 'ETA de ruta registrada', value: `${Math.round(order.routeDurationSeconds / 60)} min` });
   }
@@ -168,7 +179,7 @@ export function OrderDetailPanel({ order, rider, incidents, thresholds, candidat
             {steps.map((step, index) => (
               <li key={step.label} className="flex items-center gap-2 text-xs">
                 {step.state === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" /> : <Circle className={step.state === 'current' ? 'h-4 w-4 text-blue-600' : 'h-4 w-4 text-slate-300'} aria-hidden="true" />}
-                <span className={step.state === 'pending' ? 'text-slate-400' : 'font-semibold text-slate-800'}>{step.label}</span>
+                <span className={step.state === 'pending' ? 'text-slate-500' : 'font-semibold text-slate-800'}>{step.label}</span>
                 {index === 0 && created ? <span className="ml-auto text-slate-500">{created}</span> : null}
               </li>
             ))}

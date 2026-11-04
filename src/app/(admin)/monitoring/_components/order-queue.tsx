@@ -64,7 +64,7 @@ export function OrderQueue({ orders, riderById, incidents, thresholds, now, sele
                 </span>
                 {order.businessName ? (
                   <span className="flex items-center gap-1.5 truncate text-sm font-bold text-slate-900">
-                    <Store className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                    <Store className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
                     <span className="truncate">{order.businessName}</span>
                   </span>
                 ) : null}
@@ -82,7 +82,7 @@ export function OrderQueue({ orders, riderById, incidents, thresholds, now, sele
               <span className="flex shrink-0 flex-col items-end gap-0.5 pt-0.5 text-right">
                 {elapsed !== null ? <span className="text-sm font-bold tabular-nums text-slate-900">{elapsed} min</span> : null}
                 {delay !== null ? <span className="text-xs font-semibold text-red-600">+{delay} min</span> : null}
-                <ChevronRight className="mt-1 h-4 w-4 text-slate-400" aria-hidden="true" />
+                <ChevronRight className="mt-1 h-4 w-4 text-slate-500" aria-hidden="true" />
               </span>
             </button>
           </li>
