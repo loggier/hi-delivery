@@ -27,9 +27,10 @@ function svgUrl(svg: string): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-function riderIcon(state: RiderOperationalState, selected: boolean): string {
-  const ring = selected ? '#0f172a' : '#ffffff';
-  return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="${STATE_COLOR[state]}" stroke="${ring}" stroke-width="${selected ? 4 : 3}"/><circle cx="16" cy="16" r="4" fill="#ffffff"/></svg>`);
+function riderIcon(state: RiderOperationalState, selected: boolean, course: number): string {
+  const ring = selected ? "#0f172a" : "#ffffff";
+  const angle = Math.round((((course % 360) + 360) % 360) / 5) * 5;
+  return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="${STATE_COLOR[state]}" stroke="${ring}" stroke-width="${selected ? 3 : 2}"/><g transform="rotate(${angle} 20 20)"><polygon points="20,1 24.5,6.5 15.5,6.5" fill="${ring}"/><rect x="18" y="8" width="4" height="8" rx="2" fill="#1f2937"/><rect x="18" y="24" width="4" height="8" rx="2" fill="#1f2937"/><rect x="16.5" y="14" width="7" height="12" rx="3" fill="#ffffff"/><rect x="13" y="13" width="14" height="2" rx="1" fill="#ffffff"/></g></svg>`);
 }
 
 const BUSINESS_ICON = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="#f97316" stroke="#ffffff" stroke-width="3"/><path d="M9 10h10v2H9zm1 3h8v6h-3v-3h-2v3H10z" fill="#ffffff"/></svg>');
@@ -193,7 +194,7 @@ export function OperationsMap({
                     clusterer={clusterer}
                     position={{ lat: rider.latitude as number, lng: rider.longitude as number }}
                     title={`${rider.firstName ?? 'Repartidor'} ${rider.lastName ?? ''}`.trim()}
-                    icon={{ url: riderIcon(state, selected), scaledSize: new window.google.maps.Size(selected ? 38 : 32, selected ? 38 : 32), anchor: new window.google.maps.Point(16, 16) }}
+                    icon={{ url: riderIcon(state, selected, rider.course ?? 0), scaledSize: new window.google.maps.Size(selected ? 46 : 40, selected ? 46 : 40), anchor: new window.google.maps.Point(selected ? 23 : 20, selected ? 23 : 20) }}
                     zIndex={selected ? 100 : 1}
                     onClick={() => onSelectRider(rider.id)}
                   />
