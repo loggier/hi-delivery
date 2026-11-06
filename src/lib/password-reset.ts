@@ -258,7 +258,7 @@ async function findAccountByEmail(channel: PasswordResetChannel, rawEmail: strin
  * Encuentra la cuenta por correo o teléfono para el canal indicado.
  * `web` busca negocios; `app` busca repartidores. Devuelve null si no hay cuenta válida.
  */
-export async function findPasswordResetAccount(input: {
+async function findPasswordResetAccountOfType(input: {
   channel: PasswordResetChannel;
   identifier: string;
 }): Promise<PasswordResetAccount | null> {
@@ -275,6 +275,20 @@ export async function findPasswordResetAccount(input: {
   if (!recipient) return null;
 
   return buildAccount(recipient.user, recipient.targetType, recipient.recipient, recipient.user.email);
+}
+
+/**
+ * Busca la cuenta por correo o teléfono sin importar desde qué pantalla llega:
+ * primero el tipo indicado por el canal y, si no hay cuenta, el otro (negocio o repartidor).
+ */
+export async function findPasswordResetAccount(input: {
+  channel: PasswordResetChannel;
+  identifier: string;
+}): Promise<PasswordResetAccount | null> {
+  const first = await findPasswordResetAccountOfType(input);
+  if (first) return first;
+  const other: PasswordResetChannel = input.channel === "web" ? "app" : "web";
+  return findPasswordResetAccountOfType({ channel: other, identifier: input.identifier });
 }
 
 /** Contactos actuales de un usuario (para confirmaciones). WhatsApp según el perfil del canal. */
