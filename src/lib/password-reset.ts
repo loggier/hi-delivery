@@ -378,6 +378,28 @@ async function sendPasswordEmailBestEffort(input: {
   }
 }
 
+/** Registra en notification_logs que WhatsApp se omitió porque la cuenta no tiene número. Best-effort. */
+async function recordWhatsappSkip(templateKey: string): Promise<null> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    await supabase.from("notification_logs").insert({
+      template_key: templateKey,
+      channel: "whatsapp",
+      audience: "system",
+      recipient: "(sin número)",
+      variables: {},
+      rendered_subject: null,
+      rendered_body: "(omitido)",
+      status: "failed",
+      provider: "evolution",
+      error_message: "La cuenta no tiene número de WhatsApp registrado.",
+    });
+  } catch {
+    // El registro del motivo no debe bloquear la recuperación.
+  }
+  return null;
+}
+
 /**
  * Entrega el mismo mensaje por WhatsApp (si hay número) y por correo (si hay dirección).
  * Los dos canales corren en paralelo, cada uno con timeout. Un fallo de uno no detiene al otro.
@@ -398,7 +420,7 @@ async function deliverPasswordResetMessage(input: {
           variables: input.variables,
         }),
       )
-    : Promise.resolve(null);
+    : recordWhatsappSkip(input.templateKey);
 
   const emailTask = sendPasswordEmailBestEffort({
     userEmail: input.userEmail,
