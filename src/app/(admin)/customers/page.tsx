@@ -38,7 +38,7 @@ export default function CustomersPage() {
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !Array.isArray(data)) {
-        throw new Error(data?.message || 'No se pudieron consultar las estadísticas de pedidos.');
+        throw Object.assign(new Error(data?.message || 'No se pudieron consultar las estadísticas de pedidos.'), { status: response.status });
       }
 
       const statsByCustomer = new Map<string, { order_count: number; total_spent: number }>();

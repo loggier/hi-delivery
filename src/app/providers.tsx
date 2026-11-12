@@ -6,7 +6,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 // Se mueve la creación del cliente fuera del componente para asegurar que solo se cree una vez.
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Un 401/403 no se reintenta: la sesión no cambia en segundos y los reintentos alargan la pantalla.
+      retry: (failureCount, error) => {
+        const status = (error as { status?: number } | null)?.status;
+        if (status === 401 || status === 403) return false;
+        return failureCount < 3;
+      },
+    },
+  },
+});
 
 function BodyLockResetter() {
   React.useEffect(() => {
