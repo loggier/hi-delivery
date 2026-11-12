@@ -18,6 +18,7 @@ type AuthState = {
   isLoading: boolean;
   login: (user: User) => void;
   logout: () => void;
+  clearLocalSession: () => void;
   checkAuth: () => void;
 };
 
@@ -38,6 +39,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       console.error("Failed to save session to localStorage", e);
     }
+  },
+
+  // Limpia solo la sesión del navegador. No revoca la sesión del servidor: úsalo cuando el servidor ya
+  // respondió 401, para no cerrar una sesión válida que otra pestaña está usando.
+  clearLocalSession: () => {
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (e) {
+      console.error("Failed to clear session from localStorage", e);
+    }
+    set({ user: null, isAuthenticated: false });
   },
 
   logout: () => {

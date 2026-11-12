@@ -101,7 +101,7 @@ export function MonitoringOperationsDesk() {
   // and send the user to sign in again.
   useEffect(() => {
     if (!sessionExpired) return;
-    useAuthStore.getState().logout();
+    useAuthStore.getState().clearLocalSession();
     router.replace('/sign-in?reauthenticate=1');
   }, [sessionExpired, router]);
 
