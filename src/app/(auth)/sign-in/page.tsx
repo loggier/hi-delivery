@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useAuthStore, waitForPendingSignOut } from "@/store/auth-store";
 import { signInSchema } from "@/lib/schemas";
 import { useToast } from "@/hooks/use-toast";
@@ -205,8 +206,7 @@ export default function SignInPage() {
                         </Link>
                       </div>
                       <FormControl>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="••••••••"
                           {...field}
                           disabled={form.formState.isSubmitting}
